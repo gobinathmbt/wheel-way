@@ -1,0 +1,47 @@
+
+const express = require('express');
+const { protect, authorize } = require('../middleware/auth');
+const {
+  getDashboard,
+  getCompanies,
+  getCompany,
+  updateCompany,
+  deleteCompany,
+  toggleCompanyStatus,
+  getPlans,
+  createPlan,
+  updatePlan,
+  deletePlan,
+  updateProfile,
+  updateSmtpSettings,
+  testSmtp
+} = require('../controllers/master.controller');
+
+const router = express.Router();
+
+// Apply auth middleware to all routes
+router.use(protect);
+router.use(authorize('master_admin'));
+
+// Dashboard routes
+router.get('/dashboard', getDashboard);
+
+// Company management routes
+router.get('/companies', getCompanies);
+router.get('/companies/:id', getCompany);
+router.put('/companies/:id', updateCompany);
+router.delete('/companies/:id', deleteCompany);
+router.patch('/companies/:id/status', toggleCompanyStatus);
+
+// Plan management routes
+router.get('/plans', getPlans);
+router.post('/plans', createPlan);
+router.put('/plans/:id', updatePlan);
+router.delete('/plans/:id', deletePlan);
+
+// Settings routes
+router.put('/profile', updateProfile);
+router.put('/smtp-settings', updateSmtpSettings);
+router.post('/test-smtp', testSmtp);
+
+module.exports = router;
