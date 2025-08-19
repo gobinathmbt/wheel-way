@@ -21,7 +21,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/';
+  const from = location.state?.from?.pathname || null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,9 +32,30 @@ const Login = () => {
       await login(email, password);
       toast.success('Login successful');
       
-      // Redirect based on user role or intended destination
-      navigate(from);
+      // Get user data from auth context after successful login
+      const userData = JSON.parse(sessionStorage.getItem('user') || '{}');
+      console.log('User data after login:', userData);
+      
+      // Navigate based on user role
+      if (from) {
+        // If there was a specific page they were trying to access, go there
+        navigate(from);
+      } else {
+        // Navigate based on role
+        switch (userData.role) {
+          case 'master_admin':
+            navigate('/master/dashboard');
+            break;
+          case 'company_super_admin':
+          case 'company_admin':
+            navigate('/company/dashboard');
+            break;
+          default:
+            navigate('/');
+        }
+      }
     } catch (err: any) {
+      console.error('Login error:', err);
       setError(err.response?.data?.message || 'Login failed');
       toast.error('Login failed');
     } finally {
@@ -42,6 +63,7 @@ const Login = () => {
     }
   };
 
+  // ... keep existing code (JSX return section)
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-accent/5 p-4">
       <div className="w-full max-w-md">

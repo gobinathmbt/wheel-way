@@ -8,6 +8,10 @@ interface User {
   role: 'master_admin' | 'company_super_admin' | 'company_admin';
   company_id?: string;
   is_first_login?: boolean;
+  username?: string;
+  company_name?: string;
+  first_name?: string;
+  last_name?: string;
 }
 
 interface AuthContextType {
@@ -33,7 +37,7 @@ axios.defaults.baseURL = 'http://localhost:5000';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(sessionStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -49,7 +53,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchUserInfo = async () => {
     try {
       const response = await axios.get('/api/auth/me');
-      setUser(response.data.user);
+      const userData = response.data.user;
+      setUser(userData);
+      sessionStorage.setItem('user', JSON.stringify(userData));
     } catch (error) {
       console.error('Failed to fetch user info:', error);
       logout();
@@ -63,11 +69,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await axios.post('/api/auth/login', { email, password });
       const { token: newToken, user: userData } = response.data;
       
+      console.log('Login response:', response.data);
+      
       setToken(newToken);
       setUser(userData);
-      localStorage.setItem('token', newToken);
+      sessionStorage.setItem('token', newToken);
+      sessionStorage.setItem('user', JSON.stringify(userData));
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
     } catch (error) {
+      console.error('Login error:', error);
       throw error;
     }
   };
@@ -75,7 +85,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     delete axios.defaults.headers.common['Authorization'];
   };
 
