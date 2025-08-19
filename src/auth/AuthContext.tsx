@@ -28,6 +28,9 @@ export const useAuth = () => {
   return context;
 };
 
+// Set default axios base URL
+axios.defaults.baseURL = 'http://localhost:5000';
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));

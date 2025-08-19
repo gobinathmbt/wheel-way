@@ -30,6 +30,8 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log('Login attempt:', { email, password });
+
     // Find user in both MasterAdmin and User collections
     let user = await MasterAdmin.findOne({ email }).select('+password');
     let userType = 'master_admin';
@@ -168,8 +170,17 @@ const registerCompany = async (req, res) => {
       city,
       state,
       country,
-      plan_id
+      plan_id,
+      password
     } = req.body;
+
+    // Validate password
+    if (!password || password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
 
     // Check if company email already exists
     const existingCompany = await Company.findOne({ email });
@@ -214,19 +225,18 @@ const registerCompany = async (req, res) => {
 
     await company.save();
 
-    // Create company super admin user
-    const defaultPassword = 'Welcome@123';
+    // Create company super admin user with provided password
     const username = email.split('@')[0] + '_admin';
 
     const superAdmin = new User({
       username,
       email,
-      password: defaultPassword,
+      password, // This will be hashed by the pre-save middleware
       first_name: contact_person.split(' ')[0],
       last_name: contact_person.split(' ').slice(1).join(' ') || '',
       role: 'company_super_admin',
       company_id: company._id,
-      is_first_login: true
+      is_first_login: false // Set to false since they provided their own password
     });
 
     await superAdmin.save();
@@ -234,21 +244,6 @@ const registerCompany = async (req, res) => {
     // Update company user count
     company.current_user_count = 1;
     await company.save();
-
-    // Send welcome email
-    try {
-      await mailService.sendWelcomeEmail({
-        email,
-        company_name,
-        login_credentials: {
-          email,
-          password: defaultPassword
-        }
-      });
-    } catch (emailError) {
-      console.error('Failed to send welcome email:', emailError);
-      // Continue with registration even if email fails
-    }
 
     await logEvent({
       event_type: 'user_management',
@@ -262,7 +257,7 @@ const registerCompany = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Company registered successfully. Please check your email for login credentials.',
+      message: 'Company registered successfully. You can now login with your credentials.',
       company: {
         id: company._id,
         name: company_name,

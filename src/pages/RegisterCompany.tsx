@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Car, Building, Mail, Phone, MapPin, Loader2 } from 'lucide-react';
+import { Car, Building, Mail, Phone, MapPin, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import apiClient from '@/api/axios';
+import axios from 'axios';
 
 const RegisterCompany = () => {
   const [formData, setFormData] = useState({
@@ -21,8 +21,12 @@ const RegisterCompany = () => {
     city: '',
     state: '',
     country: '',
-    plan_id: ''
+    plan_id: '',
+    password: '',
+    confirm_password: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -36,13 +40,39 @@ const RegisterCompany = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validate passwords match
+    if (formData.password !== formData.confirm_password) {
+      setError('Passwords do not match');
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    // Validate password length
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const response = await apiClient.post('/api/auth/register-company', formData);
+      const response = await axios.post('http://localhost:5000/api/auth/register-company', {
+        company_name: formData.company_name,
+        contact_person: formData.contact_person,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        country: formData.country,
+        plan_id: formData.plan_id,
+        password: formData.password
+      });
       
       if (response.data.success) {
-        toast.success('Company registered successfully! Please check your email for login credentials.');
+        toast.success('Company registered successfully! You can now login with your credentials.');
         navigate('/login');
       }
     } catch (err: any) {
@@ -211,11 +241,68 @@ const RegisterCompany = () => {
                 </Select>
               </div>
 
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={(e) => handleInputChange('password', e.target.value)}
+                      placeholder="Enter password (min 6 characters)"
+                      required
+                      minLength={6}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="confirm_password">Confirm Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirm_password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={formData.confirm_password}
+                      onChange={(e) => handleInputChange('confirm_password', e.target.value)}
+                      placeholder="Confirm your password"
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-muted p-4 rounded-lg">
                 <h4 className="font-semibold mb-2">What happens next?</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• Your company will be registered in our system</li>
-                  <li>• You'll receive login credentials via email</li>
+                  <li>• You can immediately login with your credentials</li>
                   <li>• Access to your dashboard to manage users and vehicles</li>
                   <li>• Ability to configure inspection and trade-in workflows</li>
                 </ul>

@@ -65,7 +65,10 @@ router.post('/register-company', [
     .withMessage('Country is required'),
   body('plan_id')
     .isIn(['basic', 'intermediate', 'pro'])
-    .withMessage('Valid plan selection is required')
+    .withMessage('Valid plan selection is required'),
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters')
 ], validateRequest, registerCompany);
 
 // @route   GET /api/auth/me

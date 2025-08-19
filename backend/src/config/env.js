@@ -24,7 +24,7 @@ if (missingVars.length > 0) {
 module.exports = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: process.env.PORT || 5000,
-  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/vehicle-platform',
+  MONGODB_URI: process.env.MONGODB_URI || 'mongodb+srv://srinivasan:yG1DtYmc6q41KSi7@qrsclusterlearning.wtihbgw.mongodb.net/vehicle-platform',
   JWT_SECRET: process.env.JWT_SECRET || 'your-jwt-secret-key',
   JWT_EXPIRE: process.env.JWT_EXPIRE || '7d',
   
