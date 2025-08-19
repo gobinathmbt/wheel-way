@@ -159,7 +159,7 @@ const DropdownMaster = () => {
                   <Checkbox
                     id="allow_multiple"
                     checked={formData.allow_multiple_selection}
-                    onCheckedChange={(checked) => setFormData({ ...formData, allow_multiple_selection: checked })}
+                    onCheckedChange={(checked) => setFormData({ ...formData, allow_multiple_selection: checked === true })}
                   />
                   <Label htmlFor="allow_multiple">Allow multiple selections</Label>
                 </div>
@@ -167,7 +167,7 @@ const DropdownMaster = () => {
                   <Checkbox
                     id="is_required"
                     checked={formData.is_required}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_required: checked })}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_required: checked === true })}
                   />
                   <Label htmlFor="is_required">Required field</Label>
                 </div>
@@ -323,7 +323,7 @@ const DropdownMaster = () => {
                 <Checkbox
                   id="is_default"
                   checked={valueFormData.is_default}
-                  onCheckedChange={(checked) => setValueFormData({ ...valueFormData, is_default: checked })}
+                  onCheckedChange={(checked) => setValueFormData({ ...valueFormData, is_default: checked === true })}
                 />
                 <Label htmlFor="is_default">Default value</Label>
               </div>

@@ -1,9 +1,9 @@
 
 const InspectionConfig = require('../models/InspectionConfig');
 const TradeinConfig = require('../models/TradeinConfig');
+const DropdownMaster = require('../models/DropdownMaster');
 const { logEvent } = require('./logs.controller');
 
-// Inspection Configuration Controllers
 const getInspectionConfigs = async (req, res) => {
   try {
     const configs = await InspectionConfig.find({
@@ -204,6 +204,33 @@ const addInspectionField = async (req, res) => {
       field_id: `field_${Date.now()}`
     };
 
+    // Validate dropdown configuration if field type is dropdown
+    if (newField.field_type === 'dropdown') {
+      if (!newField.dropdown_config || !newField.dropdown_config.dropdown_name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Dropdown configuration is required for dropdown field type'
+        });
+      }
+
+      // Verify that the dropdown exists and belongs to the company
+      const dropdown = await DropdownMaster.findOne({
+        dropdown_name: newField.dropdown_config.dropdown_name,
+        company_id: req.user.company_id,
+        is_active: true
+      });
+
+      if (!dropdown) {
+        return res.status(400).json({
+          success: false,
+          message: 'Selected dropdown not found or inactive'
+        });
+      }
+
+      // Set the dropdown_id reference
+      newField.dropdown_config.dropdown_id = dropdown._id;
+    }
+
     targetSection.fields.push(newField);
     await config.save();
 
@@ -221,7 +248,8 @@ const addInspectionField = async (req, res) => {
   }
 };
 
-// Trade-in Configuration Controllers
+// ... keep existing code (Trade-in Configuration Controllers)
+
 const getTradeinConfigs = async (req, res) => {
   try {
     const configs = await TradeinConfig.find({
@@ -388,6 +416,33 @@ const addTradeinField = async (req, res) => {
       ...req.body,
       field_id: `field_${Date.now()}`
     };
+
+    // Validate dropdown configuration if field type is dropdown
+    if (newField.field_type === 'dropdown') {
+      if (!newField.dropdown_config || !newField.dropdown_config.dropdown_name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Dropdown configuration is required for dropdown field type'
+        });
+      }
+
+      // Verify that the dropdown exists and belongs to the company
+      const dropdown = await DropdownMaster.findOne({
+        dropdown_name: newField.dropdown_config.dropdown_name,
+        company_id: req.user.company_id,
+        is_active: true
+      });
+
+      if (!dropdown) {
+        return res.status(400).json({
+          success: false,
+          message: 'Selected dropdown not found or inactive'
+        });
+      }
+
+      // Set the dropdown_id reference
+      newField.dropdown_config.dropdown_id = dropdown._id;
+    }
 
     section.fields.push(newField);
     await config.save();

@@ -42,7 +42,11 @@ const InspectionConfig = () => {
     is_required: false,
     has_image: false,
     placeholder: '',
-    help_text: ''
+    help_text: '',
+    dropdown_config: {
+      dropdown_name: '',
+      allow_multiple: false
+    }
   });
 
   // ... keep existing code (queries)
@@ -107,8 +111,27 @@ const InspectionConfig = () => {
       console.log('Adding field to section:', selectedSection);
       console.log('Selected section section_id:', selectedSection.section_id);
       
+      // Prepare field data
+      const fieldData = {
+        field_name: fieldFormData.field_name,
+        field_type: fieldFormData.field_type,
+        is_required: fieldFormData.is_required,
+        has_image: fieldFormData.has_image,
+        placeholder: fieldFormData.placeholder,
+        help_text: fieldFormData.help_text,
+        dropdown_config: fieldFormData.field_type === 'dropdown' ? fieldFormData.dropdown_config : undefined
+      };
+
+      // Add dropdown config if field type is dropdown
+      if (fieldFormData.field_type === 'dropdown') {
+        fieldData.dropdown_config = {
+          dropdown_name: fieldFormData.dropdown_config.dropdown_name,
+          allow_multiple: fieldFormData.dropdown_config.allow_multiple
+        };
+      }
+      
       // Use section_id instead of _id for the API call
-      await apiClient.post(`/api/config/inspection/${selectedConfig._id}/sections/${selectedSection.section_id}/fields`, fieldFormData);
+      await apiClient.post(`/api/config/inspection/${selectedConfig._id}/sections/${selectedSection.section_id}/fields`, fieldData);
       toast.success('Field added successfully');
       setIsFieldDialogOpen(false);
       setFieldFormData({
@@ -117,7 +140,11 @@ const InspectionConfig = () => {
         is_required: false,
         has_image: false,
         placeholder: '',
-        help_text: ''
+        help_text: '',
+        dropdown_config: {
+          dropdown_name: '',
+          allow_multiple: false
+        }
       });
       refetch();
     } catch (error) {
@@ -356,7 +383,7 @@ const InspectionConfig = () => {
                                       <Plus className="h-4 w-4" />
                                     </Button>
                                   </DialogTrigger>
-                                  <DialogContent>
+                                  <DialogContent className="max-h-[80vh] overflow-y-auto">
                                     <DialogHeader>
                                       <DialogTitle>Add Field to {section.section_name}</DialogTitle>
                                       <DialogDescription>
@@ -392,6 +419,52 @@ const InspectionConfig = () => {
                                           </SelectContent>
                                         </Select>
                                       </div>
+
+                                      {/* Dropdown Configuration - Show only when field type is dropdown */}
+                                      {fieldFormData.field_type === 'dropdown' && (
+                                        <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                                          <h4 className="font-medium">Dropdown Configuration</h4>
+                                          <div>
+                                            <Label htmlFor="dropdown_name">Select Dropdown</Label>
+                                            <Select 
+                                              value={fieldFormData.dropdown_config.dropdown_name} 
+                                              onValueChange={(value) => setFieldFormData({ 
+                                                ...fieldFormData, 
+                                                dropdown_config: { 
+                                                  ...fieldFormData.dropdown_config, 
+                                                  dropdown_name: value 
+                                                } 
+                                              })}
+                                            >
+                                              <SelectTrigger>
+                                                <SelectValue placeholder="Choose a dropdown" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                {dropdowns?.map((dropdown) => (
+                                                  <SelectItem key={dropdown._id} value={dropdown.dropdown_name}>
+                                                    {dropdown.display_name} ({dropdown.dropdown_name})
+                                                  </SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <Checkbox
+                                              id="allow_multiple_dropdown"
+                                              checked={fieldFormData.dropdown_config.allow_multiple}
+                                              onCheckedChange={(checked) => setFieldFormData({ 
+                                                ...fieldFormData, 
+                                                dropdown_config: { 
+                                                  ...fieldFormData.dropdown_config, 
+                                                  allow_multiple: checked === true 
+                                                } 
+                                              })}
+                                            />
+                                            <Label htmlFor="allow_multiple_dropdown">Allow multiple selections</Label>
+                                          </div>
+                                        </div>
+                                      )}
+
                                       <div>
                                         <Label htmlFor="placeholder">Placeholder Text</Label>
                                         <Input
@@ -452,6 +525,11 @@ const InspectionConfig = () => {
                                       <Badge variant="outline" className="text-xs">{field.field_type}</Badge>
                                       {field.is_required && <Badge variant="outline" className="text-xs">Required</Badge>}
                                       {field.has_image && <Badge variant="outline" className="text-xs">Image</Badge>}
+                                      {field.field_type === 'dropdown' && field.dropdown_config?.dropdown_name && (
+                                        <Badge variant="outline" className="text-xs">
+                                          {field.dropdown_config.dropdown_name}
+                                        </Badge>
+                                      )}
                                     </div>
                                     <Button size="sm" variant="ghost">
                                       <Trash2 className="h-4 w-4" />
