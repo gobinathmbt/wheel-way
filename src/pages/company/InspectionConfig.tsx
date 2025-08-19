@@ -45,6 +45,7 @@ const InspectionConfig = () => {
     help_text: ''
   });
 
+  // ... keep existing code (queries)
   const { data: configs, isLoading, refetch } = useQuery({
     queryKey: ['inspection-configs'],
     queryFn: async () => {
@@ -103,7 +104,11 @@ const InspectionConfig = () => {
   const handleAddField = async (e) => {
     e.preventDefault();
     try {
-      await apiClient.post(`/api/config/inspection/${selectedConfig._id}/sections/${selectedSection._id}/fields`, fieldFormData);
+      console.log('Adding field to section:', selectedSection);
+      console.log('Selected section section_id:', selectedSection.section_id);
+      
+      // Use section_id instead of _id for the API call
+      await apiClient.post(`/api/config/inspection/${selectedConfig._id}/sections/${selectedSection.section_id}/fields`, fieldFormData);
       toast.success('Field added successfully');
       setIsFieldDialogOpen(false);
       setFieldFormData({
@@ -116,7 +121,8 @@ const InspectionConfig = () => {
       });
       refetch();
     } catch (error) {
-      toast.error('Failed to add field');
+      console.error('Failed to add field:', error);
+      toast.error(error.response?.data?.message || 'Failed to add field');
     }
   };
 
@@ -178,7 +184,7 @@ const InspectionConfig = () => {
                   <Checkbox
                     id="is_default"
                     checked={configFormData.is_default}
-                    onCheckedChange={(checked) => setConfigFormData({ ...configFormData, is_default: checked })}
+                    onCheckedChange={(checked) => setConfigFormData({ ...configFormData, is_default: checked === true })}
                   />
                   <Label htmlFor="is_default">Make this the default configuration</Label>
                 </div>
@@ -305,7 +311,7 @@ const InspectionConfig = () => {
                                   <Checkbox
                                     id="is_collapsible"
                                     checked={sectionFormData.is_collapsible}
-                                    onCheckedChange={(checked) => setSectionFormData({ ...sectionFormData, is_collapsible: checked })}
+                                    onCheckedChange={(checked) => setSectionFormData({ ...sectionFormData, is_collapsible: checked === true })}
                                   />
                                   <Label htmlFor="is_collapsible">Collapsible section</Label>
                                 </div>
@@ -313,7 +319,7 @@ const InspectionConfig = () => {
                                   <Checkbox
                                     id="is_expanded"
                                     checked={sectionFormData.is_expanded_by_default}
-                                    onCheckedChange={(checked) => setSectionFormData({ ...sectionFormData, is_expanded_by_default: checked })}
+                                    onCheckedChange={(checked) => setSectionFormData({ ...sectionFormData, is_expanded_by_default: checked === true })}
                                   />
                                   <Label htmlFor="is_expanded">Expanded by default</Label>
                                 </div>
@@ -342,7 +348,10 @@ const InspectionConfig = () => {
                                     <Button 
                                       size="sm" 
                                       variant="outline"
-                                      onClick={() => setSelectedSection(section)}
+                                      onClick={() => {
+                                        console.log('Setting selected section:', section);
+                                        setSelectedSection(section);
+                                      }}
                                     >
                                       <Plus className="h-4 w-4" />
                                     </Button>
@@ -405,7 +414,7 @@ const InspectionConfig = () => {
                                         <Checkbox
                                           id="is_required"
                                           checked={fieldFormData.is_required}
-                                          onCheckedChange={(checked) => setFieldFormData({ ...fieldFormData, is_required: checked })}
+                                          onCheckedChange={(checked) => setFieldFormData({ ...fieldFormData, is_required: checked === true })}
                                         />
                                         <Label htmlFor="is_required">Required field</Label>
                                       </div>
@@ -413,7 +422,7 @@ const InspectionConfig = () => {
                                         <Checkbox
                                           id="has_image"
                                           checked={fieldFormData.has_image}
-                                          onCheckedChange={(checked) => setFieldFormData({ ...fieldFormData, has_image: checked })}
+                                          onCheckedChange={(checked) => setFieldFormData({ ...fieldFormData, has_image: checked === true })}
                                         />
                                         <Label htmlFor="has_image">Include image capture</Label>
                                       </div>
