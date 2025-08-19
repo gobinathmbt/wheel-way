@@ -1,4 +1,3 @@
-
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const MasterAdmin = require('../models/MasterAdmin');
@@ -30,7 +29,7 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    console.log('Login attempt:', { email, password });
+    console.log('Login attempt:', { email, password: 'HIDDEN' });
 
     // Find user in both MasterAdmin and User collections
     let user = await MasterAdmin.findOne({ email }).select('+password');
@@ -74,8 +73,10 @@ const login = async (req, res) => {
       });
     }
 
-    // Check password
+    // Check password - use the comparePassword method from the model
+    console.log('Comparing passwords...');
     const isPasswordValid = await user.comparePassword(password);
+    console.log('Password comparison result:', isPasswordValid);
 
     if (!isPasswordValid) {
       if (userType === 'user') {
@@ -139,6 +140,8 @@ const login = async (req, res) => {
       ip_address: req.ip,
       user_agent: req.get('User-Agent')
     });
+
+    console.log('Login successful, sending response...');
 
     res.status(200).json({
       success: true,
