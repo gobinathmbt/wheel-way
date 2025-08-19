@@ -129,14 +129,6 @@ const Login = () => {
               </p>
             </div>
 
-            <div className="mt-4 p-4 bg-muted rounded-lg">
-              <p className="text-sm font-medium mb-2">Demo Accounts:</p>
-              <div className="text-xs space-y-1 text-muted-foreground">
-                <p><strong>Master Admin:</strong> admin@vehiclepro.com / admin123</p>
-                <p><strong>Company Super Admin:</strong> super@company.com / super123</p>
-                <p><strong>Company Admin:</strong> admin@company.com / Welcome@123</p>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
