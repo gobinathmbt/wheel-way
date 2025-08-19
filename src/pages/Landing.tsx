@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 
 // Import section components
 import HeroSection from '@/components/landing/HeroSection';
+import ComprehensiveSolution from '@/components/landing/ComprehensiveSolution';
 import PlatformSection from '@/components/landing/PlatformSection';
 import InspectionSection from '@/components/landing/InspectionSection';
 import TradeinSection from '@/components/landing/TradeinSection';
@@ -281,39 +282,7 @@ const Landing = () => {
       </section>
 
       {/* Features Carousel */}
-      <section className="py-20 px-6 bg-muted/30">
-        <div className="container mx-auto">
-          <div className="text-center mb-12 animate-fade-in">
-            <h2 className="text-4xl font-bold mb-4">Comprehensive Solution</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Explore our platform's powerful features designed for the automotive industry
-            </p>
-          </div>
-
-          {/* Section Navigation */}
-          <div className="flex flex-wrap justify-center gap-4 mb-12">
-            {sections.map((section, index) => {
-              const Icon = section.icon;
-              return (
-                <Button
-                  key={section.id}
-                  variant={activeSection === index ? "default" : "outline"}
-                  onClick={() => setActiveSection(index)}
-                  className="flex items-center space-x-2 hover-scale transition-all duration-300"
-                >
-                  <Icon className="h-4 w-4" />
-                  <span>{section.title}</span>
-                </Button>
-              );
-            })}
-          </div>
-
-          {/* Active Section Component */}
-          <div className="animate-fade-in">
-            <ActiveSectionComponent />
-          </div>
-        </div>
-      </section>
+      <ComprehensiveSolution />
 
       {/* Industries Section */}
       <section className="py-20 px-6">
