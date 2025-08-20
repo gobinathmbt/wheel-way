@@ -58,6 +58,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import DraggableSectionsList from "@/components/inspection/DraggableSectionsList";
 
 const InspectionConfig = () => {
   const queryClient = useQueryClient();
@@ -186,8 +187,13 @@ const InspectionConfig = () => {
   });
 
   const deleteFieldMutation = useMutation({
-    mutationFn: ({ configId, fieldId }: { configId: string; fieldId: string }) =>
-      configServices.deleteInspectionField(configId, fieldId),
+    mutationFn: ({
+      configId,
+      fieldId,
+    }: {
+      configId: string;
+      fieldId: string;
+    }) => configServices.deleteInspectionField(configId, fieldId),
     onSuccess: () => {
       toast.success("Field deleted successfully");
       setIsFieldDeleteDialogOpen(false);
@@ -257,6 +263,104 @@ const InspectionConfig = () => {
       );
     },
   });
+
+  const deleteSectionMutation = useMutation({
+    mutationFn: ({
+      configId,
+      sectionId,
+    }: {
+      configId: string;
+      sectionId: string;
+    }) => configServices.deleteInspectionSection(configId, sectionId),
+    onSuccess: () => {
+      toast.success("Section deleted successfully");
+      queryClient.invalidateQueries({
+        queryKey: ["inspection-config-details"],
+      });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to delete section");
+    },
+  });
+
+  const updateSectionsOrderMutation = useMutation({
+    mutationFn: ({
+      configId,
+      categoryId,
+      sections,
+    }: {
+      configId: string;
+      categoryId: string;
+      sections: any[];
+    }) =>
+      configServices.updateSectionsOrder(configId, categoryId, { sections }),
+    onSuccess: () => {
+      toast.success("Section order updated successfully");
+      queryClient.invalidateQueries({
+        queryKey: ["inspection-config-details"],
+      });
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to update section order"
+      );
+    },
+  });
+
+  const updateFieldsOrderMutation = useMutation({
+    mutationFn: ({
+      configId,
+      sectionId,
+      fields,
+    }: {
+      configId: string;
+      sectionId: string;
+      fields: any[];
+    }) => configServices.updateFieldsOrder(configId, sectionId, { fields }),
+    onSuccess: () => {
+      toast.success("Field order updated successfully");
+      queryClient.invalidateQueries({
+        queryKey: ["inspection-config-details"],
+      });
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to update field order"
+      );
+    },
+  });
+
+  const handleDeleteSection = (sectionId: string) => {
+    if (!selectedConfig) return;
+    deleteSectionMutation.mutate({
+      configId: selectedConfig._id,
+      sectionId: sectionId,
+    });
+  };
+
+  const handleUpdateSectionsOrder = (categoryId: string, sections: any[]) => {
+    if (!selectedConfig) return;
+    updateSectionsOrderMutation.mutate({
+      configId: selectedConfig._id,
+      categoryId: categoryId,
+      sections: sections.map((section, index) => ({
+        section_id: section.section_id,
+        display_order: index,
+      })),
+    });
+  };
+
+  const handleUpdateFieldsOrder = (sectionId: string, fields: any[]) => {
+    if (!selectedConfig) return;
+    updateFieldsOrderMutation.mutate({
+      configId: selectedConfig._id,
+      sectionId: sectionId,
+      fields: fields.map((field, index) => ({
+        field_id: field.field_id,
+        display_order: index,
+      })),
+    });
+  };
 
   const addSectionMutation = useMutation({
     mutationFn: ({
@@ -342,7 +446,7 @@ const InspectionConfig = () => {
       fieldId: fieldToDelete.field_id,
     });
   };
-  
+
   const handleEditConfig = (config: any) => {
     setConfigToEdit(config);
     setEditFormData({
@@ -438,6 +542,176 @@ const InspectionConfig = () => {
 
   const configs = configsData?.data || [];
   const pagination = configsData?.pagination;
+
+  const addFieldForm = (
+    <DialogContent className="max-h-[80vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Add Field to {selectedSection?.section_name}</DialogTitle>
+        <DialogDescription>
+          Create a new field within this section
+        </DialogDescription>
+      </DialogHeader>
+      <form onSubmit={handleAddField} className="space-y-4">
+        {/* ... keep existing code (field form content) the same */}
+        <div>
+          <Label htmlFor="field_name">Field Name</Label>
+          <Input
+            id="field_name"
+            value={fieldFormData.field_name}
+            onChange={(e) =>
+              setFieldFormData({
+                ...fieldFormData,
+                field_name: e.target.value,
+              })
+            }
+            placeholder="Oil Level"
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="field_type">Field Type</Label>
+          <Select
+            value={fieldFormData.field_type}
+            onValueChange={(value) =>
+              setFieldFormData({
+                ...fieldFormData,
+                field_type: value,
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {fieldTypes.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Dropdown Configuration */}
+        {fieldFormData.field_type === "dropdown" && (
+          <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+            <h4 className="font-medium">Dropdown Configuration</h4>
+            <div>
+              <Label htmlFor="dropdown_name">Select Dropdown</Label>
+              <Select
+                value={fieldFormData.dropdown_config.dropdown_name}
+                onValueChange={(value) =>
+                  setFieldFormData({
+                    ...fieldFormData,
+                    dropdown_config: {
+                      ...fieldFormData.dropdown_config,
+                      dropdown_name: value,
+                    },
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a dropdown" />
+                </SelectTrigger>
+                <SelectContent>
+                  {dropdowns?.map((dropdown: any) => (
+                    <SelectItem key={dropdown._id} value={dropdown.dropdown_name}>
+                      {dropdown.display_name} ({dropdown.dropdown_name})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="allow_multiple_dropdown"
+                checked={fieldFormData.dropdown_config.allow_multiple}
+                onCheckedChange={(checked) =>
+                  setFieldFormData({
+                    ...fieldFormData,
+                    dropdown_config: {
+                      ...fieldFormData.dropdown_config,
+                      allow_multiple: checked === true,
+                    },
+                  })
+                }
+              />
+              <Label htmlFor="allow_multiple_dropdown">
+                Allow multiple selections
+              </Label>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <Label htmlFor="placeholder">Placeholder Text</Label>
+          <Input
+            id="placeholder"
+            value={fieldFormData.placeholder}
+            onChange={(e) =>
+              setFieldFormData({
+                ...fieldFormData,
+                placeholder: e.target.value,
+              })
+            }
+            placeholder="Enter oil level status"
+          />
+        </div>
+        <div>
+          <Label htmlFor="help_text">Help Text</Label>
+          <Input
+            id="help_text"
+            value={fieldFormData.help_text}
+            onChange={(e) =>
+              setFieldFormData({
+                ...fieldFormData,
+                help_text: e.target.value,
+              })
+            }
+            placeholder="Check dipstick for oil level"
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="is_required"
+            checked={fieldFormData.is_required}
+            onCheckedChange={(checked) =>
+              setFieldFormData({
+                ...fieldFormData,
+                is_required: checked === true,
+              })
+            }
+          />
+          <Label htmlFor="is_required">Required field</Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="has_image"
+            checked={fieldFormData.has_image}
+            onCheckedChange={(checked) =>
+              setFieldFormData({
+                ...fieldFormData,
+                has_image: checked === true,
+              })
+            }
+          />
+          <Label htmlFor="has_image">Include image capture</Label>
+        </div>
+        <div className="flex justify-end space-x-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsFieldDialogOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" disabled={addFieldMutation.isPending}>
+            {addFieldMutation.isPending ? "Adding..." : "Add Field"}
+          </Button>
+        </div>
+      </form>
+    </DialogContent>
+  );
 
   return (
     <DashboardLayout title="Inspection Configuration">
@@ -722,12 +996,14 @@ const InspectionConfig = () => {
                     <Eye className="h-4 w-4 mr-2" />
                     Preview
                   </Button>
-                  <Button 
+                  <Button
                     onClick={handleSaveChanges}
                     disabled={saveConfigMutation.isPending}
                   >
                     <Save className="h-4 w-4 mr-2" />
-                    {saveConfigMutation.isPending ? 'Saving...' : 'Save Changes'}
+                    {saveConfigMutation.isPending
+                      ? "Saving..."
+                      : "Save Changes"}
                   </Button>
                 </div>
               </div>
@@ -882,334 +1158,35 @@ const InspectionConfig = () => {
                             </Dialog>
                           </div>
 
-                          {category.sections?.map((section: any) => (
-                            <div
-                              key={section.section_id}
-                              className="border rounded-lg p-4"
-                            >
-                              <div className="flex justify-between items-center mb-2">
-                                <div>
-                                  <h5 className="font-medium">
-                                    {section.section_name}
-                                  </h5>
-                                  <p className="text-sm text-muted-foreground">
-                                    {section.description}
-                                  </p>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Badge variant="outline">
-                                    {section.fields?.length || 0} fields
-                                  </Badge>
-                                  <Dialog
-                                    open={isFieldDialogOpen}
-                                    onOpenChange={setIsFieldDialogOpen}
-                                  >
-                                    <DialogTrigger asChild>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() =>
-                                          setSelectedSection(section)
-                                        }
-                                      >
-                                        <Plus className="h-4 w-4" />
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="max-h-[80vh] overflow-y-auto">
-                                      <DialogHeader>
-                                        <DialogTitle>
-                                          Add Field to {section.section_name}
-                                        </DialogTitle>
-                                        <DialogDescription>
-                                          Create a new field within this section
-                                        </DialogDescription>
-                                      </DialogHeader>
-                                      <form
-                                        onSubmit={handleAddField}
-                                        className="space-y-4"
-                                      >
-                                        <div>
-                                          <Label htmlFor="field_name">
-                                            Field Name
-                                          </Label>
-                                          <Input
-                                            id="field_name"
-                                            value={fieldFormData.field_name}
-                                            onChange={(e) =>
-                                              setFieldFormData({
-                                                ...fieldFormData,
-                                                field_name: e.target.value,
-                                              })
-                                            }
-                                            placeholder="Oil Level"
-                                            required
-                                          />
-                                        </div>
-                                        <div>
-                                          <Label htmlFor="field_type">
-                                            Field Type
-                                          </Label>
-                                          <Select
-                                            value={fieldFormData.field_type}
-                                            onValueChange={(value) =>
-                                              setFieldFormData({
-                                                ...fieldFormData,
-                                                field_type: value,
-                                              })
-                                            }
-                                          >
-                                            <SelectTrigger>
-                                              <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              {fieldTypes.map((type) => (
-                                                <SelectItem
-                                                  key={type.value}
-                                                  value={type.value}
-                                                >
-                                                  {type.label}
-                                                </SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
-                                        </div>
-
-                                        {/* Dropdown Configuration */}
-                                        {fieldFormData.field_type ===
-                                          "dropdown" && (
-                                          <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-                                            <h4 className="font-medium">
-                                              Dropdown Configuration
-                                            </h4>
-                                            <div>
-                                              <Label htmlFor="dropdown_name">
-                                                Select Dropdown
-                                              </Label>
-                                              <Select
-                                                value={
-                                                  fieldFormData.dropdown_config
-                                                    .dropdown_name
-                                                }
-                                                onValueChange={(value) =>
-                                                  setFieldFormData({
-                                                    ...fieldFormData,
-                                                    dropdown_config: {
-                                                      ...fieldFormData.dropdown_config,
-                                                      dropdown_name: value,
-                                                    },
-                                                  })
-                                                }
-                                              >
-                                                <SelectTrigger>
-                                                  <SelectValue placeholder="Choose a dropdown" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                  {dropdowns?.map(
-                                                    (dropdown: any) => (
-                                                      <SelectItem
-                                                        key={dropdown._id}
-                                                        value={
-                                                          dropdown.dropdown_name
-                                                        }
-                                                      >
-                                                        {dropdown.display_name}{" "}
-                                                        (
-                                                        {dropdown.dropdown_name}
-                                                        )
-                                                      </SelectItem>
-                                                    )
-                                                  )}
-                                                </SelectContent>
-                                              </Select>
-                                            </div>
-                                            <div className="flex items-center space-x-2">
-                                              <Checkbox
-                                                id="allow_multiple_dropdown"
-                                                checked={
-                                                  fieldFormData.dropdown_config
-                                                    .allow_multiple
-                                                }
-                                                onCheckedChange={(checked) =>
-                                                  setFieldFormData({
-                                                    ...fieldFormData,
-                                                    dropdown_config: {
-                                                      ...fieldFormData.dropdown_config,
-                                                      allow_multiple:
-                                                        checked === true,
-                                                    },
-                                                  })
-                                                }
-                                              />
-                                              <Label htmlFor="allow_multiple_dropdown">
-                                                Allow multiple selections
-                                              </Label>
-                                            </div>
-                                          </div>
-                                        )}
-
-                                        <div>
-                                          <Label htmlFor="placeholder">
-                                            Placeholder Text
-                                          </Label>
-                                          <Input
-                                            id="placeholder"
-                                            value={fieldFormData.placeholder}
-                                            onChange={(e) =>
-                                              setFieldFormData({
-                                                ...fieldFormData,
-                                                placeholder: e.target.value,
-                                              })
-                                            }
-                                            placeholder="Enter oil level status"
-                                          />
-                                        </div>
-                                        <div>
-                                          <Label htmlFor="help_text">
-                                            Help Text
-                                          </Label>
-                                          <Input
-                                            id="help_text"
-                                            value={fieldFormData.help_text}
-                                            onChange={(e) =>
-                                              setFieldFormData({
-                                                ...fieldFormData,
-                                                help_text: e.target.value,
-                                              })
-                                            }
-                                            placeholder="Check dipstick for oil level"
-                                          />
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                          <Checkbox
-                                            id="is_required"
-                                            checked={fieldFormData.is_required}
-                                            onCheckedChange={(checked) =>
-                                              setFieldFormData({
-                                                ...fieldFormData,
-                                                is_required: checked === true,
-                                              })
-                                            }
-                                          />
-                                          <Label htmlFor="is_required">
-                                            Required field
-                                          </Label>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                          <Checkbox
-                                            id="has_image"
-                                            checked={fieldFormData.has_image}
-                                            onCheckedChange={(checked) =>
-                                              setFieldFormData({
-                                                ...fieldFormData,
-                                                has_image: checked === true,
-                                              })
-                                            }
-                                          />
-                                          <Label htmlFor="has_image">
-                                            Include image capture
-                                          </Label>
-                                        </div>
-                                        <div className="flex justify-end space-x-2">
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() =>
-                                              setIsFieldDialogOpen(false)
-                                            }
-                                          >
-                                            Cancel
-                                          </Button>
-                                          <Button
-                                            type="submit"
-                                            disabled={
-                                              addFieldMutation.isPending
-                                            }
-                                          >
-                                            {addFieldMutation.isPending
-                                              ? "Adding..."
-                                              : "Add Field"}
-                                          </Button>
-                                        </div>
-                                      </form>
-                                    </DialogContent>
-                                  </Dialog>
-                                  <Button size="sm" variant="ghost">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-
-                              {/* Fields List */}
-                              {section.fields?.length > 0 && (
-                                <div className="space-y-2 mt-4">
-                                  {section.fields.map(
-                                    (field: any, index: number) => (
-                                      <div
-                                        key={index}
-                                        className="flex items-center justify-between p-2 bg-muted/50 rounded"
-                                      >
-                                        <div className="flex items-center space-x-2">
-                                          <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                          <span className="font-medium">
-                                            {field.field_name}
-                                          </span>
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs"
-                                          >
-                                            {field.field_type}
-                                          </Badge>
-                                          {field.is_required && (
-                                            <Badge
-                                              variant="outline"
-                                              className="text-xs"
-                                            >
-                                              Required
-                                            </Badge>
-                                          )}
-                                          {field.has_image && (
-                                            <Badge
-                                              variant="outline"
-                                              className="text-xs"
-                                            >
-                                              Image
-                                            </Badge>
-                                          )}
-                                          {field.field_type === "dropdown" &&
-                                            field.dropdown_config
-                                              ?.dropdown_name && (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-xs"
-                                              >
-                                                {
-                                                  field.dropdown_config
-                                                    .dropdown_name
-                                                }
-                                              </Badge>
-                                            )}
-                                        </div>
-                                        <Button 
-                                            size="sm" 
-                                            variant="ghost"
-                                            onClick={() => handleEditField(field)}
-                                          >
-                                            <Edit className="h-4 w-4" />
-                                          </Button>
-                                        <Button 
-                                            size="sm" 
-                                            variant="ghost"
-                                            onClick={() => handleDeleteField(field)}
-                                          >
-                                            <Trash2 className="h-4 w-4" />
-                                          </Button>
-                                      </div>
-                                    )
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                          {category.sections?.length > 0 ? (
+                            <DraggableSectionsList
+                              sections={category.sections}
+                              configId={selectedConfig._id}
+                              onDeleteSection={handleDeleteSection}
+                              onAddField={(section) =>
+                                setSelectedSection(section)
+                              }
+                              onEditField={handleEditField}
+                              onDeleteField={handleDeleteField}
+                              onUpdateSectionsOrder={(sections) =>
+                                handleUpdateSectionsOrder(
+                                  category.category_id,
+                                  sections
+                                )
+                              }
+                              onUpdateFieldsOrder={handleUpdateFieldsOrder}
+                              isFieldDialogOpen={isFieldDialogOpen}
+                              setIsFieldDialogOpen={setIsFieldDialogOpen}
+                              selectedSection={selectedSection}
+                              setSelectedSection={setSelectedSection}
+                              addFieldForm={addFieldForm}
+                            />
+                          ) : (
+                            <p className="text-muted-foreground text-center py-4">
+                              No sections added yet. Click "Add Section" to get
+                              started.
+                            </p>
+                          )}
                         </div>
                       </AccordionContent>
                     </AccordionItem>

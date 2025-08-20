@@ -11,6 +11,9 @@ const {
   addInspectionField,
   updateInspectionField,
   deleteInspectionField,
+  deleteInspectionSection,
+  updateSectionsOrder,
+  updateFieldsOrder,
   getTradeinConfigs,
   createTradeinConfig,
   updateTradeinConfig,
@@ -33,9 +36,12 @@ router.post('/inspection', authorize('company_super_admin'), createInspectionCon
 router.put('/inspection/:id', authorize('company_super_admin'), updateInspectionConfig);
 router.delete('/inspection/:id', authorize('company_super_admin'), deleteInspectionConfig);
 router.post('/inspection/:id/categories/:categoryId/sections', authorize('company_super_admin'), addInspectionSection);
+router.delete('/inspection/:id/sections/:sectionId', authorize('company_super_admin'), deleteInspectionSection);
+router.put('/inspection/:id/categories/:categoryId/sections/reorder', authorize('company_super_admin'), updateSectionsOrder);
 router.post('/inspection/:id/sections/:sectionId/fields', authorize('company_super_admin'), addInspectionField);
 router.put('/inspection/:id/fields/:fieldId', authorize('company_super_admin'), updateInspectionField);
 router.delete('/inspection/:id/fields/:fieldId', authorize('company_super_admin'), deleteInspectionField);
+router.put('/inspection/:id/sections/:sectionId/fields/reorder', authorize('company_super_admin'), updateFieldsOrder);
 
 // Trade-in configuration routes
 router.get('/tradein', getTradeinConfigs);

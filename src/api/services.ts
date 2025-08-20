@@ -145,10 +145,19 @@ export const configServices = {
     apiClient.delete(`/api/config/inspection/${id}`),
 
   updateInspectionField: (configId: string, fieldId: string, data: any) =>
-    apiClient.put(`/config/inspection/${configId}/fields/${fieldId}`, data),
+    apiClient.put(`/api/config/inspection/${configId}/fields/${fieldId}`, data),
     
   deleteInspectionField: (configId: string, fieldId: string) =>
-    apiClient.delete(`/config/inspection/${configId}/fields/${fieldId}`),
+    apiClient.delete(`/api/config/inspection/${configId}/fields/${fieldId}`),
+
+  deleteInspectionSection: (configId: string, sectionId: string) =>
+    apiClient.delete(`/api/config/inspection/${configId}/sections/${sectionId}`),
+
+  updateSectionsOrder: (configId: string, categoryId: string, data: any) =>
+    apiClient.put(`/api/config/inspection/${configId}/categories/${categoryId}/sections/reorder`, data),
+
+  updateFieldsOrder: (configId: string, sectionId: string, data: any) =>
+    apiClient.put(`/api/config/inspection/${configId}/sections/${sectionId}/fields/reorder`, data),
 
   saveInspectionConfig: async (id: string, data: any) => {
     const response = await apiClient.put(`/api/config/inspection/${id}`, data);
@@ -181,7 +190,6 @@ export const configServices = {
     apiClient.post(`/api/config/tradein/${configId}/sections/${sectionId}/fields`, data)
 };
 
-// ... keep existing code (Vehicle Services, Inspection Services, Trade-in Services, Logs Services and default export)
 
 // Vehicle Services
 export const vehicleServices = {
