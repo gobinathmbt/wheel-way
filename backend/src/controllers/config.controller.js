@@ -467,6 +467,138 @@ const deleteTradeinConfig = async (req, res) => {
   }
 };
 
+const updateInspectionField = async (req, res) => {
+  try {
+    const config = await InspectionConfig.findOne({
+      _id: req.params.id,
+      company_id: req.user.company_id
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    // Find field across all categories and sections
+    let targetField = null;
+    let targetSection = null;
+    for (const category of config.categories) {
+      for (const section of category.sections) {
+        targetField = section.fields.find(field => field.field_id === req.params.fieldId);
+        if (targetField) {
+          targetSection = section;
+          break;
+        }
+      }
+      if (targetField) break;
+    }
+
+    if (!targetField) {
+      return res.status(404).json({
+        success: false,
+        message: 'Field not found'
+      });
+    }
+
+    // Validate dropdown configuration if field type is dropdown
+    if (req.body.field_type === 'dropdown') {
+      if (!req.body.dropdown_config || !req.body.dropdown_config.dropdown_name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Dropdown configuration is required for dropdown field type'
+        });
+      }
+
+      // Verify that the dropdown exists and belongs to the company
+      const dropdown = await DropdownMaster.findOne({
+        dropdown_name: req.body.dropdown_config.dropdown_name,
+        company_id: req.user.company_id,
+        is_active: true
+      });
+
+      if (!dropdown) {
+        return res.status(400).json({
+          success: false,
+          message: 'Selected dropdown not found or inactive'
+        });
+      }
+
+      // Set the dropdown_id reference
+      req.body.dropdown_config.dropdown_id = dropdown._id;
+    }
+
+    // Update field properties
+    Object.assign(targetField, req.body);
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      data: config
+    });
+
+  } catch (error) {
+    console.error('Update inspection field error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating field'
+    });
+  }
+};
+
+const deleteInspectionField = async (req, res) => {
+  try {
+    const config = await InspectionConfig.findOne({
+      _id: req.params.id,
+      company_id: req.user.company_id
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    // Find and remove field across all categories and sections
+    let fieldRemoved = false;
+    for (const category of config.categories) {
+      for (const section of category.sections) {
+        const fieldIndex = section.fields.findIndex(field => field.field_id === req.params.fieldId);
+        if (fieldIndex !== -1) {
+          section.fields.splice(fieldIndex, 1);
+          fieldRemoved = true;
+          break;
+        }
+      }
+      if (fieldRemoved) break;
+    }
+
+    if (!fieldRemoved) {
+      return res.status(404).json({
+        success: false,
+        message: 'Field not found'
+      });
+    }
+
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      data: config,
+      message: 'Field deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete inspection field error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting field'
+    });
+  }
+};
+
 const addTradeinSection = async (req, res) => {
   try {
     const config = await TradeinConfig.findOne({
@@ -588,6 +720,8 @@ module.exports = {
   updateTradeinConfig,
   deleteTradeinConfig,
   addTradeinSection,
-  addTradeinField
+  addTradeinField,
+  updateInspectionField,
+  deleteInspectionField
 };
 

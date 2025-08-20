@@ -1,3 +1,4 @@
+
 const express = require('express');
 const { protect, authorize, companyScopeCheck } = require('../middleware/auth');
 const {
@@ -8,6 +9,8 @@ const {
   deleteInspectionConfig,
   addInspectionSection,
   addInspectionField,
+  updateInspectionField,
+  deleteInspectionField,
   getTradeinConfigs,
   createTradeinConfig,
   updateTradeinConfig,
@@ -31,6 +34,8 @@ router.put('/inspection/:id', authorize('company_super_admin'), updateInspection
 router.delete('/inspection/:id', authorize('company_super_admin'), deleteInspectionConfig);
 router.post('/inspection/:id/categories/:categoryId/sections', authorize('company_super_admin'), addInspectionSection);
 router.post('/inspection/:id/sections/:sectionId/fields', authorize('company_super_admin'), addInspectionField);
+router.put('/inspection/:id/fields/:fieldId', authorize('company_super_admin'), updateInspectionField);
+router.delete('/inspection/:id/fields/:fieldId', authorize('company_super_admin'), deleteInspectionField);
 
 // Trade-in configuration routes
 router.get('/tradein', getTradeinConfigs);
@@ -41,4 +46,3 @@ router.post('/tradein/:id/sections', authorize('company_super_admin'), addTradei
 router.post('/tradein/:id/sections/:sectionId/fields', authorize('company_super_admin'), addTradeinField);
 
 module.exports = router;
-

@@ -49,6 +49,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { configServices, dropdownServices } from "@/api/services";
 import DeleteConfirmationDialog from "@/components/dialogs/DeleteConfirmationDialog";
 import ConfigPreviewModal from "@/components/inspection/ConfigPreviewModal";
+import FieldEditDialog from "@/components/inspection/FieldEditDialog";
 import {
   Pagination,
   PaginationContent,
@@ -64,6 +65,10 @@ const InspectionConfig = () => {
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isFieldEditDialogOpen, setIsFieldEditDialogOpen] = useState(false);
+  const [fieldToEdit, setFieldToEdit] = useState(null);
+  const [fieldToDelete, setFieldToDelete] = useState(null);
+  const [isFieldDeleteDialogOpen, setIsFieldDeleteDialogOpen] = useState(false);
   const [isSectionDialogOpen, setIsSectionDialogOpen] = useState(false);
   const [isFieldDialogOpen, setIsFieldDialogOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -177,6 +182,22 @@ const InspectionConfig = () => {
       toast.error(
         error.response?.data?.message || "Failed to update configuration"
       );
+    },
+  });
+
+  const deleteFieldMutation = useMutation({
+    mutationFn: ({ configId, fieldId }: { configId: string; fieldId: string }) =>
+      configServices.deleteInspectionField(configId, fieldId),
+    onSuccess: () => {
+      toast.success("Field deleted successfully");
+      setIsFieldDeleteDialogOpen(false);
+      setFieldToDelete(null);
+      queryClient.invalidateQueries({
+        queryKey: ["inspection-config-details"],
+      });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to delete field");
     },
   });
 
@@ -304,6 +325,24 @@ const InspectionConfig = () => {
     createConfigMutation.mutate(configFormData);
   };
 
+  const handleEditField = (field: any) => {
+    setFieldToEdit(field);
+    setIsFieldEditDialogOpen(true);
+  };
+
+  const handleDeleteField = (field: any) => {
+    setFieldToDelete(field);
+    setIsFieldDeleteDialogOpen(true);
+  };
+
+  const confirmFieldDelete = () => {
+    if (!fieldToDelete || !selectedConfig) return;
+    deleteFieldMutation.mutate({
+      configId: selectedConfig._id,
+      fieldId: fieldToDelete.field_id,
+    });
+  };
+  
   const handleEditConfig = (config: any) => {
     setConfigToEdit(config);
     setEditFormData({
@@ -1150,9 +1189,20 @@ const InspectionConfig = () => {
                                               </Badge>
                                             )}
                                         </div>
-                                        <Button size="sm" variant="ghost">
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        <Button 
+                                            size="sm" 
+                                            variant="ghost"
+                                            onClick={() => handleEditField(field)}
+                                          >
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                        <Button 
+                                            size="sm" 
+                                            variant="ghost"
+                                            onClick={() => handleDeleteField(field)}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
                                       </div>
                                     )
                                   )}
@@ -1246,6 +1296,16 @@ const InspectionConfig = () => {
           configData={selectedConfigDetails}
         />
 
+        <FieldEditDialog
+          isOpen={isFieldEditDialogOpen}
+          onClose={() => {
+            setIsFieldEditDialogOpen(false);
+            setFieldToEdit(null);
+          }}
+          configId={selectedConfig?._id || ""}
+          field={fieldToEdit}
+        />
+
         {/* Delete Confirmation Dialog */}
         <DeleteConfirmationDialog
           isOpen={isDeleteDialogOpen}
@@ -1257,6 +1317,18 @@ const InspectionConfig = () => {
           title="Delete Configuration"
           description={`Are you sure you want to delete "${configToDelete?.config_name}"? This action cannot be undone.`}
           isLoading={deleteConfigMutation.isPending}
+        />
+
+        <DeleteConfirmationDialog
+          isOpen={isFieldDeleteDialogOpen}
+          onClose={() => {
+            setIsFieldDeleteDialogOpen(false);
+            setFieldToDelete(null);
+          }}
+          onConfirm={confirmFieldDelete}
+          title="Delete Field"
+          description={`Are you sure you want to delete "${fieldToDelete?.field_name}"? This action cannot be undone.`}
+          isLoading={deleteFieldMutation.isPending}
         />
       </div>
     </DashboardLayout>
