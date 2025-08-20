@@ -11,10 +11,17 @@ import { Building2, Users, Search, Plus, Eye, Trash2, Edit } from 'lucide-react'
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/axios';
+import { Switch } from "@/components/ui/switch";
+import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
+import { CompanyDetailsDialog, Company } from "./CompanyDetailsDialog";
+import { CompanyEditDialog } from "./CompanyEditDialog";
 
 const MasterCompanies = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCompany, setSelectedCompany] = useState(null);
+  const [deletePlanId, setDeletePlanId] = useState(null);
+  const [editCompany, setEditCompany] = useState(null);
+
 
   const { data: companies, isLoading, refetch } = useQuery({
     queryKey: ['companies'],
@@ -30,14 +37,20 @@ const MasterCompanies = () => {
   ) || [];
 
   const handleDeleteCompany = async (companyId) => {
+    if (!deletePlanId) return;
     try {
       await apiClient.delete(`/api/master/companies/${companyId}`);
       toast.success('Company deleted successfully');
+      setDeletePlanId(null);
       refetch();
     } catch (error) {
       toast.error('Failed to delete company');
     }
   };
+
+  const handleViewDetails = (company) => {
+  setSelectedCompany(company);
+};
 
   const handleToggleStatus = async (companyId, currentStatus) => {
     try {
@@ -174,21 +187,21 @@ const MasterCompanies = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewDetails(company)}>
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => handleToggleStatus(company._id, company.is_active)}
+                            onClick={() => setEditCompany(company)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleDeleteCompany(company._id)}
-                          >
+                          <Switch
+                            checked={company.is_active}
+                            onCheckedChange={() => handleToggleStatus(company._id, company.is_active)}
+                          />
+                          <Button variant="ghost" size="sm" onClick={() => setDeletePlanId(company._id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -201,6 +214,22 @@ const MasterCompanies = () => {
           </CardContent>
         </Card>
       </div>
+      <CompanyDetailsDialog
+        open={!!selectedCompany}
+        onClose={() => setSelectedCompany(null)}
+        company={selectedCompany}
+      />
+      <CompanyEditDialog
+        open={!!editCompany}
+        onClose={() => setEditCompany(null)}
+        company={editCompany}
+        onUpdated={refetch}
+      />
+      <ConfirmDeleteDialog
+        open={!!deletePlanId}
+        onClose={() => setDeletePlanId(null)}
+        onConfirm={handleDeleteCompany}
+      />
     </DashboardLayout>
   );
 };

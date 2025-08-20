@@ -12,10 +12,12 @@ import { Plus, Edit, Trash2, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/axios';
+import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 
 const MasterPlans = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
+  const [deletePlanId, setDeletePlanId] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     display_name: '',
@@ -76,9 +78,11 @@ const MasterPlans = () => {
   };
 
   const handleDelete = async (planId) => {
+    if (!deletePlanId) return;
     try {
       await apiClient.delete(`/api/master/plans/${planId}`);
       toast.success('Plan deleted successfully');
+      setDeletePlanId(null);
       refetch();
     } catch (error) {
       toast.error('Failed to delete plan');
@@ -191,9 +195,9 @@ const MasterPlans = () => {
                     <Button variant="ghost" size="sm" onClick={() => handleEdit(plan)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(plan._id)}>
+                    <Button variant="ghost" size="sm" onClick={() => setDeletePlanId(plan._id)}>
                       <Trash2 className="h-4 w-4" />
-                    </Button>
+                  </Button>
                   </div>
                 </div>
                 <CardDescription>{plan.description}</CardDescription>
@@ -276,7 +280,7 @@ const MasterPlans = () => {
                           <Button variant="ghost" size="sm" onClick={() => handleEdit(plan)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(plan._id)}>
+                          <Button variant="ghost" size="sm" onClick={() => setDeletePlanId(plan._id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -289,7 +293,13 @@ const MasterPlans = () => {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
+      <ConfirmDeleteDialog
+        open={!!deletePlanId}
+        onClose={() => setDeletePlanId(null)}
+        onConfirm={handleDelete}
+      />
+
+      </DashboardLayout>
   );
 };
 

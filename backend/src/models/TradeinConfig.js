@@ -99,28 +99,7 @@ const TradeinConfigSchema = new mongoose.Schema({
   sections: [SectionConfigSchema],
   
   // Valuation settings
-  valuation_settings: {
-    use_market_data: {
-      type: Boolean,
-      default: true
-    },
-    market_data_sources: [String], // KBB, Edmunds, etc.
-    depreciation_model: {
-      type: String,
-      enum: ['linear', 'exponential', 'custom'],
-      default: 'linear'
-    },
-    condition_multipliers: {
-      excellent: { type: Number, default: 1.0 },
-      good: { type: Number, default: 0.9 },
-      fair: { type: Number, default: 0.8 },
-      poor: { type: Number, default: 0.6 }
-    },
-    mileage_adjustment: {
-      threshold: { type: Number, default: 15000 }, // miles per year
-      penalty_per_mile: { type: Number, default: 0.10 }
-    }
-  },
+
   
   // Global settings for this configuration
   settings: {

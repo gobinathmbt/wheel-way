@@ -216,6 +216,8 @@ const MasterSettings = () => {
                         onChange={(e) => setSmtpSettings({ ...smtpSettings, host: e.target.value })}
                         placeholder="smtp.gmail.com"
                         required
+                        disabled
+              readOnly
                       />
                     </div>
                     <div>
@@ -226,6 +228,8 @@ const MasterSettings = () => {
                         value={smtpSettings.port}
                         onChange={(e) => setSmtpSettings({ ...smtpSettings, port: parseInt(e.target.value) })}
                         required
+                        disabled
+              readOnly
                       />
                     </div>
                   </div>
@@ -240,6 +244,8 @@ const MasterSettings = () => {
                         onChange={(e) => setSmtpSettings({ ...smtpSettings, auth_user: e.target.value })}
                         placeholder="your-email@gmail.com"
                         required
+                        disabled
+              readOnly
                       />
                     </div>
                     <div>
@@ -251,6 +257,8 @@ const MasterSettings = () => {
                         onChange={(e) => setSmtpSettings({ ...smtpSettings, auth_pass: e.target.value })}
                         placeholder="Your Gmail app password"
                         required
+                        disabled
+              readOnly
                       />
                     </div>
                   </div>
@@ -263,6 +271,8 @@ const MasterSettings = () => {
                         value={smtpSettings.from_name}
                         onChange={(e) => setSmtpSettings({ ...smtpSettings, from_name: e.target.value })}
                         required
+                        disabled
+              readOnly
                       />
                     </div>
                     <div>
@@ -274,6 +284,8 @@ const MasterSettings = () => {
                         onChange={(e) => setSmtpSettings({ ...smtpSettings, from_email: e.target.value })}
                         placeholder="noreply@vehiclepro.com"
                         required
+                        disabled
+              readOnly
                       />
                     </div>
                   </div>

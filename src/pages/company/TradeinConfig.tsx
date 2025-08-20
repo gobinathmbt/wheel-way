@@ -16,11 +16,11 @@ import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/axios';
 
 const TradeinConfig = () => {
-  const [selectedConfig, setSelectedConfig] = useState(null);
+  const [selectedConfig, setSelectedConfig] = useState<any>(null);
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
   const [isSectionDialogOpen, setIsSectionDialogOpen] = useState(false);
   const [isFieldDialogOpen, setIsFieldDialogOpen] = useState(false);
-  const [selectedSection, setSelectedSection] = useState(null);
+  const [selectedSection, setSelectedSection] = useState<any>(null);
 
   const [configFormData, setConfigFormData] = useState({
     config_name: '',
@@ -43,13 +43,26 @@ const TradeinConfig = () => {
     is_required: false,
     has_image: false,
     placeholder: '',
-    help_text: ''
+    help_text: '',
+    dropdown_config: {
+      dropdown_name: '',
+      allow_multiple: false
+    }
   });
 
   const { data: configs, isLoading, refetch } = useQuery({
     queryKey: ['tradein-configs'],
     queryFn: async () => {
       const response = await apiClient.get('/api/config/tradein');
+      return response.data.data;
+    }
+  });
+
+  // Fetch available dropdowns
+  const { data: dropdowns } = useQuery({
+    queryKey: ['dropdowns'],
+    queryFn: async () => {
+      const response = await apiClient.get('/api/dropdown');
       return response.data.data;
     }
   });
@@ -71,7 +84,7 @@ const TradeinConfig = () => {
     { value: 'custom', label: 'Custom Model' }
   ];
 
-  const handleCreateConfig = async (e) => {
+  const handleCreateConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await apiClient.post('/api/config/tradein', configFormData);
@@ -90,7 +103,7 @@ const TradeinConfig = () => {
     }
   };
 
-  const handleAddSection = async (e) => {
+  const handleAddSection = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await apiClient.post(`/api/config/tradein/${selectedConfig._id}/sections`, sectionFormData);
@@ -108,10 +121,10 @@ const TradeinConfig = () => {
     }
   };
 
-  const handleAddField = async (e) => {
+  const handleAddField = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient.post(`/api/config/tradein/${selectedConfig._id}/sections/${selectedSection._id}/fields`, fieldFormData);
+      await apiClient.post(`/api/config/tradein/${selectedConfig._id}/sections/${selectedSection.section_id}/fields`, fieldFormData);
       toast.success('Field added successfully');
       setIsFieldDialogOpen(false);
       setFieldFormData({
@@ -120,12 +133,21 @@ const TradeinConfig = () => {
         is_required: false,
         has_image: false,
         placeholder: '',
-        help_text: ''
+        help_text: '',
+        dropdown_config: {
+          dropdown_name: '',
+          allow_multiple: false
+        }
       });
       refetch();
     } catch (error) {
       toast.error('Failed to add field');
     }
+  };
+
+  const getSelectedDropdown = () => {
+    if (!fieldFormData.dropdown_config.dropdown_name) return null;
+    return dropdowns?.find((d: any) => d.dropdown_name === fieldFormData.dropdown_config.dropdown_name);
   };
 
   return (
@@ -196,7 +218,7 @@ const TradeinConfig = () => {
                     <Checkbox
                       id="use_market_data"
                       checked={configFormData.use_market_data}
-                      onCheckedChange={(checked) => setConfigFormData({ ...configFormData, use_market_data: checked })}
+                      onCheckedChange={(checked) => setConfigFormData({ ...configFormData, use_market_data: checked as boolean })}
                     />
                     <Label htmlFor="use_market_data">Use market data for valuation</Label>
                   </div>
@@ -204,7 +226,7 @@ const TradeinConfig = () => {
                     <Checkbox
                       id="is_default"
                       checked={configFormData.is_default}
-                      onCheckedChange={(checked) => setConfigFormData({ ...configFormData, is_default: checked })}
+                      onCheckedChange={(checked) => setConfigFormData({ ...configFormData, is_default: checked as boolean })}
                     />
                     <Label htmlFor="is_default">Make this the default configuration</Label>
                   </div>
@@ -228,7 +250,7 @@ const TradeinConfig = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {configs?.map((config) => (
+              {configs?.map((config: any) => (
                 <div
                   key={config._id}
                   className={`p-4 border rounded-lg cursor-pointer transition-colors ${
@@ -240,12 +262,6 @@ const TradeinConfig = () => {
                     <h3 className="font-semibold">{config.config_name}</h3>
                     <div className="flex gap-1">
                       {config.is_default && <Badge>Default</Badge>}
-                      {config.valuation_settings?.use_market_data && (
-                        <Badge variant="outline" className="text-xs">
-                          <DollarSign className="w-3 h-3 mr-1" />
-                          Market
-                        </Badge>
-                      )}
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">{config.description}</p>
@@ -253,8 +269,6 @@ const TradeinConfig = () => {
                     <span>v{config.version}</span>
                     <span>•</span>
                     <span>{config.sections?.length || 0} sections</span>
-                    <span>•</span>
-                    <span>{config.valuation_settings?.depreciation_model}</span>
                   </div>
                 </div>
               ))}
@@ -266,71 +280,7 @@ const TradeinConfig = () => {
         {selectedConfig && (
           <div className="space-y-6">
             {/* Valuation Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Valuation Settings
-                </CardTitle>
-                <CardDescription>Configure how trade-in values are calculated</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Excellent Condition</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold">
-                        {selectedConfig.valuation_settings?.condition_multipliers?.excellent || 1.0}x
-                      </span>
-                      <span className="text-sm text-muted-foreground">multiplier</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Good Condition</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold">
-                        {selectedConfig.valuation_settings?.condition_multipliers?.good || 0.9}x
-                      </span>
-                      <span className="text-sm text-muted-foreground">multiplier</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Fair Condition</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold">
-                        {selectedConfig.valuation_settings?.condition_multipliers?.fair || 0.8}x
-                      </span>
-                      <span className="text-sm text-muted-foreground">multiplier</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Poor Condition</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold">
-                        {selectedConfig.valuation_settings?.condition_multipliers?.poor || 0.6}x
-                      </span>
-                      <span className="text-sm text-muted-foreground">multiplier</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium">Mileage Threshold</Label>
-                      <p className="text-lg font-semibold">
-                        {selectedConfig.valuation_settings?.mileage_adjustment?.threshold?.toLocaleString() || '15,000'} miles/year
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Excess Mileage Penalty</Label>
-                      <p className="text-lg font-semibold">
-                        ${selectedConfig.valuation_settings?.mileage_adjustment?.penalty_per_mile || '0.10'} per mile
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            
 
             {/* Sections Configuration */}
             <Card>
@@ -379,7 +329,7 @@ const TradeinConfig = () => {
                             <Checkbox
                               id="is_collapsible"
                               checked={sectionFormData.is_collapsible}
-                              onCheckedChange={(checked) => setSectionFormData({ ...sectionFormData, is_collapsible: checked })}
+                              onCheckedChange={(checked) => setSectionFormData({ ...sectionFormData, is_collapsible: checked as boolean })}
                             />
                             <Label htmlFor="is_collapsible">Collapsible section</Label>
                           </div>
@@ -387,7 +337,7 @@ const TradeinConfig = () => {
                             <Checkbox
                               id="is_expanded"
                               checked={sectionFormData.is_expanded_by_default}
-                              onCheckedChange={(checked) => setSectionFormData({ ...sectionFormData, is_expanded_by_default: checked })}
+                              onCheckedChange={(checked) => setSectionFormData({ ...sectionFormData, is_expanded_by_default: checked as boolean })}
                             />
                             <Label htmlFor="is_expanded">Expanded by default</Label>
                           </div>
@@ -413,7 +363,7 @@ const TradeinConfig = () => {
               </CardHeader>
               <CardContent>
                 <Accordion type="single" collapsible className="space-y-4">
-                  {selectedConfig.sections?.map((section) => (
+                  {selectedConfig.sections?.map((section: any) => (
                     <AccordionItem key={section.section_id} value={section.section_id}>
                       <AccordionTrigger className="text-left">
                         <div className="flex items-center justify-between w-full mr-4">
@@ -475,6 +425,71 @@ const TradeinConfig = () => {
                                       </SelectContent>
                                     </Select>
                                   </div>
+
+                                  {/* Dropdown Configuration */}
+                                  {fieldFormData.field_type === 'dropdown' && (
+                                    <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                                      <h4 className="font-medium">Dropdown Configuration</h4>
+                                      <div>
+                                        <Label htmlFor="dropdown_name">Select Dropdown</Label>
+                                        <Select
+                                          value={fieldFormData.dropdown_config.dropdown_name}
+                                          onValueChange={(value) => setFieldFormData({
+                                            ...fieldFormData,
+                                            dropdown_config: {
+                                              ...fieldFormData.dropdown_config,
+                                              dropdown_name: value
+                                            }
+                                          })}
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Choose a dropdown" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {dropdowns?.map((dropdown: any) => (
+                                              <SelectItem key={dropdown._id} value={dropdown.dropdown_name}>
+                                                {dropdown.display_name}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      
+                                      <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                          id="allow_multiple"
+                                          checked={fieldFormData.dropdown_config.allow_multiple}
+                                          onCheckedChange={(checked) => setFieldFormData({
+                                            ...fieldFormData,
+                                            dropdown_config: {
+                                              ...fieldFormData.dropdown_config,
+                                              allow_multiple: checked as boolean
+                                            }
+                                          })}
+                                        />
+                                        <Label htmlFor="allow_multiple">Allow multiple selection</Label>
+                                      </div>
+
+                                      {/* Preview dropdown values */}
+                                      {getSelectedDropdown() && (
+                                        <div className="mt-4">
+                                          <Label className="text-sm font-medium">Preview Values:</Label>
+                                          <div className="mt-2 space-y-1">
+                                            {getSelectedDropdown()?.values?.map((value: any, index: number) => (
+                                              <div key={index} className="flex items-center justify-between text-sm p-2 bg-background rounded border">
+                                                <span>{value.option_value}</span>
+                                                <div className="flex gap-1">
+                                                  {value.is_default && <Badge variant="outline" className="text-xs">Default</Badge>}
+                                                  <Badge variant="outline" className="text-xs">Order: {value.display_order}</Badge>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
                                   <div>
                                     <Label htmlFor="placeholder">Placeholder Text</Label>
                                     <Input
@@ -497,7 +512,7 @@ const TradeinConfig = () => {
                                     <Checkbox
                                       id="is_required"
                                       checked={fieldFormData.is_required}
-                                      onCheckedChange={(checked) => setFieldFormData({ ...fieldFormData, is_required: checked })}
+                                      onCheckedChange={(checked) => setFieldFormData({ ...fieldFormData, is_required: checked as boolean })}
                                     />
                                     <Label htmlFor="is_required">Required field</Label>
                                   </div>
@@ -505,7 +520,7 @@ const TradeinConfig = () => {
                                     <Checkbox
                                       id="has_image"
                                       checked={fieldFormData.has_image}
-                                      onCheckedChange={(checked) => setFieldFormData({ ...fieldFormData, has_image: checked })}
+                                      onCheckedChange={(checked) => setFieldFormData({ ...fieldFormData, has_image: checked as boolean })}
                                     />
                                     <Label htmlFor="has_image">Include image capture</Label>
                                   </div>
@@ -523,7 +538,7 @@ const TradeinConfig = () => {
                           {/* Fields List */}
                           {section.fields?.length > 0 && (
                             <div className="space-y-2">
-                              {section.fields.map((field, index) => (
+                              {section.fields.map((field: any, index: number) => (
                                 <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                                   <div className="flex items-center space-x-3">
                                     <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -533,6 +548,11 @@ const TradeinConfig = () => {
                                         <Badge variant="outline" className="text-xs">{field.field_type}</Badge>
                                         {field.is_required && <Badge variant="outline" className="text-xs">Required</Badge>}
                                         {field.has_image && <Badge variant="outline" className="text-xs">Image</Badge>}
+                                        {field.field_type === 'dropdown' && field.dropdown_config?.dropdown_name && 
+                                          <Badge variant="outline" className="text-xs">
+                                            {dropdowns?.find((d: any) => d.dropdown_name === field.dropdown_config.dropdown_name)?.display_name}
+                                          </Badge>
+                                        }
                                       </div>
                                     </div>
                                   </div>
