@@ -1,21 +1,62 @@
-
-import React, { useState } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Settings, Trash2, GripVertical, Eye, Save, Search, Edit, Filter } from 'lucide-react';
-import { toast } from 'sonner';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { configServices, dropdownServices } from '@/api/services';
-import DeleteConfirmationDialog from '@/components/dialogs/DeleteConfirmationDialog';
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import React, { useState } from "react";
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Plus,
+  Settings,
+  Trash2,
+  GripVertical,
+  Eye,
+  Save,
+  Search,
+  Edit,
+  Filter,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { configServices, dropdownServices } from "@/api/services";
+import DeleteConfirmationDialog from "@/components/dialogs/DeleteConfirmationDialog";
+import ConfigPreviewModal from "@/components/inspection/ConfigPreviewModal";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 const InspectionConfig = () => {
   const queryClient = useQueryClient();
@@ -25,113 +66,163 @@ const InspectionConfig = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSectionDialogOpen, setIsSectionDialogOpen] = useState(false);
   const [isFieldDialogOpen, setIsFieldDialogOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSection, setSelectedSection] = useState(null);
   const [configToDelete, setConfigToDelete] = useState(null);
   const [configToEdit, setConfigToEdit] = useState(null);
 
   // Search and filter states
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const [configFormData, setConfigFormData] = useState({
-    config_name: '',
-    description: '',
-    is_active: false
+    config_name: "",
+    description: "",
+    is_active: false,
   });
 
   const [editFormData, setEditFormData] = useState({
-    config_name: '',
-    description: '',
-    is_active: false
+    config_name: "",
+    description: "",
+    is_active: false,
   });
 
   const [sectionFormData, setSectionFormData] = useState({
-    section_name: '',
-    description: '',
+    section_name: "",
+    description: "",
     is_collapsible: true,
-    is_expanded_by_default: false
+    is_expanded_by_default: false,
   });
 
   const [fieldFormData, setFieldFormData] = useState({
-    field_name: '',
-    field_type: 'text',
+    field_name: "",
+    field_type: "text",
     is_required: false,
     has_image: false,
-    placeholder: '',
-    help_text: '',
+    placeholder: "",
+    help_text: "",
     dropdown_config: {
-      dropdown_name: '',
-      allow_multiple: false
-    }
+      dropdown_name: "",
+      allow_multiple: false,
+    },
   });
 
   // Queries
-  const { data: configsData, isLoading: configsLoading, refetch } = useQuery({
-    queryKey: ['inspection-configs', currentPage, searchTerm, statusFilter],
+  const {
+    data: configsData,
+    isLoading: configsLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["inspection-configs", currentPage, searchTerm, statusFilter],
     queryFn: async () => {
       const params = {
         page: currentPage,
         limit: 6,
         search: searchTerm,
-        status: statusFilter
+        status: statusFilter,
       };
       const response = await configServices.getInspectionConfigs(params);
       return response.data;
-    }
+    },
   });
 
   const { data: selectedConfigDetails, isLoading: detailsLoading } = useQuery({
-    queryKey: ['inspection-config-details', selectedConfig?._id],
+    queryKey: ["inspection-config-details", selectedConfig?._id],
     queryFn: async () => {
       if (!selectedConfig) return null;
-      const response = await configServices.getInspectionConfigDetails(selectedConfig._id);
+      const response = await configServices.getInspectionConfigDetails(
+        selectedConfig._id
+      );
       return response.data.data;
     },
-    enabled: !!selectedConfig
+    enabled: !!selectedConfig,
   });
 
   const { data: dropdowns } = useQuery({
-    queryKey: ['dropdowns-for-config'],
+    queryKey: ["dropdowns-for-config"],
     queryFn: async () => {
       const response = await dropdownServices.getDropdowns();
       return response.data.data;
-    }
+    },
   });
 
   // Mutations
   const createConfigMutation = useMutation({
     mutationFn: configServices.createInspectionConfig,
     onSuccess: () => {
-      toast.success('Configuration created successfully');
+      toast.success("Configuration created successfully");
       setIsConfigDialogOpen(false);
-      setConfigFormData({ config_name: '', description: '', is_active: false });
+      setConfigFormData({ config_name: "", description: "", is_active: false });
       refetch();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create configuration');
-    }
+      toast.error(
+        error.response?.data?.message || "Failed to create configuration"
+      );
+    },
   });
 
   const updateConfigMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => 
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
       configServices.updateInspectionConfig(id, data),
     onSuccess: () => {
-      toast.success('Configuration updated successfully');
+      toast.success("Configuration updated successfully");
       setIsEditDialogOpen(false);
       setConfigToEdit(null);
       refetch();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update configuration');
-    }
+      toast.error(
+        error.response?.data?.message || "Failed to update configuration"
+      );
+    },
   });
+
+  const saveConfigMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      configServices.updateInspectionConfig(id, data),
+    onSuccess: () => {
+      toast.success("Configuration saved successfully");
+      queryClient.invalidateQueries({ queryKey: ["inspection-configs"] });
+      queryClient.invalidateQueries({
+        queryKey: ["inspection-config-details"],
+      });
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to save configuration"
+      );
+    },
+  });
+
+  const handleSaveChanges = async () => {
+    if (!selectedConfig || !selectedConfigDetails) {
+      toast.error("No configuration selected");
+      return;
+    }
+
+    try {
+      await saveConfigMutation.mutateAsync({
+        id: selectedConfig._id,
+        data: {
+          config_name: selectedConfig.config_name,
+          description: selectedConfig.description,
+          is_active: selectedConfig.is_active,
+          categories: selectedConfigDetails.categories,
+          settings: selectedConfigDetails.settings,
+        },
+      });
+    } catch (error) {
+      console.error("Save error:", error);
+    }
+  };
 
   const deleteConfigMutation = useMutation({
     mutationFn: configServices.deleteInspectionConfig,
     onSuccess: () => {
-      toast.success('Configuration deleted successfully');
+      toast.success("Configuration deleted successfully");
       setIsDeleteDialogOpen(false);
       setConfigToDelete(null);
       if (selectedConfig && selectedConfig._id === configToDelete?._id) {
@@ -140,52 +231,72 @@ const InspectionConfig = () => {
       refetch();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to delete configuration');
-    }
+      toast.error(
+        error.response?.data?.message || "Failed to delete configuration"
+      );
+    },
   });
 
   const addSectionMutation = useMutation({
-    mutationFn: ({ configId, categoryId, data }: { configId: string; categoryId: string; data: any }) =>
-      configServices.addInspectionSection(configId, categoryId, data),
+    mutationFn: ({
+      configId,
+      categoryId,
+      data,
+    }: {
+      configId: string;
+      categoryId: string;
+      data: any;
+    }) => configServices.addInspectionSection(configId, categoryId, data),
     onSuccess: () => {
-      toast.success('Section added successfully');
+      toast.success("Section added successfully");
       setIsSectionDialogOpen(false);
       setSectionFormData({
-        section_name: '',
-        description: '',
+        section_name: "",
+        description: "",
         is_collapsible: true,
-        is_expanded_by_default: false
+        is_expanded_by_default: false,
       });
-      queryClient.invalidateQueries({ queryKey: ['inspection-config-details'] });
+      queryClient.invalidateQueries({
+        queryKey: ["inspection-config-details"],
+      });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to add section');
-    }
+      toast.error(error.response?.data?.message || "Failed to add section");
+    },
   });
 
   const addFieldMutation = useMutation({
-    mutationFn: ({ configId, sectionId, data }: { configId: string; sectionId: string; data: any }) =>
-      configServices.addInspectionField(configId, sectionId, data),
+    mutationFn: ({
+      configId,
+      sectionId,
+      data,
+    }: {
+      configId: string;
+      sectionId: string;
+      data: any;
+    }) => configServices.addInspectionField(configId, sectionId, data),
     onSuccess: () => {
-      toast.success('Field added successfully');
+      toast.success("Field added successfully");
       setIsFieldDialogOpen(false);
       setFieldFormData({
-        field_name: '',
-        field_type: 'text',
+        field_name: "",
+        field_type: "text",
         is_required: false,
         has_image: false,
-        placeholder: '',
-        help_text: '',
+        placeholder: "",
+        help_text: "",
         dropdown_config: {
-          dropdown_name: '',
-          allow_multiple: false
-        }
+          dropdown_name: "",
+          allow_multiple: false,
+        },
       });
-      queryClient.invalidateQueries({ queryKey: ['inspection-config-details'] });
+      queryClient.invalidateQueries({
+        queryKey: ["inspection-config-details"],
+      });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to add field');
-    }
+      toast.error(error.response?.data?.message || "Failed to add field");
+    },
   });
 
   const handleCreateConfig = async (e: React.FormEvent) => {
@@ -197,8 +308,8 @@ const InspectionConfig = () => {
     setConfigToEdit(config);
     setEditFormData({
       config_name: config.config_name,
-      description: config.description || '',
-      is_active: config.is_active
+      description: config.description || "",
+      is_active: config.is_active,
     });
     setIsEditDialogOpen(true);
   };
@@ -208,13 +319,21 @@ const InspectionConfig = () => {
     if (!configToEdit) return;
     updateConfigMutation.mutate({
       id: configToEdit._id,
-      data: editFormData
+      data: editFormData,
     });
   };
 
   const handleDeleteConfig = (config: any) => {
     setConfigToDelete(config);
     setIsDeleteDialogOpen(true);
+  };
+
+  const handlePreview = () => {
+    if (!selectedConfigDetails) {
+      toast.error("No configuration selected to preview");
+      return;
+    }
+    setIsPreviewOpen(true);
   };
 
   const confirmDelete = () => {
@@ -225,11 +344,11 @@ const InspectionConfig = () => {
   const handleAddSection = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedConfig || !selectedCategory) return;
-    
+
     addSectionMutation.mutate({
       configId: selectedConfig._id,
       categoryId: selectedCategory,
-      data: sectionFormData
+      data: sectionFormData,
     });
   };
 
@@ -244,13 +363,16 @@ const InspectionConfig = () => {
       has_image: fieldFormData.has_image,
       placeholder: fieldFormData.placeholder,
       help_text: fieldFormData.help_text,
-      dropdown_config: fieldFormData.field_type === 'dropdown' ? fieldFormData.dropdown_config : undefined
+      dropdown_config:
+        fieldFormData.field_type === "dropdown"
+          ? fieldFormData.dropdown_config
+          : undefined,
     };
 
     addFieldMutation.mutate({
       configId: selectedConfig._id,
       sectionId: selectedSection.section_id,
-      data: fieldData
+      data: fieldData,
     });
   };
 
@@ -265,14 +387,14 @@ const InspectionConfig = () => {
   };
 
   const fieldTypes = [
-    { value: 'text', label: 'Text' },
-    { value: 'number', label: 'Number' },
-    { value: 'currency', label: 'Currency' },
-    { value: 'video', label: 'Video' },
-    { value: 'dropdown', label: 'Dropdown' },
-    { value: 'image', label: 'Image' },
-    { value: 'date', label: 'Date' },
-    { value: 'boolean', label: 'Yes/No' }
+    { value: "text", label: "Text" },
+    { value: "number", label: "Number" },
+    { value: "currency", label: "Currency" },
+    { value: "video", label: "Video" },
+    { value: "dropdown", label: "Dropdown" },
+    { value: "image", label: "Image" },
+    { value: "date", label: "Date" },
+    { value: "boolean", label: "Yes/No" },
   ];
 
   const configs = configsData?.data || [];
@@ -284,10 +406,17 @@ const InspectionConfig = () => {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Inspection Configuration</h2>
-            <p className="text-muted-foreground">Configure dynamic forms for mobile inspections</p>
+            <h2 className="text-3xl font-bold tracking-tight">
+              Inspection Configuration
+            </h2>
+            <p className="text-muted-foreground">
+              Configure dynamic forms for mobile inspections
+            </p>
           </div>
-          <Dialog open={isConfigDialogOpen} onOpenChange={setIsConfigDialogOpen}>
+          <Dialog
+            open={isConfigDialogOpen}
+            onOpenChange={setIsConfigDialogOpen}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
@@ -307,7 +436,12 @@ const InspectionConfig = () => {
                   <Input
                     id="config_name"
                     value={configFormData.config_name}
-                    onChange={(e) => setConfigFormData({ ...configFormData, config_name: e.target.value })}
+                    onChange={(e) =>
+                      setConfigFormData({
+                        ...configFormData,
+                        config_name: e.target.value,
+                      })
+                    }
                     placeholder="Standard Inspection v1.0"
                     required
                   />
@@ -317,7 +451,12 @@ const InspectionConfig = () => {
                   <Input
                     id="description"
                     value={configFormData.description}
-                    onChange={(e) => setConfigFormData({ ...configFormData, description: e.target.value })}
+                    onChange={(e) =>
+                      setConfigFormData({
+                        ...configFormData,
+                        description: e.target.value,
+                      })
+                    }
                     placeholder="Standard vehicle inspection configuration"
                   />
                 </div>
@@ -325,16 +464,30 @@ const InspectionConfig = () => {
                   <Checkbox
                     id="is_active"
                     checked={configFormData.is_active}
-                    onCheckedChange={(checked) => setConfigFormData({ ...configFormData, is_active: checked === true })}
+                    onCheckedChange={(checked) =>
+                      setConfigFormData({
+                        ...configFormData,
+                        is_active: checked === true,
+                      })
+                    }
                   />
                   <Label htmlFor="is_active">Set as active configuration</Label>
                 </div>
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsConfigDialogOpen(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsConfigDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createConfigMutation.isPending}>
-                    {createConfigMutation.isPending ? 'Creating...' : 'Create Configuration'}
+                  <Button
+                    type="submit"
+                    disabled={createConfigMutation.isPending}
+                  >
+                    {createConfigMutation.isPending
+                      ? "Creating..."
+                      : "Create Configuration"}
                   </Button>
                 </div>
               </form>
@@ -357,7 +510,7 @@ const InspectionConfig = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                   />
                 </div>
               </div>
@@ -384,7 +537,9 @@ const InspectionConfig = () => {
         <Card>
           <CardHeader>
             <CardTitle>Configurations</CardTitle>
-            <CardDescription>Select a configuration to edit or manage</CardDescription>
+            <CardDescription>
+              Select a configuration to edit or manage
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {configsLoading ? (
@@ -400,18 +555,30 @@ const InspectionConfig = () => {
                     <div
                       key={config._id}
                       className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        selectedConfig?._id === config._id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                        selectedConfig?._id === config._id
+                          ? "border-primary bg-primary/5"
+                          : "hover:bg-muted/50"
                       }`}
                       onClick={() => setSelectedConfig(config)}
                     >
                       <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-semibold truncate">{config.config_name}</h3>
+                        <h3 className="font-semibold truncate">
+                          {config.config_name}
+                        </h3>
                         <div className="flex gap-1 ml-2">
-                          {config.is_active && <Badge className="bg-green-100 text-green-800">Active</Badge>}
-                          {!config.is_active && <Badge variant="secondary">Inactive</Badge>}
+                          {config.is_active && (
+                            <Badge className="bg-green-100 text-green-800">
+                              Active
+                            </Badge>
+                          )}
+                          {!config.is_active && (
+                            <Badge variant="secondary">Inactive</Badge>
+                          )}
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{config.description}</p>
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {config.description}
+                      </p>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <span>v{config.version}</span>
@@ -448,13 +615,22 @@ const InspectionConfig = () => {
                   <Pagination>
                     <PaginationContent>
                       <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                          className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        <PaginationPrevious
+                          onClick={() =>
+                            setCurrentPage(Math.max(1, currentPage - 1))
+                          }
+                          className={
+                            currentPage === 1
+                              ? "pointer-events-none opacity-50"
+                              : "cursor-pointer"
+                          }
                         />
                       </PaginationItem>
-                      
-                      {Array.from({ length: pagination.total_pages }, (_, i) => i + 1).map((page) => (
+
+                      {Array.from(
+                        { length: pagination.total_pages },
+                        (_, i) => i + 1
+                      ).map((page) => (
                         <PaginationItem key={page}>
                           <PaginationLink
                             onClick={() => setCurrentPage(page)}
@@ -465,11 +641,19 @@ const InspectionConfig = () => {
                           </PaginationLink>
                         </PaginationItem>
                       ))}
-                      
+
                       <PaginationItem>
-                        <PaginationNext 
-                          onClick={() => setCurrentPage(Math.min(pagination.total_pages, currentPage + 1))}
-                          className={currentPage === pagination.total_pages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        <PaginationNext
+                          onClick={() =>
+                            setCurrentPage(
+                              Math.min(pagination.total_pages, currentPage + 1)
+                            )
+                          }
+                          className={
+                            currentPage === pagination.total_pages
+                              ? "pointer-events-none opacity-50"
+                              : "cursor-pointer"
+                          }
                         />
                       </PaginationItem>
                     </PaginationContent>
@@ -486,47 +670,71 @@ const InspectionConfig = () => {
             <CardHeader>
               <div className="flex justify-between items-center">
                 <div>
-                  <CardTitle>Edit Configuration: {selectedConfig.config_name}</CardTitle>
-                  <CardDescription>Configure categories, sections, and fields for this inspection</CardDescription>
+                  <CardTitle>
+                    Edit Configuration: {selectedConfig.config_name}
+                  </CardTitle>
+                  <CardDescription>
+                    Configure categories, sections, and fields for this
+                    inspection
+                  </CardDescription>
                 </div>
                 <div className="flex space-x-2">
-                  <Button variant="outline">
+                  <Button variant="outline" onClick={handlePreview}>
                     <Eye className="h-4 w-4 mr-2" />
                     Preview
                   </Button>
-                  <Button>
+                  <Button 
+                    onClick={handleSaveChanges}
+                    disabled={saveConfigMutation.isPending}
+                  >
                     <Save className="h-4 w-4 mr-2" />
-                    Save Changes
+                    {saveConfigMutation.isPending ? 'Saving...' : 'Save Changes'}
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               {detailsLoading ? (
-                <div className="text-center py-8">Loading configuration details...</div>
+                <div className="text-center py-8">
+                  Loading configuration details...
+                </div>
               ) : (
                 <Accordion type="single" collapsible className="space-y-4">
                   {selectedConfigDetails.categories?.map((category: any) => (
-                    <AccordionItem key={category.category_id} value={category.category_id}>
+                    <AccordionItem
+                      key={category.category_id}
+                      value={category.category_id}
+                    >
                       <AccordionTrigger className="text-left">
                         <div className="flex items-center justify-between w-full mr-4">
                           <div>
-                            <h3 className="font-semibold">{category.category_name}</h3>
-                            <p className="text-sm text-muted-foreground">{category.description}</p>
+                            <h3 className="font-semibold">
+                              {category.category_name}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {category.description}
+                            </p>
                           </div>
-                          <Badge variant="outline">{category.sections?.length || 0} sections</Badge>
+                          <Badge variant="outline">
+                            {category.sections?.length || 0} sections
+                          </Badge>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="space-y-4 pl-4">
                           <div className="flex justify-between items-center">
                             <h4 className="font-medium">Sections</h4>
-                            <Dialog open={isSectionDialogOpen} onOpenChange={setIsSectionDialogOpen}>
+                            <Dialog
+                              open={isSectionDialogOpen}
+                              onOpenChange={setIsSectionDialogOpen}
+                            >
                               <DialogTrigger asChild>
-                                <Button 
-                                  size="sm" 
+                                <Button
+                                  size="sm"
                                   variant="outline"
-                                  onClick={() => setSelectedCategory(category.category_id)}
+                                  onClick={() =>
+                                    setSelectedCategory(category.category_id)
+                                  }
                                 >
                                   <Plus className="h-4 w-4 mr-2" />
                                   Add Section
@@ -534,28 +742,47 @@ const InspectionConfig = () => {
                               </DialogTrigger>
                               <DialogContent>
                                 <DialogHeader>
-                                  <DialogTitle>Add Section to {category.category_name}</DialogTitle>
+                                  <DialogTitle>
+                                    Add Section to {category.category_name}
+                                  </DialogTitle>
                                   <DialogDescription>
                                     Create a new section within this category
                                   </DialogDescription>
                                 </DialogHeader>
-                                <form onSubmit={handleAddSection} className="space-y-4">
+                                <form
+                                  onSubmit={handleAddSection}
+                                  className="space-y-4"
+                                >
                                   <div>
-                                    <Label htmlFor="section_name">Section Name</Label>
+                                    <Label htmlFor="section_name">
+                                      Section Name
+                                    </Label>
                                     <Input
                                       id="section_name"
                                       value={sectionFormData.section_name}
-                                      onChange={(e) => setSectionFormData({ ...sectionFormData, section_name: e.target.value })}
+                                      onChange={(e) =>
+                                        setSectionFormData({
+                                          ...sectionFormData,
+                                          section_name: e.target.value,
+                                        })
+                                      }
                                       placeholder="Engine Inspection"
                                       required
                                     />
                                   </div>
                                   <div>
-                                    <Label htmlFor="section_description">Description</Label>
+                                    <Label htmlFor="section_description">
+                                      Description
+                                    </Label>
                                     <Input
                                       id="section_description"
                                       value={sectionFormData.description}
-                                      onChange={(e) => setSectionFormData({ ...sectionFormData, description: e.target.value })}
+                                      onChange={(e) =>
+                                        setSectionFormData({
+                                          ...sectionFormData,
+                                          description: e.target.value,
+                                        })
+                                      }
                                       placeholder="Check engine components and performance"
                                     />
                                   </div>
@@ -563,24 +790,52 @@ const InspectionConfig = () => {
                                     <Checkbox
                                       id="is_collapsible"
                                       checked={sectionFormData.is_collapsible}
-                                      onCheckedChange={(checked) => setSectionFormData({ ...sectionFormData, is_collapsible: checked === true })}
+                                      onCheckedChange={(checked) =>
+                                        setSectionFormData({
+                                          ...sectionFormData,
+                                          is_collapsible: checked === true,
+                                        })
+                                      }
                                     />
-                                    <Label htmlFor="is_collapsible">Collapsible section</Label>
+                                    <Label htmlFor="is_collapsible">
+                                      Collapsible section
+                                    </Label>
                                   </div>
                                   <div className="flex items-center space-x-2">
                                     <Checkbox
                                       id="is_expanded"
-                                      checked={sectionFormData.is_expanded_by_default}
-                                      onCheckedChange={(checked) => setSectionFormData({ ...sectionFormData, is_expanded_by_default: checked === true })}
+                                      checked={
+                                        sectionFormData.is_expanded_by_default
+                                      }
+                                      onCheckedChange={(checked) =>
+                                        setSectionFormData({
+                                          ...sectionFormData,
+                                          is_expanded_by_default:
+                                            checked === true,
+                                        })
+                                      }
                                     />
-                                    <Label htmlFor="is_expanded">Expanded by default</Label>
+                                    <Label htmlFor="is_expanded">
+                                      Expanded by default
+                                    </Label>
                                   </div>
                                   <div className="flex justify-end space-x-2">
-                                    <Button type="button" variant="outline" onClick={() => setIsSectionDialogOpen(false)}>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() =>
+                                        setIsSectionDialogOpen(false)
+                                      }
+                                    >
                                       Cancel
                                     </Button>
-                                    <Button type="submit" disabled={addSectionMutation.isPending}>
-                                      {addSectionMutation.isPending ? 'Adding...' : 'Add Section'}
+                                    <Button
+                                      type="submit"
+                                      disabled={addSectionMutation.isPending}
+                                    >
+                                      {addSectionMutation.isPending
+                                        ? "Adding..."
+                                        : "Add Section"}
                                     </Button>
                                   </div>
                                 </form>
@@ -589,54 +844,90 @@ const InspectionConfig = () => {
                           </div>
 
                           {category.sections?.map((section: any) => (
-                            <div key={section.section_id} className="border rounded-lg p-4">
+                            <div
+                              key={section.section_id}
+                              className="border rounded-lg p-4"
+                            >
                               <div className="flex justify-between items-center mb-2">
                                 <div>
-                                  <h5 className="font-medium">{section.section_name}</h5>
-                                  <p className="text-sm text-muted-foreground">{section.description}</p>
+                                  <h5 className="font-medium">
+                                    {section.section_name}
+                                  </h5>
+                                  <p className="text-sm text-muted-foreground">
+                                    {section.description}
+                                  </p>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                  <Badge variant="outline">{section.fields?.length || 0} fields</Badge>
-                                  <Dialog open={isFieldDialogOpen} onOpenChange={setIsFieldDialogOpen}>
+                                  <Badge variant="outline">
+                                    {section.fields?.length || 0} fields
+                                  </Badge>
+                                  <Dialog
+                                    open={isFieldDialogOpen}
+                                    onOpenChange={setIsFieldDialogOpen}
+                                  >
                                     <DialogTrigger asChild>
-                                      <Button 
-                                        size="sm" 
+                                      <Button
+                                        size="sm"
                                         variant="outline"
-                                        onClick={() => setSelectedSection(section)}
+                                        onClick={() =>
+                                          setSelectedSection(section)
+                                        }
                                       >
                                         <Plus className="h-4 w-4" />
                                       </Button>
                                     </DialogTrigger>
                                     <DialogContent className="max-h-[80vh] overflow-y-auto">
                                       <DialogHeader>
-                                        <DialogTitle>Add Field to {section.section_name}</DialogTitle>
+                                        <DialogTitle>
+                                          Add Field to {section.section_name}
+                                        </DialogTitle>
                                         <DialogDescription>
                                           Create a new field within this section
                                         </DialogDescription>
                                       </DialogHeader>
-                                      <form onSubmit={handleAddField} className="space-y-4">
+                                      <form
+                                        onSubmit={handleAddField}
+                                        className="space-y-4"
+                                      >
                                         <div>
-                                          <Label htmlFor="field_name">Field Name</Label>
+                                          <Label htmlFor="field_name">
+                                            Field Name
+                                          </Label>
                                           <Input
                                             id="field_name"
                                             value={fieldFormData.field_name}
-                                            onChange={(e) => setFieldFormData({ ...fieldFormData, field_name: e.target.value })}
+                                            onChange={(e) =>
+                                              setFieldFormData({
+                                                ...fieldFormData,
+                                                field_name: e.target.value,
+                                              })
+                                            }
                                             placeholder="Oil Level"
                                             required
                                           />
                                         </div>
                                         <div>
-                                          <Label htmlFor="field_type">Field Type</Label>
-                                          <Select 
-                                            value={fieldFormData.field_type} 
-                                            onValueChange={(value) => setFieldFormData({ ...fieldFormData, field_type: value })}
+                                          <Label htmlFor="field_type">
+                                            Field Type
+                                          </Label>
+                                          <Select
+                                            value={fieldFormData.field_type}
+                                            onValueChange={(value) =>
+                                              setFieldFormData({
+                                                ...fieldFormData,
+                                                field_type: value,
+                                              })
+                                            }
                                           >
                                             <SelectTrigger>
                                               <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
                                               {fieldTypes.map((type) => (
-                                                <SelectItem key={type.value} value={type.value}>
+                                                <SelectItem
+                                                  key={type.value}
+                                                  value={type.value}
+                                                >
                                                   {type.label}
                                                 </SelectItem>
                                               ))}
@@ -645,65 +936,107 @@ const InspectionConfig = () => {
                                         </div>
 
                                         {/* Dropdown Configuration */}
-                                        {fieldFormData.field_type === 'dropdown' && (
+                                        {fieldFormData.field_type ===
+                                          "dropdown" && (
                                           <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-                                            <h4 className="font-medium">Dropdown Configuration</h4>
+                                            <h4 className="font-medium">
+                                              Dropdown Configuration
+                                            </h4>
                                             <div>
-                                              <Label htmlFor="dropdown_name">Select Dropdown</Label>
-                                              <Select 
-                                                value={fieldFormData.dropdown_config.dropdown_name} 
-                                                onValueChange={(value) => setFieldFormData({ 
-                                                  ...fieldFormData, 
-                                                  dropdown_config: { 
-                                                    ...fieldFormData.dropdown_config, 
-                                                    dropdown_name: value 
-                                                  } 
-                                                })}
+                                              <Label htmlFor="dropdown_name">
+                                                Select Dropdown
+                                              </Label>
+                                              <Select
+                                                value={
+                                                  fieldFormData.dropdown_config
+                                                    .dropdown_name
+                                                }
+                                                onValueChange={(value) =>
+                                                  setFieldFormData({
+                                                    ...fieldFormData,
+                                                    dropdown_config: {
+                                                      ...fieldFormData.dropdown_config,
+                                                      dropdown_name: value,
+                                                    },
+                                                  })
+                                                }
                                               >
                                                 <SelectTrigger>
                                                   <SelectValue placeholder="Choose a dropdown" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                  {dropdowns?.map((dropdown: any) => (
-                                                    <SelectItem key={dropdown._id} value={dropdown.dropdown_name}>
-                                                      {dropdown.display_name} ({dropdown.dropdown_name})
-                                                    </SelectItem>
-                                                  ))}
+                                                  {dropdowns?.map(
+                                                    (dropdown: any) => (
+                                                      <SelectItem
+                                                        key={dropdown._id}
+                                                        value={
+                                                          dropdown.dropdown_name
+                                                        }
+                                                      >
+                                                        {dropdown.display_name}{" "}
+                                                        (
+                                                        {dropdown.dropdown_name}
+                                                        )
+                                                      </SelectItem>
+                                                    )
+                                                  )}
                                                 </SelectContent>
                                               </Select>
                                             </div>
                                             <div className="flex items-center space-x-2">
                                               <Checkbox
                                                 id="allow_multiple_dropdown"
-                                                checked={fieldFormData.dropdown_config.allow_multiple}
-                                                onCheckedChange={(checked) => setFieldFormData({ 
-                                                  ...fieldFormData, 
-                                                  dropdown_config: { 
-                                                    ...fieldFormData.dropdown_config, 
-                                                    allow_multiple: checked === true 
-                                                  } 
-                                                })}
+                                                checked={
+                                                  fieldFormData.dropdown_config
+                                                    .allow_multiple
+                                                }
+                                                onCheckedChange={(checked) =>
+                                                  setFieldFormData({
+                                                    ...fieldFormData,
+                                                    dropdown_config: {
+                                                      ...fieldFormData.dropdown_config,
+                                                      allow_multiple:
+                                                        checked === true,
+                                                    },
+                                                  })
+                                                }
                                               />
-                                              <Label htmlFor="allow_multiple_dropdown">Allow multiple selections</Label>
+                                              <Label htmlFor="allow_multiple_dropdown">
+                                                Allow multiple selections
+                                              </Label>
                                             </div>
                                           </div>
                                         )}
 
                                         <div>
-                                          <Label htmlFor="placeholder">Placeholder Text</Label>
+                                          <Label htmlFor="placeholder">
+                                            Placeholder Text
+                                          </Label>
                                           <Input
                                             id="placeholder"
                                             value={fieldFormData.placeholder}
-                                            onChange={(e) => setFieldFormData({ ...fieldFormData, placeholder: e.target.value })}
+                                            onChange={(e) =>
+                                              setFieldFormData({
+                                                ...fieldFormData,
+                                                placeholder: e.target.value,
+                                              })
+                                            }
                                             placeholder="Enter oil level status"
                                           />
                                         </div>
                                         <div>
-                                          <Label htmlFor="help_text">Help Text</Label>
+                                          <Label htmlFor="help_text">
+                                            Help Text
+                                          </Label>
                                           <Input
                                             id="help_text"
                                             value={fieldFormData.help_text}
-                                            onChange={(e) => setFieldFormData({ ...fieldFormData, help_text: e.target.value })}
+                                            onChange={(e) =>
+                                              setFieldFormData({
+                                                ...fieldFormData,
+                                                help_text: e.target.value,
+                                              })
+                                            }
                                             placeholder="Check dipstick for oil level"
                                           />
                                         </div>
@@ -711,24 +1044,51 @@ const InspectionConfig = () => {
                                           <Checkbox
                                             id="is_required"
                                             checked={fieldFormData.is_required}
-                                            onCheckedChange={(checked) => setFieldFormData({ ...fieldFormData, is_required: checked === true })}
+                                            onCheckedChange={(checked) =>
+                                              setFieldFormData({
+                                                ...fieldFormData,
+                                                is_required: checked === true,
+                                              })
+                                            }
                                           />
-                                          <Label htmlFor="is_required">Required field</Label>
+                                          <Label htmlFor="is_required">
+                                            Required field
+                                          </Label>
                                         </div>
                                         <div className="flex items-center space-x-2">
                                           <Checkbox
                                             id="has_image"
                                             checked={fieldFormData.has_image}
-                                            onCheckedChange={(checked) => setFieldFormData({ ...fieldFormData, has_image: checked === true })}
+                                            onCheckedChange={(checked) =>
+                                              setFieldFormData({
+                                                ...fieldFormData,
+                                                has_image: checked === true,
+                                              })
+                                            }
                                           />
-                                          <Label htmlFor="has_image">Include image capture</Label>
+                                          <Label htmlFor="has_image">
+                                            Include image capture
+                                          </Label>
                                         </div>
                                         <div className="flex justify-end space-x-2">
-                                          <Button type="button" variant="outline" onClick={() => setIsFieldDialogOpen(false)}>
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() =>
+                                              setIsFieldDialogOpen(false)
+                                            }
+                                          >
                                             Cancel
                                           </Button>
-                                          <Button type="submit" disabled={addFieldMutation.isPending}>
-                                            {addFieldMutation.isPending ? 'Adding...' : 'Add Field'}
+                                          <Button
+                                            type="submit"
+                                            disabled={
+                                              addFieldMutation.isPending
+                                            }
+                                          >
+                                            {addFieldMutation.isPending
+                                              ? "Adding..."
+                                              : "Add Field"}
                                           </Button>
                                         </div>
                                       </form>
@@ -743,25 +1103,59 @@ const InspectionConfig = () => {
                               {/* Fields List */}
                               {section.fields?.length > 0 && (
                                 <div className="space-y-2 mt-4">
-                                  {section.fields.map((field: any, index: number) => (
-                                    <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                                      <div className="flex items-center space-x-2">
-                                        <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                        <span className="font-medium">{field.field_name}</span>
-                                        <Badge variant="outline" className="text-xs">{field.field_type}</Badge>
-                                        {field.is_required && <Badge variant="outline" className="text-xs">Required</Badge>}
-                                        {field.has_image && <Badge variant="outline" className="text-xs">Image</Badge>}
-                                        {field.field_type === 'dropdown' && field.dropdown_config?.dropdown_name && (
-                                          <Badge variant="outline" className="text-xs">
-                                            {field.dropdown_config.dropdown_name}
+                                  {section.fields.map(
+                                    (field: any, index: number) => (
+                                      <div
+                                        key={index}
+                                        className="flex items-center justify-between p-2 bg-muted/50 rounded"
+                                      >
+                                        <div className="flex items-center space-x-2">
+                                          <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                          <span className="font-medium">
+                                            {field.field_name}
+                                          </span>
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs"
+                                          >
+                                            {field.field_type}
                                           </Badge>
-                                        )}
+                                          {field.is_required && (
+                                            <Badge
+                                              variant="outline"
+                                              className="text-xs"
+                                            >
+                                              Required
+                                            </Badge>
+                                          )}
+                                          {field.has_image && (
+                                            <Badge
+                                              variant="outline"
+                                              className="text-xs"
+                                            >
+                                              Image
+                                            </Badge>
+                                          )}
+                                          {field.field_type === "dropdown" &&
+                                            field.dropdown_config
+                                              ?.dropdown_name && (
+                                              <Badge
+                                                variant="outline"
+                                                className="text-xs"
+                                              >
+                                                {
+                                                  field.dropdown_config
+                                                    .dropdown_name
+                                                }
+                                              </Badge>
+                                            )}
+                                        </div>
+                                        <Button size="sm" variant="ghost">
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
                                       </div>
-                                      <Button size="sm" variant="ghost">
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  ))}
+                                    )
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -791,7 +1185,12 @@ const InspectionConfig = () => {
                 <Input
                   id="edit_config_name"
                   value={editFormData.config_name}
-                  onChange={(e) => setEditFormData({ ...editFormData, config_name: e.target.value })}
+                  onChange={(e) =>
+                    setEditFormData({
+                      ...editFormData,
+                      config_name: e.target.value,
+                    })
+                  }
                   placeholder="Configuration name"
                   required
                 />
@@ -801,7 +1200,12 @@ const InspectionConfig = () => {
                 <Input
                   id="edit_description"
                   value={editFormData.description}
-                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  onChange={(e) =>
+                    setEditFormData({
+                      ...editFormData,
+                      description: e.target.value,
+                    })
+                  }
                   placeholder="Configuration description"
                 />
               </div>
@@ -809,21 +1213,38 @@ const InspectionConfig = () => {
                 <Checkbox
                   id="edit_is_active"
                   checked={editFormData.is_active}
-                  onCheckedChange={(checked) => setEditFormData({ ...editFormData, is_active: checked === true })}
+                  onCheckedChange={(checked) =>
+                    setEditFormData({
+                      ...editFormData,
+                      is_active: checked === true,
+                    })
+                  }
                 />
                 <Label htmlFor="edit_is_active">Active configuration</Label>
               </div>
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={updateConfigMutation.isPending}>
-                  {updateConfigMutation.isPending ? 'Updating...' : 'Update Configuration'}
+                  {updateConfigMutation.isPending
+                    ? "Updating..."
+                    : "Update Configuration"}
                 </Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
+
+        <ConfigPreviewModal
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          configData={selectedConfigDetails}
+        />
 
         {/* Delete Confirmation Dialog */}
         <DeleteConfirmationDialog
@@ -843,4 +1264,3 @@ const InspectionConfig = () => {
 };
 
 export default InspectionConfig;
-

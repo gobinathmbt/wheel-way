@@ -143,6 +143,11 @@ export const configServices = {
   
   deleteInspectionConfig: (id: string) =>
     apiClient.delete(`/api/config/inspection/${id}`),
+
+  saveInspectionConfig: async (id: string, data: any) => {
+    const response = await apiClient.put(`/api/config/inspection/${id}`, data);
+    return response.data;
+  },
   
   addInspectionSection: (configId: string, categoryId: string, data: any) =>
     apiClient.post(`/api/config/inspection/${configId}/categories/${categoryId}/sections`, data),
