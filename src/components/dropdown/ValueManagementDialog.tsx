@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Edit, Trash2, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { dropdownServices } from '@/api/services';
@@ -56,7 +57,7 @@ const SortableRow = ({ value, onEdit, onDelete }: any) => {
     <TableRow ref={setNodeRef} style={style} {...attributes}>
       <TableCell>
         <div className="flex items-center space-x-2">
-          <div {...listeners} className="cursor-grab">
+          <div {...listeners} className="cursor-grab hover:cursor-grabbing">
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </div>
           <span>{value.display_order}</span>
@@ -134,13 +135,23 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
 
       const newValues = arrayMove(localDropdown.values, oldIndex, newIndex);
       
+      // Update display orders
+      const updatedValues = newValues.map((value: any, index: number) => ({
+        ...value,
+        display_order: index
+      }));
+
       // Update local state immediately
-      setLocalDropdown({ ...localDropdown, values: newValues });
+      setLocalDropdown({ ...localDropdown, values: updatedValues });
 
       // Update backend
       try {
-        const valueIds = newValues.map((value: any) => value._id);
-        await dropdownServices.reorderValues(dropdown._id, { valueIds });
+        const valueIds = updatedValues.map((value: any) => value._id);
+        const response = await dropdownServices.reorderValues(dropdown._id, { valueIds });
+        
+        // Update local state with backend response to ensure consistency
+        setLocalDropdown(response.data.data);
+        
         toast.success('Values reordered successfully');
         onRefetch();
       } catch (error) {
@@ -213,7 +224,7 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Manage Values - {dropdown?.display_name}</DialogTitle>
             <DialogDescription>
@@ -221,7 +232,7 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
+          <div className="flex-1 space-y-4 overflow-hidden">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-medium">Option Values</h3>
               <Button onClick={() => setIsAddDialogOpen(true)}>
@@ -230,39 +241,41 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
               </Button>
             </div>
 
-            <DndContext 
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order</TableHead>
-                    <TableHead>Option Value</TableHead>
-                    <TableHead>Display Value</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Default</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <SortableContext 
-                    items={sortedValues.map((value: any) => value._id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {sortedValues.map((value: any) => (
-                      <SortableRow
-                        key={value._id}
-                        value={value}
-                        onEdit={openEditDialog}
-                        onDelete={handleDeleteValue}
-                      />
-                    ))}
-                  </SortableContext>
-                </TableBody>
-              </Table>
-            </DndContext>
+            <ScrollArea className="h-[60vh]">
+              <DndContext 
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-20">Order</TableHead>
+                      <TableHead>Option Value</TableHead>
+                      <TableHead>Display Value</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Default</TableHead>
+                      <TableHead className="w-24">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <SortableContext 
+                      items={sortedValues.map((value: any) => value._id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {sortedValues.map((value: any) => (
+                        <SortableRow
+                          key={value._id}
+                          value={value}
+                          onEdit={openEditDialog}
+                          onDelete={handleDeleteValue}
+                        />
+                      ))}
+                    </SortableContext>
+                  </TableBody>
+                </Table>
+              </DndContext>
+            </ScrollArea>
           </div>
         </DialogContent>
       </Dialog>

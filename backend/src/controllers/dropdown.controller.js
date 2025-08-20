@@ -328,7 +328,7 @@ const reorderValues = async (req, res) => {
       });
     }
 
-    // Update display_order for each value
+    // Update display_order for each value based on the new order
     valueIds.forEach((valueId, index) => {
       const value = dropdown.values.id(valueId);
       if (value) {
@@ -336,11 +336,17 @@ const reorderValues = async (req, res) => {
       }
     });
 
+    // Mark the values array as modified to ensure Mongoose saves the changes
+    dropdown.markModified('values');
     await dropdown.save();
+
+    // Return the updated dropdown with sorted values
+    const updatedDropdown = await DropdownMaster.findById(req.params.id);
+    updatedDropdown.values.sort((a, b) => a.display_order - b.display_order);
 
     res.status(200).json({
       success: true,
-      data: dropdown
+      data: updatedDropdown
     });
 
   } catch (error) {
