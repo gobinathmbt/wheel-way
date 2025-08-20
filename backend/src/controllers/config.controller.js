@@ -1,4 +1,5 @@
 
+
 const InspectionConfig = require('../models/InspectionConfig');
 const TradeinConfig = require('../models/TradeinConfig');
 const DropdownMaster = require('../models/DropdownMaster');
@@ -6,14 +7,40 @@ const { logEvent } = require('./logs.controller');
 
 const getInspectionConfigs = async (req, res) => {
   try {
-    const configs = await InspectionConfig.find({
-      company_id: req.user.company_id,
-      is_active: true
-    }).sort({ created_at: -1 });
+    const { page = 1, limit = 6, search = '', status = '' } = req.query;
+    const skip = (page - 1) * limit;
+
+    // Build search query
+    let searchQuery = {
+      company_id: req.user.company_id
+    };
+
+    if (search) {
+      searchQuery.config_name = { $regex: search, $options: 'i' };
+    }
+
+    // Apply status filter only if it's not "all"
+    if (status && status !== 'all') {
+      searchQuery.is_active = status === 'active';
+    }
+
+    const configs = await InspectionConfig.find(searchQuery)
+      .select('config_name description version is_active is_default created_at updated_at')
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await InspectionConfig.countDocuments(searchQuery);
 
     res.status(200).json({
       success: true,
-      data: configs
+      data: configs,
+      pagination: {
+        current_page: parseInt(page),
+        total_pages: Math.ceil(total / limit),
+        total_items: total,
+        items_per_page: parseInt(limit)
+      }
     });
 
   } catch (error) {
@@ -25,8 +52,65 @@ const getInspectionConfigs = async (req, res) => {
   }
 };
 
+const getInspectionConfigDetails = async (req, res) => {
+  try {
+    const config = await InspectionConfig.findOne({
+      _id: req.params.id,
+      company_id: req.user.company_id
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: config
+    });
+
+  } catch (error) {
+    console.error('Get inspection config details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving configuration details'
+    });
+  }
+};
+
 const createInspectionConfig = async (req, res) => {
   try {
+    // Check if config name already exists for this company
+    const existingConfig = await InspectionConfig.findOne({
+      config_name: req.body.config_name,
+      company_id: req.user.company_id
+    });
+
+    if (existingConfig) {
+      return res.status(400).json({
+        success: false,
+        message: 'Configuration name already exists'
+      });
+    }
+
+    // If this is set as default, deactivate other defaults
+    if (req.body.is_default) {
+      await InspectionConfig.updateMany(
+        { company_id: req.user.company_id, is_default: true },
+        { is_default: false }
+      );
+    }
+
+    // If this is set as active, deactivate other active configs
+    if (req.body.is_active) {
+      await InspectionConfig.updateMany(
+        { company_id: req.user.company_id, is_active: true },
+        { is_active: false }
+      );
+    }
+
     const config = new InspectionConfig({
       ...req.body,
       company_id: req.user.company_id,
@@ -71,6 +155,34 @@ const createInspectionConfig = async (req, res) => {
 
 const updateInspectionConfig = async (req, res) => {
   try {
+    // Check if new config name already exists for this company (excluding current config)
+    if (req.body.config_name) {
+      const existingConfig = await InspectionConfig.findOne({
+        config_name: req.body.config_name,
+        company_id: req.user.company_id,
+        _id: { $ne: req.params.id }
+      });
+
+      if (existingConfig) {
+        return res.status(400).json({
+          success: false,
+          message: 'Configuration name already exists'
+        });
+      }
+    }
+
+    // If this is set as active, deactivate other active configs
+    if (req.body.is_active) {
+      await InspectionConfig.updateMany(
+        {
+          company_id: req.user.company_id,
+          is_active: true,
+          _id: { $ne: req.params.id }
+        },
+        { is_active: false }
+      );
+    }
+
     const config = await InspectionConfig.findOneAndUpdate(
       { _id: req.params.id, company_id: req.user.company_id },
       req.body,
@@ -97,6 +209,8 @@ const updateInspectionConfig = async (req, res) => {
     });
   }
 };
+
+// ... keep existing code (deleteInspectionConfig, addInspectionSection, addInspectionField functions)
 
 const deleteInspectionConfig = async (req, res) => {
   try {
@@ -463,6 +577,7 @@ const addTradeinField = async (req, res) => {
 
 module.exports = {
   getInspectionConfigs,
+  getInspectionConfigDetails,
   createInspectionConfig,
   updateInspectionConfig,
   deleteInspectionConfig,
@@ -475,3 +590,4 @@ module.exports = {
   addTradeinSection,
   addTradeinField
 };
+

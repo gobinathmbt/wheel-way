@@ -1,4 +1,5 @@
 
+
 import apiClient from './axios';
 
 // Auth Services
@@ -128,8 +129,11 @@ export const dropdownServices = {
 // Configuration Services
 export const configServices = {
   // Inspection Config
-  getInspectionConfigs: () =>
-    apiClient.get('/api/config/inspection'),
+  getInspectionConfigs: (params?: any) =>
+    apiClient.get('/api/config/inspection', { params }),
+  
+  getInspectionConfigDetails: (id: string) =>
+    apiClient.get(`/api/config/inspection/${id}`),
   
   createInspectionConfig: (data: any) =>
     apiClient.post('/api/config/inspection', data),
@@ -165,6 +169,8 @@ export const configServices = {
   addTradeinField: (configId: string, sectionId: string, data: any) =>
     apiClient.post(`/api/config/tradein/${configId}/sections/${sectionId}/fields`, data)
 };
+
+// ... keep existing code (Vehicle Services, Inspection Services, Trade-in Services, Logs Services and default export)
 
 // Vehicle Services
 export const vehicleServices = {
@@ -249,3 +255,4 @@ export default {
   tradein: tradeinServices,
   logs: logServices
 };
+

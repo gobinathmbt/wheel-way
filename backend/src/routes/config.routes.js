@@ -1,8 +1,8 @@
-
 const express = require('express');
 const { protect, authorize, companyScopeCheck } = require('../middleware/auth');
 const {
   getInspectionConfigs,
+  getInspectionConfigDetails,
   createInspectionConfig,
   updateInspectionConfig,
   deleteInspectionConfig,
@@ -25,6 +25,7 @@ router.use(companyScopeCheck);
 
 // Inspection configuration routes
 router.get('/inspection', getInspectionConfigs);
+router.get('/inspection/:id', getInspectionConfigDetails);
 router.post('/inspection', authorize('company_super_admin'), createInspectionConfig);
 router.put('/inspection/:id', authorize('company_super_admin'), updateInspectionConfig);
 router.delete('/inspection/:id', authorize('company_super_admin'), deleteInspectionConfig);
@@ -40,3 +41,4 @@ router.post('/tradein/:id/sections', authorize('company_super_admin'), addTradei
 router.post('/tradein/:id/sections/:sectionId/fields', authorize('company_super_admin'), addTradeinField);
 
 module.exports = router;
+
