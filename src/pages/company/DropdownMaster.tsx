@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Search, Edit, Trash2, Database, Settings } from 'lucide-react';
+import { Search, Edit, Trash2, Database, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/axios';
@@ -17,8 +16,14 @@ import apiClient from '@/api/axios';
 const DropdownMaster = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isValueDialogOpen, setIsValueDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDropdown, setSelectedDropdown] = useState(null);
+
   const [formData, setFormData] = useState({
     dropdown_name: '',
     display_name: '',
@@ -26,11 +31,14 @@ const DropdownMaster = () => {
     allow_multiple_selection: false,
     is_required: false
   });
+
   const [valueFormData, setValueFormData] = useState({
     option_value: '',
     display_order: 0,
     is_default: false
   });
+
+  const [editDropdown, setEditDropdown] = useState(null);
 
   const { data: dropdowns, isLoading, refetch } = useQuery({
     queryKey: ['dropdowns'],
@@ -45,6 +53,7 @@ const DropdownMaster = () => {
     dropdown.display_name.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
+  // Create Dropdown
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -64,6 +73,21 @@ const DropdownMaster = () => {
     }
   };
 
+  // Edit Dropdown
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await apiClient.put(`/api/dropdown/${editDropdown._id}`, editDropdown);
+      toast.success('Dropdown updated successfully');
+      setIsEditDialogOpen(false);
+      setEditDropdown(null);
+      refetch();
+    } catch (error) {
+      toast.error('Failed to update dropdown');
+    }
+  };
+
+  // Add Value
   const handleAddValue = async (e) => {
     e.preventDefault();
     try {
@@ -81,23 +105,23 @@ const DropdownMaster = () => {
     }
   };
 
-  const handleDeleteDropdown = async (dropdownId) => {
+  // Confirm Delete
+  const confirmDeleteDropdown = (dropdownId) => {
+    setDeleteTargetId(dropdownId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  // Delete Dropdown
+  const handleDeleteDropdown = async () => {
     try {
-      await apiClient.delete(`/api/dropdown/${dropdownId}`);
+      await apiClient.delete(`/api/dropdown/${deleteTargetId}`);
       toast.success('Dropdown deleted successfully');
       refetch();
     } catch (error) {
       toast.error('Failed to delete dropdown');
-    }
-  };
-
-  const handleDeleteValue = async (dropdownId, valueId) => {
-    try {
-      await apiClient.delete(`/api/dropdown/${dropdownId}/values/${valueId}`);
-      toast.success('Value deleted successfully');
-      refetch();
-    } catch (error) {
-      toast.error('Failed to delete value');
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setDeleteTargetId(null);
     }
   };
 
@@ -269,13 +293,20 @@ const DropdownMaster = () => {
                           >
                             <Settings className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => {
+                              setEditDropdown(dropdown);
+                              setIsEditDialogOpen(true);
+                            }}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => handleDeleteDropdown(dropdown._id)}
+                            onClick={() => confirmDeleteDropdown(dropdown._id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -334,6 +365,98 @@ const DropdownMaster = () => {
                 <Button type="submit">Add Value</Button>
               </div>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Dropdown Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Dropdown</DialogTitle>
+              <DialogDescription>Update details for this dropdown</DialogDescription>
+            </DialogHeader>
+            {editDropdown && (
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="edit_dropdown_name">Dropdown Name</Label>
+                  <Input
+                    id="edit_dropdown_name"
+                    value={editDropdown.dropdown_name}
+                    onChange={(e) =>
+                      setEditDropdown({ ...editDropdown, dropdown_name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit_display_name">Display Name</Label>
+                  <Input
+                    id="edit_display_name"
+                    value={editDropdown.display_name}
+                    onChange={(e) =>
+                      setEditDropdown({ ...editDropdown, display_name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit_description">Description</Label>
+                  <Input
+                    id="edit_description"
+                    value={editDropdown.description}
+                    onChange={(e) =>
+                      setEditDropdown({ ...editDropdown, description: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit_allow_multiple"
+                    checked={editDropdown.allow_multiple_selection}
+                    onCheckedChange={(checked) =>
+                      setEditDropdown({ ...editDropdown, allow_multiple_selection: checked === true })
+                    }
+                  />
+                  <Label htmlFor="edit_allow_multiple">Allow multiple selections</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit_is_required"
+                    checked={editDropdown.is_required}
+                    onCheckedChange={(checked) =>
+                      setEditDropdown({ ...editDropdown, is_required: checked === true })
+                    }
+                  />
+                  <Label htmlFor="edit_is_required">Required field</Label>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Update Dropdown</Button>
+                </div>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Confirmation</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this dropdown? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end space-x-2 mt-4">
+              <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleDeleteDropdown}>
+                Delete
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
