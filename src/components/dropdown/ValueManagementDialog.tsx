@@ -141,7 +141,7 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
         display_order: index
       }));
 
-      // Update local state immediately
+      // Update local state immediately for UI responsiveness
       setLocalDropdown({ ...localDropdown, values: updatedValues });
 
       // Update backend
@@ -153,7 +153,7 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
         setLocalDropdown(response.data.data);
         
         toast.success('Values reordered successfully');
-        onRefetch();
+        onRefetch(); // Refresh the main dropdown list
       } catch (error) {
         toast.error('Failed to reorder values');
         // Revert local state on error
@@ -241,41 +241,43 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
               </Button>
             </div>
 
-            <ScrollArea className="h-[60vh]">
-              <DndContext 
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-20">Order</TableHead>
-                      <TableHead>Option Value</TableHead>
-                      <TableHead>Display Value</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Default</TableHead>
-                      <TableHead className="w-24">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <SortableContext 
-                      items={sortedValues.map((value: any) => value._id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {sortedValues.map((value: any) => (
-                        <SortableRow
-                          key={value._id}
-                          value={value}
-                          onEdit={openEditDialog}
-                          onDelete={handleDeleteValue}
-                        />
-                      ))}
-                    </SortableContext>
-                  </TableBody>
-                </Table>
-              </DndContext>
-            </ScrollArea>
+            <div className="border rounded-md">
+              <ScrollArea className="h-[400px]">
+                <DndContext 
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-background z-10 border-b">
+                      <TableRow>
+                        <TableHead className="w-20">Order</TableHead>
+                        <TableHead>Option Value</TableHead>
+                        <TableHead>Display Value</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Default</TableHead>
+                        <TableHead className="w-24">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <SortableContext 
+                        items={sortedValues.map((value: any) => value._id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {sortedValues.map((value: any) => (
+                          <SortableRow
+                            key={value._id}
+                            value={value}
+                            onEdit={openEditDialog}
+                            onDelete={handleDeleteValue}
+                          />
+                        ))}
+                      </SortableContext>
+                    </TableBody>
+                  </Table>
+                </DndContext>
+              </ScrollArea>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -286,7 +288,7 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
           <DialogHeader>
             <DialogTitle>Add Value to {dropdown?.display_name}</DialogTitle>
             <DialogDescription>
-              Add a new option value to this dropdown
+              Add a new option value to this dropdown. Only one default value is allowed per dropdown.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddValue} className="space-y-4">
@@ -316,7 +318,7 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
                 checked={valueFormData.is_default}
                 onCheckedChange={(checked) => setValueFormData({ ...valueFormData, is_default: checked })}
               />
-              <Label htmlFor="is_default">Default value</Label>
+              <Label htmlFor="is_default">Default value (will override existing default)</Label>
             </div>
             <div className="flex items-center space-x-2">
               <Switch
@@ -342,7 +344,7 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
           <DialogHeader>
             <DialogTitle>Edit Value</DialogTitle>
             <DialogDescription>
-              Update this option value
+              Update this option value. Only one default value is allowed per dropdown.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditValue} className="space-y-4">
@@ -382,7 +384,7 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
                 checked={valueFormData.is_default}
                 onCheckedChange={(checked) => setValueFormData({ ...valueFormData, is_default: checked })}
               />
-              <Label htmlFor="edit_is_default">Default value</Label>
+              <Label htmlFor="edit_is_default">Default value (will override existing default)</Label>
             </div>
             <div className="flex items-center space-x-2">
               <Switch

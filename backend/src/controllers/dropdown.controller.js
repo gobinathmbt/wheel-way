@@ -292,6 +292,15 @@ const updateValue = async (req, res) => {
       }
     }
 
+    // If this value is being set as default, make all other values non-default
+    if (req.body.is_default) {
+      dropdown.values.forEach(v => {
+        if (v._id.toString() !== req.params.valueId) {
+          v.is_default = false;
+        }
+      });
+    }
+
     Object.assign(value, req.body);
     await dropdown.save();
 
