@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,24 +6,35 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Edit, Trash2, Database, Settings } from 'lucide-react';
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationEllipsis, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious 
+} from '@/components/ui/pagination';
+import { Search, Edit, Trash2, Database, Settings, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
-import apiClient from '@/api/axios';
+import { dropdownServices } from '@/api/services';
+import ValueManagementDialog from "../../components/dropdown/ValueManagementDialog";
 
 const DropdownMaster = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isValueDialogOpen, setIsValueDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isValueDialogOpen, setIsValueDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
-
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDropdown, setSelectedDropdown] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [editDropdown, setEditDropdown] = useState(null);
 
   const [formData, setFormData] = useState({
     dropdown_name: '',
@@ -32,32 +44,23 @@ const DropdownMaster = () => {
     is_required: false
   });
 
-  const [valueFormData, setValueFormData] = useState({
-    option_value: '',
-    display_order: 0,
-    is_default: false
-  });
-
-  const [editDropdown, setEditDropdown] = useState(null);
-
-  const { data: dropdowns, isLoading, refetch } = useQuery({
-    queryKey: ['dropdowns'],
+  const { data: dropdownsData, isLoading, refetch } = useQuery({
+    queryKey: ['dropdowns', currentPage, searchTerm],
     queryFn: async () => {
-      const response = await apiClient.get('/api/dropdown');
-      return response.data.data;
+      const response = await dropdownServices.getDropdowns({
+        page: currentPage,
+        limit: 10,
+        search: searchTerm
+      });
+      return response.data;
     }
   });
-
-  const filteredDropdowns = dropdowns?.filter(dropdown =>
-    dropdown.dropdown_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    dropdown.display_name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
 
   // Create Dropdown
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await apiClient.post('/api/dropdown', formData);
+      await dropdownServices.createDropdown(formData);
       toast.success('Dropdown created successfully');
       setIsDialogOpen(false);
       setFormData({
@@ -77,7 +80,7 @@ const DropdownMaster = () => {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
-      await apiClient.put(`/api/dropdown/${editDropdown._id}`, editDropdown);
+      await dropdownServices.updateDropdown(editDropdown._id, editDropdown);
       toast.success('Dropdown updated successfully');
       setIsEditDialogOpen(false);
       setEditDropdown(null);
@@ -87,21 +90,14 @@ const DropdownMaster = () => {
     }
   };
 
-  // Add Value
-  const handleAddValue = async (e) => {
-    e.preventDefault();
+  // Toggle dropdown status
+  const handleToggleStatus = async (dropdownId, currentStatus) => {
     try {
-      await apiClient.post(`/api/dropdown/${selectedDropdown._id}/values`, valueFormData);
-      toast.success('Value added successfully');
-      setIsValueDialogOpen(false);
-      setValueFormData({
-        option_value: '',
-        display_order: 0,
-        is_default: false
-      });
+      await dropdownServices.updateDropdown(dropdownId, { is_active: !currentStatus });
+      toast.success('Status updated successfully');
       refetch();
     } catch (error) {
-      toast.error('Failed to add value');
+      toast.error('Failed to update status');
     }
   };
 
@@ -114,7 +110,7 @@ const DropdownMaster = () => {
   // Delete Dropdown
   const handleDeleteDropdown = async () => {
     try {
-      await apiClient.delete(`/api/dropdown/${deleteTargetId}`);
+      await dropdownServices.deleteDropdown(deleteTargetId);
       toast.success('Dropdown deleted successfully');
       refetch();
     } catch (error) {
@@ -123,6 +119,18 @@ const DropdownMaster = () => {
       setIsDeleteDialogOpen(false);
       setDeleteTargetId(null);
     }
+  };
+
+  const dropdowns = dropdownsData?.data || [];
+  const pagination = dropdownsData?.pagination || {};
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Reset to first page when searching
   };
 
   return (
@@ -213,7 +221,7 @@ const DropdownMaster = () => {
             <Input
               placeholder="Search dropdowns..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearch}
               className="pl-8"
             />
           </div>
@@ -231,142 +239,156 @@ const DropdownMaster = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Display Name</TableHead>
-                    <TableHead>Values</TableHead>
-                    <TableHead>Settings</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredDropdowns.map((dropdown) => (
-                    <TableRow key={dropdown._id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{dropdown.dropdown_name}</p>
-                          <p className="text-sm text-muted-foreground">{dropdown.description}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{dropdown.display_name}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {dropdown.values?.slice(0, 3).map((value, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {value.option_value}
-                            </Badge>
-                          ))}
-                          {dropdown.values?.length > 3 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{dropdown.values.length - 3} more
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {dropdown.allow_multiple_selection && (
-                            <Badge variant="outline" className="text-xs">Multi</Badge>
-                          )}
-                          {dropdown.is_required && (
-                            <Badge variant="outline" className="text-xs">Required</Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={dropdown.is_active ? "default" : "secondary"}>
-                          {dropdown.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => {
-                              setSelectedDropdown(dropdown);
-                              setIsValueDialogOpen(true);
-                            }}
-                          >
-                            <Settings className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => {
-                              setEditDropdown(dropdown);
-                              setIsEditDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => confirmDeleteDropdown(dropdown._id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Display Name</TableHead>
+                      <TableHead>Values</TableHead>
+                      <TableHead>Settings</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {dropdowns.map((dropdown) => (
+                      <TableRow key={dropdown._id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{dropdown.dropdown_name}</p>
+                            <p className="text-sm text-muted-foreground">{dropdown.description}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{dropdown.display_name}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {dropdown.values?.slice(0, 3).map((value, index) => (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                {value.display_value || value.option_value}
+                              </Badge>
+                            ))}
+                            {dropdown.values?.length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{dropdown.values.length - 3} more
+                              </Badge>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedDropdown(dropdown);
+                                setIsValueDialogOpen(true);
+                              }}
+                              className="h-6 px-2"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {dropdown.allow_multiple_selection && (
+                              <Badge variant="outline" className="text-xs">Multi</Badge>
+                            )}
+                            {dropdown.is_required && (
+                              <Badge variant="outline" className="text-xs">Required</Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              checked={dropdown.is_active}
+                              onCheckedChange={() => handleToggleStatus(dropdown._id, dropdown.is_active)}
+                            />
+                            <Badge variant={dropdown.is_active ? "default" : "secondary"}>
+                              {dropdown.is_active ? "Active" : "Inactive"}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => {
+                                setSelectedDropdown(dropdown);
+                                setIsValueDialogOpen(true);
+                              }}
+                            >
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => {
+                                setEditDropdown(dropdown);
+                                setIsEditDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => confirmDeleteDropdown(dropdown._id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                {pagination.pages > 1 && (
+                  <div className="mt-4">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                            className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                        
+                        {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((page) => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => handlePageChange(page)}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => handlePageChange(Math.min(pagination.pages, currentPage + 1))}
+                            className={currentPage === pagination.pages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
 
-        {/* Add Value Dialog */}
-        <Dialog open={isValueDialogOpen} onOpenChange={setIsValueDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Value to {selectedDropdown?.display_name}</DialogTitle>
-              <DialogDescription>
-                Add a new option value to this dropdown
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleAddValue} className="space-y-4">
-              <div>
-                <Label htmlFor="option_value">Option Value</Label>
-                <Input
-                  id="option_value"
-                  value={valueFormData.option_value}
-                  onChange={(e) => setValueFormData({ ...valueFormData, option_value: e.target.value })}
-                  placeholder="Excellent"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="display_order">Display Order</Label>
-                <Input
-                  id="display_order"
-                  type="number"
-                  value={valueFormData.display_order}
-                  onChange={(e) => setValueFormData({ ...valueFormData, display_order: parseInt(e.target.value) })}
-                  placeholder="0"
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_default"
-                  checked={valueFormData.is_default}
-                  onCheckedChange={(checked) => setValueFormData({ ...valueFormData, is_default: checked === true })}
-                />
-                <Label htmlFor="is_default">Default value</Label>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsValueDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">Add Value</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {/* Value Management Dialog */}
+        <ValueManagementDialog
+          isOpen={isValueDialogOpen}
+          onClose={() => setIsValueDialogOpen(false)}
+          dropdown={selectedDropdown}
+          onRefetch={refetch}
+        />
 
         {/* Edit Dropdown Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

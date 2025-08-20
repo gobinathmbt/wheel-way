@@ -2,19 +2,44 @@
 const DropdownMaster = require('../models/DropdownMaster');
 const { logEvent } = require('./logs.controller');
 
-// @desc    Get all dropdowns for company
+// @desc    Get all dropdowns for company with pagination and search
 // @route   GET /api/dropdown
 // @access  Private (Company Admin/Super Admin)
 const getDropdowns = async (req, res) => {
   try {
-    const dropdowns = await DropdownMaster.find({
+    const { page = 1, limit = 10, search = '' } = req.query;
+    const skip = (page - 1) * limit;
+
+    // Build search query
+    let searchQuery = {
       company_id: req.user.company_id,
       is_active: true
-    }).sort({ created_at: -1 });
+    };
+
+    if (search) {
+      searchQuery.$or = [
+        { dropdown_name: { $regex: search, $options: 'i' } },
+        { display_name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const dropdowns = await DropdownMaster.find(searchQuery)
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await DropdownMaster.countDocuments(searchQuery);
 
     res.status(200).json({
       success: true,
-      data: dropdowns
+      data: dropdowns,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
     });
 
   } catch (error) {
@@ -142,6 +167,18 @@ const addValue = async (req, res) => {
       });
     }
 
+    // Check for duplicate option_value
+    const existingValue = dropdown.values.find(
+      value => value.option_value.toLowerCase() === req.body.option_value.toLowerCase()
+    );
+
+    if (existingValue) {
+      return res.status(400).json({
+        success: false,
+        message: 'Option value already exists'
+      });
+    }
+
     const newValue = {
       ...req.body,
       created_by: req.user.id
@@ -187,6 +224,21 @@ const updateValue = async (req, res) => {
         success: false,
         message: 'Value not found'
       });
+    }
+
+    // Check for duplicate option_value (excluding current value)
+    if (req.body.option_value) {
+      const existingValue = dropdown.values.find(
+        v => v._id.toString() !== req.params.valueId && 
+        v.option_value.toLowerCase() === req.body.option_value.toLowerCase()
+      );
+
+      if (existingValue) {
+        return res.status(400).json({
+          success: false,
+          message: 'Option value already exists'
+        });
+      }
     }
 
     Object.assign(value, req.body);

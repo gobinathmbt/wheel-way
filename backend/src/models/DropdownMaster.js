@@ -6,6 +6,10 @@ const DropdownValueSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  display_value: {
+    type: String,
+    required: true
+  },
   display_order: {
     type: Number,
     default: 0
