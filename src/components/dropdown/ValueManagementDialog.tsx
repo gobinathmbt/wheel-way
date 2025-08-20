@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,9 +7,27 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { dropdownServices } from '@/api/services';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface ValueManagementDialogProps {
   isOpen: boolean;
@@ -17,6 +35,66 @@ interface ValueManagementDialogProps {
   dropdown: any;
   onRefetch: () => void;
 }
+
+const SortableRow = ({ value, onEdit, onDelete }: any) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: value._id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <TableRow ref={setNodeRef} style={style} {...attributes}>
+      <TableCell>
+        <div className="flex items-center space-x-2">
+          <div {...listeners} className="cursor-grab">
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <span>{value.display_order}</span>
+        </div>
+      </TableCell>
+      <TableCell className="font-medium">{value.option_value}</TableCell>
+      <TableCell>{value.display_value || value.option_value}</TableCell>
+      <TableCell>
+        <Badge variant={value.is_active ? "default" : "secondary"}>
+          {value.is_active ? "Active" : "Inactive"}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        {value.is_default && (
+          <Badge variant="outline">Default</Badge>
+        )}
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center space-x-1">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => onEdit(value)}
+          >
+            <Edit className="h-3 w-3" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => onDelete(value._id)}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+};
 
 const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
   isOpen,
@@ -27,6 +105,7 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedValue, setSelectedValue] = useState(null);
+  const [localDropdown, setLocalDropdown] = useState(dropdown);
   const [valueFormData, setValueFormData] = useState({
     option_value: '',
     display_value: '',
@@ -35,10 +114,48 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
     is_active: true
   });
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  useEffect(() => {
+    setLocalDropdown(dropdown);
+  }, [dropdown]);
+
+  const handleDragEnd = async (event: any) => {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      const oldIndex = localDropdown.values.findIndex((item: any) => item._id === active.id);
+      const newIndex = localDropdown.values.findIndex((item: any) => item._id === over.id);
+
+      const newValues = arrayMove(localDropdown.values, oldIndex, newIndex);
+      
+      // Update local state immediately
+      setLocalDropdown({ ...localDropdown, values: newValues });
+
+      // Update backend
+      try {
+        const valueIds = newValues.map((value: any) => value._id);
+        await dropdownServices.reorderValues(dropdown._id, { valueIds });
+        toast.success('Values reordered successfully');
+        onRefetch();
+      } catch (error) {
+        toast.error('Failed to reorder values');
+        // Revert local state on error
+        setLocalDropdown(dropdown);
+      }
+    }
+  };
+
   const handleAddValue = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await dropdownServices.addValue(dropdown._id, valueFormData);
+      const response = await dropdownServices.addValue(dropdown._id, valueFormData);
+      setLocalDropdown(response.data.data);
       toast.success('Value added successfully');
       setIsAddDialogOpen(false);
       setValueFormData({
@@ -57,7 +174,8 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
   const handleEditValue = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await dropdownServices.updateValue(dropdown._id, selectedValue._id, valueFormData);
+      const response = await dropdownServices.updateValue(dropdown._id, selectedValue._id, valueFormData);
+      setLocalDropdown(response.data.data);
       toast.success('Value updated successfully');
       setIsEditDialogOpen(false);
       setSelectedValue(null);
@@ -69,7 +187,8 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
 
   const handleDeleteValue = async (valueId: string) => {
     try {
-      await dropdownServices.deleteValue(dropdown._id, valueId);
+      const response = await dropdownServices.deleteValue(dropdown._id, valueId);
+      setLocalDropdown(response.data.data);
       toast.success('Value deleted successfully');
       onRefetch();
     } catch (error) {
@@ -89,14 +208,16 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
     setIsEditDialogOpen(true);
   };
 
+  const sortedValues = localDropdown?.values?.sort((a: any, b: any) => a.display_order - b.display_order) || [];
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-5xl">
           <DialogHeader>
             <DialogTitle>Manage Values - {dropdown?.display_name}</DialogTitle>
             <DialogDescription>
-              Add, edit, and manage option values for this dropdown
+              Add, edit, and manage option values for this dropdown. Drag to reorder.
             </DialogDescription>
           </DialogHeader>
           
@@ -109,55 +230,39 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
               </Button>
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Option Value</TableHead>
-                  <TableHead>Display Value</TableHead>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Default</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dropdown?.values?.map((value: any) => (
-                  <TableRow key={value._id}>
-                    <TableCell className="font-medium">{value.option_value}</TableCell>
-                    <TableCell>{value.display_value || value.option_value}</TableCell>
-                    <TableCell>{value.display_order}</TableCell>
-                    <TableCell>
-                      <Badge variant={value.is_active ? "default" : "secondary"}>
-                        {value.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {value.is_default && (
-                        <Badge variant="outline">Default</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => openEditDialog(value)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleDeleteValue(value._id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <DndContext 
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order</TableHead>
+                    <TableHead>Option Value</TableHead>
+                    <TableHead>Display Value</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Default</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  <SortableContext 
+                    items={sortedValues.map((value: any) => value._id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {sortedValues.map((value: any) => (
+                      <SortableRow
+                        key={value._id}
+                        value={value}
+                        onEdit={openEditDialog}
+                        onDelete={handleDeleteValue}
+                      />
+                    ))}
+                  </SortableContext>
+                </TableBody>
+              </Table>
+            </DndContext>
           </div>
         </DialogContent>
       </Dialog>
@@ -190,16 +295,6 @@ const ValueManagementDialog: React.FC<ValueManagementDialogProps> = ({
                 onChange={(e) => setValueFormData({ ...valueFormData, display_value: e.target.value })}
                 placeholder="Excellent"
                 required
-              />
-            </div>
-            <div>
-              <Label htmlFor="display_order">Display Order</Label>
-              <Input
-                id="display_order"
-                type="number"
-                value={valueFormData.display_order}
-                onChange={(e) => setValueFormData({ ...valueFormData, display_order: parseInt(e.target.value) })}
-                placeholder="0"
               />
             </div>
             <div className="flex items-center space-x-2">

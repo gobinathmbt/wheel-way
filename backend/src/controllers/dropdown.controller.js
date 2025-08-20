@@ -7,14 +7,18 @@ const { logEvent } = require('./logs.controller');
 // @access  Private (Company Admin/Super Admin)
 const getDropdowns = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '' } = req.query;
+    const { page = 1, limit = 10, search = '', status = 'all' } = req.query;
     const skip = (page - 1) * limit;
 
     // Build search query
     let searchQuery = {
-      company_id: req.user.company_id,
-      is_active: true
+      company_id: req.user.company_id
     };
+
+    // Filter by status
+    if (status !== 'all') {
+      searchQuery.is_active = status === 'active';
+    }
 
     if (search) {
       searchQuery.$or = [
@@ -56,6 +60,22 @@ const getDropdowns = async (req, res) => {
 // @access  Private (Company Super Admin)
 const createDropdown = async (req, res) => {
   try {
+    // Check for duplicate dropdown_name or display_name within company
+    const existingDropdown = await DropdownMaster.findOne({
+      company_id: req.user.company_id,
+      $or: [
+        { dropdown_name: req.body.dropdown_name },
+        { display_name: req.body.display_name }
+      ]
+    });
+
+    if (existingDropdown) {
+      return res.status(400).json({
+        success: false,
+        message: 'Dropdown name or display name already exists'
+      });
+    }
+
     const dropdown = new DropdownMaster({
       ...req.body,
       company_id: req.user.company_id,
@@ -92,6 +112,25 @@ const createDropdown = async (req, res) => {
 // @access  Private (Company Super Admin)
 const updateDropdown = async (req, res) => {
   try {
+    // Check for duplicate dropdown_name or display_name within company (excluding current dropdown)
+    if (req.body.dropdown_name || req.body.display_name) {
+      const existingDropdown = await DropdownMaster.findOne({
+        _id: { $ne: req.params.id },
+        company_id: req.user.company_id,
+        $or: [
+          ...(req.body.dropdown_name ? [{ dropdown_name: req.body.dropdown_name }] : []),
+          ...(req.body.display_name ? [{ display_name: req.body.display_name }] : [])
+        ]
+      });
+
+      if (existingDropdown) {
+        return res.status(400).json({
+          success: false,
+          message: 'Dropdown name or display name already exists'
+        });
+      }
+    }
+
     const dropdown = await DropdownMaster.findOneAndUpdate(
       { _id: req.params.id, company_id: req.user.company_id },
       req.body,
@@ -167,20 +206,29 @@ const addValue = async (req, res) => {
       });
     }
 
-    // Check for duplicate option_value
+    // Check for duplicate option_value or display_value
     const existingValue = dropdown.values.find(
-      value => value.option_value.toLowerCase() === req.body.option_value.toLowerCase()
+      value => 
+        value.option_value.toLowerCase() === req.body.option_value.toLowerCase() ||
+        (req.body.display_value && value.display_value && 
+         value.display_value.toLowerCase() === req.body.display_value.toLowerCase())
     );
 
     if (existingValue) {
       return res.status(400).json({
         success: false,
-        message: 'Option value already exists'
+        message: 'Option value or display value already exists'
       });
     }
 
+    // Set display_order to highest + 1
+    const maxDisplayOrder = dropdown.values.reduce((max, value) => 
+      Math.max(max, value.display_order || 0), 0
+    );
+
     const newValue = {
       ...req.body,
+      display_order: req.body.display_order || (maxDisplayOrder + 1),
       created_by: req.user.id
     };
 
@@ -226,17 +274,20 @@ const updateValue = async (req, res) => {
       });
     }
 
-    // Check for duplicate option_value (excluding current value)
-    if (req.body.option_value) {
+    // Check for duplicate option_value or display_value (excluding current value)
+    if (req.body.option_value || req.body.display_value) {
       const existingValue = dropdown.values.find(
         v => v._id.toString() !== req.params.valueId && 
-        v.option_value.toLowerCase() === req.body.option_value.toLowerCase()
+        (
+          (req.body.option_value && v.option_value.toLowerCase() === req.body.option_value.toLowerCase()) ||
+          (req.body.display_value && v.display_value && v.display_value.toLowerCase() === req.body.display_value.toLowerCase())
+        )
       );
 
       if (existingValue) {
         return res.status(400).json({
           success: false,
-          message: 'Option value already exists'
+          message: 'Option value or display value already exists'
         });
       }
     }
@@ -254,6 +305,49 @@ const updateValue = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error updating dropdown value'
+    });
+  }
+};
+
+// @desc    Update values order
+// @route   PUT /api/dropdown/:id/values/reorder
+// @access  Private (Company Super Admin)
+const reorderValues = async (req, res) => {
+  try {
+    const { valueIds } = req.body;
+    console.log('Reordering values:', valueIds);
+    const dropdown = await DropdownMaster.findOne({
+      _id: req.params.id,
+      company_id: req.user.company_id
+    });
+
+    if (!dropdown) {
+      return res.status(404).json({
+        success: false,
+        message: 'Dropdown not found'
+      });
+    }
+
+    // Update display_order for each value
+    valueIds.forEach((valueId, index) => {
+      const value = dropdown.values.id(valueId);
+      if (value) {
+        value.display_order = index;
+      }
+    });
+
+    await dropdown.save();
+
+    res.status(200).json({
+      success: true,
+      data: dropdown
+    });
+
+  } catch (error) {
+    console.error('Reorder values error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error reordering values'
     });
   }
 };
@@ -338,5 +432,6 @@ module.exports = {
   addValue,
   updateValue,
   deleteValue,
+  reorderValues,
   getMasterInspection
 };

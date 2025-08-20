@@ -9,6 +9,7 @@ const {
   addValue,
   updateValue,
   deleteValue,
+  reorderValues,
   getMasterInspection
 } = require('../controllers/dropdown.controller');
 
@@ -28,6 +29,7 @@ router.delete('/:id', authorize('company_super_admin'), deleteDropdown);
 // Dropdown values CRUD routes
 router.post('/:id/values', authorize('company_super_admin'), addValue);
 router.put('/:id/values/:valueId', authorize('company_super_admin'), updateValue);
+router.put('/:id/reorder/values', authorize('company_super_admin'), reorderValues);
 router.delete('/:id/values/:valueId', authorize('company_super_admin'), deleteValue);
 
 // Special routes

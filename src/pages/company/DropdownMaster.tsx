@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -13,7 +14,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Pagination, 
   PaginationContent, 
-  PaginationEllipsis, 
   PaginationItem, 
   PaginationLink, 
   PaginationNext, 
@@ -32,6 +32,7 @@ const DropdownMaster = () => {
   const [isValueDialogOpen, setIsValueDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedDropdown, setSelectedDropdown] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [editDropdown, setEditDropdown] = useState(null);
@@ -45,12 +46,13 @@ const DropdownMaster = () => {
   });
 
   const { data: dropdownsData, isLoading, refetch } = useQuery({
-    queryKey: ['dropdowns', currentPage, searchTerm],
+    queryKey: ['dropdowns', currentPage, searchTerm, statusFilter],
     queryFn: async () => {
       const response = await dropdownServices.getDropdowns({
         page: currentPage,
         limit: 10,
-        search: searchTerm
+        search: searchTerm,
+        status: statusFilter
       });
       return response.data;
     }
@@ -71,8 +73,8 @@ const DropdownMaster = () => {
         is_required: false
       });
       refetch();
-    } catch (error) {
-      toast.error('Failed to create dropdown');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to create dropdown');
     }
   };
 
@@ -85,8 +87,8 @@ const DropdownMaster = () => {
       setIsEditDialogOpen(false);
       setEditDropdown(null);
       refetch();
-    } catch (error) {
-      toast.error('Failed to update dropdown');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update dropdown');
     }
   };
 
@@ -130,7 +132,12 @@ const DropdownMaster = () => {
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1); // Reset to first page when searching
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilter = (status) => {
+    setStatusFilter(status);
+    setCurrentPage(1);
   };
 
   return (
@@ -214,8 +221,8 @@ const DropdownMaster = () => {
           </Dialog>
         </div>
 
-        {/* Search */}
-        <div className="flex items-center space-x-2">
+        {/* Search and Filters */}
+        <div className="flex items-center space-x-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -225,6 +232,16 @@ const DropdownMaster = () => {
               className="pl-8"
             />
           </div>
+          <Select value={statusFilter} onValueChange={handleStatusFilter}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Dropdowns Table */}
@@ -243,6 +260,7 @@ const DropdownMaster = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>S.No</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Display Name</TableHead>
                       <TableHead>Values</TableHead>
@@ -252,8 +270,9 @@ const DropdownMaster = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dropdowns.map((dropdown) => (
+                    {dropdowns.map((dropdown, index) => (
                       <TableRow key={dropdown._id}>
+                        <TableCell>{(currentPage - 1) * 10 + index + 1}</TableCell>
                         <TableCell>
                           <div>
                             <p className="font-medium">{dropdown.dropdown_name}</p>
@@ -281,6 +300,7 @@ const DropdownMaster = () => {
                                 setIsValueDialogOpen(true);
                               }}
                               className="h-6 px-2"
+                              title="Add Value"
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
@@ -302,7 +322,7 @@ const DropdownMaster = () => {
                               checked={dropdown.is_active}
                               onCheckedChange={() => handleToggleStatus(dropdown._id, dropdown.is_active)}
                             />
-                            <Badge variant={dropdown.is_active ? "default" : "secondary"}>
+                            <Badge variant={dropdown.is_active ? "default" : "secondary"} className={dropdown.is_active ? "bg-green-500" : "bg-gray-500"}>
                               {dropdown.is_active ? "Active" : "Inactive"}
                             </Badge>
                           </div>
@@ -316,6 +336,7 @@ const DropdownMaster = () => {
                                 setSelectedDropdown(dropdown);
                                 setIsValueDialogOpen(true);
                               }}
+                              title="Manage Values"
                             >
                               <Settings className="h-4 w-4" />
                             </Button>
@@ -326,6 +347,7 @@ const DropdownMaster = () => {
                                 setEditDropdown(dropdown);
                                 setIsEditDialogOpen(true);
                               }}
+                              title="Edit Dropdown"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -333,6 +355,7 @@ const DropdownMaster = () => {
                               variant="ghost" 
                               size="sm"
                               onClick={() => confirmDeleteDropdown(dropdown._id)}
+                              title="Delete Dropdown"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -355,17 +378,30 @@ const DropdownMaster = () => {
                           />
                         </PaginationItem>
                         
-                        {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((page) => (
-                          <PaginationItem key={page}>
-                            <PaginationLink
-                              onClick={() => handlePageChange(page)}
-                              isActive={currentPage === page}
-                              className="cursor-pointer"
-                            >
-                              {page}
-                            </PaginationLink>
-                          </PaginationItem>
-                        ))}
+                        {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                          let page;
+                          if (pagination.pages <= 5) {
+                            page = i + 1;
+                          } else if (currentPage <= 3) {
+                            page = i + 1;
+                          } else if (currentPage >= pagination.pages - 2) {
+                            page = pagination.pages - 4 + i;
+                          } else {
+                            page = currentPage - 2 + i;
+                          }
+                          
+                          return (
+                            <PaginationItem key={page}>
+                              <PaginationLink
+                                onClick={() => handlePageChange(page)}
+                                isActive={currentPage === page}
+                                className="cursor-pointer"
+                              >
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        })}
                         
                         <PaginationItem>
                           <PaginationNext 
