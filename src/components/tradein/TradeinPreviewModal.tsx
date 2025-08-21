@@ -2,6 +2,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -184,12 +185,17 @@ export const TradeinPreviewModal: React.FC<TradeinPreviewModalProps> = ({
                   </AccordionItem>
                 ))}
             </Accordion>
+            
           ) : (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No sections configured yet</p>
             </div>
           )}
+          
         </div>
+        <div className="flex justify-end pt-4">
+                <Button onClick={onClose}>Close Preview</Button>
+            </div>
       </DialogContent>
     </Dialog>
   );

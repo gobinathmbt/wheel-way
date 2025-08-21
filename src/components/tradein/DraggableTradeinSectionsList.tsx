@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -25,6 +25,9 @@ interface SortableSectionProps {
 }
 
 function SortableSection({ section, selectedConfig, onAddField, onEditField, onDeleteField, dropdowns }: SortableSectionProps) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
   const {
     attributes,
     listeners,
@@ -42,14 +45,18 @@ function SortableSection({ section, selectedConfig, onAddField, onEditField, onD
 
   const queryClient = useQueryClient();
 
-  const handleDeleteSection = async (sectionId: string) => {
+  const handleDeleteSection = async () => {
+    setIsDeleting(true);
     try {
-      await configServices.deleteTradeinSection(selectedConfig._id, sectionId);
+      await configServices.deleteTradeinSection(selectedConfig._id, section.section_id);
       toast.success('Section deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['tradein-config-details', selectedConfig._id] });
+      setDeleteDialogOpen(false);
     } catch (error) {
       console.error('Delete section error:', error);
       toast.error('Failed to delete section');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -69,14 +76,16 @@ function SortableSection({ section, selectedConfig, onAddField, onEditField, onD
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline">{section.fields?.length || 0} fields</Badge>
-              <SectionDeleteDialog
-                sectionName={section.section_name}
-                onConfirm={() => handleDeleteSection(section.section_id)}
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteDialogOpen(true);
+                }}
               >
-                <Button size="sm" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </SectionDeleteDialog>
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </AccordionTrigger>
@@ -103,6 +112,14 @@ function SortableSection({ section, selectedConfig, onAddField, onEditField, onD
           </div>
         </AccordionContent>
       </AccordionItem>
+      
+      <SectionDeleteDialog
+        isOpen={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleDeleteSection}
+        sectionName={section.section_name}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
