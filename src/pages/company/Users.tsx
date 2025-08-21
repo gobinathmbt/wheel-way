@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Plus, Search, UserPlus, Mail, Trash2, Edit } from 'lucide-react';
+import { Plus, Search, UserPlus, Mail, Trash2, Edit, Users, UserCheck, UserX, Shield, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/axios';
@@ -74,7 +74,11 @@ const CompanyUsers = () => {
       });
       refetch();
     } catch (error) {
-      toast.error('Failed to create user');
+      if (error.response?.data?.message === 'User already exists') {
+        toast.error('User already exists');
+      } else {
+        toast.error('Failed to create user');
+      }
     }
   };
 
@@ -226,7 +230,6 @@ const CompanyUsers = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="company_super_admin">Company Super Admin</SelectItem>
                       <SelectItem value="company_admin">Company Admin</SelectItem>
                     </SelectContent>
                   </Select>
@@ -242,12 +245,12 @@ const CompanyUsers = () => {
           </Dialog>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Stats Cards - All 5 in one row */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <UserPlus className="h-4 w-4 text-muted-foreground" />
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalUsers || 0}</div>
@@ -256,7 +259,7 @@ const CompanyUsers = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Users</CardTitle>
-              <UserPlus className="h-4 w-4 text-muted-foreground" />
+              <UserCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.activeUsers || 0}</div>
@@ -264,8 +267,17 @@ const CompanyUsers = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Inactive Users</CardTitle>
+              <UserX className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.inactiveUsers || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Super Admins</CardTitle>
-              <UserPlus className="h-4 w-4 text-muted-foreground" />
+              <Shield className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.superAdmins || 0}</div>
@@ -274,7 +286,7 @@ const CompanyUsers = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Admins</CardTitle>
-              <UserPlus className="h-4 w-4 text-muted-foreground" />
+              <UserCog className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.admins || 0}</div>
@@ -282,7 +294,7 @@ const CompanyUsers = () => {
           </Card>
         </div>
 
-        {/* Search and Filter */}
+        {/* ... keep existing code (Search and Filter section) */}
         <div className="flex items-center gap-4">
           <form onSubmit={handleSearchSubmit} className="flex items-center space-x-2 flex-1 max-w-md">
             <div className="relative flex-1">
@@ -312,7 +324,7 @@ const CompanyUsers = () => {
           </div>
         </div>
 
-        {/* Users Table */}
+        {/* ... keep existing code (Users Table and Pagination) */}
         <Card>
           <CardHeader>
             <CardTitle>Team Members</CardTitle>

@@ -140,7 +140,6 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="company_super_admin">Company Super Admin</SelectItem>
                 <SelectItem value="company_admin">Company Admin</SelectItem>
               </SelectContent>
             </Select>

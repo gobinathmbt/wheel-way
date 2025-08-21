@@ -13,6 +13,7 @@ const getDashboard = async (req, res) => {
     // Get actual stats from database
     const totalUsers = await User.countDocuments({ company_id: companyId });
     const activeUsers = await User.countDocuments({ company_id: companyId, is_active: true });
+    const inactiveUsers = await User.countDocuments({ company_id: companyId, is_active: false });
     const superAdmins = await User.countDocuments({ company_id: companyId, role: 'company_super_admin' });
     const admins = await User.countDocuments({ company_id: companyId, role: 'company_admin' });
     
@@ -22,6 +23,7 @@ const getDashboard = async (req, res) => {
       completedAppraisals: 89,
       totalUsers,
       activeUsers,
+      inactiveUsers,
       superAdmins,
       admins,
       monthlyInspections: 45,
@@ -83,6 +85,7 @@ const getUsers = async (req, res) => {
     // Get stats for the response
     const totalUsers = await User.countDocuments({ company_id: req.user.company_id });
     const activeUsers = await User.countDocuments({ company_id: req.user.company_id, is_active: true });
+    const inactiveUsers = await User.countDocuments({ company_id: req.user.company_id, is_active: false });
     const superAdmins = await User.countDocuments({ company_id: req.user.company_id, role: 'company_super_admin' });
     const admins = await User.countDocuments({ company_id: req.user.company_id, role: 'company_admin' });
 
@@ -92,6 +95,7 @@ const getUsers = async (req, res) => {
       stats: {
         totalUsers,
         activeUsers,
+        inactiveUsers,
         superAdmins,
         admins
       },
@@ -119,6 +123,26 @@ const getUsers = async (req, res) => {
 // @access  Private (Company Super Admin)
 const createUser = async (req, res) => {
   try {
+    const { username, email, first_name, last_name } = req.body;
+    
+    // Check for existing user with same username, email, first_name, or last_name
+    const existingUser = await User.findOne({
+      company_id: req.user.company_id,
+      $or: [
+        { username: username },
+        { email: email },
+        { first_name: first_name },
+        { last_name: last_name }
+      ]
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists'
+      });
+    }
+
     const defaultPassword = 'Welcome@123';
     
     const user = new User({
@@ -160,9 +184,8 @@ const createUser = async (req, res) => {
   }
 };
 
-// @desc    Update user
-// @route   PUT /api/company/users/:id
-// @access  Private (Company Super Admin)
+// ... keep existing code (updateUser, deleteUser, toggleUserStatus, sendWelcomeEmail, updateS3Config, updateCallbackConfig, testS3Connection, testWebhook functions)
+
 const updateUser = async (req, res) => {
   try {
     // Remove password from update data if present (shouldn't be updated here)
@@ -205,9 +228,6 @@ const updateUser = async (req, res) => {
   }
 };
 
-// @desc    Delete user
-// @route   DELETE /api/company/users/:id
-// @access  Private (Company Super Admin)
 const deleteUser = async (req, res) => {
   try {
     const user = await User.findOneAndDelete({
@@ -250,9 +270,6 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// @desc    Toggle user status
-// @route   PATCH /api/company/users/:id/status
-// @access  Private (Company Super Admin)
 const toggleUserStatus = async (req, res) => {
   try {
     const { is_active } = req.body;
@@ -292,8 +309,6 @@ const toggleUserStatus = async (req, res) => {
     });
   }
 };
-
-// ... keep existing code (sendWelcomeEmail, updateS3Config, updateCallbackConfig, testS3Connection, testWebhook functions)
 
 const sendWelcomeEmail = async (req, res) => {
   try {
