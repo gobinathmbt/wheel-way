@@ -1,12 +1,20 @@
+
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Settings, Save } from "lucide-react";
+import { Search, Settings, Save, Filter } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -22,6 +30,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { companyServices } from "@/api/services";
@@ -55,18 +71,20 @@ const UserPermissions = () => {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [userPermissions, setUserPermissions] = useState<any[]>([]);
 
   const { data: usersData, isLoading } = useQuery({
-    queryKey: ["company-users-permissions", page, search],
+    queryKey: ["company-users-permissions", page, search, statusFilter],
     queryFn: () =>
       companyServices
         .getUsersWithPermissions({
           page,
           limit: 10,
           search: search || undefined,
+          status: statusFilter !== "all" ? statusFilter : undefined,
         })
         .then((res) => res.data),
   });
@@ -171,11 +189,17 @@ const UserPermissions = () => {
     });
   };
 
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
   const actionTypes = ["create", "read", "update", "delete"];
 
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [search, statusFilter]);
+
+  const totalPages = usersData?.pagination?.total_pages || 1;
 
   return (
     <DashboardLayout title="User Permissions">
@@ -185,22 +209,38 @@ const UserPermissions = () => {
             Permissions Assignment
           </h2>
           <p className="text-muted-foreground">
-          Assign the Permissions To Users and Manage Their Access
+            Assign the Permissions To Users and Manage Their Access
           </p>
         </div>
+        
         <Card>
           <CardHeader>
-            <CardTitle>Search Users</CardTitle>
+            <CardTitle>Search & Filter Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search users..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search users..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -213,53 +253,103 @@ const UserPermissions = () => {
             {isLoading ? (
               <div>Loading users...</div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>S.No</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Permissions Count</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {usersData?.data?.map((user: User, index: number) => (
-                    <TableRow key={user._id}>
-                      <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                      <TableCell className="font-medium">
-                        {user.first_name} {user.last_name}
-                      </TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {user.role.replace("_", " ").toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={user.is_active ? "default" : "secondary"}
-                        >
-                          {user.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{user.permissions?.length || 0}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleManagePermissions(user)}
-                        >
-                          <Settings className="h-4 w-4 mr-2" />
-                          Manage Permissions
-                        </Button>
-                      </TableCell>
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>S.No</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Permissions Count</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {usersData?.data?.map((user: User, index: number) => (
+                      <TableRow key={user._id}>
+                        <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
+                        <TableCell className="font-medium">
+                          {user.first_name} {user.last_name}
+                        </TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {user.role.replace("_", " ").toUpperCase()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={user.is_active ? "default" : "secondary"}
+                          >
+                            {user.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{user.permissions?.length || 0}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleManagePermissions(user)}
+                          >
+                            <Settings className="h-4 w-4 mr-2" />
+                            Manage Permissions
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center mt-4">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => handlePageChange(Math.max(1, page - 1))}
+                            className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                        
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                          .filter(pageNum => {
+                            return pageNum === 1 || 
+                                   pageNum === totalPages || 
+                                   (pageNum >= page - 1 && pageNum <= page + 1);
+                          })
+                          .map((pageNum, index, array) => (
+                            <React.Fragment key={pageNum}>
+                              {index > 0 && array[index - 1] !== pageNum - 1 && (
+                                <PaginationItem>
+                                  <span className="px-3 py-2">...</span>
+                                </PaginationItem>
+                              )}
+                              <PaginationItem>
+                                <PaginationLink
+                                  onClick={() => handlePageChange(pageNum)}
+                                  isActive={pageNum === page}
+                                  className="cursor-pointer"
+                                >
+                                  {pageNum}
+                                </PaginationLink>
+                              </PaginationItem>
+                            </React.Fragment>
+                          ))}
+                        
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
+                            className={page === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
