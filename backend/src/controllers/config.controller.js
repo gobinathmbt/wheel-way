@@ -1,7 +1,10 @@
+
 const InspectionConfig = require("../models/InspectionConfig");
 const TradeinConfig = require("../models/TradeinConfig");
 const DropdownMaster = require("../models/DropdownMaster");
 const { logEvent } = require("./logs.controller");
+
+// ... keep existing code (getInspectionConfigs, getInspectionConfigDetails, createInspectionConfig, updateInspectionConfig, deleteInspectionConfig functions)
 
 const getInspectionConfigs = async (req, res) => {
   try {
@@ -206,8 +209,6 @@ const updateInspectionConfig = async (req, res) => {
   }
 };
 
-// ... keep existing code (deleteInspectionConfig, addInspectionSection, addInspectionField functions)
-
 const deleteInspectionConfig = async (req, res) => {
   try {
     const config = await InspectionConfig.findOneAndDelete({
@@ -249,6 +250,20 @@ const addInspectionSection = async (req, res) => {
       });
     }
 
+    // Check for unique section name across all categories within the company
+    const sectionNameExists = config.categories.some(category =>
+      category.sections.some(section => 
+        section.section_name.toLowerCase() === req.body.section_name.toLowerCase()
+      )
+    );
+
+    if (sectionNameExists) {
+      return res.status(400).json({
+        success: false,
+        message: "Section name must be unique within the company",
+      });
+    }
+
     const category = config.categories.find(
       (cat) => cat.category_id === req.params.categoryId
     );
@@ -262,6 +277,7 @@ const addInspectionSection = async (req, res) => {
     const newSection = {
       ...req.body,
       section_id: `section_${Date.now()}`,
+      display_order: category.sections.length,
       fields: [],
     };
 
@@ -295,6 +311,22 @@ const addInspectionField = async (req, res) => {
       });
     }
 
+    // Check for unique field name across all categories and sections within the company
+    const fieldNameExists = config.categories.some(category =>
+      category.sections.some(section =>
+        section.fields.some(field => 
+          field.field_name.toLowerCase() === req.body.field_name.toLowerCase()
+        )
+      )
+    );
+
+    if (fieldNameExists) {
+      return res.status(400).json({
+        success: false,
+        message: "Field name must be unique within the company",
+      });
+    }
+
     // Find section across all categories
     let targetSection = null;
     for (const category of config.categories) {
@@ -314,6 +346,7 @@ const addInspectionField = async (req, res) => {
     const newField = {
       ...req.body,
       field_id: `field_${Date.now()}`,
+      display_order: targetSection.fields.length,
     };
 
     // Validate dropdown configuration if field type is dropdown
@@ -362,107 +395,6 @@ const addInspectionField = async (req, res) => {
   }
 };
 
-// ... keep existing code (Trade-in Configuration Controllers)
-
-const getTradeinConfigs = async (req, res) => {
-  try {
-    const configs = await TradeinConfig.find({
-      company_id: req.user.company_id,
-      is_active: true,
-    }).sort({ created_at: -1 });
-
-    res.status(200).json({
-      success: true,
-      data: configs,
-    });
-  } catch (error) {
-    console.error("Get tradein configs error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error retrieving trade-in configurations",
-    });
-  }
-};
-
-const createTradeinConfig = async (req, res) => {
-  try {
-    const config = new TradeinConfig({
-      ...req.body,
-      company_id: req.user.company_id,
-      created_by: req.user.id,
-      sections: [],
-    });
-
-    await config.save();
-
-    res.status(201).json({
-      success: true,
-      data: config,
-    });
-  } catch (error) {
-    console.error("Create tradein config error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error creating trade-in configuration",
-    });
-  }
-};
-
-const updateTradeinConfig = async (req, res) => {
-  try {
-    const config = await TradeinConfig.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
-      req.body,
-      { new: true, runValidators: true }
-    );
-
-    if (!config) {
-      return res.status(404).json({
-        success: false,
-        message: "Configuration not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: config,
-    });
-  } catch (error) {
-    console.error("Update tradein config error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error updating trade-in configuration",
-    });
-  }
-};
-
-const deleteTradeinConfig = async (req, res) => {
-  try {
-    const config = await TradeinConfig.findOneAndDelete({
-      _id: req.params.id,
-      company_id: req.user.company_id,
-    });
-
-    if (!config) {
-      return res.status(404).json({
-        success: false,
-        message: "Configuration not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Configuration deleted successfully",
-    });
-  } catch (error) {
-    console.error("Delete tradein config error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error deleting trade-in configuration",
-    });
-  }
-};
-
 const updateInspectionField = async (req, res) => {
   try {
     const config = await InspectionConfig.findOne({
@@ -498,6 +430,25 @@ const updateInspectionField = async (req, res) => {
         success: false,
         message: "Field not found",
       });
+    }
+
+    // Check for unique field name if it's being changed
+    if (req.body.field_name && req.body.field_name.toLowerCase() !== targetField.field_name.toLowerCase()) {
+      const fieldNameExists = config.categories.some(category =>
+        category.sections.some(section =>
+          section.fields.some(field => 
+            field.field_id !== req.params.fieldId &&
+            field.field_name.toLowerCase() === req.body.field_name.toLowerCase()
+          )
+        )
+      );
+
+      if (fieldNameExists) {
+        return res.status(400).json({
+          success: false,
+          message: "Field name must be unique within the company",
+        });
+      }
     }
 
     // Validate dropdown configuration if field type is dropdown
@@ -610,6 +561,278 @@ const deleteInspectionField = async (req, res) => {
   }
 };
 
+const deleteInspectionSection = async (req, res) => {
+  try {
+    const { id: configId, sectionId } = req.params;
+    const { company_id } = req.user;
+
+    const config = await InspectionConfig.findOne({
+      _id: configId,
+      company_id,
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Configuration not found",
+      });
+    }
+
+    // Find and remove the section from all categories
+    let sectionRemoved = false;
+    config.categories.forEach((category) => {
+      const initialLength = category.sections.length;
+      category.sections = category.sections.filter(
+        (section) => section.section_id !== sectionId
+      );
+      if (category.sections.length < initialLength) {
+        sectionRemoved = true;
+      }
+    });
+
+    if (!sectionRemoved) {
+      return res.status(404).json({
+        success: false,
+        message: "Section not found",
+      });
+    }
+
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Section deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete section error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete section",
+    });
+  }
+};
+
+// Update sections order
+const updateSectionsOrder = async (req, res) => {
+  try {
+    const { id: configId, categoryId } = req.params;
+    const { sections } = req.body;
+    const { company_id } = req.user;
+
+    const config = await InspectionConfig.findOne({
+      _id: configId,
+      company_id,
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Configuration not found",
+      });
+    }
+
+    const category = config.categories.find(
+      (cat) => cat.category_id === categoryId
+    );
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found",
+      });
+    }
+
+    // Update display order for sections based on the array received
+    sections.forEach((sectionUpdate, index) => {
+      const section = category.sections.find(
+        (s) => s.section_id === sectionUpdate.section_id
+      );
+      if (section) {
+        section.display_order = sectionUpdate.display_order !== undefined ? sectionUpdate.display_order : index;
+      }
+    });
+
+    // Sort sections by display_order to maintain consistency
+    category.sections.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Section order updated successfully",
+    });
+  } catch (error) {
+    console.error("Update sections order error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update section order",
+    });
+  }
+};
+
+// Update fields order
+const updateFieldsOrder = async (req, res) => {
+  try {
+    const { id: configId, sectionId } = req.params;
+    const { fields } = req.body;
+    const { company_id } = req.user;
+
+    const config = await InspectionConfig.findOne({
+      _id: configId,
+      company_id,
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Configuration not found",
+      });
+    }
+
+    // Find the section in any category
+    let targetSection = null;
+    config.categories.forEach((category) => {
+      const section = category.sections.find((s) => s.section_id === sectionId);
+      if (section) {
+        targetSection = section;
+      }
+    });
+
+    if (!targetSection) {
+      return res.status(404).json({
+        success: false,
+        message: "Section not found",
+      });
+    }
+
+    // Update display order for fields based on the array received
+    fields.forEach((fieldUpdate, index) => {
+      const field = targetSection.fields.find(
+        (f) => f.field_id === fieldUpdate.field_id
+      );
+      if (field) {
+        field.display_order = fieldUpdate.display_order !== undefined ? fieldUpdate.display_order : index;
+      }
+    });
+
+    // Sort fields by display_order to maintain consistency
+    targetSection.fields.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Field order updated successfully",
+    });
+  } catch (error) {
+    console.error("Update fields order error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update field order",
+    });
+  }
+};
+
+// ... keep existing code (Trade-in Configuration Controllers, getTradeinConfigs, createTradeinConfig, updateTradeinConfig, deleteTradeinConfig, addTradeinSection, addTradeinField functions)
+
+const getTradeinConfigs = async (req, res) => {
+  try {
+    const configs = await TradeinConfig.find({
+      company_id: req.user.company_id,
+      is_active: true,
+    }).sort({ created_at: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: configs,
+    });
+  } catch (error) {
+    console.error("Get tradein configs error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving trade-in configurations",
+    });
+  }
+};
+
+const createTradeinConfig = async (req, res) => {
+  try {
+    const config = new TradeinConfig({
+      ...req.body,
+      company_id: req.user.company_id,
+      created_by: req.user.id,
+      sections: [],
+    });
+
+    await config.save();
+
+    res.status(201).json({
+      success: true,
+      data: config,
+    });
+  } catch (error) {
+    console.error("Create tradein config error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error creating trade-in configuration",
+    });
+  }
+};
+
+const updateTradeinConfig = async (req, res) => {
+  try {
+    const config = await TradeinConfig.findOneAndUpdate(
+      { _id: req.params.id, company_id: req.user.company_id },
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Configuration not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: config,
+    });
+  } catch (error) {
+    console.error("Update tradein config error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating trade-in configuration",
+    });
+  }
+};
+
+const deleteTradeinConfig = async (req, res) => {
+  try {
+    const config = await TradeinConfig.findOneAndDelete({
+      _id: req.params.id,
+      company_id: req.user.company_id,
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Configuration not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Configuration deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete tradein config error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error deleting trade-in configuration",
+    });
+  }
+};
+
 const addTradeinSection = async (req, res) => {
   try {
     const config = await TradeinConfig.findOne({
@@ -717,171 +940,6 @@ const addTradeinField = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error adding field",
-    });
-  }
-};
-
-const deleteInspectionSection = async (req, res) => {
-  try {
-    const { id: configId, sectionId } = req.params;
-    const { company_id } = req.user;
-
-    const config = await InspectionConfig.findOne({
-      _id: configId,
-      company_id,
-    });
-
-    if (!config) {
-      return res.status(404).json({
-        success: false,
-        message: "Configuration not found",
-      });
-    }
-
-    // Find and remove the section from all categories
-    let sectionRemoved = false;
-    config.categories.forEach((category) => {
-      const initialLength = category.sections.length;
-      category.sections = category.sections.filter(
-        (section) => section.section_id !== sectionId
-      );
-      if (category.sections.length < initialLength) {
-        sectionRemoved = true;
-      }
-    });
-
-    if (!sectionRemoved) {
-      return res.status(404).json({
-        success: false,
-        message: "Section not found",
-      });
-    }
-
-    await config.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Section deleted successfully",
-    });
-  } catch (error) {
-    console.error("Delete section error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to delete section",
-    });
-  }
-};
-
-// Update sections order
-const updateSectionsOrder = async (req, res) => {
-  try {
-    const { id: configId, categoryId } = req.params;
-    const { sections } = req.body;
-    const { company_id } = req.user;
-
-    const config = await InspectionConfig.findOne({
-      _id: configId,
-      company_id,
-    });
-
-    if (!config) {
-      return res.status(404).json({
-        success: false,
-        message: "Configuration not found",
-      });
-    }
-
-    const category = config.categories.find(
-      (cat) => cat.category_id === categoryId
-    );
-    if (!category) {
-      return res.status(404).json({
-        success: false,
-        message: "Category not found",
-      });
-    }
-
-    // Update display order for sections
-    sections.forEach((sectionUpdate, index) => {
-      const section = category.sections.find(
-        (s) => s.section_id === sectionUpdate.section_id
-      );
-      if (section) {
-        section.display_order = index;
-      }
-    });
-
-    await config.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Section order updated successfully",
-    });
-  } catch (error) {
-    console.error("Update sections order error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to update section order",
-    });
-  }
-};
-
-// Update fields order
-const updateFieldsOrder = async (req, res) => {
-  try {
-    const { id: configId, sectionId } = req.params;
-    const { fields } = req.body;
-    const { company_id } = req.user;
-
-    const config = await InspectionConfig.findOne({
-      _id: configId,
-      company_id,
-    });
-
-    if (!config) {
-      return res.status(404).json({
-        success: false,
-        message: "Configuration not found",
-      });
-    }
-
-    // Find the section in any category
-    let targetSection = null;
-    config.categories.forEach((category) => {
-      const section = category.sections.find((s) => s.section_id === sectionId);
-      if (section) {
-        targetSection = section;
-      }
-    });
-
-    if (!targetSection) {
-      return res.status(404).json({
-        success: false,
-        message: "Section not found",
-      });
-    }
-
-    // Update display order for fields
-    fields.forEach((fieldUpdate, index) => {
-      const field = targetSection.fields.find(
-        (f) => f.field_id === fieldUpdate.field_id
-      );
-      if (field) {
-        field.display_order = index;
-      }
-    });
-
-    await config.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Field order updated successfully",
-    });
-  } catch (error) {
-    console.error("Update fields order error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to update field order",
     });
   }
 };

@@ -122,8 +122,10 @@ const DraggableFieldsList: React.FC<DraggableFieldsListProps> = ({
       const oldIndex = fields.findIndex(field => field.field_id === active.id);
       const newIndex = fields.findIndex(field => field.field_id === over?.id);
       
-      const newFields = arrayMove(fields, oldIndex, newIndex);
-      onUpdateOrder(newFields);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newFields = arrayMove(fields, oldIndex, newIndex);
+        onUpdateOrder(newFields);
+      }
     }
   };
 

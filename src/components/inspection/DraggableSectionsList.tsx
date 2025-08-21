@@ -67,6 +67,10 @@ function SortableSection({
     transition,
   };
 
+  const handleFieldsOrderUpdate = (fields: any[]) => {
+    onUpdateFieldsOrder(section.section_id, fields);
+  };
+
   return (
     <div ref={setNodeRef} style={style} className="border rounded-lg p-4 bg-white">
       <div className="flex justify-between items-center mb-2">
@@ -110,10 +114,10 @@ function SortableSection({
       {section.fields?.length > 0 && (
         <div className="mt-4">
           <DraggableFieldsList
-            fields={section.fields}
+            fields={section.fields.sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))}
             onEditField={onEditField}
             onDeleteField={onDeleteField}
-            onUpdateOrder={(fields) => onUpdateFieldsOrder(section.section_id, fields)}
+            onUpdateOrder={handleFieldsOrderUpdate}
           />
         </div>
       )}
@@ -166,8 +170,10 @@ const DraggableSectionsList: React.FC<DraggableSectionsListProps> = ({
       const oldIndex = sections.findIndex(section => section.section_id === active.id);
       const newIndex = sections.findIndex(section => section.section_id === over?.id);
       
-      const newSections = arrayMove(sections, oldIndex, newIndex);
-      onUpdateSectionsOrder(newSections);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newSections = arrayMove(sections, oldIndex, newIndex);
+        onUpdateSectionsOrder(newSections);
+      }
     }
   };
 
