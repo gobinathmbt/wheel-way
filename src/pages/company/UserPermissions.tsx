@@ -180,10 +180,14 @@ const UserPermissions = () => {
   return (
     <DashboardLayout title="User Permissions">
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">User Permissions</h1>
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Permissions Assignment
+          </h2>
+          <p className="text-muted-foreground">
+          Assign the Permissions To Users and Manage Their Access
+          </p>
         </div>
-
         <Card>
           <CardHeader>
             <CardTitle>Search Users</CardTitle>
