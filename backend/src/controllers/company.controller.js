@@ -34,18 +34,55 @@ const getDashboard = async (req, res) => {
   }
 };
 
-// @desc    Get company users
+// @desc    Get company users with pagination, search, and filter
 // @route   GET /api/company/users
 // @access  Private (Company Super Admin)
 const getUsers = async (req, res) => {
   try {
-    const users = await User.find({ 
-      company_id: req.user.company_id 
-    }).populate('company_id').sort({ created_at: -1 });
+    const { page = 1, limit = 10, search, status } = req.query;
+    const skip = (page - 1) * limit;
+
+    // Build filter query
+    let filter = { company_id: req.user.company_id };
+    
+    // Add search functionality
+    if (search) {
+      filter.$or = [
+        { username: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { first_name: { $regex: search, $options: 'i' } },
+        { last_name: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Add status filter
+    if (status && status !== 'all') {
+      filter.is_active = status === 'active';
+    }
+
+    // Get users with pagination
+    const users = await User.find(filter)
+      .populate('company_id')
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .select('-password');
+
+    // Get total count for pagination
+    const totalRecords = await User.countDocuments(filter);
+    const totalPages = Math.ceil(totalRecords / limit);
 
     res.status(200).json({
       success: true,
-      data: users
+      data: users,
+      pagination: {
+        current_page: parseInt(page),
+        total_pages: totalPages,
+        total_records: totalRecords,
+        per_page: parseInt(limit),
+        has_next_page: page < totalPages,
+        has_prev_page: page > 1
+      }
     });
 
   } catch (error) {
@@ -200,6 +237,15 @@ const toggleUserStatus = async (req, res) => {
       });
     }
 
+    await logEvent({
+      event_type: 'user_management',
+      event_action: 'user_status_updated',
+      event_description: `User ${user.email} status changed to ${is_active ? 'active' : 'inactive'}`,
+      user_id: req.user.id,
+      company_id: req.user.company_id,
+      user_role: req.user.role
+    });
+
     res.status(200).json({
       success: true,
       data: user
@@ -214,9 +260,8 @@ const toggleUserStatus = async (req, res) => {
   }
 };
 
-// @desc    Send welcome email to user
-// @route   POST /api/company/users/:id/send-welcome
-// @access  Private (Company Super Admin)
+// ... keep existing code (sendWelcomeEmail, updateS3Config, updateCallbackConfig, testS3Connection, testWebhook functions)
+
 const sendWelcomeEmail = async (req, res) => {
   try {
     // Logic to send welcome email would go here
@@ -234,9 +279,6 @@ const sendWelcomeEmail = async (req, res) => {
   }
 };
 
-// @desc    Update S3 configuration
-// @route   PUT /api/company/settings/s3
-// @access  Private (Company Super Admin)
 const updateS3Config = async (req, res) => {
   try {
     // Store S3 config in company settings
@@ -254,9 +296,6 @@ const updateS3Config = async (req, res) => {
   }
 };
 
-// @desc    Update callback configuration
-// @route   PUT /api/company/settings/callback
-// @access  Private (Company Super Admin)
 const updateCallbackConfig = async (req, res) => {
   try {
     // Store callback config in company settings
@@ -274,9 +313,6 @@ const updateCallbackConfig = async (req, res) => {
   }
 };
 
-// @desc    Test S3 connection
-// @route   POST /api/company/settings/test-s3
-// @access  Private (Company Super Admin)
 const testS3Connection = async (req, res) => {
   try {
     // Test S3 connection logic
@@ -294,9 +330,6 @@ const testS3Connection = async (req, res) => {
   }
 };
 
-// @desc    Test webhook
-// @route   POST /api/company/settings/test-webhook
-// @access  Private (Company Super Admin)
 const testWebhook = async (req, res) => {
   try {
     // Test webhook logic
