@@ -4,7 +4,7 @@ const TradeinConfig = require("../models/TradeinConfig");
 const DropdownMaster = require("../models/DropdownMaster");
 const { logEvent } = require("./logs.controller");
 
-// ... keep existing code (getInspectionConfigs, getInspectionConfigDetails, createInspectionConfig, updateInspectionConfig, deleteInspectionConfig functions)
+// ... keep existing code (getInspectionConfigs, getInspectionConfigDetails, createInspectionConfig, updateInspectionConfig, deleteInspectionConfig, addInspectionSection, addInspectionField, updateInspectionField, deleteInspectionField, deleteInspectionSection, updateSectionsOrder, updateFieldsOrder functions)
 
 const getInspectionConfigs = async (req, res) => {
   try {
@@ -732,18 +732,45 @@ const updateFieldsOrder = async (req, res) => {
   }
 };
 
-// ... keep existing code (Trade-in Configuration Controllers, getTradeinConfigs, createTradeinConfig, updateTradeinConfig, deleteTradeinConfig, addTradeinSection, addTradeinField functions)
-
+// Trade-in Configuration Controllers
 const getTradeinConfigs = async (req, res) => {
   try {
-    const configs = await TradeinConfig.find({
+    const { page = 1, limit = 6, search = "", status = "" } = req.query;
+    const skip = (page - 1) * limit;
+
+    // Build search query
+    let searchQuery = {
       company_id: req.user.company_id,
-      is_active: true,
-    }).sort({ created_at: -1 });
+    };
+
+    if (search) {
+      searchQuery.config_name = { $regex: search, $options: "i" };
+    }
+
+    // Apply status filter only if it's not "all"
+    if (status && status !== "all") {
+      searchQuery.is_active = status === "active";
+    }
+
+    const configs = await TradeinConfig.find(searchQuery)
+      .select(
+        "config_name description version is_active is_default created_at updated_at"
+      )
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await TradeinConfig.countDocuments(searchQuery);
 
     res.status(200).json({
       success: true,
       data: configs,
+      pagination: {
+        current_page: parseInt(page),
+        total_pages: Math.ceil(total / limit),
+        total_items: total,
+        items_per_page: parseInt(limit),
+      },
     });
   } catch (error) {
     console.error("Get tradein configs error:", error);
@@ -754,8 +781,56 @@ const getTradeinConfigs = async (req, res) => {
   }
 };
 
+const getTradeinConfigDetails = async (req, res) => {
+  try {
+    const config = await TradeinConfig.findOne({
+      _id: req.params.id,
+      company_id: req.user.company_id,
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Configuration not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: config,
+    });
+  } catch (error) {
+    console.error("Get tradein config details error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving configuration details",
+    });
+  }
+};
+
 const createTradeinConfig = async (req, res) => {
   try {
+    // Check if config name already exists for this company
+    const existingConfig = await TradeinConfig.findOne({
+      config_name: req.body.config_name,
+      company_id: req.user.company_id,
+    });
+
+    if (existingConfig) {
+      return res.status(400).json({
+        success: false,
+        message: "Configuration name already exists",
+      });
+    }
+
+    // If this is set as active, deactivate other active configs
+    if (req.body.is_active) {
+      await TradeinConfig.updateMany(
+        { company_id: req.user.company_id, is_active: true },
+        { is_active: false }
+      );
+    }
+
     const config = new TradeinConfig({
       ...req.body,
       company_id: req.user.company_id,
@@ -780,6 +855,34 @@ const createTradeinConfig = async (req, res) => {
 
 const updateTradeinConfig = async (req, res) => {
   try {
+    // Check if new config name already exists for this company (excluding current config)
+    if (req.body.config_name) {
+      const existingConfig = await TradeinConfig.findOne({
+        config_name: req.body.config_name,
+        company_id: req.user.company_id,
+        _id: { $ne: req.params.id },
+      });
+
+      if (existingConfig) {
+        return res.status(400).json({
+          success: false,
+          message: "Configuration name already exists",
+        });
+      }
+    }
+
+    // If this is set as active, deactivate other active configs
+    if (req.body.is_active) {
+      await TradeinConfig.updateMany(
+        {
+          company_id: req.user.company_id,
+          is_active: true,
+          _id: { $ne: req.params.id },
+        },
+        { is_active: false }
+      );
+    }
+
     const config = await TradeinConfig.findOneAndUpdate(
       { _id: req.params.id, company_id: req.user.company_id },
       req.body,
@@ -847,9 +950,22 @@ const addTradeinSection = async (req, res) => {
       });
     }
 
+    // Check for unique section name within the company
+    const sectionNameExists = config.sections.some(section => 
+      section.section_name.toLowerCase() === req.body.section_name.toLowerCase()
+    );
+
+    if (sectionNameExists) {
+      return res.status(400).json({
+        success: false,
+        message: "Section name must be unique within the company",
+      });
+    }
+
     const newSection = {
       ...req.body,
       section_id: `section_${Date.now()}`,
+      display_order: config.sections.length,
       fields: [],
     };
 
@@ -883,6 +999,20 @@ const addTradeinField = async (req, res) => {
       });
     }
 
+    // Check for unique field name within the company
+    const fieldNameExists = config.sections.some(section =>
+      section.fields.some(field => 
+        field.field_name.toLowerCase() === req.body.field_name.toLowerCase()
+      )
+    );
+
+    if (fieldNameExists) {
+      return res.status(400).json({
+        success: false,
+        message: "Field name must be unique within the company",
+      });
+    }
+
     const section = config.sections.find(
       (section) => section.section_id === req.params.sectionId
     );
@@ -896,6 +1026,7 @@ const addTradeinField = async (req, res) => {
     const newField = {
       ...req.body,
       field_id: `field_${Date.now()}`,
+      display_order: section.fields.length,
     };
 
     // Validate dropdown configuration if field type is dropdown
@@ -944,6 +1075,313 @@ const addTradeinField = async (req, res) => {
   }
 };
 
+const updateTradeinField = async (req, res) => {
+  try {
+    const config = await TradeinConfig.findOne({
+      _id: req.params.id,
+      company_id: req.user.company_id,
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Configuration not found",
+      });
+    }
+
+    // Find field across all sections
+    let targetField = null;
+    let targetSection = null;
+    for (const section of config.sections) {
+      targetField = section.fields.find(
+        (field) => field.field_id === req.params.fieldId
+      );
+      if (targetField) {
+        targetSection = section;
+        break;
+      }
+    }
+
+    if (!targetField) {
+      return res.status(404).json({
+        success: false,
+        message: "Field not found",
+      });
+    }
+
+    // Check for unique field name if it's being changed
+    if (req.body.field_name && req.body.field_name.toLowerCase() !== targetField.field_name.toLowerCase()) {
+      const fieldNameExists = config.sections.some(section =>
+        section.fields.some(field => 
+          field.field_id !== req.params.fieldId &&
+          field.field_name.toLowerCase() === req.body.field_name.toLowerCase()
+        )
+      );
+
+      if (fieldNameExists) {
+        return res.status(400).json({
+          success: false,
+          message: "Field name must be unique within the company",
+        });
+      }
+    }
+
+    // Validate dropdown configuration if field type is dropdown
+    if (req.body.field_type === "dropdown") {
+      if (
+        !req.body.dropdown_config ||
+        (!req.body.dropdown_config.dropdown_name &&
+          !req.body.dropdown_config.dropdown_id)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Dropdown configuration (dropdown_id or dropdown_name) is required",
+        });
+      }
+
+      // Build query dynamically
+      const query = {
+        company_id: req.user.company_id,
+        is_active: true,
+      };
+
+      if (req.body.dropdown_config.dropdown_id) {
+        query._id = req.body.dropdown_config.dropdown_id;
+      } else {
+        query.dropdown_name = req.body.dropdown_config.dropdown_name;
+      }
+
+      // Verify that the dropdown exists and belongs to the company
+      const dropdown = await DropdownMaster.findOne(query);
+
+      if (!dropdown) {
+        return res.status(400).json({
+          success: false,
+          message: "Selected dropdown not found or inactive",
+        });
+      }
+
+      // Set the dropdown_id reference
+      req.body.dropdown_config.dropdown_id = dropdown._id;
+    }
+
+    // Update field properties
+    Object.assign(targetField, req.body);
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      data: config,
+    });
+  } catch (error) {
+    console.error("Update tradein field error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating field",
+    });
+  }
+};
+
+const deleteTradeinField = async (req, res) => {
+  try {
+    const config = await TradeinConfig.findOne({
+      _id: req.params.id,
+      company_id: req.user.company_id,
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Configuration not found",
+      });
+    }
+
+    // Find and remove field across all sections
+    let fieldRemoved = false;
+    for (const section of config.sections) {
+      const fieldIndex = section.fields.findIndex(
+        (field) => field.field_id === req.params.fieldId
+      );
+      if (fieldIndex !== -1) {
+        section.fields.splice(fieldIndex, 1);
+        fieldRemoved = true;
+        break;
+      }
+    }
+
+    if (!fieldRemoved) {
+      return res.status(404).json({
+        success: false,
+        message: "Field not found",
+      });
+    }
+
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      data: config,
+      message: "Field deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete tradein field error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error deleting field",
+    });
+  }
+};
+
+const deleteTradeinSection = async (req, res) => {
+  try {
+    const { id: configId, sectionId } = req.params;
+    const { company_id } = req.user;
+
+    const config = await TradeinConfig.findOne({
+      _id: configId,
+      company_id,
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Configuration not found",
+      });
+    }
+
+    // Find and remove the section
+    const initialLength = config.sections.length;
+    config.sections = config.sections.filter(
+      (section) => section.section_id !== sectionId
+    );
+
+    if (config.sections.length === initialLength) {
+      return res.status(404).json({
+        success: false,
+        message: "Section not found",
+      });
+    }
+
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Section deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete tradein section error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete section",
+    });
+  }
+};
+
+// Update sections order for tradein
+const updateTradeinSectionsOrder = async (req, res) => {
+  try {
+    const { id: configId } = req.params;
+    const { sections } = req.body;
+    const { company_id } = req.user;
+
+    const config = await TradeinConfig.findOne({
+      _id: configId,
+      company_id,
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Configuration not found",
+      });
+    }
+
+    // Update display order for sections based on the array received
+    sections.forEach((sectionUpdate, index) => {
+      const section = config.sections.find(
+        (s) => s.section_id === sectionUpdate.section_id
+      );
+      if (section) {
+        section.display_order = sectionUpdate.display_order !== undefined ? sectionUpdate.display_order : index;
+      }
+    });
+
+    // Sort sections by display_order to maintain consistency
+    config.sections.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Section order updated successfully",
+    });
+  } catch (error) {
+    console.error("Update tradein sections order error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update section order",
+    });
+  }
+};
+
+// Update fields order for tradein
+const updateTradeinFieldsOrder = async (req, res) => {
+  try {
+    const { id: configId, sectionId } = req.params;
+    const { fields } = req.body;
+    const { company_id } = req.user;
+
+    const config = await TradeinConfig.findOne({
+      _id: configId,
+      company_id,
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Configuration not found",
+      });
+    }
+
+    // Find the section
+    const targetSection = config.sections.find((s) => s.section_id === sectionId);
+
+    if (!targetSection) {
+      return res.status(404).json({
+        success: false,
+        message: "Section not found",
+      });
+    }
+
+    // Update display order for fields based on the array received
+    fields.forEach((fieldUpdate, index) => {
+      const field = targetSection.fields.find(
+        (f) => f.field_id === fieldUpdate.field_id
+      );
+      if (field) {
+        field.display_order = fieldUpdate.display_order !== undefined ? fieldUpdate.display_order : index;
+      }
+    });
+
+    // Sort fields by display_order to maintain consistency
+    targetSection.fields.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Field order updated successfully",
+    });
+  } catch (error) {
+    console.error("Update tradein fields order error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update field order",
+    });
+  }
+};
+
 module.exports = {
   getInspectionConfigs,
   getInspectionConfigDetails,
@@ -953,6 +1391,7 @@ module.exports = {
   addInspectionSection,
   addInspectionField,
   getTradeinConfigs,
+  getTradeinConfigDetails,
   createTradeinConfig,
   updateTradeinConfig,
   deleteTradeinConfig,
@@ -963,4 +1402,9 @@ module.exports = {
   deleteInspectionSection,
   updateSectionsOrder,
   updateFieldsOrder,
+  updateTradeinField,
+  deleteTradeinField,
+  deleteTradeinSection,
+  updateTradeinSectionsOrder,
+  updateTradeinFieldsOrder,
 };

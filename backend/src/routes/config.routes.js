@@ -15,11 +15,17 @@ const {
   updateSectionsOrder,
   updateFieldsOrder,
   getTradeinConfigs,
+  getTradeinConfigDetails,
   createTradeinConfig,
   updateTradeinConfig,
   deleteTradeinConfig,
   addTradeinSection,
-  addTradeinField
+  addTradeinField,
+  updateTradeinField,
+  deleteTradeinField,
+  deleteTradeinSection,
+  updateTradeinSectionsOrder,
+  updateTradeinFieldsOrder
 } = require('../controllers/config.controller');
 
 const router = express.Router();
@@ -45,10 +51,16 @@ router.put('/inspection/:id/sections/:sectionId/fields/reorder', authorize('comp
 
 // Trade-in configuration routes
 router.get('/tradein', getTradeinConfigs);
+router.get('/tradein/:id', getTradeinConfigDetails);
 router.post('/tradein', authorize('company_super_admin'), createTradeinConfig);
 router.put('/tradein/:id', authorize('company_super_admin'), updateTradeinConfig);
 router.delete('/tradein/:id', authorize('company_super_admin'), deleteTradeinConfig);
 router.post('/tradein/:id/sections', authorize('company_super_admin'), addTradeinSection);
 router.post('/tradein/:id/sections/:sectionId/fields', authorize('company_super_admin'), addTradeinField);
+router.put('/update/tradein/:id/fields/:fieldId', authorize('company_super_admin'), updateTradeinField);
+router.delete('/tradein/:id/fields/:fieldId', authorize('company_super_admin'), deleteTradeinField);
+router.delete('/tradein/:id/sections/:sectionId', authorize('company_super_admin'), deleteTradeinSection);
+router.put('/tradein/:id/sections/reorder', authorize('company_super_admin'), updateTradeinSectionsOrder);
+router.put('/tradein/:id/sections/:sectionId/fields/reorder', authorize('company_super_admin'), updateTradeinFieldsOrder);
 
 module.exports = router;

@@ -1,5 +1,4 @@
 
-
 import apiClient from './axios';
 
 // Auth Services
@@ -206,8 +205,11 @@ export const configServices = {
     apiClient.post(`/api/config/inspection/${configId}/sections/${sectionId}/fields`, data),
   
   // Trade-in Config
-  getTradeinConfigs: () =>
-    apiClient.get('/api/config/tradein'),
+  getTradeinConfigs: (params?: any) =>
+    apiClient.get('/api/config/tradein', { params }),
+  
+  getTradeinConfigDetails: (id: string) =>
+    apiClient.get(`/api/config/tradein/${id}`),
   
   createTradeinConfig: (data: any) =>
     apiClient.post('/api/config/tradein', data),
@@ -222,9 +224,28 @@ export const configServices = {
     apiClient.post(`/api/config/tradein/${configId}/sections`, data),
   
   addTradeinField: (configId: string, sectionId: string, data: any) =>
-    apiClient.post(`/api/config/tradein/${configId}/sections/${sectionId}/fields`, data)
-};
+    apiClient.post(`/api/config/tradein/${configId}/sections/${sectionId}/fields`, data),
 
+  updateTradeinField: (configId: string, fieldId: string, data: any) =>
+    apiClient.put(`/api/config/update/tradein/${configId}/fields/${fieldId}`, data),
+    
+  deleteTradeinField: (configId: string, fieldId: string) =>
+    apiClient.delete(`/api/config/tradein/${configId}/fields/${fieldId}`),
+
+  deleteTradeinSection: (configId: string, sectionId: string) =>
+    apiClient.delete(`/api/config/tradein/${configId}/sections/${sectionId}`),
+
+  updateTradeinSectionsOrder: (configId: string, data: any) =>
+    apiClient.put(`/api/config/tradein/${configId}/sections/reorder`, data),
+
+  updateTradeinFieldsOrder: (configId: string, sectionId: string, data: any) =>
+    apiClient.put(`/api/config/tradein/${configId}/sections/${sectionId}/fields/reorder`, data),
+
+  saveTradeinConfig: async (id: string, data: any) => {
+    const response = await apiClient.put(`/api/config/tradein/${id}`, data);
+    return response.data;
+  }
+};
 
 // Vehicle Services
 export const vehicleServices = {
@@ -309,4 +330,3 @@ export default {
   tradein: tradeinServices,
   logs: logServices
 };
-
