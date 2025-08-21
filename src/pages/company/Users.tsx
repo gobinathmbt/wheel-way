@@ -11,11 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Plus, Search, UserPlus, Mail, Trash2 } from 'lucide-react';
+import { Plus, Search, UserPlus, Mail, Trash2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/axios';
 import UserDeleteDialog from '../../components/dialogs/UserDeleteDialog';
+import UserEditDialog from '../../components/dialogs/UserEditDialog';
 
 const CompanyUsers = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -26,6 +27,10 @@ const CompanyUsers = () => {
     isOpen: false,
     userId: '',
     userName: ''
+  });
+  const [editDialog, setEditDialog] = useState({
+    isOpen: false,
+    user: null
   });
   const [isDeleting, setIsDeleting] = useState(false);
   const [formData, setFormData] = useState({
@@ -52,6 +57,7 @@ const CompanyUsers = () => {
 
   const users = usersResponse?.data || [];
   const pagination = usersResponse?.pagination || {};
+  const stats = usersResponse?.stats || {};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -134,6 +140,20 @@ const CompanyUsers = () => {
     });
   };
 
+  const openEditDialog = (user) => {
+    setEditDialog({
+      isOpen: true,
+      user
+    });
+  };
+
+  const closeEditDialog = () => {
+    setEditDialog({
+      isOpen: false,
+      user: null
+    });
+  };
+
   const totalPages = Math.ceil((pagination.total_records || 0) / 10);
 
   return (
@@ -206,6 +226,7 @@ const CompanyUsers = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="company_super_admin">Company Super Admin</SelectItem>
                       <SelectItem value="company_admin">Company Admin</SelectItem>
                     </SelectContent>
                   </Select>
@@ -229,7 +250,7 @@ const CompanyUsers = () => {
               <UserPlus className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{pagination.total_records || 0}</div>
+              <div className="text-2xl font-bold">{stats.totalUsers || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -238,9 +259,7 @@ const CompanyUsers = () => {
               <UserPlus className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {users?.filter(u => u.is_active).length || 0}
-              </div>
+              <div className="text-2xl font-bold">{stats.activeUsers || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -249,9 +268,7 @@ const CompanyUsers = () => {
               <UserPlus className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {users?.filter(u => u.role === 'company_super_admin').length || 0}
-              </div>
+              <div className="text-2xl font-bold">{stats.superAdmins || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -260,9 +277,7 @@ const CompanyUsers = () => {
               <UserPlus className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {users?.filter(u => u.role === 'company_admin').length || 0}
-              </div>
+              <div className="text-2xl font-bold">{stats.admins || 0}</div>
             </CardContent>
           </Card>
         </div>
@@ -359,6 +374,14 @@ const CompanyUsers = () => {
                             <Button 
                               variant="ghost" 
                               size="sm"
+                              onClick={() => openEditDialog(user)}
+                              title="Edit User"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
                               onClick={() => sendWelcomeEmail(user._id)}
                               title="Send Welcome Email"
                             >
@@ -417,6 +440,14 @@ const CompanyUsers = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Edit User Dialog */}
+        <UserEditDialog
+          isOpen={editDialog.isOpen}
+          onClose={closeEditDialog}
+          user={editDialog.user}
+          onUserUpdated={refetch}
+        />
 
         {/* Delete Confirmation Dialog */}
         <UserDeleteDialog

@@ -10,12 +10,20 @@ const getDashboard = async (req, res) => {
   try {
     const companyId = req.user.company_id;
     
-    // Get basic stats for the company
+    // Get actual stats from database
+    const totalUsers = await User.countDocuments({ company_id: companyId });
+    const activeUsers = await User.countDocuments({ company_id: companyId, is_active: true });
+    const superAdmins = await User.countDocuments({ company_id: companyId, role: 'company_super_admin' });
+    const admins = await User.countDocuments({ company_id: companyId, role: 'company_admin' });
+    
     const stats = {
       totalVehicles: 156,
       activeInspections: 23,
       completedAppraisals: 89,
-      totalUsers: await User.countDocuments({ company_id: companyId, is_active: true }),
+      totalUsers,
+      activeUsers,
+      superAdmins,
+      admins,
       monthlyInspections: 45,
       monthlyAppraisals: 32
     };
@@ -72,9 +80,21 @@ const getUsers = async (req, res) => {
     const totalRecords = await User.countDocuments(filter);
     const totalPages = Math.ceil(totalRecords / limit);
 
+    // Get stats for the response
+    const totalUsers = await User.countDocuments({ company_id: req.user.company_id });
+    const activeUsers = await User.countDocuments({ company_id: req.user.company_id, is_active: true });
+    const superAdmins = await User.countDocuments({ company_id: req.user.company_id, role: 'company_super_admin' });
+    const admins = await User.countDocuments({ company_id: req.user.company_id, role: 'company_admin' });
+
     res.status(200).json({
       success: true,
       data: users,
+      stats: {
+        totalUsers,
+        activeUsers,
+        superAdmins,
+        admins
+      },
       pagination: {
         current_page: parseInt(page),
         total_pages: totalPages,
@@ -145,11 +165,14 @@ const createUser = async (req, res) => {
 // @access  Private (Company Super Admin)
 const updateUser = async (req, res) => {
   try {
+    // Remove password from update data if present (shouldn't be updated here)
+    const { password, ...updateData } = req.body;
+
     const user = await User.findOneAndUpdate(
       { _id: req.params.id, company_id: req.user.company_id },
-      req.body,
+      updateData,
       { new: true, runValidators: true }
-    );
+    ).select('-password');
 
     if (!user) {
       return res.status(404).json({
@@ -158,9 +181,19 @@ const updateUser = async (req, res) => {
       });
     }
 
+    await logEvent({
+      event_type: 'user_management',
+      event_action: 'user_updated',
+      event_description: `User ${user.email} updated`,
+      user_id: req.user.id,
+      company_id: req.user.company_id,
+      user_role: req.user.role
+    });
+
     res.status(200).json({
       success: true,
-      data: user
+      data: user,
+      message: 'User updated successfully'
     });
 
   } catch (error) {
