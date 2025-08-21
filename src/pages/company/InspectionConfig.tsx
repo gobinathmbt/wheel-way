@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
@@ -35,14 +36,8 @@ import {
 } from "@/components/ui/dialog";
 import {
   Plus,
-  Settings,
-  Trash2,
-  GripVertical,
   Eye,
   Save,
-  Search,
-  Edit,
-  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -50,15 +45,9 @@ import { configServices, dropdownServices } from "@/api/services";
 import DeleteConfirmationDialog from "@/components/dialogs/DeleteConfirmationDialog";
 import ConfigPreviewModal from "@/components/inspection/ConfigPreviewModal";
 import FieldEditDialog from "@/components/inspection/FieldEditDialog";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
 import DraggableSectionsList from "@/components/inspection/DraggableSectionsList";
+import ConfigurationSearch from "@/components/inspection/ConfigurationSearch";
+import ConfigurationList from "@/components/inspection/ConfigurationList";
 
 const InspectionConfig = () => {
   const queryClient = useQueryClient();
@@ -224,28 +213,6 @@ const InspectionConfig = () => {
     },
   });
 
-  const handleSaveChanges = async () => {
-    if (!selectedConfig || !selectedConfigDetails) {
-      toast.error("No configuration selected");
-      return;
-    }
-
-    try {
-      await saveConfigMutation.mutateAsync({
-        id: selectedConfig._id,
-        data: {
-          config_name: selectedConfig.config_name,
-          description: selectedConfig.description,
-          is_active: selectedConfig.is_active,
-          categories: selectedConfigDetails.categories,
-          settings: selectedConfigDetails.settings,
-        },
-      });
-    } catch (error) {
-      console.error("Save error:", error);
-    }
-  };
-
   const deleteConfigMutation = useMutation({
     mutationFn: configServices.deleteInspectionConfig,
     onSuccess: () => {
@@ -330,38 +297,6 @@ const InspectionConfig = () => {
     },
   });
 
-  const handleDeleteSection = (sectionId: string) => {
-    if (!selectedConfig) return;
-    deleteSectionMutation.mutate({
-      configId: selectedConfig._id,
-      sectionId: sectionId,
-    });
-  };
-
-  const handleUpdateSectionsOrder = (categoryId: string, sections: any[]) => {
-    if (!selectedConfig) return;
-    updateSectionsOrderMutation.mutate({
-      configId: selectedConfig._id,
-      categoryId: categoryId,
-      sections: sections.map((section, index) => ({
-        section_id: section.section_id,
-        display_order: index,
-      })),
-    });
-  };
-
-  const handleUpdateFieldsOrder = (sectionId: string, fields: any[]) => {
-    if (!selectedConfig) return;
-    updateFieldsOrderMutation.mutate({
-      configId: selectedConfig._id,
-      sectionId: sectionId,
-      fields: fields.map((field, index) => ({
-        field_id: field.field_id,
-        display_order: index,
-      })),
-    });
-  };
-
   const addSectionMutation = useMutation({
     mutationFn: ({
       configId,
@@ -423,6 +358,61 @@ const InspectionConfig = () => {
       toast.error(error.response?.data?.message || "Failed to add field");
     },
   });
+
+  // Handler functions
+  const handleSaveChanges = async () => {
+    if (!selectedConfig || !selectedConfigDetails) {
+      toast.error("No configuration selected");
+      return;
+    }
+
+    try {
+      await saveConfigMutation.mutateAsync({
+        id: selectedConfig._id,
+        data: {
+          config_name: selectedConfig.config_name,
+          description: selectedConfig.description,
+          is_active: selectedConfig.is_active,
+          categories: selectedConfigDetails.categories,
+          settings: selectedConfigDetails.settings,
+        },
+      });
+    } catch (error) {
+      console.error("Save error:", error);
+    }
+  };
+
+  const handleDeleteSection = (sectionId: string) => {
+    if (!selectedConfig) return;
+    deleteSectionMutation.mutate({
+      configId: selectedConfig._id,
+      sectionId: sectionId,
+    });
+  };
+
+  const handleUpdateSectionsOrder = (categoryId: string, sections: any[]) => {
+    if (!selectedConfig) return;
+    updateSectionsOrderMutation.mutate({
+      configId: selectedConfig._id,
+      categoryId: categoryId,
+      sections: sections.map((section, index) => ({
+        section_id: section.section_id,
+        display_order: index,
+      })),
+    });
+  };
+
+  const handleUpdateFieldsOrder = (sectionId: string, fields: any[]) => {
+    if (!selectedConfig) return;
+    updateFieldsOrderMutation.mutate({
+      configId: selectedConfig._id,
+      sectionId: sectionId,
+      fields: fields.map((field, index) => ({
+        field_id: field.field_id,
+        display_order: index,
+      })),
+    });
+  };
 
   const handleCreateConfig = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -809,42 +799,14 @@ const InspectionConfig = () => {
         </div>
 
         {/* Search and Filter */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Search & Filter</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search configurations..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                  />
-                </div>
-              </div>
-              <Select value={statusFilter} onValueChange={handleFilterChange}>
-                <SelectTrigger className="w-48">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button onClick={handleSearch} disabled={configsLoading}>
-                <Search className="h-4 w-4 mr-2" />
-                Search
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <ConfigurationSearch
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          statusFilter={statusFilter}
+          onFilterChange={handleFilterChange}
+          onSearch={handleSearch}
+          isLoading={configsLoading}
+        />
 
         {/* Configuration List */}
         <Card>
@@ -855,125 +817,17 @@ const InspectionConfig = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {configsLoading ? (
-              <div className="text-center py-8">Loading configurations...</div>
-            ) : configs.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No configurations found
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                  {configs.map((config: any) => (
-                    <div
-                      key={config._id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        selectedConfig?._id === config._id
-                          ? "border-primary bg-primary/5"
-                          : "hover:bg-muted/50"
-                      }`}
-                      onClick={() => setSelectedConfig(config)}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-semibold truncate">
-                          {config.config_name}
-                        </h3>
-                        <div className="flex gap-1 ml-2">
-                          {config.is_active && (
-                            <Badge className="bg-green-100 text-green-800">
-                              Active
-                            </Badge>
-                          )}
-                          {!config.is_active && (
-                            <Badge variant="secondary">Inactive</Badge>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                        {config.description}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>v{config.version}</span>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditConfig(config);
-                            }}
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteConfig(config);
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Pagination */}
-                {pagination && pagination.total_pages > 1 && (
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={() =>
-                            setCurrentPage(Math.max(1, currentPage - 1))
-                          }
-                          className={
-                            currentPage === 1
-                              ? "pointer-events-none opacity-50"
-                              : "cursor-pointer"
-                          }
-                        />
-                      </PaginationItem>
-
-                      {Array.from(
-                        { length: pagination.total_pages },
-                        (_, i) => i + 1
-                      ).map((page) => (
-                        <PaginationItem key={page}>
-                          <PaginationLink
-                            onClick={() => setCurrentPage(page)}
-                            isActive={page === currentPage}
-                            className="cursor-pointer"
-                          >
-                            {page}
-                          </PaginationLink>
-                        </PaginationItem>
-                      ))}
-
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={() =>
-                            setCurrentPage(
-                              Math.min(pagination.total_pages, currentPage + 1)
-                            )
-                          }
-                          className={
-                            currentPage === pagination.total_pages
-                              ? "pointer-events-none opacity-50"
-                              : "cursor-pointer"
-                          }
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                )}
-              </>
-            )}
+            <ConfigurationList
+              configs={configs}
+              selectedConfig={selectedConfig}
+              onSelectConfig={setSelectedConfig}
+              onEditConfig={handleEditConfig}
+              onDeleteConfig={handleDeleteConfig}
+              pagination={pagination}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              isLoading={configsLoading}
+            />
           </CardContent>
         </Card>
 
@@ -1068,6 +922,7 @@ const InspectionConfig = () => {
                                   onSubmit={handleAddSection}
                                   className="space-y-4"
                                 >
+                                  {/* ... keep existing code (section form) the same */}
                                   <div>
                                     <Label htmlFor="section_name">
                                       Section Name
@@ -1180,6 +1035,7 @@ const InspectionConfig = () => {
                               selectedSection={selectedSection}
                               setSelectedSection={setSelectedSection}
                               addFieldForm={addFieldForm}
+                              isDeletingSection={deleteSectionMutation.isPending}
                             />
                           ) : (
                             <p className="text-muted-foreground text-center py-4">
@@ -1207,6 +1063,7 @@ const InspectionConfig = () => {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleUpdateConfig} className="space-y-4">
+              {/* ... keep existing code (edit form) the same */}
               <div>
                 <Label htmlFor="edit_config_name">Configuration Name</Label>
                 <Input
