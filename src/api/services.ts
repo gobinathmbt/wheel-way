@@ -49,6 +49,25 @@ export const masterServices = {
   deletePlan: (id: string) =>
     apiClient.delete(`/api/master/plans/${id}`),
   
+  // Permissions
+  getPermissions: (params?: any) =>
+    apiClient.get('/api/master/permissions', { params }),
+  
+  getPermission: (id: string) =>
+    apiClient.get(`/api/master/permissions/${id}`),
+  
+  createPermission: (data: any) =>
+    apiClient.post('/api/master/permissions', data),
+  
+  updatePermission: (id: string, data: any) =>
+    apiClient.put(`/api/master/permissions/${id}`, data),
+  
+  deletePermission: (id: string) =>
+    apiClient.delete(`/api/master/permissions/${id}`),
+  
+  togglePermissionStatus: (id: string, data: any) =>
+    apiClient.patch(`/api/master/permissions/${id}/status`, data),
+  
   // Settings
   updateProfile: (data: any) =>
     apiClient.put('/api/master/profile', data),
@@ -84,6 +103,19 @@ export const companyServices = {
   
   sendWelcomeEmail: (id: string) =>
     apiClient.post(`/api/company/users/${id}/send-welcome`),
+  
+  // Permissions
+  getAvailablePermissions: () =>
+    apiClient.get('/api/company/permissions/available'),
+  
+  getUsersWithPermissions: (params?: any) =>
+    apiClient.get('/api/company/users-permissions', { params }),
+  
+  getUserPermissions: (userId: string) =>
+    apiClient.get(`/api/company/users/${userId}/permissions`),
+  
+  updateUserPermissions: (userId: string, data: any) =>
+    apiClient.put(`/api/company/users/${userId}/permissions`, data),
   
   // Settings
   updateS3Config: (data: any) =>

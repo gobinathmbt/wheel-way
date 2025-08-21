@@ -15,6 +15,13 @@ const {
   testWebhook
 } = require('../controllers/company.controller');
 
+const {
+  getAvailablePermissions,
+  getUserPermissions,
+  updateUserPermissions,
+  getUsersWithPermissions
+} = require('../controllers/userPermission.controller');
+
 const router = express.Router();
 
 // Apply auth middleware to all routes
@@ -32,6 +39,12 @@ router.put('/users/:id', authorize('company_super_admin'), updateUser);
 router.delete('/users/:id', authorize('company_super_admin'), deleteUser);
 router.patch('/users/:id/status', authorize('company_super_admin'), toggleUserStatus);
 router.post('/users/:id/send-welcome', authorize('company_super_admin'), sendWelcomeEmail);
+
+// Permission management routes (only super admin)
+router.get('/permissions/available', authorize('company_super_admin'), getAvailablePermissions);
+router.get('/users-permissions', authorize('company_super_admin'), getUsersWithPermissions);
+router.get('/users/:userId/permissions', authorize('company_super_admin'), getUserPermissions);
+router.put('/users/:userId/permissions', authorize('company_super_admin'), updateUserPermissions);
 
 // Settings routes (only super admin)
 router.put('/settings/s3', authorize('company_super_admin'), updateS3Config);

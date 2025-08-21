@@ -17,6 +17,8 @@ import MasterDashboard from "./pages/master_admin/Dashboard";
 import MasterCompanies from "./pages/master_admin/Companies";
 import MasterPlans from "./pages/master_admin/Plans";
 import MasterSettings from "./pages/master_admin/Settings";
+import Permissions from './pages/master_admin/Permissions';
+
 
 // Company Pages  
 import CompanyDashboard from "./pages/company/Dashboard";
@@ -25,6 +27,7 @@ import CompanySettings from "./pages/company/Settings";
 import DropdownMaster from "./pages/company/DropdownMaster";
 import InspectionConfig from "./pages/company/InspectionConfig";
 import TradeinConfig from "./pages/company/TradeinConfig";
+import UserPermissions from './pages/company/UserPermissions';
 
 // Vehicle Pages
 import InspectionList from "./pages/vehicles/InspectionList";
@@ -64,6 +67,11 @@ const App = () => (
                 <MasterPlans />
               </ProtectedRoute>
             } />
+            <Route path="/master/permissions" element={
+              <ProtectedRoute allowedRoles={['master_admin']}>
+                <Permissions />
+              </ProtectedRoute>
+            } />
             <Route path="/master/settings" element={
               <ProtectedRoute allowedRoles={['master_admin']}>
                 <MasterSettings />
@@ -79,6 +87,11 @@ const App = () => (
             <Route path="/company/users" element={
               <ProtectedRoute allowedRoles={['company_super_admin']}>
                 <CompanyUsers />
+              </ProtectedRoute>
+            } />
+            <Route path="/company/permissions" element={
+              <ProtectedRoute allowedRoles={['company_super_admin']}>
+                <UserPermissions />
               </ProtectedRoute>
             } />
             <Route path="/company/settings" element={

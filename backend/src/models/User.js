@@ -1,4 +1,3 @@
-
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -40,7 +39,10 @@ const UserSchema = new mongoose.Schema({
     default: true
   },
   permissions: [{
-    module: String,
+    permission_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Permission'
+    },
     actions: [String] // ['create', 'read', 'update', 'delete']
   }],
   last_login: Date,

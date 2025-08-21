@@ -21,6 +21,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
       return [
         { icon: Home, label: 'Dashboard', path: '/master/dashboard' },
         { icon: Users, label: 'Companies', path: '/master/companies' },
+        { icon: Users, label: 'Permission', path: '/master/permissions' },
         { icon: FileText, label: 'Plans', path: '/master/plans' },
         { icon: Settings, label: 'Settings', path: '/master/settings' },
       ];
@@ -30,6 +31,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
       return [
         { icon: Home, label: 'Dashboard', path: '/company/dashboard' },
         { icon: Users, label: 'Users', path: '/company/users' },
+        { icon: Users, label: 'Permission', path: '/company/permissions' },
         { icon: Database, label: 'Dropdown Master', path: '/company/dropdown-master' },
         { icon: Cog, label: 'Inspection Config', path: '/company/inspection-config' },
         { icon: Cog, label: 'Tradein Config', path: '/company/tradein-config' },

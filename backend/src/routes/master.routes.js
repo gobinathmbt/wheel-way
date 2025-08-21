@@ -39,6 +39,9 @@ router.post('/plans', createPlan);
 router.put('/plans/:id', updatePlan);
 router.delete('/plans/:id', deletePlan);
 
+// Permission management routes
+router.use('/permissions', require('./permission.routes'));
+
 // Settings routes
 router.put('/profile', updateProfile);
 router.put('/smtp-settings', updateSmtpSettings);
