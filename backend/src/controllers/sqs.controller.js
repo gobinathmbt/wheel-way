@@ -184,6 +184,49 @@ const processBulkVehicles = async (vehiclesArray, companyId) => {
   return results;
 };
 
+// Receive messages from SQS queue
+const receiveFromQueue = async (maxMessages = 10) => {
+  try {
+    const params = {
+      QueueUrl: QUEUE_URL,
+      MaxNumberOfMessages: maxMessages,
+      WaitTimeSeconds: 20, // Long polling
+      VisibilityTimeout: 300, // 5 minutes to process
+      MessageAttributeNames: ['All'],
+      AttributeNames: ['All']
+    };
+
+    const result = await sqs.receiveMessage(params);
+    return {
+      success: true,
+      messages: result.Messages || []
+    };
+  } catch (error) {
+    console.error('Error receiving from SQS:', error);
+    return {
+      success: false,
+      error: error.message,
+      messages: []
+    };
+  }
+};
+
+// Delete processed message from queue
+const deleteMessageFromQueue = async (receiptHandle) => {
+  try {
+    const params = {
+      QueueUrl: QUEUE_URL,
+      ReceiptHandle: receiptHandle
+    };
+
+    await sqs.deleteMessage(params);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting message from SQS:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 // Process vehicle from queue (this would be called by SQS consumer)
 const processVehicleFromQueue = async (messageBody) => {
   try {
@@ -283,11 +326,144 @@ const processVehicleFromQueue = async (messageBody) => {
   }
 };
 
+// Process messages from SQS queue
+const processQueueMessages = async () => {
+  console.log('🔄 Checking SQS queue for messages...');
+  
+  try {
+    const receiveResult = await receiveFromQueue();
+    
+    if (!receiveResult.success) {
+      console.error('❌ Failed to receive messages from queue:', receiveResult.error);
+      return {
+        success: false,
+        error: receiveResult.error,
+        processed: 0,
+        failed: 0
+      };
+    }
+
+    const messages = receiveResult.messages;
+    console.log(`📨 Received ${messages.length} messages from queue`);
+
+    if (messages.length === 0) {
+      return {
+        success: true,
+        processed: 0,
+        failed: 0,
+        message: 'No messages in queue'
+      };
+    }
+
+    let processedCount = 0;
+    let failedCount = 0;
+    const results = [];
+
+    // Process each message
+    for (const message of messages) {
+      try {
+        console.log(`🏗️ Processing message: ${message.MessageId}`);
+        
+        const processResult = await processVehicleFromQueue(message.Body);
+        
+        if (processResult.success) {
+          // Delete message from queue after successful processing
+          const deleteResult = await deleteMessageFromQueue(message.ReceiptHandle);
+          
+          if (deleteResult.success) {
+            processedCount++;
+            console.log(`✅ Successfully processed vehicle: ${processResult.vehicle_stock_id}`);
+            results.push({
+              message_id: message.MessageId,
+              vehicle_stock_id: processResult.vehicle_stock_id,
+              action: processResult.action,
+              status: 'success'
+            });
+          } else {
+            console.error(`❌ Failed to delete message ${message.MessageId} from queue`);
+            failedCount++;
+            results.push({
+              message_id: message.MessageId,
+              error: 'Failed to delete from queue',
+              status: 'failed'
+            });
+          }
+        } else {
+          failedCount++;
+          console.error(`❌ Failed to process message ${message.MessageId}:`, processResult.error);
+          results.push({
+            message_id: message.MessageId,
+            error: processResult.error,
+            status: 'failed'
+          });
+        }
+      } catch (error) {
+        failedCount++;
+        console.error(`❌ Error processing message ${message.MessageId}:`, error);
+        results.push({
+          message_id: message.MessageId,
+          error: error.message,
+          status: 'failed'
+        });
+      }
+    }
+
+    console.log(`✅ Queue processing completed: ${processedCount} processed, ${failedCount} failed`);
+    
+    return {
+      success: true,
+      processed: processedCount,
+      failed: failedCount,
+      total: messages.length,
+      results
+    };
+
+  } catch (error) {
+    console.error('❌ Error in queue processing:', error);
+    return {
+      success: false,
+      error: error.message,
+      processed: 0,
+      failed: 0
+    };
+  }
+};
+
+// Start queue consumer with interval
+let queueInterval;
+
+const startQueueConsumer = () => {
+  console.log('🚀 Starting SQS queue consumer...');
+  
+  // Process immediately
+  processQueueMessages();
+  
+  // Set up interval to process every 10 seconds
+  queueInterval = setInterval(() => {
+    processQueueMessages();
+  }, 60000); // 10 seconds
+  
+  console.log('⏰ Queue consumer started - checking every 10 seconds');
+};
+
+const stopQueueConsumer = () => {
+  if (queueInterval) {
+    clearInterval(queueInterval);
+    queueInterval = null;
+    console.log('⏹️ Queue consumer stopped');
+  }
+};
+
 module.exports = {
   sendToQueue,
   processSingleVehicle,
   processBulkVehicles,
   processVehicleFromQueue,
   validateRequiredFields,
-  validateCompany
+  validateCompany,
+  receiveFromQueue,
+  deleteMessageFromQueue,
+  processQueueMessages,
+  startQueueConsumer,
+  stopQueueConsumer
 };
