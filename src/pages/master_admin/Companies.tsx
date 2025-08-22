@@ -27,10 +27,10 @@ const MasterCompanies = () => {
     queryKey: ['companies'],
     queryFn: async () => {
       const response = await apiClient.get('/api/master/companies');
-      return response.data.data;
+      return response.data.data.companies;
     }
   });
-
+console.log("companies", companies);
   const filteredCompanies = companies?.filter(company =>
     company.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     company.email.toLowerCase().includes(searchTerm.toLowerCase())
