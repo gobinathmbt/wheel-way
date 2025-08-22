@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
@@ -34,11 +33,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Plus,
-  Eye,
-  Save,
-} from "lucide-react";
+import { Plus, Eye, Save, Search} from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { configServices, dropdownServices } from "@/api/services";
@@ -46,7 +41,6 @@ import DeleteConfirmationDialog from "@/components/dialogs/DeleteConfirmationDia
 import ConfigPreviewModal from "@/components/inspection/ConfigPreviewModal";
 import FieldEditDialog from "@/components/inspection/FieldEditDialog";
 import DraggableSectionsList from "@/components/inspection/DraggableSectionsList";
-import ConfigurationSearch from "@/components/inspection/ConfigurationSearch";
 import ConfigurationList from "@/components/inspection/ConfigurationList";
 
 const InspectionConfig = () => {
@@ -83,6 +77,12 @@ const InspectionConfig = () => {
     description: "",
     is_active: false,
   });
+
+  const handleClearSearch = () => {
+    setSearchTerm("");
+    setCurrentPage(1);
+    refetch();
+  };
 
   const [sectionFormData, setSectionFormData] = useState({
     section_name: "",
@@ -605,7 +605,10 @@ const InspectionConfig = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {dropdowns?.map((dropdown: any) => (
-                    <SelectItem key={dropdown._id} value={dropdown.dropdown_name}>
+                    <SelectItem
+                      key={dropdown._id}
+                      value={dropdown.dropdown_name}
+                    >
                       {dropdown.display_name} ({dropdown.dropdown_name})
                     </SelectItem>
                   ))}
@@ -798,23 +801,51 @@ const InspectionConfig = () => {
           </Dialog>
         </div>
 
-        {/* Search and Filter */}
-        <ConfigurationSearch
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          statusFilter={statusFilter}
-          onFilterChange={handleFilterChange}
-          onSearch={handleSearch}
-          isLoading={configsLoading}
-        />
-
         {/* Configuration List */}
         <Card>
           <CardHeader>
-            <CardTitle>Configurations</CardTitle>
-            <CardDescription>
-              Select a configuration to edit or manage
-            </CardDescription>
+            <div className="space-y-3">
+              <CardTitle>Configuration Management</CardTitle>
+              <CardDescription>
+                Search, filter and manage your inspection configurations
+              </CardDescription>
+
+              {/* Add search and filter here */}
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search configurations..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                      onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                    />
+                  </div>
+                </div>
+                {searchTerm && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearSearch}
+                    className="px-3"
+                  >
+                    Clear
+                  </Button>
+                )}
+                <Select value={statusFilter} onValueChange={handleFilterChange}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <ConfigurationList
@@ -1035,7 +1066,9 @@ const InspectionConfig = () => {
                               selectedSection={selectedSection}
                               setSelectedSection={setSelectedSection}
                               addFieldForm={addFieldForm}
-                              isDeletingSection={deleteSectionMutation.isPending}
+                              isDeletingSection={
+                                deleteSectionMutation.isPending
+                              }
                             />
                           ) : (
                             <p className="text-muted-foreground text-center py-4">
