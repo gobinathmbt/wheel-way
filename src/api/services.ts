@@ -245,6 +245,14 @@ export const configServices = {
   updateTradeinFieldsOrder: (configId: string, sectionId: string, data: any) =>
     apiClient.put(`/api/config/tradein/${configId}/sections/${sectionId}/fields/reorder`, data),
 
+  updateInspectionCategory: async (configId: string, categoryId: string, categoryData: any) => {
+    return await apiClient.put(`/api/config/inspection/${configId}/categories/${categoryId}`, categoryData);
+  },
+
+  toggleInspectionCategoryStatus: async (configId: string, categoryId: string, isActive: boolean) => {
+    return await apiClient.patch(`/api/config/inspection/${configId}/categories/${categoryId}/toggle`, { is_active: isActive });
+  },
+
   saveTradeinConfig: async (id: string, data: any) => {
     const response = await apiClient.put(`/api/config/tradein/${id}`, data);
     return response.data;
@@ -322,6 +330,7 @@ export const logServices = {
   getLogAnalytics: (params?: any) =>
     apiClient.get('/api/logs/analytics', { params })
 };
+
 
 export default {
   auth: authServices,

@@ -26,7 +26,9 @@ const {
   deleteTradeinSection,
   updateTradeinSectionsOrder,
   updateTradeinFieldsOrder,
-  addInspectionCategory
+  addInspectionCategory,
+  updateInspectionCategory,
+  toggleInspectionCategoryStatus,
 } = require('../controllers/config.controller');
 
 const router = express.Router();
@@ -52,6 +54,8 @@ router.put('/inspection/:id/sections/:sectionId/fields/reorder', authorize('comp
 
 // Inspection Category Routes
 router.post('/inspection/:id/categories', addInspectionCategory);
+router.put('/inspection/:id/categories/:categoryId', authorize('company_super_admin'), updateInspectionCategory);
+router.patch('/inspection/:id/categories/:categoryId/toggle', authorize('company_super_admin'), toggleInspectionCategoryStatus);
 
 // Trade-in configuration routes
 router.get('/tradein', getTradeinConfigs);

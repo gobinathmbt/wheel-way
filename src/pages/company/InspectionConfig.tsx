@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
@@ -34,14 +33,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Plus,
-  Eye,
-  Save,
-  FolderPlus,
-} from "lucide-react";
+import { Plus, Eye, Save, FolderPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import EditCategoryDialog from "@/components/inspection/EditCategoryDialog";
+import { Switch } from "@/components/ui/switch";
+import { Edit } from "lucide-react";
 import { configServices, dropdownServices } from "@/api/services";
 import DeleteConfirmationDialog from "@/components/dialogs/DeleteConfirmationDialog";
 import ConfigPreviewModal from "@/components/inspection/ConfigPreviewModal";
@@ -69,6 +66,9 @@ const InspectionConfig = () => {
   const [selectedSection, setSelectedSection] = useState(null);
   const [configToDelete, setConfigToDelete] = useState(null);
   const [configToEdit, setConfigToEdit] = useState(null);
+  const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] =
+    useState(false);
+  const [categoryToEdit, setCategoryToEdit] = useState(null);
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -150,10 +150,71 @@ const InspectionConfig = () => {
     },
   });
 
+  const updateCategoryMutation = useMutation({
+    mutationFn: ({
+      configId,
+      categoryId,
+      categoryData,
+    }: {
+      configId: string;
+      categoryId: string;
+      categoryData: any;
+    }) =>
+      configServices.updateInspectionCategory(
+        configId,
+        categoryId,
+        categoryData
+      ),
+    onSuccess: () => {
+      toast.success("Category updated successfully");
+      setIsEditCategoryDialogOpen(false);
+      setCategoryToEdit(null);
+      queryClient.invalidateQueries({
+        queryKey: ["inspection-config-details"],
+      });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to update category");
+    },
+  });
+
+  const toggleCategoryStatusMutation = useMutation({
+    mutationFn: ({
+      configId,
+      categoryId,
+      isActive,
+    }: {
+      configId: string;
+      categoryId: string;
+      isActive: boolean;
+    }) =>
+      configServices.toggleInspectionCategoryStatus(
+        configId,
+        categoryId,
+        isActive
+      ),
+    onSuccess: () => {
+      toast.success("Category status updated successfully");
+      queryClient.invalidateQueries({
+        queryKey: ["inspection-config-details"],
+      });
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to update category status"
+      );
+    },
+  });
+
   // New mutation for adding categories
   const addCategoryMutation = useMutation({
-    mutationFn: ({ configId, categoryData }: { configId: string; categoryData: any }) =>
-      configServices.addInspectionCategory(configId, categoryData),
+    mutationFn: ({
+      configId,
+      categoryData,
+    }: {
+      configId: string;
+      categoryData: any;
+    }) => configServices.addInspectionCategory(configId, categoryData),
     onSuccess: () => {
       toast.success("Category added successfully");
       setIsAddCategoryDialogOpen(false);
@@ -162,9 +223,7 @@ const InspectionConfig = () => {
       });
     },
     onError: (error: any) => {
-      toast.error(
-        error.response?.data?.message || "Failed to add category"
-      );
+      toast.error(error.response?.data?.message || "Failed to add category");
     },
   });
 
@@ -404,6 +463,41 @@ const InspectionConfig = () => {
   };
 
   // ... keep existing code (handler functions) the same
+
+  const handleEditCategory = (category: any) => {
+    setCategoryToEdit(category);
+    setIsEditCategoryDialogOpen(true);
+  };
+
+  const handleUpdateCategory = (categoryData: {
+    category_name: string;
+    category_id: string;
+    description: string;
+  }) => {
+    if (!selectedConfig || !categoryToEdit) {
+      toast.error("No configuration or category selected");
+      return;
+    }
+
+    updateCategoryMutation.mutate({
+      configId: selectedConfig._id,
+      categoryId: categoryToEdit.category_id,
+      categoryData,
+    });
+  };
+
+  const handleToggleCategoryStatus = (category: any, isActive: boolean) => {
+    if (!selectedConfig) {
+      toast.error("No configuration selected");
+      return;
+    }
+
+    toggleCategoryStatusMutation.mutate({
+      configId: selectedConfig._id,
+      categoryId: category.category_id,
+      isActive,
+    });
+  };
 
   // Handler functions
   const handleSaveChanges = async () => {
@@ -660,7 +754,10 @@ const InspectionConfig = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {dropdowns?.map((dropdown: any) => (
-                    <SelectItem key={dropdown._id} value={dropdown.dropdown_name}>
+                    <SelectItem
+                      key={dropdown._id}
+                      value={dropdown.dropdown_name}
+                    >
                       {dropdown.display_name} ({dropdown.dropdown_name})
                     </SelectItem>
                   ))}
@@ -947,9 +1044,28 @@ const InspectionConfig = () => {
                               {category.description}
                             </p>
                           </div>
-                          <Badge variant="outline">
-                            {category.sections?.length || 0} sections
-                          </Badge>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="outline">
+                              {category.sections?.length || 0} sections
+                            </Badge>
+                            <Switch
+                              checked={category.is_active !== false}
+                              onCheckedChange={(checked) =>
+                                handleToggleCategoryStatus(category, checked)
+                              }
+                              disabled={toggleCategoryStatusMutation.isPending}
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditCategory(category);
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
@@ -1098,7 +1214,9 @@ const InspectionConfig = () => {
                               selectedSection={selectedSection}
                               setSelectedSection={setSelectedSection}
                               addFieldForm={addFieldForm}
-                              isDeletingSection={deleteSectionMutation.isPending}
+                              isDeletingSection={
+                                deleteSectionMutation.isPending
+                              }
                             />
                           ) : (
                             <p className="text-muted-foreground text-center py-4">
@@ -1114,7 +1232,8 @@ const InspectionConfig = () => {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground mb-4">
-                    No categories added yet. Add categories to get started with this configuration.
+                    No categories added yet. Add categories to get started with
+                    this configuration.
                   </p>
                   {/* <Button
                     variant="outline"
@@ -1249,6 +1368,17 @@ const InspectionConfig = () => {
           title="Delete Field"
           description={`Are you sure you want to delete "${fieldToDelete?.field_name}"? This action cannot be undone.`}
           isLoading={deleteFieldMutation.isPending}
+        />
+
+        <EditCategoryDialog
+          isOpen={isEditCategoryDialogOpen}
+          onClose={() => {
+            setIsEditCategoryDialogOpen(false);
+            setCategoryToEdit(null);
+          }}
+          onUpdateCategory={handleUpdateCategory}
+          category={categoryToEdit}
+          isLoading={updateCategoryMutation.isPending}
         />
       </div>
     </DashboardLayout>

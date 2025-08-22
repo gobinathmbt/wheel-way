@@ -1449,6 +1449,93 @@ const updateTradeinFieldsOrder = async (req, res) => {
   }
 };
 
+const updateInspectionCategory = async (req, res) => {
+  try {
+    const { id: configId, categoryId } = req.params;
+    const { category_name, description } = req.body;
+
+    // Generate category_id from category_name
+    const generated_category_id = category_name.toLowerCase().replace(/\s+/g, '_');
+
+    const config = await InspectionConfig.findById(configId);
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    // Find and update the category
+    const categoryIndex = config.categories.findIndex(cat => cat.category_id === categoryId);
+    if (categoryIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    // Update category data
+    config.categories[categoryIndex].category_name = category_name;
+    config.categories[categoryIndex].category_id = generated_category_id;
+    config.categories[categoryIndex].description = description;
+
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Category updated successfully',
+      data: config.categories[categoryIndex]
+    });
+  } catch (error) {
+    console.error('Update category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+const toggleInspectionCategoryStatus = async (req, res) => {
+  try {
+    const { id: configId, categoryId } = req.params;
+    const { is_active } = req.body;
+
+    const config = await InspectionConfig.findById(configId);
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    // Find and update the category status
+    const categoryIndex = config.categories.findIndex(cat => cat.category_id === categoryId);
+    if (categoryIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    config.categories[categoryIndex].is_active = is_active;
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Category status updated successfully',
+      data: config.categories[categoryIndex]
+    });
+  } catch (error) {
+    console.error('Toggle category status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getInspectionConfigs,
   getInspectionConfigDetails,
@@ -1474,5 +1561,7 @@ module.exports = {
   deleteTradeinSection,
   updateTradeinSectionsOrder,
   updateTradeinFieldsOrder,
-  addInspectionCategory
+  addInspectionCategory,
+  updateInspectionCategory,
+  toggleInspectionCategoryStatus,
 };
