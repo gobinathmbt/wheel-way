@@ -19,7 +19,7 @@ import {
   PaginationNext, 
   PaginationPrevious 
 } from '@/components/ui/pagination';
-import { Search, Edit, Trash2, Database, Settings, Plus, X } from 'lucide-react';
+import { Search, Edit, Trash2, Database, Settings, Plus, X ,Filter} from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { dropdownServices } from '@/api/services';
@@ -241,12 +241,17 @@ const DropdownMaster = () => {
                   />
                 </div>
               </div>
-              <Button onClick={handleClear} variant="outline" disabled={!searchTerm}>
-                <X className="h-4 w-4 mr-2" />
-                Clear
-              </Button>
+             <Button
+  onClick={handleClear}
+  disabled={!searchTerm}
+  className="bg-blue-600 text-white hover:bg-gray-700"
+>
+  <X className="h-4 w-4 mr-2 text-white" />
+  Clear
+</Button>
               <Select value={statusFilter} onValueChange={handleStatusFilter}>
                 <SelectTrigger className="w-48">
+                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -255,10 +260,10 @@ const DropdownMaster = () => {
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
-              <Button onClick={handleSearch} disabled={isLoading}>
+              {/* <Button onClick={handleSearch} disabled={isLoading}>
                 <Search className="h-4 w-4 mr-2" />
                 Search
-              </Button>
+              </Button> */}
             </div>
           </CardContent>
         </Card>

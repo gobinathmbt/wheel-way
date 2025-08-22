@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Plus, Search, UserPlus, Mail, Trash2, Edit, Users, UserCheck, UserX, Shield, UserCog, X } from 'lucide-react';
+import { Plus, Search, UserPlus, Mail, Trash2, Edit, Users, UserCheck, UserX, Shield, UserCog, X , Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/axios';
@@ -318,12 +318,17 @@ const CompanyUsers = () => {
                   />
                 </div>
               </div>
-              <Button onClick={handleClear} variant="outline" disabled={!searchTerm}>
-                <X className="h-4 w-4 mr-2" />
-                Clear
-              </Button>
+             <Button
+  onClick={handleClear}
+  disabled={!searchTerm}
+  className="bg-blue-600 text-white hover:bg-gray-700"
+>
+  <X className="h-4 w-4 mr-2 text-white" />
+  Clear
+</Button>
               <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="w-48">
+                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -332,10 +337,10 @@ const CompanyUsers = () => {
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
-              <Button onClick={handleSearch} disabled={isLoading}>
+              {/* <Button onClick={handleSearch} disabled={isLoading}>
                 <Search className="h-4 w-4 mr-2" />
                 Search
-              </Button>
+              </Button> */}
             </div>
           </CardContent>
         </Card>

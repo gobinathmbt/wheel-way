@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Settings, Save, Filter } from "lucide-react";
+import { Search, Settings, Save, Filter, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -76,7 +76,7 @@ const UserPermissions = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [userPermissions, setUserPermissions] = useState<any[]>([]);
 
-  const { data: usersData, isLoading } = useQuery({
+  const { data: usersData, isLoading, refetch } = useQuery({
     queryKey: ["company-users-permissions", page, search, statusFilter],
     queryFn: () =>
       companyServices
@@ -193,6 +193,21 @@ const UserPermissions = () => {
     setPage(newPage);
   };
 
+  const handleSearch = () => {
+    setPage(1);
+    refetch();
+  };
+
+  const handleClear = () => {
+    setSearch("");
+    setPage(1);
+  };
+
+  const handleStatusFilter = (status: string) => {
+    setStatusFilter(status);
+    setPage(1);
+  };
+
   const actionTypes = ["create", "read", "update", "delete"];
 
   useEffect(() => {
@@ -204,54 +219,87 @@ const UserPermissions = () => {
   return (
     <DashboardLayout title="User Permissions">
       <div className="space-y-6">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">
-            Permissions Assignment
-          </h2>
-          <p className="text-muted-foreground">
-            Assign the Permissions To Users and Manage Their Access
-          </p>
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">
+              User Permissions
+            </h2>
+            <p className="text-muted-foreground">
+              Assign permissions to users and manage their access
+            </p>
+          </div>
         </div>
-        
+
+        {/* Search and Filters */}
         <Card>
           <CardHeader>
-            <CardTitle>Search & Filter Users</CardTitle>
+            <CardTitle>Search & Filter</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-4">
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search users..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-9"
+                    className="pl-10"
+                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                   />
+                  {search && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                      onClick={handleClear}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+
+              <Button
+  onClick={handleClear}
+  disabled={!search}
+  className="bg-blue-600 text-white hover:bg-gray-700"
+>
+  <X className="h-4 w-4 mr-2 text-white" />
+  Clear
+</Button>
+
+              <Select value={statusFilter} onValueChange={handleStatusFilter}>
                 <SelectTrigger className="w-48">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
+
+              {/* <Button onClick={handleSearch} disabled={isLoading}>
+                <Search className="h-4 w-4 mr-2" />
+                Search
+              </Button> */}
             </div>
           </CardContent>
         </Card>
 
+        {/* Users Table */}
         <Card>
           <CardHeader>
             <CardTitle>Users</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div>Loading users...</div>
+              <div className="flex justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
             ) : (
               <>
                 <Table>
@@ -304,7 +352,7 @@ const UserPermissions = () => {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex justify-center mt-4">
+                  <div className="mt-4">
                     <Pagination>
                       <PaginationContent>
                         <PaginationItem>
@@ -314,30 +362,30 @@ const UserPermissions = () => {
                           />
                         </PaginationItem>
                         
-                        {Array.from({ length: totalPages }, (_, i) => i + 1)
-                          .filter(pageNum => {
-                            return pageNum === 1 || 
-                                   pageNum === totalPages || 
-                                   (pageNum >= page - 1 && pageNum <= page + 1);
-                          })
-                          .map((pageNum, index, array) => (
-                            <React.Fragment key={pageNum}>
-                              {index > 0 && array[index - 1] !== pageNum - 1 && (
-                                <PaginationItem>
-                                  <span className="px-3 py-2">...</span>
-                                </PaginationItem>
-                              )}
-                              <PaginationItem>
-                                <PaginationLink
-                                  onClick={() => handlePageChange(pageNum)}
-                                  isActive={pageNum === page}
-                                  className="cursor-pointer"
-                                >
-                                  {pageNum}
-                                </PaginationLink>
-                              </PaginationItem>
-                            </React.Fragment>
-                          ))}
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (page <= 3) {
+                            pageNum = i + 1;
+                          } else if (page >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = page - 2 + i;
+                          }
+                          
+                          return (
+                            <PaginationItem key={pageNum}>
+                              <PaginationLink
+                                onClick={() => handlePageChange(pageNum)}
+                                isActive={page === pageNum}
+                                className="cursor-pointer"
+                              >
+                                {pageNum}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        })}
                         
                         <PaginationItem>
                           <PaginationNext 
@@ -354,7 +402,7 @@ const UserPermissions = () => {
           </CardContent>
         </Card>
 
-        {/* ... keep existing code (Dialog for managing permissions) */}
+        {/* Permissions Management Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
