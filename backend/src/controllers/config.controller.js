@@ -117,24 +117,24 @@ const createInspectionConfig = async (req, res) => {
       company_id: req.user.company_id,
       created_by: req.user.id,
       categories: [
-        {
-          category_id: "at_arrival",
-          category_name: "At Arrival",
-          description: "Initial vehicle inspection upon arrival",
-          sections: [],
-        },
-        {
-          category_id: "after_reconditioning",
-          category_name: "After Reconditioning",
-          description: "Inspection after vehicle reconditioning",
-          sections: [],
-        },
-        {
-          category_id: "after_grooming",
-          category_name: "After Grooming",
-          description: "Final inspection after grooming",
-          sections: [],
-        },
+        // {
+        //   category_id: "at_arrival",
+        //   category_name: "At Arrival",
+        //   description: "Initial vehicle inspection upon arrival",
+        //   sections: [],
+        // },
+        // {
+        //   category_id: "after_reconditioning",
+        //   category_name: "After Reconditioning",
+        //   description: "Inspection after vehicle reconditioning",
+        //   sections: [],
+        // },
+        // {
+        //   category_id: "after_grooming",
+        //   category_name: "After Grooming",
+        //   description: "Final inspection after grooming",
+        //   sections: [],
+        // },
       ],
     });
 
@@ -149,6 +149,73 @@ const createInspectionConfig = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error creating inspection configuration",
+    });
+  }
+};
+
+const addInspectionCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { category_name, category_id, description } = req.body;
+    const companyId = req.user.company_id;
+
+    // Validate required fields
+    if (!category_name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category name is required'
+      });
+    }
+
+    // Find the configuration
+    const config = await InspectionConfig.findOne({
+      _id: id,
+      company_id: companyId
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    // Check if category_id already exists
+    const existingCategory = config.categories.find(
+      cat => cat.category_id === category_id
+    );
+
+    if (existingCategory) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category ID already exists'
+      });
+    }
+
+    // Create new category
+    const newCategory = {
+      category_id: category_id || category_name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+      category_name,
+      description: description || '',
+      display_order: config.categories.length,
+      is_active: true,
+      sections: []
+    };
+
+    // Add category to configuration
+    config.categories.push(newCategory);
+    await config.save();
+
+    res.json({
+      success: true,
+      message: 'Category added successfully',
+      data: newCategory
+    });
+  } catch (error) {
+    console.error('Add inspection category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add category'
     });
   }
 };
@@ -1407,4 +1474,5 @@ module.exports = {
   deleteTradeinSection,
   updateTradeinSectionsOrder,
   updateTradeinFieldsOrder,
+  addInspectionCategory
 };

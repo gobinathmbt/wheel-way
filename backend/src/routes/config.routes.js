@@ -25,7 +25,8 @@ const {
   deleteTradeinField,
   deleteTradeinSection,
   updateTradeinSectionsOrder,
-  updateTradeinFieldsOrder
+  updateTradeinFieldsOrder,
+  addInspectionCategory
 } = require('../controllers/config.controller');
 
 const router = express.Router();
@@ -48,6 +49,9 @@ router.post('/inspection/:id/sections/:sectionId/fields', authorize('company_sup
 router.put('/inspection/:id/fields/:fieldId', authorize('company_super_admin'), updateInspectionField);
 router.delete('/inspection/:id/fields/:fieldId', authorize('company_super_admin'), deleteInspectionField);
 router.put('/inspection/:id/sections/:sectionId/fields/reorder', authorize('company_super_admin'), updateFieldsOrder);
+
+// Inspection Category Routes
+router.post('/inspection/:id/categories', addInspectionCategory);
 
 // Trade-in configuration routes
 router.get('/tradein', getTradeinConfigs);

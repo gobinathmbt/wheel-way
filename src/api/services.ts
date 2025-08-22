@@ -198,6 +198,10 @@ export const configServices = {
     return response.data;
   },
   
+  // Category services
+  addInspectionCategory: (configId: string, categoryData: any) =>
+    apiClient.post(`/api/config/inspection/${configId}/categories`, categoryData),
+
   addInspectionSection: (configId: string, categoryId: string, data: any) =>
     apiClient.post(`/api/config/inspection/${configId}/categories/${categoryId}/sections`, data),
   

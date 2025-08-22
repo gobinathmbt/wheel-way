@@ -38,6 +38,7 @@ import {
   Plus,
   Eye,
   Save,
+  FolderPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -48,6 +49,7 @@ import FieldEditDialog from "@/components/inspection/FieldEditDialog";
 import DraggableSectionsList from "@/components/inspection/DraggableSectionsList";
 import ConfigurationSearch from "@/components/inspection/ConfigurationSearch";
 import ConfigurationList from "@/components/inspection/ConfigurationList";
+import AddCategoryDialog from "@/components/inspection/AddCategoryDialog";
 
 const InspectionConfig = () => {
   const queryClient = useQueryClient();
@@ -62,6 +64,7 @@ const InspectionConfig = () => {
   const [isSectionDialogOpen, setIsSectionDialogOpen] = useState(false);
   const [isFieldDialogOpen, setIsFieldDialogOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSection, setSelectedSection] = useState(null);
   const [configToDelete, setConfigToDelete] = useState(null);
@@ -71,6 +74,8 @@ const InspectionConfig = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // ... keep existing code (form data states) the same
 
   const [configFormData, setConfigFormData] = useState({
     config_name: "",
@@ -103,6 +108,8 @@ const InspectionConfig = () => {
       allow_multiple: false,
     },
   });
+
+  // ... keep existing code (queries) the same
 
   // Queries
   const {
@@ -142,6 +149,26 @@ const InspectionConfig = () => {
       return response.data.data;
     },
   });
+
+  // New mutation for adding categories
+  const addCategoryMutation = useMutation({
+    mutationFn: ({ configId, categoryData }: { configId: string; categoryData: any }) =>
+      configServices.addInspectionCategory(configId, categoryData),
+    onSuccess: () => {
+      toast.success("Category added successfully");
+      setIsAddCategoryDialogOpen(false);
+      queryClient.invalidateQueries({
+        queryKey: ["inspection-config-details"],
+      });
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to add category"
+      );
+    },
+  });
+
+  // ... keep existing code (mutations) the same
 
   // Mutations
   const createConfigMutation = useMutation({
@@ -359,6 +386,25 @@ const InspectionConfig = () => {
     },
   });
 
+  // Handler function for adding categories
+  const handleAddCategory = (categoryData: {
+    category_name: string;
+    category_id: string;
+    description: string;
+  }) => {
+    if (!selectedConfig) {
+      toast.error("No configuration selected");
+      return;
+    }
+
+    addCategoryMutation.mutate({
+      configId: selectedConfig._id,
+      categoryData,
+    });
+  };
+
+  // ... keep existing code (handler functions) the same
+
   // Handler functions
   const handleSaveChanges = async () => {
     if (!selectedConfig || !selectedConfigDetails) {
@@ -525,6 +571,8 @@ const InspectionConfig = () => {
     refetch();
   };
 
+  // ... keep existing code (fieldTypes and configs constants) the same
+
   const fieldTypes = [
     { value: "text", label: "Text" },
     { value: "number", label: "Number" },
@@ -539,6 +587,8 @@ const InspectionConfig = () => {
   const configs = configsData?.data || [];
   const pagination = configsData?.pagination;
 
+  // ... keep existing code (addFieldForm) the same
+
   const addFieldForm = (
     <DialogContent className="max-h-[80vh] overflow-y-auto">
       <DialogHeader>
@@ -548,7 +598,6 @@ const InspectionConfig = () => {
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleAddField} className="space-y-4">
-        {/* ... keep existing code (field form content) the same */}
         <div>
           <Label htmlFor="field_name">Field Name</Label>
           <Input
@@ -740,6 +789,7 @@ const InspectionConfig = () => {
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateConfig} className="space-y-4">
+                {/* ... keep existing code (create config form) the same */}
                 <div>
                   <Label htmlFor="config_name">Configuration Name</Label>
                   <Input
@@ -852,6 +902,13 @@ const InspectionConfig = () => {
                   </CardDescription>
                 </div>
                 <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsAddCategoryDialogOpen(true)}
+                  >
+                    <FolderPlus className="h-4 w-4 mr-2" />
+                    Add Categories
+                  </Button>
                   <Button variant="outline" onClick={handlePreview}>
                     <Eye className="h-4 w-4 mr-2" />
                     Preview
@@ -873,7 +930,7 @@ const InspectionConfig = () => {
                 <div className="text-center py-8">
                   Loading configuration details...
                 </div>
-              ) : (
+              ) : selectedConfigDetails.categories?.length > 0 ? (
                 <Accordion type="single" collapsible className="space-y-4">
                   {selectedConfigDetails.categories?.map((category: any) => (
                     <AccordionItem
@@ -896,6 +953,7 @@ const InspectionConfig = () => {
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
+                        {/* ... keep existing code (category content) the same */}
                         <div className="space-y-4 pl-4">
                           <div className="flex justify-between items-center">
                             <h4 className="font-medium">Sections</h4>
@@ -928,7 +986,6 @@ const InspectionConfig = () => {
                                   onSubmit={handleAddSection}
                                   className="space-y-4"
                                 >
-                                  {/* ... keep existing code (section form) the same */}
                                   <div>
                                     <Label htmlFor="section_name">
                                       Section Name
@@ -1054,6 +1111,19 @@ const InspectionConfig = () => {
                     </AccordionItem>
                   ))}
                 </Accordion>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">
+                    No categories added yet. Add categories to get started with this configuration.
+                  </p>
+                  {/* <Button
+                    variant="outline"
+                    onClick={() => setIsAddCategoryDialogOpen(true)}
+                  >
+                    <FolderPlus className="h-4 w-4 mr-2" />
+                    Add Your First Category
+                  </Button> */}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -1129,6 +1199,16 @@ const InspectionConfig = () => {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Add Category Dialog */}
+        <AddCategoryDialog
+          isOpen={isAddCategoryDialogOpen}
+          onClose={() => setIsAddCategoryDialogOpen(false)}
+          onAddCategory={handleAddCategory}
+          isLoading={addCategoryMutation.isPending}
+        />
+
+        {/* ... keep existing code (remaining dialogs) the same */}
 
         <ConfigPreviewModal
           isOpen={isPreviewOpen}
