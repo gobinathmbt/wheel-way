@@ -1,6 +1,12 @@
 
 const Vehicle = require('../models/Vehicle');
 const { logEvent } = require('./logs.controller');
+const { 
+  processSingleVehicle, 
+  processBulkVehicles,
+  validateRequiredFields,
+  validateCompany 
+} = require('./sqs.controller');
 
 // @desc    Get vehicle stock with pagination and filters
 // @route   GET /api/vehicle/stock
@@ -24,19 +30,16 @@ const getVehicleStock = async (req, res) => {
     }
     
     if (status) {
-      if (vehicle_type === 'inspection') {
-        filter.inspection_status = status;
-      } else if (vehicle_type === 'tradein') {
-        filter.tradein_status = status;
-      }
+      filter.status = status;
     }
     
     if (search) {
       filter.$or = [
         { make: { $regex: search, $options: 'i' } },
         { model: { $regex: search, $options: 'i' } },
-        { registration_number: { $regex: search, $options: 'i' } },
-        { vin_number: { $regex: search, $options: 'i' } }
+        { plate_no: { $regex: search, $options: 'i' } },
+        { vin: { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -74,7 +77,7 @@ const getVehicleStock = async (req, res) => {
 const getVehicleDetail = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOne({
-      vehicle_id: req.params.vehicleId,
+      vehicle_stock_id: req.params.vehicleId,
       company_id: req.user.company_id
     });
 
@@ -106,34 +109,40 @@ const bulkImportVehicles = async (req, res) => {
   try {
     const { vehicles } = req.body;
     
-    const processedVehicles = vehicles.map(vehicle => ({
-      ...vehicle,
-      company_id: req.user.company_id,
-      created_by: req.user.id
-    }));
+    if (!Array.isArray(vehicles) || vehicles.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vehicles array is required and cannot be empty'
+      });
+    }
 
-    const result = await Vehicle.insertMany(processedVehicles, { ordered: false });
+    const results = await processBulkVehicles(vehicles, req.user.company_id);
 
     await logEvent({
-      event_type: 'vehicle_management',
-      event_action: 'vehicles_imported',
-      event_description: `${result.length} vehicles imported`,
+      event_type: 'vehicle_operation',
+      event_action: 'bulk_import_initiated',
+      event_description: `Bulk import of ${vehicles.length} vehicles initiated`,
       user_id: req.user.id,
       company_id: req.user.company_id,
-      user_role: req.user.role
+      user_role: req.user.role,
+      metadata: {
+        total_vehicles: vehicles.length,
+        success_count: results.success_records.length,
+        failure_count: results.failure_records.length
+      }
     });
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      data: result,
-      message: `${result.length} vehicles imported successfully`
+      message: `Processed ${results.total_processed} vehicles`,
+      data: results
     });
 
   } catch (error) {
     console.error('Bulk import vehicles error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error importing vehicles'
+      message: 'Error processing bulk import'
     });
   }
 };
@@ -206,41 +215,72 @@ const deleteVehicle = async (req, res) => {
 // @access  Public (External systems)
 const receiveVehicleData = async (req, res) => {
   try {
-    const { vehicles, company_id } = req.body;
+    const requestData = req.body;
     
-    // Process vehicles and add to queue for bulk processing
-    // This would typically be handled by SQS or similar queue system
-    
-    const processedVehicles = [];
-    
-    for (const vehicleData of vehicles) {
-      // Check if vehicle already exists
-      const existingVehicle = await Vehicle.findOne({
-        vehicle_id: vehicleData.vehicle_id,
-        company_id
+    // Check if it's a single vehicle or bulk vehicles
+    if (Array.isArray(requestData)) {
+      // Bulk processing
+      if (requestData.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vehicle array cannot be empty'
+        });
+      }
+
+      // Extract company_id from first vehicle (assuming all vehicles are for same company)
+      const companyId = requestData[0].company_id;
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: 'company_id is required'
+        });
+      }
+
+      const results = await processBulkVehicles(requestData, companyId);
+
+      res.status(200).json({
+        success: true,
+        message: `Processed ${results.total_processed} vehicles`,
+        data: {
+          total_processed: results.total_processed,
+          success_count: results.success_records.length,
+          failure_count: results.failure_records.length,
+          queue_ids: results.queue_ids,
+          success_records: results.success_records,
+          failure_records: results.failure_records
+        }
       });
 
-      if (existingVehicle) {
-        // Update existing vehicle
-        Object.assign(existingVehicle, vehicleData);
-        await existingVehicle.save();
-        processedVehicles.push(existingVehicle);
-      } else {
-        // Create new vehicle
-        const newVehicle = new Vehicle({
-          ...vehicleData,
-          company_id
+    } else {
+      // Single vehicle processing
+      if (!requestData.company_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'company_id is required'
         });
-        await newVehicle.save();
-        processedVehicles.push(newVehicle);
+      }
+
+      const result = await processSingleVehicle(requestData);
+
+      if (result.success) {
+        res.status(200).json({
+          success: true,
+          message: 'Vehicle data processed successfully',
+          data: {
+            vehicle_stock_id: result.vehicle_stock_id,
+            queue_id: result.queue_id
+          }
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: result.error,
+          data: {
+            vehicle_stock_id: result.vehicle_stock_id
+          }
+        });
       }
     }
-
-    res.status(200).json({
-      success: true,
-      message: `Processed ${processedVehicles.length} vehicles`,
-      data: processedVehicles.length
-    });
 
   } catch (error) {
     console.error('Receive vehicle data error:', error);

@@ -2,8 +2,8 @@
 const mongoose = require('mongoose');
 
 const VehicleSchema = new mongoose.Schema({
-  vehicle_id: {
-    type: String,
+  vehicle_stock_id: {
+    type: Number,
     required: true
   },
   company_id: {
@@ -12,7 +12,28 @@ const VehicleSchema = new mongoose.Schema({
     required: true
   },
   
-  // Basic Vehicle Information
+  // Vehicle Type & Status
+  vehicle_type: {
+    type: String,
+    enum: ['inspection', 'tradein'],
+    required: true
+  },
+  
+  // Hero Image
+  vehicle_hero_image: {
+    type: String,
+    required: true
+  },
+  
+  // Basic Vehicle Information (Required)
+  vin: {
+    type: String,
+    required: true
+  },
+  plate_no: {
+    type: String,
+    required: true
+  },
   make: {
     type: String,
     required: true
@@ -21,75 +42,147 @@ const VehicleSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  variant: String,
-  year: Number,
-  body_type: String,
-  color: String,
-  
-  // Registration Details
-  registration_number: String,
-  registration_state: String,
-  
-  // Engine & Fuel
-  fuel_type: String,
-  transmission: String,
-  engine_number: String,
-  vin_number: String,
-  
-  // Ownership & History
-  owner_type: String,
-  kms_driven: Number,
-  service_history_available: Boolean,
-  number_of_keys: Number,
-  
-  // Insurance & Finance
-  insurance_valid_till: Date,
-  insurance_type: String,
-  rc_available: Boolean,
-  hypothecation: Boolean,
-  
-  // Vehicle Type & Status
-  vehicle_type: {
-    type: String,
-    enum: ['inspection', 'tradein'],
+  year: {
+    type: Number,
     required: true
   },
-  status: {
+  chassis_no: {
     type: String,
-    enum: ['pending', 'in_progress', 'completed', 'rejected'],
-    default: 'pending'
+    required: true
   },
   
-  // Source Information
-  source: String,
-  source_reference: String,
+  // Optional Basic Fields
+  variant: String,
+  model_no: String,
+  body_style: String,
+  name: String, // Auto-generated from year + make + model + variant + body_style if not provided
+  vehicle_category: String, // renamed from vehicle_type to avoid confusion
   
-  // Media
-  vehicle_hero_image: String,
-  images: [String],
-  documents: [{
-    type: String,
-    url: String,
-    uploaded_at: Date
+  // Results Arrays
+  inspection_result: [mongoose.Schema.Types.Mixed],
+  trade_in_result: [mongoose.Schema.Types.Mixed],
+  
+  // Vehicle Other Details
+  vehicle_other_details: [{
+    status: String,
+    trader_acquisition: String,
+    odometer_certified: Boolean,
+    odometer_status: String,
+    purchase_price: { type: Number, default: 0 },
+    exact_expenses: { type: Number, default: 0 },
+    estimated_expenses: { type: Number, default: 0 },
+    gst_inclusive: { type: Boolean, default: false },
+    retail_price: Number,
+    sold_price: { type: Number, default: 0 },
+    included_in_exports: { type: Boolean, default: true }
   }],
   
-  // Processing Information
-  assigned_to: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+  // Vehicle Source
+  vehicle_source: [{
+    supplier: String,
+    purchase_date: Date,
+    purchase_type: String,
+    purchase_notes: String
+  }],
+  
+  // Vehicle Registration
+  vehicle_registration: [{
+    registered_in_local: Boolean,
+    year_first_registered_local: Number,
+    re_registered: Boolean,
+    first_registered_year: Number,
+    license_expiry_date: Date,
+    wof_cof_expiry_date: Date,
+    last_registered_country: String,
+    road_user_charges_apply: Boolean,
+    outstanding_road_user_charges: Boolean,
+    ruc_end_distance: Number
+  }],
+  
+  // Vehicle Import Details
+  vehicle_import_details: [{
+    delivery_port: String,
+    vessel_name: String,
+    voyage: String,
+    etd: Date,
+    eta: Date,
+    date_on_yard: Date,
+    imported_as_damaged: Boolean
+  }],
+  
+  // Vehicle Attachments
+  vehicle_attachments: [{
+    vehicle_stock_id: Number,
+    type: {
+      type: String,
+      enum: ['image', 'file']
+    },
+    url: String,
+    size: Number,
+    mime_type: String,
+    filename: String,
+    position: Number,
+    image_category: {
+      type: String,
+      enum: ['listImage', 'otherImage']
+    }
+  }],
+  
+  // Vehicle Engine & Transmission
+  vehicle_eng_transmission: [{
+    engine_no: String,
+    engine_type: String,
+    transmission_type: String,
+    primary_fuel_type: String,
+    no_of_cylinders: Number,
+    turbo: String,
+    engine_size: Number,
+    engine_size_unit: String,
+    engine_features: [String]
+  }],
+  
+  // Vehicle Specifications
+  vehicle_specifications: [{
+    number_of_seats: Number,
+    number_of_doors: Number,
+    interior_color: String,
+    exterior_primary_color: String,
+    exterior_secondary_color: String,
+    steering_type: String,
+    wheels_composition: String,
+    sunroof: Boolean,
+    interior_trim: String,
+    seat_material: String,
+    tyre_size: String,
+    interior_features: [String],
+    exterior_features: [String]
+  }],
+  
+  // Vehicle Safety Features
+  vehicle_safety_features: [{
+    features: [String]
+  }],
+  
+  // Vehicle Odometer
+  vehicle_odometer: [{
+    reading: Number,
+    reading_date: Date
+  }],
+  
+  // Vehicle Ownership
+  vehicle_ownership: {
+    origin: String,
+    no_of_previous_owners: Number,
+    security_interest_on_ppsr: Boolean,
+    comments: String
   },
-  priority: {
+  
+  // Processing Status
+  status: {
     type: String,
-    enum: ['low', 'medium', 'high', 'urgent'],
-    default: 'medium'
+    enum: ['pending', 'processing', 'completed', 'failed'],
+    default: 'pending'
   },
-  
-  // Timestamps
-  scheduled_date: Date,
-  completed_date: Date,
-  
-  // Custom Fields (dynamic based on company configuration)
-  custom_fields: mongoose.Schema.Types.Mixed,
   
   // Queue Processing
   queue_status: {
@@ -97,12 +190,17 @@ const VehicleSchema = new mongoose.Schema({
     enum: ['pending', 'processing', 'processed', 'failed'],
     default: 'pending'
   },
+  queue_id: String,
   processing_attempts: {
     type: Number,
     default: 0
   },
   last_processing_error: String,
   
+  // Custom Fields (for any additional fields not in schema)
+  custom_fields: mongoose.Schema.Types.Mixed,
+  
+  // Timestamps
   created_at: {
     type: Date,
     default: Date.now
@@ -113,18 +211,28 @@ const VehicleSchema = new mongoose.Schema({
   }
 });
 
-// Compound index for vehicle_id and company_id (unique per company)
-VehicleSchema.index({ vehicle_id: 1, company_id: 1 }, { unique: true });
+// Compound index for vehicle_stock_id and company_id (unique per company)
+VehicleSchema.index({ vehicle_stock_id: 1, company_id: 1 }, { unique: true });
 
 // Indexes for efficient queries
 VehicleSchema.index({ company_id: 1, vehicle_type: 1, status: 1 });
-VehicleSchema.index({ assigned_to: 1 });
 VehicleSchema.index({ queue_status: 1 });
 VehicleSchema.index({ created_at: -1 });
+VehicleSchema.index({ vin: 1 });
+VehicleSchema.index({ plate_no: 1 });
 
-// Update timestamp on save
+// Auto-generate name if not provided
 VehicleSchema.pre('save', function(next) {
   this.updated_at = new Date();
+  
+  // Generate name if not provided
+  if (!this.name) {
+    const nameParts = [this.year, this.make, this.model];
+    if (this.variant) nameParts.push(this.variant);
+    if (this.body_style) nameParts.push(this.body_style);
+    this.name = nameParts.join(' ');
+  }
+  
   next();
 });
 
