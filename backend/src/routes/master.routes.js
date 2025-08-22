@@ -14,7 +14,10 @@ const {
   deletePlan,
   updateProfile,
   updateSmtpSettings,
-  testSmtp
+  testSmtp,
+  updateAwsSettings,
+  testAwsConnection,
+  getAwsSettings
 } = require('../controllers/master.controller');
 
 const router = express.Router();
@@ -46,5 +49,8 @@ router.use('/permissions', require('./permission.routes'));
 router.put('/profile', updateProfile);
 router.put('/smtp-settings', updateSmtpSettings);
 router.post('/test-smtp', testSmtp);
+router.put('/aws-settings', updateAwsSettings);
+router.post('/test-aws', testAwsConnection);
+router.get('/aws-settings', getAwsSettings);
 
 module.exports = router;

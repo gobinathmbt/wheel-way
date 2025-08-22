@@ -1,108 +1,101 @@
 
-const Company = require('../models/Company');
-const Plan = require('../models/Plan');
 const MasterAdmin = require('../models/MasterAdmin');
+const Company = require('../models/Company');
+const User = require('../models/User');
+const Plan = require('../models/Plan');
+const bcrypt = require('bcryptjs');
 const { logEvent } = require('./logs.controller');
+const { sendEmail } = require('../config/mailer');
 
-// @desc    Get master admin dashboard stats
-// @route   GET /api/master/dashboard
-// @access  Private (Master Admin)
+// Get dashboard data
 const getDashboard = async (req, res) => {
   try {
     const totalCompanies = await Company.countDocuments();
     const activeCompanies = await Company.countDocuments({ is_active: true });
-    const totalUsers = await Company.aggregate([
-      { $group: { _id: null, total: { $sum: '$current_user_count' } } }
-    ]);
+    const totalUsers = await User.countDocuments();
+    const totalPlans = await Plan.countDocuments();
 
-    // Get monthly growth data
-    const monthlyData = await Company.aggregate([
-      {
-        $group: {
-          _id: {
-            $dateToString: { format: "%Y-%m", date: "$created_at" }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { _id: 1 } },
-      { $limit: 12 }
-    ]);
+    // Recent companies (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentCompanies = await Company.countDocuments({
+      created_at: { $gte: thirtyDaysAgo }
+    });
 
-    res.status(200).json({
+    res.json({
       success: true,
       data: {
         totalCompanies,
         activeCompanies,
-        totalUsers: totalUsers[0]?.total || 0,
-        monthlyGrowth: 12.5,
-        monthlyData
+        totalUsers,
+        totalPlans,
+        recentCompanies,
+        inactiveCompanies: totalCompanies - activeCompanies
       }
     });
-
   } catch (error) {
     console.error('Get dashboard error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error retrieving dashboard data'
+      message: 'Failed to fetch dashboard data'
     });
   }
 };
 
-// @desc    Get all companies
-// @route   GET /api/master/companies
-// @access  Private (Master Admin)
+// Get all companies
 const getCompanies = async (req, res) => {
   try {
-    const { page = 1, limit = 50, search } = req.query;
+    const { page = 1, limit = 10, search, status } = req.query;
     const skip = (page - 1) * limit;
 
-    let filter = {};
+    let query = {};
+    
     if (search) {
-      filter = {
-        $or: [
-          { company_name: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } },
-          { contact_person: { $regex: search, $options: 'i' } }
-        ]
-      };
+      query.$or = [
+        { company_name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
     }
 
-    const companies = await Company.find(filter)
-      .populate('plan_id')
+    if (status) {
+      query.is_active = status === 'active';
+    }
+
+    const companies = await Company.find(query)
+      .populate('plan_id', 'plan_name')
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit));
 
-    const total = await Company.countDocuments(filter);
+    const total = await Company.countDocuments(query);
 
-    res.status(200).json({
+    res.json({
       success: true,
-      data: companies,
-      pagination: {
-        current_page: parseInt(page),
-        total_pages: Math.ceil(total / limit),
-        total_records: total,
-        per_page: parseInt(limit)
+      data: {
+        companies,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(total / limit)
+        }
       }
     });
-
   } catch (error) {
     console.error('Get companies error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error retrieving companies'
+      message: 'Failed to fetch companies'
     });
   }
 };
 
-// @desc    Get single company
-// @route   GET /api/master/companies/:id
-// @access  Private (Master Admin)
+// Get single company
 const getCompany = async (req, res) => {
   try {
-    const company = await Company.findById(req.params.id).populate('plan_id');
-    
+    const company = await Company.findById(req.params.id)
+      .populate('plan_id', 'plan_name monthly_price user_limit');
+
     if (!company) {
       return res.status(404).json({
         success: false,
@@ -110,30 +103,33 @@ const getCompany = async (req, res) => {
       });
     }
 
-    res.status(200).json({
-      success: true,
-      data: company
-    });
+    // Get user count for this company
+    const userCount = await User.countDocuments({ company_id: company._id });
 
+    res.json({
+      success: true,
+      data: {
+        ...company.toObject(),
+        user_count: userCount
+      }
+    });
   } catch (error) {
     console.error('Get company error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error retrieving company'
+      message: 'Failed to fetch company'
     });
   }
 };
 
-// @desc    Update company
-// @route   PUT /api/master/companies/:id
-// @access  Private (Master Admin)
+// Update company
 const updateCompany = async (req, res) => {
   try {
     const company = await Company.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true, runValidators: true }
-    ).populate('plan_id');
+    ).populate('plan_id', 'plan_name');
 
     if (!company) {
       return res.status(404).json({
@@ -142,35 +138,37 @@ const updateCompany = async (req, res) => {
       });
     }
 
+    // Log the event
     await logEvent({
-      event_type: 'company_management',
+      event_type: 'company_operation',
       event_action: 'company_updated',
-      event_description: `Company ${company.company_name} updated`,
+      event_description: `Company ${company.company_name} updated by master admin`,
       user_id: req.user.id,
-      company_id: company._id,
-      user_role: req.user.role
+      user_role: req.user.role,
+      resource_type: 'company',
+      resource_id: company._id.toString(),
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
     });
 
-    res.status(200).json({
+    res.json({
       success: true,
-      data: company
+      data: company,
+      message: 'Company updated successfully'
     });
-
   } catch (error) {
     console.error('Update company error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error updating company'
+      message: 'Failed to update company'
     });
   }
 };
 
-// @desc    Delete company
-// @route   DELETE /api/master/companies/:id
-// @access  Private (Master Admin)
+// Delete company
 const deleteCompany = async (req, res) => {
   try {
-    const company = await Company.findByIdAndDelete(req.params.id);
+    const company = await Company.findById(req.params.id);
 
     if (!company) {
       return res.status(404).json({
@@ -179,40 +177,42 @@ const deleteCompany = async (req, res) => {
       });
     }
 
+    // Delete all users associated with this company
+    await User.deleteMany({ company_id: company._id });
+
+    // Delete the company
+    await Company.findByIdAndDelete(req.params.id);
+
+    // Log the event
     await logEvent({
-      event_type: 'company_management',
+      event_type: 'company_operation',
       event_action: 'company_deleted',
-      event_description: `Company ${company.company_name} deleted`,
+      event_description: `Company ${company.company_name} deleted by master admin`,
       user_id: req.user.id,
-      user_role: req.user.role
+      user_role: req.user.role,
+      resource_type: 'company',
+      resource_id: company._id.toString(),
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
     });
 
-    res.status(200).json({
+    res.json({
       success: true,
       message: 'Company deleted successfully'
     });
-
   } catch (error) {
     console.error('Delete company error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error deleting company'
+      message: 'Failed to delete company'
     });
   }
 };
 
-// @desc    Toggle company status
-// @route   PATCH /api/master/companies/:id/status
-// @access  Private (Master Admin)
+// Toggle company status
 const toggleCompanyStatus = async (req, res) => {
   try {
-    const { is_active } = req.body;
-    
-    const company = await Company.findByIdAndUpdate(
-      req.params.id,
-      { is_active },
-      { new: true }
-    );
+    const company = await Company.findById(req.params.id);
 
     if (!company) {
       return res.status(404).json({
@@ -221,87 +221,88 @@ const toggleCompanyStatus = async (req, res) => {
       });
     }
 
+    company.is_active = !company.is_active;
+    await company.save();
+
+    // Log the event
     await logEvent({
-      event_type: 'company_management',
-      event_action: 'company_status_updated',
-      event_description: `Company ${company.company_name} ${is_active ? 'activated' : 'deactivated'}`,
+      event_type: 'company_operation',
+      event_action: 'company_status_changed',
+      event_description: `Company ${company.company_name} status changed to ${company.is_active ? 'active' : 'inactive'}`,
       user_id: req.user.id,
-      company_id: company._id,
-      user_role: req.user.role
+      user_role: req.user.role,
+      resource_type: 'company',
+      resource_id: company._id.toString(),
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
     });
 
-    res.status(200).json({
+    res.json({
       success: true,
-      data: company
+      data: company,
+      message: `Company ${company.is_active ? 'activated' : 'deactivated'} successfully`
     });
-
   } catch (error) {
     console.error('Toggle company status error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error updating company status'
+      message: 'Failed to update company status'
     });
   }
 };
 
-// @desc    Get all plans
-// @route   GET /api/master/plans
-// @access  Private (Master Admin)
+// Get all plans
 const getPlans = async (req, res) => {
   try {
-    const plans = await Plan.find().sort({ price: 1 });
+    const plans = await Plan.find().sort({ created_at: -1 });
 
-    res.status(200).json({
+    res.json({
       success: true,
       data: plans
     });
-
   } catch (error) {
     console.error('Get plans error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error retrieving plans'
+      message: 'Failed to fetch plans'
     });
   }
 };
 
-// @desc    Create new plan
-// @route   POST /api/master/plans
-// @access  Private (Master Admin)
+// Create plan
 const createPlan = async (req, res) => {
   try {
-    const plan = new Plan({
-      ...req.body,
-      created_by: req.user.id
-    });
-
+    const plan = new Plan(req.body);
     await plan.save();
 
+    // Log the event
     await logEvent({
-      event_type: 'plan_management',
+      event_type: 'plan_operation',
       event_action: 'plan_created',
-      event_description: `Plan ${plan.display_name} created`,
+      event_description: `Plan ${plan.plan_name} created by master admin`,
       user_id: req.user.id,
-      user_role: req.user.role
+      user_role: req.user.role,
+      resource_type: 'plan',
+      resource_id: plan._id.toString(),
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
     });
 
     res.status(201).json({
       success: true,
-      data: plan
+      data: plan,
+      message: 'Plan created successfully'
     });
-
   } catch (error) {
     console.error('Create plan error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error creating plan'
+      message: 'Failed to create plan'
     });
   }
 };
 
-// @desc    Update plan
-// @route   PUT /api/master/plans/:id
-// @access  Private (Master Admin)
+// Update plan
 const updatePlan = async (req, res) => {
   try {
     const plan = await Plan.findByIdAndUpdate(
@@ -317,34 +318,37 @@ const updatePlan = async (req, res) => {
       });
     }
 
+    // Log the event
     await logEvent({
-      event_type: 'plan_management',
+      event_type: 'plan_operation',
       event_action: 'plan_updated',
-      event_description: `Plan ${plan.display_name} updated`,
+      event_description: `Plan ${plan.plan_name} updated by master admin`,
       user_id: req.user.id,
-      user_role: req.user.role
+      user_role: req.user.role,
+      resource_type: 'plan',
+      resource_id: plan._id.toString(),
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
     });
 
-    res.status(200).json({
+    res.json({
       success: true,
-      data: plan
+      data: plan,
+      message: 'Plan updated successfully'
     });
-
   } catch (error) {
     console.error('Update plan error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error updating plan'
+      message: 'Failed to update plan'
     });
   }
 };
 
-// @desc    Delete plan
-// @route   DELETE /api/master/plans/:id
-// @access  Private (Master Admin)
+// Delete plan
 const deletePlan = async (req, res) => {
   try {
-    const plan = await Plan.findByIdAndDelete(req.params.id);
+    const plan = await Plan.findById(req.params.id);
 
     if (!plan) {
       return res.status(404).json({
@@ -353,90 +357,265 @@ const deletePlan = async (req, res) => {
       });
     }
 
+    // Check if any companies are using this plan
+    const companiesUsingPlan = await Company.countDocuments({ plan_id: plan._id });
+
+    if (companiesUsingPlan > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete plan as it is being used by companies'
+      });
+    }
+
+    await Plan.findByIdAndDelete(req.params.id);
+
+    // Log the event
     await logEvent({
-      event_type: 'plan_management',
+      event_type: 'plan_operation',
       event_action: 'plan_deleted',
-      event_description: `Plan ${plan.display_name} deleted`,
+      event_description: `Plan ${plan.plan_name} deleted by master admin`,
       user_id: req.user.id,
-      user_role: req.user.role
+      user_role: req.user.role,
+      resource_type: 'plan',
+      resource_id: plan._id.toString(),
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
     });
 
-    res.status(200).json({
+    res.json({
       success: true,
       message: 'Plan deleted successfully'
     });
-
   } catch (error) {
     console.error('Delete plan error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error deleting plan'
+      message: 'Failed to delete plan'
     });
   }
 };
 
-// @desc    Update master admin profile
-// @route   PUT /api/master/profile
-// @access  Private (Master Admin)
+// Update master admin profile
 const updateProfile = async (req, res) => {
   try {
-    const admin = await MasterAdmin.findByIdAndUpdate(
-      req.user.id,
-      req.body,
-      { new: true }
-    );
+    const { first_name, last_name, email, current_password, new_password } = req.body;
 
-    res.status(200).json({
-      success: true,
-      data: admin
+    const masterAdmin = await MasterAdmin.findById(req.user.id);
+
+    if (!masterAdmin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Master admin not found'
+      });
+    }
+
+    // Update basic info
+    masterAdmin.first_name = first_name;
+    masterAdmin.last_name = last_name;
+    masterAdmin.email = email;
+
+    // Handle password update
+    if (new_password) {
+      if (!current_password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Current password is required to set a new password'
+        });
+      }
+
+      const isCurrentPasswordValid = await masterAdmin.comparePassword(current_password);
+      if (!isCurrentPasswordValid) {
+        return res.status(400).json({
+          success: false,
+          message: 'Current password is incorrect'
+        });
+      }
+
+      masterAdmin.password = new_password;
+    }
+
+    await masterAdmin.save();
+
+    // Log the event
+    await logEvent({
+      event_type: 'user_operation',
+      event_action: 'profile_updated',
+      event_description: 'Master admin profile updated',
+      user_id: req.user.id,
+      user_role: req.user.role,
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
     });
 
+    res.json({
+      success: true,
+      message: 'Profile updated successfully'
+    });
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error updating profile'
+      message: 'Failed to update profile'
     });
   }
 };
 
-// @desc    Update SMTP settings
-// @route   PUT /api/master/smtp-settings
-// @access  Private (Master Admin)
+// Update SMTP settings
 const updateSmtpSettings = async (req, res) => {
   try {
-    // Store SMTP settings in environment or config
-    // This would typically be stored in a configuration collection
-    res.status(200).json({
+    const masterAdmin = await MasterAdmin.findById(req.user.id);
+
+    if (!masterAdmin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Master admin not found'
+      });
+    }
+
+    masterAdmin.smtp_settings = req.body;
+    await masterAdmin.save();
+
+    // Log the event
+    await logEvent({
+      event_type: 'system_operation',
+      event_action: 'smtp_settings_updated',
+      event_description: 'SMTP settings updated by master admin',
+      user_id: req.user.id,
+      user_role: req.user.role,
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
+    });
+
+    res.json({
       success: true,
       message: 'SMTP settings updated successfully'
     });
-
   } catch (error) {
     console.error('Update SMTP settings error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error updating SMTP settings'
+      message: 'Failed to update SMTP settings'
     });
   }
 };
 
-// @desc    Test SMTP connection
-// @route   POST /api/master/test-smtp
-// @access  Private (Master Admin)
+// Test SMTP connection
 const testSmtp = async (req, res) => {
   try {
-    // Test SMTP connection with provided settings
-    res.status(200).json({
-      success: true,
-      message: 'SMTP connection test successful'
-    });
+    const testResult = await sendEmail(
+      'test@example.com',
+      'SMTP Test',
+      'This is a test email to verify SMTP configuration.',
+      req.body
+    );
 
+    res.json({
+      success: true,
+      message: 'SMTP test successful'
+    });
   } catch (error) {
-    console.error('Test SMTP error:', error);
+    console.error('SMTP test error:', error);
     res.status(500).json({
       success: false,
-      message: 'SMTP connection test failed'
+      message: 'SMTP test failed: ' + error.message
+    });
+  }
+};
+
+// Update AWS settings
+const updateAwsSettings = async (req, res) => {
+  try {
+    const masterAdmin = await MasterAdmin.findById(req.user.id);
+
+    if (!masterAdmin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Master admin not found'
+      });
+    }
+
+    masterAdmin.aws_settings = req.body;
+    await masterAdmin.save();
+
+    // Log the event
+    await logEvent({
+      event_type: 'system_operation',
+      event_action: 'aws_settings_updated',
+      event_description: 'AWS settings updated by master admin',
+      user_id: req.user.id,
+      user_role: req.user.role,
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
+    });
+
+    res.json({
+      success: true,
+      message: 'AWS settings updated successfully'
+    });
+  } catch (error) {
+    console.error('Update AWS settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update AWS settings'
+    });
+  }
+};
+
+// Test AWS connection
+const testAwsConnection = async (req, res) => {
+  try {
+    const { SQS } = require("@aws-sdk/client-sqs");
+    
+    const sqs = new SQS({
+      region: req.body.region,
+      credentials: {
+        accessKeyId: req.body.access_key_id,
+        secretAccessKey: req.body.secret_access_key,
+      },
+    });
+
+    // Test by getting queue attributes
+    const params = {
+      QueueUrl: req.body.sqs_queue_url,
+      AttributeNames: ['All']
+    };
+
+    await sqs.getQueueAttributes(params);
+
+    res.json({
+      success: true,
+      message: 'AWS connection test successful'
+    });
+  } catch (error) {
+    console.error('AWS test error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'AWS connection test failed: ' + error.message
+    });
+  }
+};
+
+// Get AWS settings
+const getAwsSettings = async (req, res) => {
+  try {
+    const masterAdmin = await MasterAdmin.findById(req.user.id);
+
+    if (!masterAdmin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Master admin not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: masterAdmin.aws_settings || {}
+    });
+  } catch (error) {
+    console.error('Get AWS settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch AWS settings'
     });
   }
 };
@@ -454,5 +633,8 @@ module.exports = {
   deletePlan,
   updateProfile,
   updateSmtpSettings,
-  testSmtp
+  testSmtp,
+  updateAwsSettings,
+  testAwsConnection,
+  getAwsSettings
 };

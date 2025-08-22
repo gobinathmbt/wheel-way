@@ -35,6 +35,15 @@ const MasterAdminSchema = new mongoose.Schema({
     from_email: String,
     from_name: String
   },
+  aws_settings: {
+    access_key_id: String,
+    secret_access_key: String,
+    region: {
+      type: String,
+      default: 'us-east-1'
+    },
+    sqs_queue_url: String
+  },
   is_active: {
     type: Boolean,
     default: true

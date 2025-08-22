@@ -2,19 +2,52 @@
 const { SQS } = require("@aws-sdk/client-sqs");
 const Vehicle = require('../models/Vehicle');
 const Company = require('../models/Company');
+const MasterAdmin = require('../models/MasterAdmin');
 const { logEvent } = require('./logs.controller');
-const config = require('../config/env');
 
-// Initialize SQS client
-const sqs = new SQS({
-  region: config.AWS_REGION,
-  credentials: {
-    accessKeyId: config.AWS_ACCESS_KEY_ID,
-    secretAccessKey: config.AWS_SECRET_ACCESS_KEY,
-  },
-});
+// Initialize SQS client with master admin settings
+const getSQSClient = async () => {
+  try {
+    const masterAdmin = await MasterAdmin.findOne({ role: 'master_admin' });
+    
+    if (!masterAdmin || !masterAdmin.aws_settings) {
+      throw new Error('AWS settings not configured in master admin');
+    }
 
-const QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/377745719237/appretail_mobile_dev";
+    const { access_key_id, secret_access_key, region } = masterAdmin.aws_settings;
+
+    if (!access_key_id || !secret_access_key || !region) {
+      throw new Error('Incomplete AWS settings in master admin');
+    }
+
+    return new SQS({
+      region,
+      credentials: {
+        accessKeyId: access_key_id,
+        secretAccessKey: secret_access_key,
+      },
+    });
+  } catch (error) {
+    console.error('Error initializing SQS client:', error);
+    throw error;
+  }
+};
+
+// Get queue URL from master admin settings
+const getQueueUrl = async () => {
+  try {
+    const masterAdmin = await MasterAdmin.findOne({ role: 'master_admin' });
+    
+    if (!masterAdmin || !masterAdmin.aws_settings || !masterAdmin.aws_settings.sqs_queue_url) {
+      throw new Error('SQS Queue URL not configured in master admin');
+    }
+
+    return masterAdmin.aws_settings.sqs_queue_url;
+  } catch (error) {
+    console.error('Error getting queue URL:', error);
+    throw error;
+  }
+};
 
 // Required fields validation
 const REQUIRED_FIELDS = [
@@ -65,10 +98,13 @@ const validateCompany = async (companyId) => {
 // Send message to SQS queue
 const sendToQueue = async (vehicleData, messageGroupId = null) => {
   try {
+    const sqs = await getSQSClient();
+    const queueUrl = await getQueueUrl();
+    
     const messageBody = JSON.stringify(vehicleData);
     
     const params = {
-      QueueUrl: QUEUE_URL,
+      QueueUrl: queueUrl,
       MessageBody: messageBody,
       MessageGroupId: messageGroupId || `company_${vehicleData.company_id}`,
     };
@@ -187,8 +223,11 @@ const processBulkVehicles = async (vehiclesArray, companyId) => {
 // Receive messages from SQS queue
 const receiveFromQueue = async (maxMessages = 10) => {
   try {
+    const sqs = await getSQSClient();
+    const queueUrl = await getQueueUrl();
+    
     const params = {
-      QueueUrl: QUEUE_URL,
+      QueueUrl: queueUrl,
       MaxNumberOfMessages: maxMessages,
       WaitTimeSeconds: 20, // Long polling
       VisibilityTimeout: 300, // 5 minutes to process
@@ -214,8 +253,11 @@ const receiveFromQueue = async (maxMessages = 10) => {
 // Delete processed message from queue
 const deleteMessageFromQueue = async (receiptHandle) => {
   try {
+    const sqs = await getSQSClient();
+    const queueUrl = await getQueueUrl();
+    
     const params = {
-      QueueUrl: QUEUE_URL,
+      QueueUrl: queueUrl,
       ReceiptHandle: receiptHandle
     };
 
@@ -441,7 +483,7 @@ const startQueueConsumer = () => {
   // Set up interval to process every 10 seconds
   queueInterval = setInterval(() => {
     processQueueMessages();
-  }, 60000); // 10 seconds
+  }, 10000); // 10 seconds
   
   console.log('⏰ Queue consumer started - checking every 10 seconds');
 };
