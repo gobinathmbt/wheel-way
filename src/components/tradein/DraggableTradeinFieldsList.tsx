@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -10,24 +9,14 @@ import { GripVertical, Trash2, Edit } from 'lucide-react';
 import { configServices } from '@/api/services';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { FieldDeleteDialog } from '@/components/tradein/FieldDeleteDialog';
 
 interface SortableFieldProps {
   field: any;
   configId: string;
   sectionId: string;
   onEditField: (field: any) => void;
-  onDeleteField: (fieldId: string, sectionId: string) => void;
+  onDeleteField: (fieldId: string, sectionId: string, fieldName: string) => void;
   dropdowns?: any[];
 }
 
@@ -62,14 +51,20 @@ function SortableField({ field, configId, sectionId, onEditField, onDeleteField,
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
         <div>
-          <span className="font-medium">{field.field_name}</span>
+          
           <div className="flex items-center gap-2 mt-1">
+            <span className="font-medium">{field.field_name}</span>
             <Badge variant="outline" className="text-xs">{field.field_type}</Badge>
             {field.is_required && <Badge variant="outline" className="text-xs">Required</Badge>}
             {field.has_image && <Badge variant="outline" className="text-xs">Image</Badge>}
             {getDropdownName(field) && (
               <Badge variant="outline" className="text-xs">
                 {getDropdownName(field)}
+              </Badge>
+            )}
+            {field.field_type === "dropdown" && field.dropdown_config?.dropdown_id && (
+              <Badge variant="outline" className="text-xs">
+                Dropdown
               </Badge>
             )}
           </div>
@@ -79,27 +74,13 @@ function SortableField({ field, configId, sectionId, onEditField, onDeleteField,
         <Button size="sm" variant="ghost" onClick={() => onEditField(field)}>
           <Edit className="h-4 w-4" />
         </Button>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button size="sm" variant="ghost">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Field</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete the field "{field.field_name}"? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => onDeleteField(field.field_id, sectionId)}>
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Button 
+          size="sm" 
+          variant="ghost" 
+          onClick={() => onDeleteField(field.field_id, sectionId, field.field_name)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
@@ -122,6 +103,10 @@ const DraggableTradeinFieldsList: React.FC<DraggableTradeinFieldsListProps> = ({
   onDeleteField,
   dropdowns
 }) => {
+  const [isFieldDeleteDialogOpen, setIsFieldDeleteDialogOpen] = useState(false);
+  const [fieldToDelete, setFieldToDelete] = useState<{ fieldId: string; sectionId: string; fieldName: string } | null>(null);
+  const [isFieldDeleting, setIsFieldDeleting] = useState(false);
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -157,28 +142,62 @@ const DraggableTradeinFieldsList: React.FC<DraggableTradeinFieldsListProps> = ({
     }
   };
 
+  const openFieldDeleteDialog = (fieldId: string, sectionId: string, fieldName: string) => {
+    setFieldToDelete({ fieldId, sectionId, fieldName });
+    setIsFieldDeleteDialogOpen(true);
+  };
+
+  const handleDeleteField = async () => {
+    if (!fieldToDelete) return;
+    
+    setIsFieldDeleting(true);
+    try {
+      await onDeleteField(fieldToDelete.fieldId, fieldToDelete.sectionId);
+      setIsFieldDeleteDialogOpen(false);
+      setFieldToDelete(null);
+    } catch (error) {
+      // Error handling is done in the parent component
+    } finally {
+      setIsFieldDeleting(false);
+    }
+  };
+
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext items={fields.map(f => f.field_id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-2">
-          {fields.map((field) => (
-            <SortableField
-              key={field.field_id}
-              field={field}
-              configId={configId}
-              sectionId={sectionId}
-              onEditField={onEditField}
-              onDeleteField={onDeleteField}
-              dropdowns={dropdowns}
-            />
-          ))}
-        </div>
-      </SortableContext>
-    </DndContext>
+    <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={fields.map(f => f.field_id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {fields.map((field) => (
+              <SortableField
+                key={field.field_id}
+                field={field}
+                configId={configId}
+                sectionId={sectionId}
+                onEditField={onEditField}
+                onDeleteField={openFieldDeleteDialog}
+                dropdowns={dropdowns}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      {/* Field Delete Dialog */}
+      <FieldDeleteDialog
+        isOpen={isFieldDeleteDialogOpen}
+        onClose={() => {
+          setIsFieldDeleteDialogOpen(false);
+          setFieldToDelete(null);
+        }}
+        onConfirm={handleDeleteField}
+        fieldName={fieldToDelete?.fieldName || ''}
+        isLoading={isFieldDeleting}
+      />
+    </>
   );
 };
 
