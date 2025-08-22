@@ -519,6 +519,12 @@ const InspectionConfig = () => {
     setCurrentPage(1);
   };
 
+  const handleClearSearch = () => {
+    setSearchTerm("");
+    setCurrentPage(1);
+    refetch();
+  };
+
   const fieldTypes = [
     { value: "text", label: "Text" },
     { value: "number", label: "Number" },
@@ -804,7 +810,7 @@ const InspectionConfig = () => {
           onSearchChange={setSearchTerm}
           statusFilter={statusFilter}
           onFilterChange={handleFilterChange}
-          onSearch={handleSearch}
+          onSearch={handleClearSearch}
           isLoading={configsLoading}
         />
 

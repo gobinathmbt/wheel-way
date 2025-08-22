@@ -47,6 +47,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { configServices, dropdownServices } from "@/api/services";
 import DraggableTradeinSectionsList from "@/components/tradein/DraggableTradeinSectionsList";
 import { TradeinPreviewModal } from "@/components/tradein/TradeinPreviewModal";
+import ConfigurationSearch from "@/components/inspection/ConfigurationSearch";
+import ConfigurationList from "@/components/inspection/ConfigurationList";
 
 const TradeinConfig = () => {
   const [selectedConfig, setSelectedConfig] = useState<any>(null);
@@ -77,6 +79,17 @@ const TradeinConfig = () => {
     is_active: false,
   });
 
+  const handleSearch = () => {
+    setCurrentPage(1);
+    refetch();
+  };
+
+  const handleFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+    refetch();
+  };
+  
   const handleClearSearch = () => {
     setSearchTerm("");
     setCurrentPage(1);
@@ -471,154 +484,41 @@ const TradeinConfig = () => {
         </div>
 
         {/* Search and Filter */}
+        <ConfigurationSearch
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          statusFilter={statusFilter}
+          onFilterChange={handleFilterChange}
+          onSearch={handleClearSearch}
+          isLoading={isLoading}
+        />
+
         <Card>
           <CardHeader>
-            <CardTitle>Configuration Management</CardTitle>
+            <CardTitle>Configurations</CardTitle>
             <CardDescription>
-              Search, filter and manage your trade-in configurations
+              Select a configuration to edit or manage
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-4 mb-6">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    placeholder="Search configurations..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              {searchTerm && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearSearch}
-                  className="px-3"
-                >
-                  Clear
-                </Button>
-              )}
-              <Select
-                value={statusFilter}
-                onValueChange={(value) => {
-                  setStatusFilter(value);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Configuration Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              {configsData?.data?.map((config: any) => (
-                <div
-                  key={config._id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                    selectedConfig?._id === config._id
-                      ? "border-primary bg-primary/5"
-                      : "hover:bg-muted/50"
-                  }`}
-                  onClick={() => setSelectedConfig(config)}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold">{config.config_name}</h3>
-                    <div className="flex gap-1">
-                      {config.is_active && (
-                        <Badge className="bg-green-100 text-green-800">
-                          Active
-                        </Badge>
-                      )}
-                      {!config.is_active && (
-                        <Badge variant="secondary">Inactive</Badge>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {config.description}
-                  </p>
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>v{config.version}</span>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          setSelectedConfig(config);
-                          e.stopPropagation();
-                          openEditConfigDialog(config);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => openDeleteDialog(config, e)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  Showing {(currentPage - 1) * 6 + 1} to{" "}
-                  {Math.min(
-                    currentPage * 6,
-                    configsData?.pagination?.total_items || 0
-                  )}{" "}
-                  of {configsData?.pagination?.total_items || 0} configurations
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.max(prev - 1, 1))
-                    }
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </Button>
-                  <span className="text-sm">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                    }
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
+            <ConfigurationList
+              configs={configsData?.data || []}
+              selectedConfig={selectedConfig}
+              onSelectConfig={setSelectedConfig}
+              onEditConfig={(config) => {
+                setSelectedConfig(config);
+                setConfigFormData({
+                  config_name: config.config_name,
+                  description: config.description,
+                  is_active: config.is_active,
+                });
+              }}
+              onDeleteConfig={handleDeleteConfig}
+              pagination={configsData?.pagination}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              isLoading={isLoading}
+            />
           </CardContent>
         </Card>
 

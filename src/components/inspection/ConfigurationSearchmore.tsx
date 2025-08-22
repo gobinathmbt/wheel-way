@@ -20,7 +20,7 @@ interface ConfigurationSearchProps {
   isLoading: boolean;
 }
 
-const ConfigurationSearch: React.FC<ConfigurationSearchProps> = ({
+const ConfigurationSearchmore: React.FC<ConfigurationSearchProps> = ({
   searchTerm,
   onSearchChange,
   statusFilter,
@@ -66,10 +66,14 @@ const ConfigurationSearch: React.FC<ConfigurationSearchProps> = ({
               <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
+          <Button variant="outline">
+                          <Filter className="h-4 w-4 mr-2" />
+                          More Filters
+                        </Button>
         </div>
       </CardContent>
     </Card>
   );
 };
 
-export default ConfigurationSearch;
+export default ConfigurationSearchmore;
