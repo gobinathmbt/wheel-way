@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Plus, Search, UserPlus, Mail, Trash2, Edit, Users, UserCheck, UserX, Shield, UserCog } from 'lucide-react';
+import { Plus, Search, UserPlus, Mail, Trash2, Edit, Users, UserCheck, UserX, Shield, UserCog, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/axios';
@@ -117,8 +117,13 @@ const CompanyUsers = () => {
     }
   };
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
+  const handleSearch = () => {
+    setCurrentPage(1);
+    refetch();
+  };
+
+  const handleClear = () => {
+    setSearchTerm('');
     setCurrentPage(1);
     refetch();
   };
@@ -245,7 +250,7 @@ const CompanyUsers = () => {
           </Dialog>
         </div>
 
-        {/* Stats Cards - All 5 in one row */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -294,37 +299,48 @@ const CompanyUsers = () => {
           </Card>
         </div>
 
-        {/* ... keep existing code (Search and Filter section) */}
-        <div className="flex items-center gap-4">
-          <form onSubmit={handleSearchSubmit} className="flex items-center space-x-2 flex-1 max-w-md">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search users..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
+        {/* Search and Filter */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Search & Filter</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search users..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  />
+                </div>
+              </div>
+              <Button onClick={handleClear} variant="outline" disabled={!searchTerm}>
+                <X className="h-4 w-4 mr-2" />
+                Clear
+              </Button>
+              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={handleSearch} disabled={isLoading}>
+                <Search className="h-4 w-4 mr-2" />
+                Search
+              </Button>
             </div>
-            <Button type="submit" size="sm">Search</Button>
-          </form>
-          
-          <div className="flex items-center space-x-2">
-            <Label htmlFor="status-filter" className="text-sm">Status:</Label>
-            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* ... keep existing code (Users Table and Pagination) */}
+        {/* Users Table */}
         <Card>
           <CardHeader>
             <CardTitle>Team Members</CardTitle>

@@ -1,301 +1,240 @@
 
-import React, { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Settings, Save, Filter } from "lucide-react";
-import { toast } from "sonner";
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { companyServices } from "@/api/services";
-
-import DashboardLayout from "@/components/layout/DashboardLayout";
-
-interface Permission {
-  _id: string;
-  module_name: string;
-  internal_name: string;
-  description: string;
-}
-
-interface UserPermission {
-  permission_id: Permission;
-  actions: string[];
-}
-
-interface User {
-  _id: string;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: string;
-  is_active: boolean;
-  permissions: UserPermission[];
-}
+import React, { useState } from 'react';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { Search, Shield, User, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
+import apiClient from '@/api/axios';
 
 const UserPermissions = () => {
-  const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [userPermissions, setUserPermissions] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const { data: usersData, isLoading } = useQuery({
-    queryKey: ["company-users-permissions", page, search, statusFilter],
-    queryFn: () =>
-      companyServices
-        .getUsersWithPermissions({
-          page,
-          limit: 10,
-          search: search || undefined,
-          status: statusFilter,
-        })
-        .then((res) => res.data),
-  });
-
-  const { data: availablePermissions } = useQuery({
-    queryKey: ["available-permissions"],
-    queryFn: () =>
-      companyServices.getAvailablePermissions().then((res) => res.data.data),
-  });
-
-  const updatePermissionsMutation = useMutation({
-    mutationFn: ({
-      userId,
-      permissions,
-    }: {
-      userId: string;
-      permissions: any[];
-    }) => companyServices.updateUserPermissions(userId, { permissions }),
-    onSuccess: () => {
-      toast.success("User permissions updated successfully");
-      queryClient.invalidateQueries({
-        queryKey: ["company-users-permissions"],
+  const { data: usersResponse, isLoading, refetch } = useQuery({
+    queryKey: ['user-permissions', currentPage, searchTerm, statusFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '10',
+        ...(searchTerm && { search: searchTerm }),
+        ...(statusFilter !== 'all' && { status: statusFilter })
       });
-      setIsDialogOpen(false);
-    },
-    onError: (error: any) => {
-      toast.error(
-        error.response?.data?.message || "Failed to update permissions"
-      );
-    },
+      const response = await apiClient.get(`/api/company/user-permissions?${params}`);
+      return response.data;
+    }
   });
 
-  const handleManagePermissions = (user: User) => {
-    setSelectedUser(user);
+  const users = usersResponse?.data || [];
+  const pagination = usersResponse?.pagination || {};
+  const stats = usersResponse?.stats || {};
 
-    // Initialize permissions state
-    if (availablePermissions) {
-      const initialPermissions = availablePermissions.map(
-        (permission: Permission) => {
-          const userPermission = user.permissions?.find(
-            (up: UserPermission) => up.permission_id._id === permission._id
-          );
+  const handleSearch = () => {
+    setCurrentPage(1);
+    refetch();
+  };
 
-          return {
-            permission_id: permission._id,
-            module_name: permission.module_name,
-            internal_name: permission.internal_name,
-            description: permission.description,
-            enabled: !!userPermission,
-            actions: userPermission?.actions || ["read"],
-          };
-        }
-      );
-      setUserPermissions(initialPermissions);
+  const handleClear = () => {
+    setSearchTerm('');
+    setCurrentPage(1);
+    refetch();
+  };
+
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleTogglePermission = async (userId, permissionKey, currentValue) => {
+    try {
+      await apiClient.patch(`/api/company/user-permissions/${userId}`, {
+        [permissionKey]: !currentValue
+      });
+      toast.success('Permission updated successfully');
+      refetch();
+    } catch (error) {
+      toast.error('Failed to update permission');
     }
-
-    setIsDialogOpen(true);
   };
 
-  const handlePermissionToggle = (permissionId: string, enabled: boolean) => {
-    setUserPermissions((prev) =>
-      prev.map((p) =>
-        p.permission_id === permissionId
-          ? { ...p, enabled, actions: enabled ? p.actions : [] }
-          : p
-      )
-    );
-  };
-
-  const handleActionToggle = (
-    permissionId: string,
-    action: string,
-    checked: boolean
-  ) => {
-    setUserPermissions((prev) =>
-      prev.map((p) =>
-        p.permission_id === permissionId
-          ? {
-              ...p,
-              actions: checked
-                ? [...p.actions, action]
-                : p.actions.filter((a: string) => a !== action),
-            }
-          : p
-      )
-    );
-  };
-
-  const handleSavePermissions = () => {
-    if (!selectedUser) return;
-
-    const enabledPermissions = userPermissions
-      .filter((p) => p.enabled)
-      .map((p) => ({
-        permission_id: p.permission_id,
-        actions: p.actions.length > 0 ? p.actions : ["read"],
-      }));
-
-    updatePermissionsMutation.mutate({
-      userId: selectedUser._id,
-      permissions: enabledPermissions,
-    });
-  };
-
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
-
-  const actionTypes = ["create", "read", "update", "delete"];
-
-  useEffect(() => {
-    setPage(1);
-  }, [search, statusFilter]);
-
-  const totalPages = usersData?.pagination?.total_pages || 1;
+  const totalPages = Math.ceil((pagination.total_records || 0) / 10);
 
   return (
     <DashboardLayout title="User Permissions">
       <div className="space-y-6">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">
-            Permissions Assignment
-          </h2>
-          <p className="text-muted-foreground">
-            Assign the Permissions To Users and Manage Their Access
-          </p>
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">User Permissions</h2>
+            <p className="text-muted-foreground">Manage user access and permissions for different features</p>
+          </div>
         </div>
-        
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <User className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalUsers || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+              <User className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.activeUsers || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Inactive Users</CardTitle>
+              <User className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.inactiveUsers || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Permissions</CardTitle>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalPermissions || 0}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search and Filter */}
         <Card>
           <CardHeader>
-            <CardTitle>Search & Filter Users</CardTitle>
+            <CardTitle>Search & Filter</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-4">
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search users..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-9"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                   />
                 </div>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Button onClick={handleClear} variant="outline" disabled={!searchTerm}>
+                <X className="h-4 w-4 mr-2" />
+                Clear
+              </Button>
+              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="w-48">
-                  <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
+              <Button onClick={handleSearch} disabled={isLoading}>
+                <Search className="h-4 w-4 mr-2" />
+                Search
+              </Button>
             </div>
           </CardContent>
         </Card>
 
+        {/* Users Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Users</CardTitle>
+            <CardTitle>User Permissions</CardTitle>
+            <CardDescription>Configure user access to different features and modules</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div>Loading users...</div>
+              <div className="flex justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
             ) : (
               <>
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>S.No</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
+                      <TableHead>User</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Permissions Count</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>Inspection Config</TableHead>
+                      <TableHead>Trade-in Config</TableHead>
+                      <TableHead>Dropdown Master</TableHead>
+                      <TableHead>Vehicle Lists</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {usersData?.data?.map((user: User, index: number) => (
+                    {users.map((user, index) => (
                       <TableRow key={user._id}>
-                        <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                        <TableCell className="font-medium">
-                          {user.first_name} {user.last_name}
+                        <TableCell>
+                          {(currentPage - 1) * 10 + index + 1}
                         </TableCell>
-                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{user.first_name} {user.last_name}</p>
+                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {user.role.replace("_", " ").toUpperCase()}
+                            {user.role.replace('_', ' ').replace('company', 'Company')}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={user.is_active ? "default" : "secondary"}
-                          >
+                          <Badge variant={user.is_active ? "default" : "secondary"}>
                             {user.is_active ? "Active" : "Inactive"}
                           </Badge>
                         </TableCell>
-                        <TableCell>{user.permissions?.length || 0}</TableCell>
                         <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleManagePermissions(user)}
-                          >
-                            <Settings className="h-4 w-4 mr-2" />
-                            Manage Permissions
-                          </Button>
+                          <Switch
+                            checked={user.permissions?.inspection_config || false}
+                            onCheckedChange={() => handleTogglePermission(user._id, 'inspection_config', user.permissions?.inspection_config)}
+                            disabled={!user.is_active}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={user.permissions?.tradein_config || false}
+                            onCheckedChange={() => handleTogglePermission(user._id, 'tradein_config', user.permissions?.tradein_config)}
+                            disabled={!user.is_active}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={user.permissions?.dropdown_master || false}
+                            onCheckedChange={() => handleTogglePermission(user._id, 'dropdown_master', user.permissions?.dropdown_master)}
+                            disabled={!user.is_active}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={user.permissions?.vehicle_lists || false}
+                            onCheckedChange={() => handleTogglePermission(user._id, 'vehicle_lists', user.permissions?.vehicle_lists)}
+                            disabled={!user.is_active}
+                          />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -304,45 +243,32 @@ const UserPermissions = () => {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex justify-center mt-4">
+                  <div className="mt-4">
                     <Pagination>
                       <PaginationContent>
                         <PaginationItem>
                           <PaginationPrevious 
-                            onClick={() => handlePageChange(Math.max(1, page - 1))}
-                            className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                           />
                         </PaginationItem>
                         
-                        {Array.from({ length: totalPages }, (_, i) => i + 1)
-                          .filter(pageNum => {
-                            return pageNum === 1 || 
-                                   pageNum === totalPages || 
-                                   (pageNum >= page - 1 && pageNum <= page + 1);
-                          })
-                          .map((pageNum, index, array) => (
-                            <React.Fragment key={pageNum}>
-                              {index > 0 && array[index - 1] !== pageNum - 1 && (
-                                <PaginationItem>
-                                  <span className="px-3 py-2">...</span>
-                                </PaginationItem>
-                              )}
-                              <PaginationItem>
-                                <PaginationLink
-                                  onClick={() => handlePageChange(pageNum)}
-                                  isActive={pageNum === page}
-                                  className="cursor-pointer"
-                                >
-                                  {pageNum}
-                                </PaginationLink>
-                              </PaginationItem>
-                            </React.Fragment>
-                          ))}
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
                         
                         <PaginationItem>
                           <PaginationNext 
-                            onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
-                            className={page === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                           />
                         </PaginationItem>
                       </PaginationContent>
@@ -353,104 +279,6 @@ const UserPermissions = () => {
             )}
           </CardContent>
         </Card>
-
-        {/* ... keep existing code (Dialog for managing permissions) */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                Manage Permissions - {selectedUser?.first_name}{" "}
-                {selectedUser?.last_name}
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <div className="grid gap-4">
-                {userPermissions.map((permission) => (
-                  <Card key={permission.permission_id} className="p-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id={permission.permission_id}
-                          checked={permission.enabled}
-                          onCheckedChange={(checked) =>
-                            handlePermissionToggle(
-                              permission.permission_id,
-                              !!checked
-                            )
-                          }
-                        />
-                        <Label
-                          htmlFor={permission.permission_id}
-                          className="font-semibold"
-                        >
-                          {permission.module_name}
-                        </Label>
-                        <Badge variant="outline">
-                          {permission.internal_name}
-                        </Badge>
-                      </div>
-
-                      <p className="text-sm text-muted-foreground ml-6">
-                        {permission.description}
-                      </p>
-
-                      {permission.enabled && (
-                        <div className="ml-6 space-y-2">
-                          <Label className="text-sm font-medium">
-                            Actions:
-                          </Label>
-                          <div className="flex flex-wrap gap-2">
-                            {actionTypes.map((action) => (
-                              <div
-                                key={action}
-                                className="flex items-center space-x-2"
-                              >
-                                <Checkbox
-                                  id={`${permission.permission_id}-${action}`}
-                                  checked={permission.actions.includes(action)}
-                                  onCheckedChange={(checked) =>
-                                    handleActionToggle(
-                                      permission.permission_id,
-                                      action,
-                                      !!checked
-                                    )
-                                  }
-                                />
-                                <Label
-                                  htmlFor={`${permission.permission_id}-${action}`}
-                                  className="text-sm capitalize"
-                                >
-                                  {action}
-                                </Label>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-
-              <div className="flex justify-end space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSavePermissions}
-                  disabled={updatePermissionsMutation.isPending}
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Permissions
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </DashboardLayout>
   );

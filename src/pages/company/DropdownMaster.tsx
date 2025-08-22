@@ -19,7 +19,7 @@ import {
   PaginationNext, 
   PaginationPrevious 
 } from '@/components/ui/pagination';
-import { Search, Edit, Trash2, Database, Settings, Plus } from 'lucide-react';
+import { Search, Edit, Trash2, Database, Settings, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { dropdownServices } from '@/api/services';
@@ -58,7 +58,6 @@ const DropdownMaster = () => {
     }
   });
 
-  // Create Dropdown
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -78,7 +77,6 @@ const DropdownMaster = () => {
     }
   };
 
-  // Edit Dropdown
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -92,7 +90,6 @@ const DropdownMaster = () => {
     }
   };
 
-  // Toggle dropdown status
   const handleToggleStatus = async (dropdownId, currentStatus) => {
     try {
       await dropdownServices.updateDropdown(dropdownId, { is_active: !currentStatus });
@@ -103,13 +100,11 @@ const DropdownMaster = () => {
     }
   };
 
-  // Confirm Delete
   const confirmDeleteDropdown = (dropdownId) => {
     setDeleteTargetId(dropdownId);
     setIsDeleteDialogOpen(true);
   };
 
-  // Delete Dropdown
   const handleDeleteDropdown = async () => {
     try {
       await dropdownServices.deleteDropdown(deleteTargetId);
@@ -130,9 +125,15 @@ const DropdownMaster = () => {
     setCurrentPage(page);
   };
 
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
+  const handleSearch = () => {
     setCurrentPage(1);
+    refetch();
+  };
+
+  const handleClear = () => {
+    setSearchTerm('');
+    setCurrentPage(1);
+    refetch();
   };
 
   const handleStatusFilter = (status) => {
@@ -222,27 +223,45 @@ const DropdownMaster = () => {
         </div>
 
         {/* Search and Filters */}
-        <div className="flex items-center space-x-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search dropdowns..."
-              value={searchTerm}
-              onChange={handleSearch}
-              className="pl-8"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={handleStatusFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Search & Filter</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search dropdowns..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  />
+                </div>
+              </div>
+              <Button onClick={handleClear} variant="outline" disabled={!searchTerm}>
+                <X className="h-4 w-4 mr-2" />
+                Clear
+              </Button>
+              <Select value={statusFilter} onValueChange={handleStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={handleSearch} disabled={isLoading}>
+                <Search className="h-4 w-4 mr-2" />
+                Search
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Dropdowns Table */}
         <Card>
