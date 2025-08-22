@@ -133,11 +133,12 @@ const updateUserPermissions = async (req, res) => {
 // @access  Private (Company Super Admin)
 const getUsersWithPermissions = async (req, res) => {
   try {
-    const { page = 1, limit = 50, search } = req.query;
+    const { page = 1, limit = 10, search, status } = req.query;
     const skip = (page - 1) * limit;
 
     let filter = { company_id: req.user.company_id };
     
+    // Add search functionality
     if (search) {
       filter.$or = [
         { username: { $regex: search, $options: 'i' } },
@@ -145,6 +146,15 @@ const getUsersWithPermissions = async (req, res) => {
         { first_name: { $regex: search, $options: 'i' } },
         { last_name: { $regex: search, $options: 'i' } }
       ];
+    }
+
+    // Add status filter
+    if (status && status !== 'all') {
+      if (status === 'active') {
+        filter.is_active = true;
+      } else if (status === 'inactive') {
+        filter.is_active = false;
+      }
     }
 
     const users = await User.find(filter)

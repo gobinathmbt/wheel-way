@@ -84,7 +84,7 @@ const UserPermissions = () => {
           page,
           limit: 10,
           search: search || undefined,
-          status: statusFilter !== "all" ? statusFilter : undefined,
+          status: statusFilter,
         })
         .then((res) => res.data),
   });
@@ -354,6 +354,7 @@ const UserPermissions = () => {
           </CardContent>
         </Card>
 
+        {/* ... keep existing code (Dialog for managing permissions) */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
