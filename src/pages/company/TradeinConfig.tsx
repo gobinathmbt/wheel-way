@@ -233,9 +233,9 @@ const TradeinConfig = () => {
     }
   };
 
-  const handleDeleteConfig = async (configId: string) => {
+  const handleDeleteConfig = async (configId: any) => {
     try {
-      await configServices.deleteTradeinConfig(configId);
+      await configServices.deleteTradeinConfig(configId._id);
       toast.success("Configuration deleted successfully");
       if (selectedConfig?._id === configId) {
         setSelectedConfig(null);
