@@ -361,6 +361,429 @@ const processQueueManually = async (req, res) => {
   }
 };
 
+// @desc    Update vehicle overview section
+// @route   PUT /api/vehicle/:id/overview
+// @access  Private (Company Admin/Super Admin)
+const updateVehicleOverview = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOneAndUpdate(
+      { _id: req.params.id, company_id: req.user.company_id },
+      {
+        make: req.body.make,
+        model: req.body.model,
+        variant: req.body.variant,
+        year: req.body.year,
+        vin: req.body.vin,
+        plate_no: req.body.plate_no,
+        chassis_no: req.body.chassis_no,
+        body_style: req.body.body_style,
+        vehicle_category: req.body.vehicle_category,
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Update vehicle overview error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating vehicle overview",
+    });
+  }
+};
+
+// @desc    Update vehicle general info section
+// @route   PUT /api/vehicle/:id/general-info
+// @access  Private (Company Admin/Super Admin)
+const updateVehicleGeneralInfo = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOneAndUpdate(
+      { _id: req.params.id, company_id: req.user.company_id },
+      { vehicle_other_details: req.body.vehicle_other_details },
+      { new: true, runValidators: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Update vehicle general info error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating vehicle general info",
+    });
+  }
+};
+
+// @desc    Update vehicle source section
+// @route   PUT /api/vehicle/:id/source
+// @access  Private (Company Admin/Super Admin)
+const updateVehicleSource = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOneAndUpdate(
+      { _id: req.params.id, company_id: req.user.company_id },
+      { vehicle_source: req.body.vehicle_source },
+      { new: true, runValidators: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Update vehicle source error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating vehicle source",
+    });
+  }
+};
+
+// @desc    Update vehicle registration section
+// @route   PUT /api/vehicle/:id/registration
+// @access  Private (Company Admin/Super Admin)
+const updateVehicleRegistration = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOneAndUpdate(
+      { _id: req.params.id, company_id: req.user.company_id },
+      { vehicle_registration: req.body.vehicle_registration },
+      { new: true, runValidators: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Update vehicle registration error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating vehicle registration",
+    });
+  }
+};
+
+// @desc    Update vehicle import section
+// @route   PUT /api/vehicle/:id/import
+// @access  Private (Company Admin/Super Admin)
+const updateVehicleImport = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOneAndUpdate(
+      { _id: req.params.id, company_id: req.user.company_id },
+      { vehicle_import_details: req.body.vehicle_import_details },
+      { new: true, runValidators: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Update vehicle import error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating vehicle import details",
+    });
+  }
+};
+
+// @desc    Update vehicle engine section
+// @route   PUT /api/vehicle/:id/engine
+// @access  Private (Company Admin/Super Admin)
+const updateVehicleEngine = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOneAndUpdate(
+      { _id: req.params.id, company_id: req.user.company_id },
+      { vehicle_eng_transmission: req.body.vehicle_eng_transmission },
+      { new: true, runValidators: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Update vehicle engine error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating vehicle engine details",
+    });
+  }
+};
+
+// @desc    Update vehicle specifications section
+// @route   PUT /api/vehicle/:id/specifications
+// @access  Private (Company Admin/Super Admin)
+const updateVehicleSpecifications = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOneAndUpdate(
+      { _id: req.params.id, company_id: req.user.company_id },
+      { vehicle_specifications: req.body.vehicle_specifications },
+      { new: true, runValidators: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Update vehicle specifications error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating vehicle specifications",
+    });
+  }
+};
+
+// @desc    Update vehicle safety features section
+// @route   PUT /api/vehicle/:id/safety
+// @access  Private (Company Admin/Super Admin)
+const updateVehicleSafetyFeatures = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOneAndUpdate(
+      { _id: req.params.id, company_id: req.user.company_id },
+      { vehicle_safety_features: req.body.vehicle_safety_features },
+      { new: true, runValidators: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Update vehicle safety features error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating vehicle safety features",
+    });
+  }
+};
+
+// @desc    Update vehicle odometer section
+// @route   PUT /api/vehicle/:id/odometer
+// @access  Private (Company Admin/Super Admin)
+const updateVehicleOdometer = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOneAndUpdate(
+      { _id: req.params.id, company_id: req.user.company_id },
+      { vehicle_odometer: req.body.vehicle_odometer },
+      { new: true, runValidators: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Update vehicle odometer error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating vehicle odometer",
+    });
+  }
+};
+
+// @desc    Update vehicle ownership section
+// @route   PUT /api/vehicle/:id/ownership
+// @access  Private (Company Admin/Super Admin)
+const updateVehicleOwnership = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOneAndUpdate(
+      { _id: req.params.id, company_id: req.user.company_id },
+      { vehicle_ownership: req.body.vehicle_ownership },
+      { new: true, runValidators: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Update vehicle ownership error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating vehicle ownership",
+    });
+  }
+};
+
+// @desc    Get vehicle attachments
+// @route   GET /api/vehicle/:id/attachments
+// @access  Private (Company Admin/Super Admin)
+const getVehicleAttachments = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOne({
+      _id: req.params.id,
+      company_id: req.user.company_id,
+    });
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle.vehicle_attachments || [],
+    });
+  } catch (error) {
+    console.error("Get vehicle attachments error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving vehicle attachments",
+    });
+  }
+};
+
+// @desc    Upload vehicle attachment
+// @route   POST /api/vehicle/:id/attachments
+// @access  Private (Company Admin/Super Admin)
+const uploadVehicleAttachment = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOne({
+      _id: req.params.id,
+      company_id: req.user.company_id,
+    });
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    // Add the new attachment
+    vehicle.vehicle_attachments = vehicle.vehicle_attachments || [];
+    vehicle.vehicle_attachments.push(req.body);
+
+    await vehicle.save();
+
+    res.status(200).json({
+      success: true,
+      data: vehicle.vehicle_attachments,
+    });
+  } catch (error) {
+    console.error("Upload vehicle attachment error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error uploading vehicle attachment",
+    });
+  }
+};
+
+// @desc    Delete vehicle attachment
+// @route   DELETE /api/vehicle/:id/attachments/:attachmentId
+// @access  Private (Company Admin/Super Admin)
+const deleteVehicleAttachment = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findOne({
+      _id: req.params.id,
+      company_id: req.user.company_id,
+    });
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    // Remove the attachment
+    vehicle.vehicle_attachments = vehicle.vehicle_attachments.filter(
+      attachment => attachment._id.toString() !== req.params.attachmentId
+    );
+
+    await vehicle.save();
+
+    res.status(200).json({
+      success: true,
+      data: vehicle.vehicle_attachments,
+    });
+  } catch (error) {
+    console.error("Delete vehicle attachment error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error deleting vehicle attachment",
+    });
+  }
+};
+
 module.exports = {
   getVehicleStock,
   getVehicleDetail,
@@ -369,4 +792,19 @@ module.exports = {
   deleteVehicle,
   receiveVehicleData,
   processQueueManually,
+  
+  // New section update exports
+  updateVehicleOverview,
+  updateVehicleGeneralInfo,
+  updateVehicleSource,
+  updateVehicleRegistration,
+  updateVehicleImport,
+  updateVehicleEngine,
+  updateVehicleSpecifications,
+  updateVehicleSafetyFeatures,
+  updateVehicleOdometer,
+  updateVehicleOwnership,
+  getVehicleAttachments,
+  uploadVehicleAttachment,
+  deleteVehicleAttachment,
 };

@@ -3,17 +3,22 @@ import React, { useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Search, Filter, Eye, Download, Upload, Calendar, Car } from 'lucide-react';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import { Eye, Download, Upload, Calendar, Car } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
-import apiClient from '@/api/axios';
+import { vehicleServices, inspectionServices } from '@/api/services';
 import ConfigurationSearchmore from '@/components/inspection/ConfigurationSearchmore';
+import VehicleDetailSideModal from '@/components/vehicles/VehicleDetailSideModal';
 
 const InspectionList = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,7 +39,7 @@ const InspectionList = () => {
       if (searchTerm) params.append('search', searchTerm);
       if (statusFilter !== 'all') params.append('status', statusFilter);
       
-      const response = await apiClient.get(`/api/vehicle/stock?${params}`);
+      const response = await vehicleServices.getVehicleStock({ ...Object.fromEntries(params) });
       return response.data;
     }
   });
@@ -42,9 +47,9 @@ const InspectionList = () => {
   const vehicles = vehiclesData?.data || [];
   const totalPages = Math.ceil((vehiclesData?.total || 0) / limit);
 
-  const handleStartInspection = async (vehicleId) => {
+  const handleStartInspection = async (vehicleId: string) => {
     try {
-      await apiClient.post(`/api/inspection/start/${vehicleId}`);
+      await inspectionServices.startInspection(vehicleId);
       toast.success('Inspection started successfully');
       refetch();
     } catch (error) {
@@ -52,9 +57,9 @@ const InspectionList = () => {
     }
   };
 
-  const handleViewDetails = async (vehicleId) => {
+  const handleViewDetails = async (vehicleId: string) => {
     try {
-      const response = await apiClient.get(`/api/vehicle/detail/${vehicleId}`);
+      const response = await vehicleServices.getVehicleDetail(vehicleId);
       setSelectedVehicle(response.data.data);
     } catch (error) {
       toast.error('Failed to load vehicle details');
@@ -73,7 +78,7 @@ const InspectionList = () => {
     refetch();
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'secondary';
       case 'in_progress': return 'default';
@@ -123,7 +128,7 @@ const InspectionList = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {vehicles.filter(v => v.inspection_status === 'pending').length}
+                {vehicles.filter((v: any) => v.inspection_status === 'pending').length}
               </div>
               <p className="text-xs text-muted-foreground">Awaiting inspection</p>
             </CardContent>
@@ -135,7 +140,7 @@ const InspectionList = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {vehicles.filter(v => v.inspection_status === 'in_progress').length}
+                {vehicles.filter((v: any) => v.inspection_status === 'in_progress').length}
               </div>
               <p className="text-xs text-muted-foreground">Being inspected</p>
             </CardContent>
@@ -147,7 +152,7 @@ const InspectionList = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {vehicles.filter(v => v.inspection_status === 'completed').length}
+                {vehicles.filter((v: any) => v.inspection_status === 'completed').length}
               </div>
               <p className="text-xs text-muted-foreground">This month</p>
             </CardContent>
@@ -162,7 +167,6 @@ const InspectionList = () => {
           onSearch={handleClearSearch}
           isLoading={isLoading}
         />
-        
 
         {/* Vehicles Table */}
         <Card>
@@ -185,12 +189,11 @@ const InspectionList = () => {
                       <TableHead>Year</TableHead>
                       <TableHead>Mileage</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Source</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {vehicles.map((vehicle) => (
+                    {vehicles.map((vehicle: any) => (
                       <TableRow key={vehicle._id}>
                         <TableCell>
                           <div className="flex items-center space-x-3">
@@ -205,19 +208,15 @@ const InspectionList = () => {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{vehicle.registration_number}</p>
-                            <p className="text-sm text-muted-foreground">{vehicle.registration_state}</p>
+                            <p className="font-medium">{vehicle.plate_no}</p>
                           </div>
                         </TableCell>
                         <TableCell>{vehicle.year}</TableCell>
-                        <TableCell>{vehicle.kms_driven?.toLocaleString()} km</TableCell>
+                        <TableCell>{vehicle.vehicle_odometer?.[0]?.reading?.toLocaleString()} km</TableCell>
                         <TableCell>
                           <Badge variant={getStatusColor(vehicle.inspection_status)}>
                             {vehicle.inspection_status?.replace('_', ' ') || 'Pending'}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{vehicle.source}</Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
@@ -236,11 +235,6 @@ const InspectionList = () => {
                                 Start Inspection
                               </Button>
                             )}
-                            {vehicle.inspection_status === 'completed' && (
-                              <Button variant="outline" size="sm">
-                                View Report
-                              </Button>
-                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -250,44 +244,36 @@ const InspectionList = () => {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between px-2 py-4">
-                    <div className="text-sm text-muted-foreground">
-                      Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, vehiclesData?.total || 0)} of {vehiclesData?.total || 0} results
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page <= 1}
-                        onClick={() => setPage(page - 1)}
-                      >
-                        Previous
-                      </Button>
-                      <div className="flex items-center space-x-1">
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          const pageNumber = i + 1;
-                          return (
-                            <Button
-                              key={pageNumber}
-                              variant={page === pageNumber ? "default" : "outline"}
-                              size="sm"
+                  <Pagination className="mt-4">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => page > 1 && setPage(page - 1)}
+                          className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const pageNumber = i + 1;
+                        return (
+                          <PaginationItem key={pageNumber}>
+                            <PaginationLink
                               onClick={() => setPage(pageNumber)}
+                              isActive={page === pageNumber}
+                              className="cursor-pointer"
                             >
                               {pageNumber}
-                            </Button>
-                          );
-                        })}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page >= totalPages}
-                        onClick={() => setPage(page + 1)}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  </div>
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => page < totalPages && setPage(page + 1)}
+                          className={page >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
                 )}
               </>
             )}
@@ -295,63 +281,13 @@ const InspectionList = () => {
         </Card>
       </div>
 
-      {/* Vehicle Details Dialog */}
-      <Dialog open={!!selectedVehicle} onOpenChange={() => setSelectedVehicle(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Vehicle Details</DialogTitle>
-            <DialogDescription>
-              Complete information for {selectedVehicle?.make} {selectedVehicle?.model}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedVehicle && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Make & Model</Label>
-                  <p className="text-lg font-semibold">{selectedVehicle.make} {selectedVehicle.model}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Variant</Label>
-                  <p className="text-lg">{selectedVehicle.variant}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Year</Label>
-                  <p className="text-lg">{selectedVehicle.year}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Registration</Label>
-                  <p className="text-lg">{selectedVehicle.registration_number}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Fuel Type</Label>
-                  <p className="text-lg">{selectedVehicle.fuel_type}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Transmission</Label>
-                  <p className="text-lg">{selectedVehicle.transmission}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Mileage</Label>
-                  <p className="text-lg">{selectedVehicle.kms_driven?.toLocaleString()} km</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Owner Type</Label>
-                  <p className="text-lg">{selectedVehicle.owner_type}</p>
-                </div>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setSelectedVehicle(null)}>
-                  Close
-                </Button>
-                <Button onClick={() => handleStartInspection(selectedVehicle.vehicle_stock_id)}>
-                  Start Inspection
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Vehicle Details Side Modal */}
+      <VehicleDetailSideModal
+        vehicle={selectedVehicle}
+        isOpen={!!selectedVehicle}
+        onClose={() => setSelectedVehicle(null)}
+        onUpdate={refetch}
+      />
     </DashboardLayout>
   );
 };

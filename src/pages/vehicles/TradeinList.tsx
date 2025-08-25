@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
@@ -8,8 +9,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -20,23 +19,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Search,
-  Filter,
   Eye,
   Download,
   Upload,
@@ -47,8 +37,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import apiClient from "@/api/axios";
+import { vehicleServices, tradeinServices } from "@/api/services";
 import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
+import VehicleDetailSideModal from "@/components/vehicles/VehicleDetailSideModal";
 
 const TradeinList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -85,7 +76,7 @@ const TradeinList = () => {
       if (searchTerm) params.append("search", searchTerm);
       if (statusFilter !== "all") params.append("status", statusFilter);
 
-      const response = await apiClient.get(`/api/vehicle/stock?${params}`);
+      const response = await vehicleServices.getVehicleStock({ ...Object.fromEntries(params) });
       return response.data;
     },
   });
@@ -93,9 +84,9 @@ const TradeinList = () => {
   const vehicles = vehiclesData?.data || [];
   const totalPages = Math.ceil((vehiclesData?.total || 0) / limit);
 
-  const handleStartAppraisal = async (vehicleId) => {
+  const handleStartAppraisal = async (vehicleId: string) => {
     try {
-      await apiClient.post(`/api/tradein/start/${vehicleId}`);
+      await tradeinServices.startAppraisal(vehicleId);
       toast.success("Trade-in appraisal started successfully");
       refetch();
     } catch (error) {
@@ -103,16 +94,16 @@ const TradeinList = () => {
     }
   };
 
-  const handleViewDetails = async (vehicleId) => {
+  const handleViewDetails = async (vehicleId: string) => {
     try {
-      const response = await apiClient.get(`/api/vehicle/detail/${vehicleId}`);
+      const response = await vehicleServices.getVehicleDetail(vehicleId);
       setSelectedVehicle(response.data.data);
     } catch (error) {
       toast.error("Failed to load vehicle details");
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
         return "secondary";
@@ -131,7 +122,7 @@ const TradeinList = () => {
     }
   };
 
-  const formatCurrency = (amount) => {
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
@@ -188,7 +179,7 @@ const TradeinList = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {vehicles.filter((v) => v.tradein_status === "pending").length}
+                {vehicles.filter((v: any) => v.tradein_status === "pending").length}
               </div>
               <p className="text-xs text-muted-foreground">
                 Awaiting appraisal
@@ -203,7 +194,7 @@ const TradeinList = () => {
             <CardContent>
               <div className="text-2xl font-bold">
                 {
-                  vehicles.filter((v) => v.tradein_status === "in_progress")
+                  vehicles.filter((v: any) => v.tradein_status === "in_progress")
                     .length
                 }
               </div>
@@ -218,7 +209,7 @@ const TradeinList = () => {
             <CardContent>
               <div className="text-2xl font-bold">
                 {
-                  vehicles.filter((v) => v.tradein_status === "offer_made")
+                  vehicles.filter((v: any) => v.tradein_status === "offer_made")
                     .length
                 }
               </div>
@@ -233,7 +224,7 @@ const TradeinList = () => {
             <CardContent>
               <div className="text-2xl font-bold">
                 {
-                  vehicles.filter((v) =>
+                  vehicles.filter((v: any) =>
                     ["accepted", "completed"].includes(v.tradein_status)
                   ).length
                 }
@@ -274,14 +265,12 @@ const TradeinList = () => {
                       <TableHead>Registration</TableHead>
                       <TableHead>Year</TableHead>
                       <TableHead>Mileage</TableHead>
-                      <TableHead>Market Value</TableHead>
-                      <TableHead>Offer Value</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {vehicles.map((vehicle) => (
+                    {vehicles.map((vehicle: any) => (
                       <TableRow key={vehicle._id}>
                         <TableCell>
                           <div className="flex items-center space-x-3">
@@ -301,28 +290,13 @@ const TradeinList = () => {
                         <TableCell>
                           <div>
                             <p className="font-medium">
-                              {vehicle.registration_number}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {vehicle.registration_state}
+                              {vehicle.plate_no}
                             </p>
                           </div>
                         </TableCell>
                         <TableCell>{vehicle.year}</TableCell>
                         <TableCell>
-                          {vehicle.kms_driven?.toLocaleString()} km
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">
-                            {formatCurrency(vehicle.estimated_market_value)}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">
-                            {vehicle.offer_value
-                              ? formatCurrency(vehicle.offer_value)
-                              : "-"}
-                          </div>
+                          {vehicle.vehicle_odometer?.[0]?.reading?.toLocaleString()} km
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -353,18 +327,6 @@ const TradeinList = () => {
                                 Start Appraisal
                               </Button>
                             )}
-                            {vehicle.tradein_status === "offer_made" && (
-                              <Button variant="outline" size="sm">
-                                View Offer
-                              </Button>
-                            )}
-                            {["accepted", "completed"].includes(
-                              vehicle.tradein_status
-                            ) && (
-                              <Button variant="outline" size="sm">
-                                View Report
-                              </Button>
-                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -374,51 +336,36 @@ const TradeinList = () => {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between px-2 py-4">
-                    <div className="text-sm text-muted-foreground">
-                      Showing {(page - 1) * limit + 1} to{" "}
-                      {Math.min(page * limit, vehiclesData?.total || 0)} of{" "}
-                      {vehiclesData?.total || 0} results
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page <= 1}
-                        onClick={() => setPage(page - 1)}
-                      >
-                        Previous
-                      </Button>
-                      <div className="flex items-center space-x-1">
-                        {Array.from(
-                          { length: Math.min(5, totalPages) },
-                          (_, i) => {
-                            const pageNumber = i + 1;
-                            return (
-                              <Button
-                                key={pageNumber}
-                                variant={
-                                  page === pageNumber ? "default" : "outline"
-                                }
-                                size="sm"
-                                onClick={() => setPage(pageNumber)}
-                              >
-                                {pageNumber}
-                              </Button>
-                            );
-                          }
-                        )}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page >= totalPages}
-                        onClick={() => setPage(page + 1)}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  </div>
+                  <Pagination className="mt-4">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => page > 1 && setPage(page - 1)}
+                          className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const pageNumber = i + 1;
+                        return (
+                          <PaginationItem key={pageNumber}>
+                            <PaginationLink
+                              onClick={() => setPage(pageNumber)}
+                              isActive={page === pageNumber}
+                              className="cursor-pointer"
+                            >
+                              {pageNumber}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => page < totalPages && setPage(page + 1)}
+                          className={page >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
                 )}
               </>
             )}
@@ -426,94 +373,13 @@ const TradeinList = () => {
         </Card>
       </div>
 
-      {/* Vehicle Details Dialog */}
-      <Dialog
-        open={!!selectedVehicle}
-        onOpenChange={() => setSelectedVehicle(null)}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Vehicle Details</DialogTitle>
-            <DialogDescription>
-              Complete information for {selectedVehicle?.make}{" "}
-              {selectedVehicle?.model}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedVehicle && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Make & Model</Label>
-                  <p className="text-lg font-semibold">
-                    {selectedVehicle.make} {selectedVehicle.model}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Variant</Label>
-                  <p className="text-lg">{selectedVehicle.variant}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Year</Label>
-                  <p className="text-lg">{selectedVehicle.year}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Registration</Label>
-                  <p className="text-lg">
-                    {selectedVehicle.registration_number}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Fuel Type</Label>
-                  <p className="text-lg">{selectedVehicle.fuel_type}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Transmission</Label>
-                  <p className="text-lg">{selectedVehicle.transmission}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Mileage</Label>
-                  <p className="text-lg">
-                    {selectedVehicle.kms_driven?.toLocaleString()} km
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Owner Type</Label>
-                  <p className="text-lg">{selectedVehicle.owner_type}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Market Value</Label>
-                  <p className="text-lg font-semibold text-green-600">
-                    {formatCurrency(selectedVehicle.estimated_market_value)}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Current Offer</Label>
-                  <p className="text-lg font-semibold text-blue-600">
-                    {selectedVehicle.offer_value
-                      ? formatCurrency(selectedVehicle.offer_value)
-                      : "Not evaluated"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedVehicle(null)}
-                >
-                  Close
-                </Button>
-                <Button
-                  onClick={() =>
-                    handleStartAppraisal(selectedVehicle.vehicle_stock_id)
-                  }
-                >
-                  Start Appraisal
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Vehicle Details Side Modal */}
+      <VehicleDetailSideModal
+        vehicle={selectedVehicle}
+        isOpen={!!selectedVehicle}
+        onClose={() => setSelectedVehicle(null)}
+        onUpdate={refetch}
+      />
     </DashboardLayout>
   );
 };

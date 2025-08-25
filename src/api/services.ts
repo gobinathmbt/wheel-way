@@ -274,8 +274,50 @@ export const vehicleServices = {
     apiClient.put(`/api/vehicle/${id}`, data),
   
   deleteVehicle: (id: string) =>
-    apiClient.delete(`/api/vehicle/${id}`)
+    apiClient.delete(`/api/vehicle/${id}`),
+
+  // Vehicle Section Updates
+  updateVehicleOverview: (vehicleId: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/overview`, data),
+
+  updateVehicleGeneralInfo: (vehicleId: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/general-info`, data),
+
+  updateVehicleSource: (vehicleId: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/source`, data),
+
+  updateVehicleRegistration: (vehicleId: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/registration`, data),
+
+  updateVehicleImport: (vehicleId: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/import`, data),
+
+  updateVehicleEngine: (vehicleId: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/engine`, data),
+
+  updateVehicleSpecifications: (vehicleId: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/specifications`, data),
+
+  updateVehicleSafetyFeatures: (vehicleId: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/safety`, data),
+
+  updateVehicleOdometer: (vehicleId: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/odometer`, data),
+
+  updateVehicleOwnership: (vehicleId: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/ownership`, data),
+
+  // Vehicle Attachments
+  getVehicleAttachments: (vehicleId: string) =>
+    apiClient.get(`/api/vehicle/${vehicleId}/attachments`),
+
+  uploadVehicleAttachment: (vehicleId: string, data: any) =>
+    apiClient.post(`/api/vehicle/${vehicleId}/attachments`, data),
+
+  deleteVehicleAttachment: (vehicleId: string, attachmentId: string) =>
+    apiClient.delete(`/api/vehicle/${vehicleId}/attachments/${attachmentId}`)
 };
+
 
 // Inspection Services
 export const inspectionServices = {

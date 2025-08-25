@@ -8,7 +8,23 @@ const {
   updateVehicle,
   deleteVehicle,
   receiveVehicleData,
-  processQueueManually
+  processQueueManually,
+
+  updateVehicleOverview,
+  updateVehicleGeneralInfo,
+  updateVehicleSource,
+  updateVehicleRegistration,
+  updateVehicleImport,
+  updateVehicleEngine,
+  updateVehicleSpecifications,
+  updateVehicleSafetyFeatures,
+  updateVehicleOdometer,
+  updateVehicleOwnership,
+  getVehicleAttachments,
+  uploadVehicleAttachment,
+  deleteVehicleAttachment,
+
+
 } = require('../controllers/vehicle.controller');
 
 const router = express.Router();
@@ -30,5 +46,22 @@ router.get('/detail/:vehicleId', getVehicleDetail);
 router.post('/bulk-import', bulkImportVehicles);
 router.put('/:id', updateVehicle);
 router.delete('/:id', deleteVehicle);
+
+// Vehicle section update routes
+router.put('/:id/overview', updateVehicleOverview);
+router.put('/:id/general-info', updateVehicleGeneralInfo);
+router.put('/:id/source', updateVehicleSource);
+router.put('/:id/registration', updateVehicleRegistration);
+router.put('/:id/import', updateVehicleImport);
+router.put('/:id/engine', updateVehicleEngine);
+router.put('/:id/specifications', updateVehicleSpecifications);
+router.put('/:id/safety', updateVehicleSafetyFeatures);
+router.put('/:id/odometer', updateVehicleOdometer);
+router.put('/:id/ownership', updateVehicleOwnership);
+
+// Vehicle attachment routes
+router.get('/:id/attachments', getVehicleAttachments);
+router.post('/:id/attachments', uploadVehicleAttachment);
+router.delete('/:id/attachments/:attachmentId', deleteVehicleAttachment);
 
 module.exports = router;
