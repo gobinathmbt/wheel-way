@@ -89,7 +89,7 @@ const TradeinConfig = () => {
     setCurrentPage(1);
     refetch();
   };
-  
+
   const handleClearSearch = () => {
     setSearchTerm("");
     setCurrentPage(1);
@@ -185,14 +185,6 @@ const TradeinConfig = () => {
     },
   });
 
-  const confirmDeleteConfig = () => {
-    if (configToDelete) {
-      deleteConfigMutation.mutate({ configId: configToDelete._id });
-      setIsDeleteDialogOpen(false);
-      setConfigToDelete(null);
-    }
-  };
-
   const handleCreateConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -212,9 +204,23 @@ const TradeinConfig = () => {
     }
   };
 
+  const handleDeleteConfig = (config: any) => {
+    setConfigToDelete(config);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleEditConfigClick = (config: any) => {
+    setSelectedConfig(config);
+    setEditConfigFormData({
+      config_name: config.config_name,
+      description: config.description,
+      is_active: config.is_active,
+    });
+    setIsEditConfigDialogOpen(true);
+  };
+
   const handleEditConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(selectedConfig);
     try {
       await configServices.updateTradeinConfig(
         selectedConfig._id,
@@ -229,31 +235,15 @@ const TradeinConfig = () => {
       toast.error(
         error.response?.data?.message || "Failed to update configuration"
       );
-      console.log(error);
     }
   };
 
-  const handleDeleteConfig = async (configId: any) => {
-    try {
-      await configServices.deleteTradeinConfig(configId._id);
-      toast.success("Configuration deleted successfully");
-      if (selectedConfig?._id === configId) {
-        setSelectedConfig(null);
-      }
+  const confirmDeleteConfig = () => {
+    if (configToDelete) {
+      deleteConfigMutation.mutate({ configId: configToDelete._id });
       setIsDeleteDialogOpen(false);
       setConfigToDelete(null);
-      refetch();
-    } catch (error: any) {
-      toast.error(
-        error.response?.data?.message || "Failed to delete configuration"
-      );
     }
-  };
-
-  const openDeleteDialog = (config: any, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setConfigToDelete(config);
-    setIsDeleteDialogOpen(true);
   };
 
   const handleAddSection = async (e: React.FormEvent) => {
@@ -505,14 +495,7 @@ const TradeinConfig = () => {
               configs={configsData?.data || []}
               selectedConfig={selectedConfig}
               onSelectConfig={setSelectedConfig}
-              onEditConfig={(config) => {
-                setSelectedConfig(config);
-                setConfigFormData({
-                  config_name: config.config_name,
-                  description: config.description,
-                  is_active: config.is_active,
-                });
-              }}
+              onEditConfig={handleEditConfigClick}
               onDeleteConfig={handleDeleteConfig}
               pagination={configsData?.pagination}
               currentPage={currentPage}
@@ -738,7 +721,6 @@ const TradeinConfig = () => {
             </form>
           </DialogContent>
         </Dialog>
-
         {/* Add/Edit Field Dialog */}
         <Dialog
           open={isFieldDialogOpen}

@@ -1,24 +1,30 @@
 
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2 } from 'lucide-react';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination';
+import React from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+
+interface Configuration {
+  _id: string;
+  config_name: string;
+  description: string;
+  is_active: boolean;
+  created_at: string;
+  version: string;
+}
 
 interface ConfigurationListProps {
-  configs: any[];
-  selectedConfig: any;
-  onSelectConfig: (config: any) => void;
-  onEditConfig: (config: any) => void;
-  onDeleteConfig: (config: any) => void;
-  pagination?: any;
+  configs: Configuration[];
+  selectedConfig: Configuration | null;
+  onSelectConfig: (config: Configuration) => void;
+  onEditConfig: (config: Configuration) => void;
+  onDeleteConfig: (config: Configuration) => void;
+  pagination: {
+    current_page: number;
+    total_pages: number;
+    total_items: number;
+  };
   currentPage: number;
   onPageChange: (page: number) => void;
   isLoading: boolean;
@@ -33,128 +39,132 @@ const ConfigurationList: React.FC<ConfigurationListProps> = ({
   pagination,
   currentPage,
   onPageChange,
-  isLoading
+  isLoading,
 }) => {
   if (isLoading) {
-    return <div className="text-center py-8">Loading configurations...</div>;
+    return (
+      <div className="flex justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   if (configs.length === 0) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        No configurations found
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">No configurations found</p>
       </div>
     );
   }
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        {configs.map((config: any) => (
-          <div
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {configs.map((config) => (
+          <Card
             key={config._id}
-            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+            className={`cursor-pointer transition-all hover:shadow-md ${
               selectedConfig?._id === config._id
-                ? "border-primary bg-primary/5"
-                : "hover:bg-muted/50"
+                ? "ring-2 ring-primary bg-primary/5"
+                : ""
             }`}
             onClick={() => onSelectConfig(config)}
           >
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="font-semibold truncate">
-                {config.config_name}
-              </h3>
-              <div className="flex gap-1 ml-2">
-                {config.is_active && (
-                  <Badge className="bg-green-100 text-green-800">
-                    Active
-                  </Badge>
-                )}
-                {!config.is_active && (
-                  <Badge variant="secondary">Inactive</Badge>
-                )}
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <CardTitle className="text-lg">{config.config_name}</CardTitle>
+                  <CardDescription className="mt-1">
+                    {config.description || "No description"}
+                  </CardDescription>
+                </div>
+                <div className="flex space-x-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditConfig(config);
+                    }}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteConfig(config);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
               </div>
-            </div>
-            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-              {config.description}
-            </p>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>v{config.version}</span>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-between items-center">
+                <Badge variant={config.is_active ? "default" : "secondary"}>
+                  {config.is_active ? "Active" : "Inactive"}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  v{config.version}
+                </span>
               </div>
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEditConfig(config);
-                  }}
-                >
-                  <Edit className="h-3 w-3" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteConfig(config);
-                  }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
       {/* Pagination */}
       {pagination && pagination.total_pages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-                className={
-                  currentPage === 1
-                    ? "pointer-events-none opacity-50"
-                    : "cursor-pointer"
+        <div className="flex items-center justify-between px-2 py-4">
+          <div className="text-sm text-muted-foreground">
+            Showing {(currentPage - 1) * 6 + 1} to{" "}
+            {Math.min(currentPage * 6, pagination.total_items)} of{" "}
+            {pagination.total_items} results
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage <= 1}
+              onClick={() => onPageChange(currentPage - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <div className="flex items-center space-x-1">
+              {Array.from(
+                { length: Math.min(5, pagination.total_pages) },
+                (_, i) => {
+                  const pageNumber = i + 1;
+                  return (
+                    <Button
+                      key={pageNumber}
+                      variant={
+                        currentPage === pageNumber ? "default" : "outline"
+                      }
+                      size="sm"
+                      onClick={() => onPageChange(pageNumber)}
+                    >
+                      {pageNumber}
+                    </Button>
+                  );
                 }
-              />
-            </PaginationItem>
-
-            {Array.from(
-              { length: pagination.total_pages },
-              (_, i) => i + 1
-            ).map((page) => (
-              <PaginationItem key={page}>
-                <PaginationLink
-                  onClick={() => onPageChange(page)}
-                  isActive={page === currentPage}
-                  className="cursor-pointer"
-                >
-                  {page}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-
-            <PaginationItem>
-              <PaginationNext
-                onClick={() =>
-                  onPageChange(
-                    Math.min(pagination.total_pages, currentPage + 1)
-                  )
-                }
-                className={
-                  currentPage === pagination.total_pages
-                    ? "pointer-events-none opacity-50"
-                    : "cursor-pointer"
-                }
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage >= pagination.total_pages}
+              onClick={() => onPageChange(currentPage + 1)}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       )}
     </>
   );
