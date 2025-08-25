@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 5000;
 connectDB();
 
 // Start SQS queue consumer
-// startQueueConsumer();
+startQueueConsumer();
 
 // Start server
 const server = app.listen(PORT, () => {
