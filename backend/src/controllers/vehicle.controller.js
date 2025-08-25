@@ -5,6 +5,8 @@ const {
   processBulkVehicles,
   validateRequiredFields,
   validateCompany,
+  performBasicValidation,
+  processQueueMessages,
 } = require("./sqs.controller");
 
 // @desc    Get vehicle stock with pagination and filters
@@ -220,10 +222,25 @@ const receiveVehicleData = async (req, res) => {
       if (!companyId) {
         return res.status(400).json({
           success: false,
-          message: "company_id is required",
+          message: "company_id is required for all vehicles",
         });
       }
 
+      // Perform basic validation on first vehicle to check company
+      const firstVehicleValidation = await performBasicValidation(
+        requestData[0]
+      );
+      if (
+        !firstVehicleValidation.valid &&
+        firstVehicleValidation.error.includes("Company")
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: firstVehicleValidation.error,
+        });
+      }
+
+      console.log(`🔄 Processing bulk vehicles for company: ${companyId}`);
       const results = await processBulkVehicles(requestData, companyId);
 
       res.status(200).json({
@@ -247,15 +264,48 @@ const receiveVehicleData = async (req, res) => {
         });
       }
 
+      if (!requestData.vehicle_type) {
+        return res.status(400).json({
+          success: false,
+          message: "vehicle_type is required (inspection or tradein)",
+        });
+      }
+
+      if (!requestData.vehicle_stock_id) {
+        return res.status(400).json({
+          success: false,
+          message: "vehicle_stock_id is required",
+        });
+      }
+
+      console.log(
+        `🔍 Processing single vehicle: ${requestData.vehicle_stock_id} - ${requestData.vehicle_type} for company: ${requestData.company_id}`
+      );
+
+      // Perform basic validation first
+      const validation = await performBasicValidation(requestData);
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          message: validation.error,
+          data: {
+            vehicle_stock_id: requestData.vehicle_stock_id,
+          },
+        });
+      }
+
       const result = await processSingleVehicle(requestData);
 
       if (result.success) {
         res.status(200).json({
           success: true,
-          message: "Vehicle data processed successfully",
+          message: result.exists
+            ? "Vehicle data updated and queued for processing"
+            : "Vehicle data received and queued for processing",
           data: {
             vehicle_stock_id: result.vehicle_stock_id,
             queue_id: result.queue_id,
+            exists: result.exists,
           },
         });
       } else {
@@ -273,6 +323,7 @@ const receiveVehicleData = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error processing vehicle data",
+      error: error.message,
     });
   }
 };

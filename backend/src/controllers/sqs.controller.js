@@ -79,6 +79,10 @@ const validateRequiredFields = (vehicleData) => {
 // Validate company exists and is active
 const validateCompany = async (companyId) => {
   try {
+    if (!companyId) {
+      return { valid: false, error: 'Company ID is required' };
+    }
+
     const company = await Company.findById(companyId);
     
     if (!company) {
@@ -93,6 +97,80 @@ const validateCompany = async (companyId) => {
   } catch (error) {
     return { valid: false, error: 'Invalid company ID format' };
   }
+};
+
+// Validate vehicle_stock_id and vehicle_type combination
+const validateVehicleStockId = async (vehicleStockId, companyId, vehicleType) => {
+  try {
+    if (!vehicleStockId) {
+      return { valid: false, error: 'Vehicle stock ID is required' };
+    }
+
+    if (!vehicleType) {
+      return { valid: false, error: 'Vehicle type is required' };
+    }
+
+    if (!['inspection', 'tradein'].includes(vehicleType)) {
+      return { valid: false, error: 'Invalid vehicle type. Must be "inspection" or "tradein"' };
+    }
+
+    // Check if this exact combination already exists
+    const existingVehicle = await Vehicle.findOne({
+      vehicle_stock_id: vehicleStockId,
+      company_id: companyId,
+      vehicle_type: vehicleType
+    });
+
+    return { 
+      valid: true, 
+      exists: !!existingVehicle,
+      existingVehicle: existingVehicle
+    };
+  } catch (error) {
+    return { valid: false, error: 'Error validating vehicle stock ID' };
+  }
+};
+
+// Enhanced basic validation function
+const performBasicValidation = async (vehicleData) => {
+  // Validate required fields
+  const missingFields = validateRequiredFields(vehicleData);
+  if (missingFields.length > 0) {
+    return {
+      valid: false,
+      error: `Missing required fields: ${missingFields.join(', ')}`
+    };
+  }
+
+  // Validate company
+  const companyValidation = await validateCompany(vehicleData.company_id);
+  if (!companyValidation.valid) {
+    return {
+      valid: false,
+      error: companyValidation.error
+    };
+  }
+
+  // Validate vehicle stock ID and type
+  const vehicleValidation = await validateVehicleStockId(
+    vehicleData.vehicle_stock_id,
+    vehicleData.company_id,
+    vehicleData.vehicle_type
+  );
+  
+  if (!vehicleValidation.valid) {
+    return {
+      valid: false,
+      error: vehicleValidation.error
+    };
+  }
+
+  return {
+    valid: true,
+    company: companyValidation.company,
+    vehicleExists: vehicleValidation.exists,
+    existingVehicle: vehicleValidation.existingVehicle
+  };
 };
 
 // Send message to SQS queue
@@ -127,23 +205,16 @@ const sendToQueue = async (vehicleData, messageGroupId = null) => {
 // Process single vehicle data
 const processSingleVehicle = async (vehicleData) => {
   try {
-    // Validate required fields
-    const missingFields = validateRequiredFields(vehicleData);
-    if (missingFields.length > 0) {
-      return {
-        success: false,
-        vehicle_stock_id: vehicleData.vehicle_stock_id,
-        error: `Missing required fields: ${missingFields.join(', ')}`
-      };
-    }
+    console.log(`🔍 Processing single vehicle: ${vehicleData.vehicle_stock_id} - ${vehicleData.vehicle_type}`);
 
-    // Validate company
-    const companyValidation = await validateCompany(vehicleData.company_id);
-    if (!companyValidation.valid) {
+    // Perform basic validation
+    const validation = await performBasicValidation(vehicleData);
+    if (!validation.valid) {
+      console.log(`❌ Validation failed for vehicle ${vehicleData.vehicle_stock_id}: ${validation.error}`);
       return {
         success: false,
         vehicle_stock_id: vehicleData.vehicle_stock_id,
-        error: companyValidation.error
+        error: validation.error
       };
     }
 
@@ -151,6 +222,7 @@ const processSingleVehicle = async (vehicleData) => {
     const queueResult = await sendToQueue(vehicleData);
     
     if (!queueResult.success) {
+      console.log(`❌ Queue error for vehicle ${vehicleData.vehicle_stock_id}: ${queueResult.error}`);
       return {
         success: false,
         vehicle_stock_id: vehicleData.vehicle_stock_id,
@@ -158,14 +230,17 @@ const processSingleVehicle = async (vehicleData) => {
       };
     }
 
+    console.log(`✅ Vehicle ${vehicleData.vehicle_stock_id} successfully sent to queue`);
     return {
       success: true,
       vehicle_stock_id: vehicleData.vehicle_stock_id,
       queue_id: queueResult.queueId,
-      message: 'Vehicle data sent to processing queue'
+      message: 'Vehicle data sent to processing queue',
+      exists: validation.vehicleExists
     };
 
   } catch (error) {
+    console.error(`❌ Error processing vehicle ${vehicleData.vehicle_stock_id}:`, error);
     return {
       success: false,
       vehicle_stock_id: vehicleData.vehicle_stock_id || 'unknown',
@@ -176,6 +251,8 @@ const processSingleVehicle = async (vehicleData) => {
 
 // Process bulk vehicle data
 const processBulkVehicles = async (vehiclesArray, companyId) => {
+  console.log(`🔄 Processing ${vehiclesArray.length} vehicles for company ${companyId}`);
+  
   const results = {
     success_records: [],
     failure_records: [],
@@ -183,9 +260,10 @@ const processBulkVehicles = async (vehiclesArray, companyId) => {
     queue_ids: []
   };
 
-  // Validate company once
+  // Validate company once for all vehicles
   const companyValidation = await validateCompany(companyId);
   if (!companyValidation.valid) {
+    console.log(`❌ Company validation failed: ${companyValidation.error}`);
     // All records fail if company is invalid
     vehiclesArray.forEach(vehicle => {
       results.failure_records.push({
@@ -206,7 +284,8 @@ const processBulkVehicles = async (vehiclesArray, companyId) => {
     if (result.success) {
       results.success_records.push({
         vehicle_stock_id: result.vehicle_stock_id,
-        queue_id: result.queue_id
+        queue_id: result.queue_id,
+        exists: result.exists
       });
       results.queue_ids.push(result.queue_id);
     } else {
@@ -217,6 +296,7 @@ const processBulkVehicles = async (vehiclesArray, companyId) => {
     }
   }
 
+  console.log(`✅ Bulk processing completed: ${results.success_records.length} success, ${results.failure_records.length} failed`);
   return results;
 };
 
@@ -273,6 +353,7 @@ const deleteMessageFromQueue = async (receiptHandle) => {
 const processVehicleFromQueue = async (messageBody) => {
   try {
     const vehicleData = JSON.parse(messageBody);
+    console.log(`🏗️ Processing vehicle from queue: ${vehicleData.vehicle_stock_id} - ${vehicleData.vehicle_type}`);
     
     // Separate custom fields from standard fields
     const standardFields = {};
@@ -303,39 +384,49 @@ const processVehicleFromQueue = async (messageBody) => {
       standardFields.custom_fields = customFields;
     }
     
-    // Check if vehicle already exists
+    // Check if vehicle already exists with same stock_id, company_id, and vehicle_type
     const existingVehicle = await Vehicle.findOne({
       vehicle_stock_id: standardFields.vehicle_stock_id,
-      company_id: standardFields.company_id
+      company_id: standardFields.company_id,
+      vehicle_type: standardFields.vehicle_type
     });
 
     let vehicle;
+    let action;
+
     if (existingVehicle) {
       // Update existing vehicle
       Object.assign(existingVehicle, standardFields);
       existingVehicle.queue_status = 'processed';
       existingVehicle.processing_attempts += 1;
+      existingVehicle.last_processing_error = null; // Clear any previous errors
       vehicle = await existingVehicle.save();
+      action = 'updated';
+      console.log(`✅ Updated existing vehicle: ${vehicle.vehicle_stock_id} - ${vehicle.vehicle_type}`);
     } else {
       // Create new vehicle
       vehicle = new Vehicle({
         ...standardFields,
         queue_status: 'processed',
-        processing_attempts: 1
+        processing_attempts: 1,
+        status: 'completed'
       });
       await vehicle.save();
+      action = 'created';
+      console.log(`✅ Created new vehicle: ${vehicle.vehicle_stock_id} - ${vehicle.vehicle_type}`);
     }
 
     // Log the event
     await logEvent({
       event_type: 'vehicle_operation',
-      event_action: existingVehicle ? 'vehicle_updated' : 'vehicle_created',
-      event_description: `Vehicle ${vehicle.vehicle_stock_id} processed from queue`,
+      event_action: `vehicle_${action}`,
+      event_description: `Vehicle ${vehicle.vehicle_stock_id} (${vehicle.vehicle_type}) ${action} from queue`,
       company_id: vehicle.company_id,
       resource_type: 'vehicle',
       resource_id: vehicle._id.toString(),
       metadata: {
         vehicle_stock_id: vehicle.vehicle_stock_id,
+        vehicle_type: vehicle.vehicle_type,
         processing_attempts: vehicle.processing_attempts
       }
     });
@@ -344,26 +435,43 @@ const processVehicleFromQueue = async (messageBody) => {
       success: true,
       vehicle_id: vehicle._id,
       vehicle_stock_id: vehicle.vehicle_stock_id,
-      action: existingVehicle ? 'updated' : 'created'
+      vehicle_type: vehicle.vehicle_type,
+      action: action
     };
 
   } catch (error) {
     console.error('Error processing vehicle from queue:', error);
+    
+    // Try to extract vehicle info from the message for logging
+    let vehicleInfo = {};
+    try {
+      const vehicleData = JSON.parse(messageBody);
+      vehicleInfo = {
+        vehicle_stock_id: vehicleData.vehicle_stock_id,
+        vehicle_type: vehicleData.vehicle_type,
+        company_id: vehicleData.company_id
+      };
+    } catch (parseError) {
+      console.error('Could not parse message body for error logging');
+    }
     
     // Log the error
     await logEvent({
       event_type: 'system_error',
       event_action: 'queue_processing_failed',
       event_description: `Failed to process vehicle from queue: ${error.message}`,
+      company_id: vehicleInfo.company_id || null,
       severity: 'error',
       status: 'failure',
       error_message: error.message,
-      error_stack: error.stack
+      error_stack: error.stack,
+      metadata: vehicleInfo
     });
 
     return {
       success: false,
-      error: error.message
+      error: error.message,
+      vehicle_info: vehicleInfo
     };
   }
 };
@@ -414,10 +522,11 @@ const processQueueMessages = async () => {
           
           if (deleteResult.success) {
             processedCount++;
-            console.log(`✅ Successfully processed vehicle: ${processResult.vehicle_stock_id}`);
+            console.log(`✅ Successfully processed vehicle: ${processResult.vehicle_stock_id} - ${processResult.vehicle_type} (${processResult.action})`);
             results.push({
               message_id: message.MessageId,
               vehicle_stock_id: processResult.vehicle_stock_id,
+              vehicle_type: processResult.vehicle_type,
               action: processResult.action,
               status: 'success'
             });
@@ -426,6 +535,7 @@ const processQueueMessages = async () => {
             failedCount++;
             results.push({
               message_id: message.MessageId,
+              vehicle_info: processResult.vehicle_info,
               error: 'Failed to delete from queue',
               status: 'failed'
             });
@@ -435,6 +545,7 @@ const processQueueMessages = async () => {
           console.error(`❌ Failed to process message ${message.MessageId}:`, processResult.error);
           results.push({
             message_id: message.MessageId,
+            vehicle_info: processResult.vehicle_info,
             error: processResult.error,
             status: 'failed'
           });
@@ -503,6 +614,8 @@ module.exports = {
   processVehicleFromQueue,
   validateRequiredFields,
   validateCompany,
+  validateVehicleStockId,
+  performBasicValidation,
   receiveFromQueue,
   deleteMessageFromQueue,
   processQueueMessages,

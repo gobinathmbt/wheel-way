@@ -211,10 +211,10 @@ const VehicleSchema = new mongoose.Schema({
   }
 });
 
-// Compound index for vehicle_stock_id and company_id (unique per company)
-VehicleSchema.index({ vehicle_stock_id: 1, company_id: 1 }, { unique: true });
+// Compound index for vehicle_stock_id, company_id, and vehicle_type (unique combination)
+VehicleSchema.index({ vehicle_stock_id: 1, company_id: 1, vehicle_type: 1 }, { unique: true });
 
-// Indexes for efficient queries
+// Other indexes for efficient queries
 VehicleSchema.index({ company_id: 1, vehicle_type: 1, status: 1 });
 VehicleSchema.index({ queue_status: 1 });
 VehicleSchema.index({ created_at: -1 });
