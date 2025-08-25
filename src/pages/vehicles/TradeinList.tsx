@@ -338,7 +338,7 @@ const TradeinList = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() =>
-                                handleViewDetails(vehicle.vehicle_id)
+                                handleViewDetails(vehicle.vehicle_stock_id)
                               }
                             >
                               <Eye className="h-4 w-4" />
@@ -347,7 +347,7 @@ const TradeinList = () => {
                               <Button
                                 size="sm"
                                 onClick={() =>
-                                  handleStartAppraisal(vehicle.vehicle_id)
+                                  handleStartAppraisal(vehicle.vehicle_stock_id)
                                 }
                               >
                                 Start Appraisal
@@ -504,7 +504,7 @@ const TradeinList = () => {
                 </Button>
                 <Button
                   onClick={() =>
-                    handleStartAppraisal(selectedVehicle.vehicle_id)
+                    handleStartAppraisal(selectedVehicle.vehicle_stock_id)
                   }
                 >
                   Start Appraisal

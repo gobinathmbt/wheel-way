@@ -53,7 +53,7 @@ const startInspection = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
       { 
-        vehicle_id: req.params.vehicleId,
+        vehicle_stock_id: req.params.vehicleId,
         company_id: req.user.company_id 
       },
       { 
@@ -78,7 +78,7 @@ const startInspection = async (req, res) => {
       user_id: req.user.id,
       company_id: req.user.company_id,
       user_role: req.user.role,
-      metadata: { vehicle_id: vehicle.vehicle_id }
+      metadata: { vehicle_stock_id: vehicle.vehicle_stock_id }
     });
 
     res.status(200).json({
@@ -198,7 +198,7 @@ const completeInspection = async (req, res) => {
       user_id: req.user.id,
       company_id: req.user.company_id,
       user_role: req.user.role,
-      metadata: { vehicle_id: inspection.vehicle_id }
+      metadata: { vehicle_stock_id: inspection.vehicle_stock_id }
     });
 
     // Send to callback URL if configured

@@ -61,7 +61,7 @@ const getApiDocs = async (req, res) => {
         inspection_complete: {
           method: 'POST',
           payload: {
-            vehicle_id: 'string',
+            vehicle_stock_id: 'string',
             inspection_data: 'object',
             status: 'completed',
             timestamp: 'ISO string'
@@ -70,7 +70,7 @@ const getApiDocs = async (req, res) => {
         tradein_complete: {
           method: 'POST',
           payload: {
-            vehicle_id: 'string',
+            vehicle_stock_id: 'string',
             appraisal_data: 'object',
             offer_value: 'number',
             status: 'offer_made',
@@ -81,7 +81,7 @@ const getApiDocs = async (req, res) => {
       
       data_formats: {
         vehicle_payload: {
-          vehicle_id: 'number/string',
+          vehicle_stock_id: 'number/string',
           make: 'string',
           model: 'string',
           variant: 'string',

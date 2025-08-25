@@ -224,14 +224,14 @@ const InspectionList = () => {
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              onClick={() => handleViewDetails(vehicle.vehicle_id)}
+                              onClick={() => handleViewDetails(vehicle.vehicle_stock_id)}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
                             {vehicle.inspection_status === 'pending' && (
                               <Button 
                                 size="sm"
-                                onClick={() => handleStartInspection(vehicle.vehicle_id)}
+                                onClick={() => handleStartInspection(vehicle.vehicle_stock_id)}
                               >
                                 Start Inspection
                               </Button>
@@ -344,7 +344,7 @@ const InspectionList = () => {
                 <Button variant="outline" onClick={() => setSelectedVehicle(null)}>
                   Close
                 </Button>
-                <Button onClick={() => handleStartInspection(selectedVehicle.vehicle_id)}>
+                <Button onClick={() => handleStartInspection(selectedVehicle.vehicle_stock_id)}>
                   Start Inspection
                 </Button>
               </div>

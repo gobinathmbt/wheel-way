@@ -24,7 +24,7 @@ const Documentation = () => {
       payload: {
         vehicles: [
           {
-            vehicle_id: 28492,
+            vehicle_stock_id: 28492,
             make: 'Toyota',
             model: 'Corolla',
             variant: '1.8 G',
@@ -294,7 +294,7 @@ const Documentation = () => {
                       <pre className="bg-muted p-3 rounded text-sm overflow-x-auto">
 {`{
   "event_type": "inspection_completed",
-  "vehicle_id": "28492",
+  "vehicle_stock_id": "28492",
   "company_id": "64f8a1234567890abcdef123",
   "completed_by": "inspector@company.com",
   "completed_at": "2024-01-15T10:30:00Z",
@@ -371,7 +371,7 @@ const Documentation = () => {
                 <CardContent>
                   <pre className="bg-muted p-4 rounded text-sm overflow-x-auto">
 {`{
-  "vehicle_id": 28492,
+  "vehicle_stock_id": 28492,
   "make": "Toyota",
   "model": "Corolla",
   "variant": "1.8 G",
@@ -451,7 +451,7 @@ const Documentation = () => {
   "message": "Validation error",
   "errors": [
     {
-      "field": "vehicle_id",
+      "field": "vehicle_stock_id",
       "message": "Vehicle ID is required"
     },
     {

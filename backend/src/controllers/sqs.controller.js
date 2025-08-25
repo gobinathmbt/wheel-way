@@ -433,7 +433,7 @@ const processVehicleFromQueue = async (messageBody) => {
 
     return {
       success: true,
-      vehicle_id: vehicle._id,
+      vehicle_stock_id: vehicle._id,
       vehicle_stock_id: vehicle.vehicle_stock_id,
       vehicle_type: vehicle.vehicle_type,
       action: action
