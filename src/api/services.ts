@@ -101,9 +101,17 @@ export const companyServices = {
   
   getActivityStats: (params?: any) =>
     apiClient.get('/api/company/dashboard/activity', { params }),
+
+  getPerformanceStats: (params?: any) =>
+    apiClient.get('/api/company/dashboard/performance', { params }),
+
+  getSystemStats: (params?: any) =>
+    apiClient.get('/api/company/dashboard/system', { params }),
   
   getRecentActivity: (params?: any) =>
     apiClient.get('/api/company/dashboard/recent-activity', { params }),
+
+  // ... keep existing code (users, permissions, settings)
   
   // Users
   getUsers: (params?: any) =>
@@ -159,7 +167,6 @@ export const companyServices = {
   testWebhook: (data: any) =>
     apiClient.post('/api/company/settings/test-webhook', data)
 };
-
 // Dropdown Services
 export const dropdownServices = {
   getDropdowns: (params?: any) =>

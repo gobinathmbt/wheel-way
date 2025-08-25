@@ -10,6 +10,8 @@ const {
   getUserStats,
   getRevenueStats,
   getActivityStats,
+  getPerformanceStats,
+  getSystemStats,
   getRecentActivity,
   
   // Settings endpoints
@@ -54,6 +56,8 @@ router.get('/dashboard/appraisals', getAppraisalStats);
 router.get('/dashboard/users', getUserStats);
 router.get('/dashboard/revenue', getRevenueStats);
 router.get('/dashboard/activity', getActivityStats);
+router.get('/dashboard/performance', getPerformanceStats);
+router.get('/dashboard/system', getSystemStats);
 router.get('/dashboard/recent-activity', getRecentActivity);
 
 // User management routes (only super admin)

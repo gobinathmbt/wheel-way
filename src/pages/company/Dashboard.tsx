@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,46 +5,128 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Users, Car, CheckCircle, Activity, TrendingUp, Calendar as CalendarIcon } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Users, Car, CheckCircle, Activity, TrendingUp, Calendar as CalendarIcon, DollarSign, Clock, FileText, Settings, AlertTriangle, Target } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { companyServices } from '@/api/services';
 import { toast } from 'sonner';
+import { DateRange } from 'react-day-picker';
 
-const CompanyDashboard = () => {
-  const [dateRange, setDateRange] = useState({
+// Define interfaces for type safety
+interface DashboardStats {
+  totalVehicles?: number;
+  vehicleGrowth?: number;
+  activeInspections?: number;
+  completedAppraisals?: number;
+}
+
+interface VehicleStats {
+  distribution?: Array<{
+    name: string;
+    value: number;
+    color?: string;
+  }>;
+}
+
+interface InspectionStats {
+  monthlyData?: Array<{
+    month: string;
+    inspections: number;
+  }>;
+}
+
+interface AppraisalStats {
+  monthlyData?: Array<{
+    month: string;
+    appraisals: number;
+  }>;
+}
+
+interface UserStats {
+  totalUsers?: number;
+  activeUsers?: number;
+}
+
+interface RevenueStats {
+  totalRevenue?: number;
+  growthRate?: number;
+  monthlyData?: Array<{
+    month: string;
+    revenue: number;
+  }>;
+}
+
+interface ActivityStats {
+  monthlyData?: Array<{
+    month: string;
+    inspections: number;
+    appraisals: number;
+  }>;
+}
+
+interface PerformanceStats {
+  avgProcessingTime?: string;
+  topUsers?: Array<{
+    name: string;
+    completedTasks: number;
+  }>;
+}
+
+interface SystemStats {
+  efficiency?: number;
+  pendingTasks?: number;
+}
+
+interface RecentActivity {
+  id?: string | number;
+  type: string;
+  description?: string;
+  vehicle?: string;
+  user: string;
+  status: string;
+  time: string;
+}
+
+interface DashboardData {
+  stats: DashboardStats;
+  vehicleStats: VehicleStats;
+  inspectionStats: InspectionStats;
+  appraisalStats: AppraisalStats;
+  userStats: UserStats;
+  revenueStats: RevenueStats;
+  activityStats: ActivityStats;
+  performanceStats: PerformanceStats;
+  systemStats: SystemStats;
+  recentActivity: RecentActivity[];
+}
+
+const CompanyDashboard: React.FC = () => {
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     to: new Date()
   });
   
-  const [stats, setStats] = useState({
-    totalVehicles: 0,
-    activeInspections: 0,
-    completedAppraisals: 0,
-    totalUsers: 0,
-    monthlyInspections: 0,
-    monthlyAppraisals: 0
+  const [loading, setLoading] = useState<boolean>(false);
+  const [dashboardData, setDashboardData] = useState<DashboardData>({
+    stats: {},
+    vehicleStats: {},
+    inspectionStats: {},
+    appraisalStats: {},
+    userStats: {},
+    revenueStats: {},
+    activityStats: {},
+    performanceStats: {},
+    systemStats: {},
+    recentActivity: []
   });
 
-  const [vehicleStats, setVehicleStats] = useState({});
-  const [inspectionStats, setInspectionStats] = useState({});
-  const [appraisalStats, setAppraisalStats] = useState({});
-  const [userStats, setUserStats] = useState({});
-  const [revenueStats, setRevenueStats] = useState({});
-  const [activityStats, setActivityStats] = useState({});
-  const [recentActivity, setRecentActivity] = useState([]);
-
-  const [monthlyData, setMonthlyData] = useState([]);
-  const [vehicleTypes, setVehicleTypes] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (): Promise<void> => {
     setLoading(true);
     try {
       const params = {
-        from: format(dateRange.from, 'yyyy-MM-dd'),
-        to: format(dateRange.to, 'yyyy-MM-dd')
+        from: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+        to: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined
       };
 
       const [
@@ -56,6 +137,8 @@ const CompanyDashboard = () => {
         userResponse,
         revenueResponse,
         activityResponse,
+        performanceResponse,
+        systemResponse,
         recentResponse
       ] = await Promise.all([
         companyServices.getDashboardStats(params),
@@ -65,42 +148,23 @@ const CompanyDashboard = () => {
         companyServices.getUserStats(params),
         companyServices.getRevenueStats(params),
         companyServices.getActivityStats(params),
+        companyServices.getPerformanceStats(params),
+        companyServices.getSystemStats(params),
         companyServices.getRecentActivity(params)
       ]);
 
-      if (statsResponse.data.success) {
-        setStats(statsResponse.data.data);
-      }
-      
-      if (vehicleResponse.data.success) {
-        setVehicleStats(vehicleResponse.data.data);
-        setVehicleTypes(vehicleResponse.data.data.vehicleTypes || []);
-      }
-      
-      if (inspectionResponse.data.success) {
-        setInspectionStats(inspectionResponse.data.data);
-      }
-      
-      if (appraisalResponse.data.success) {
-        setAppraisalStats(appraisalResponse.data.data);
-      }
-      
-      if (userResponse.data.success) {
-        setUserStats(userResponse.data.data);
-      }
-      
-      if (revenueResponse.data.success) {
-        setRevenueStats(revenueResponse.data.data);
-      }
-      
-      if (activityResponse.data.success) {
-        setActivityStats(activityResponse.data.data);
-        setMonthlyData(activityResponse.data.data.monthlyData || []);
-      }
-      
-      if (recentResponse.data.success) {
-        setRecentActivity(recentResponse.data.data);
-      }
+      setDashboardData({
+        stats: statsResponse.data.success ? statsResponse.data.data : {},
+        vehicleStats: vehicleResponse.data.success ? vehicleResponse.data.data : {},
+        inspectionStats: inspectionResponse.data.success ? inspectionResponse.data.data : {},
+        appraisalStats: appraisalResponse.data.success ? appraisalResponse.data.data : {},
+        userStats: userResponse.data.success ? userResponse.data.data : {},
+        revenueStats: revenueResponse.data.success ? revenueResponse.data.data : {},
+        activityStats: activityResponse.data.success ? activityResponse.data.data : {},
+        performanceStats: performanceResponse.data.success ? performanceResponse.data.data : {},
+        systemStats: systemResponse.data.success ? systemResponse.data.data : {},
+        recentActivity: recentResponse.data.success ? recentResponse.data.data : []
+      });
 
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -113,6 +177,12 @@ const CompanyDashboard = () => {
   useEffect(() => {
     loadDashboardData();
   }, [dateRange]);
+
+  const handleDateRangeSelect = (range: DateRange | undefined): void => {
+    setDateRange(range);
+  };
+
+  const { stats, vehicleStats, inspectionStats, appraisalStats, userStats, revenueStats, activityStats, performanceStats, systemStats, recentActivity } = dashboardData;
 
   return (
     <DashboardLayout title="Company Dashboard">
@@ -129,7 +199,7 @@ const CompanyDashboard = () => {
               <PopoverTrigger asChild>
                 <Button variant="outline" className="justify-start text-left font-normal">
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange.from ? (
+                  {dateRange?.from ? (
                     dateRange.to ? (
                       <>
                         {format(dateRange.from, "LLL dd, y")} -{" "}
@@ -147,31 +217,31 @@ const CompanyDashboard = () => {
                 <Calendar
                   initialFocus
                   mode="range"
-                  defaultMonth={dateRange.from}
+                  defaultMonth={dateRange?.from}
                   selected={dateRange}
-                  onSelect={setDateRange}
+                  onSelect={handleDateRangeSelect}
                   numberOfMonths={2}
                   className={cn("p-3 pointer-events-auto")}
                 />
               </PopoverContent>
             </Popover>
             <Button onClick={loadDashboardData} disabled={loading}>
-              Refresh
+              {loading ? 'Loading...' : 'Refresh'}
             </Button>
           </div>
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Main Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Vehicles</CardTitle>
               <Car className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalVehicles}</div>
+              <div className="text-2xl font-bold">{stats?.totalVehicles || 0}</div>
               <p className="text-xs text-muted-foreground">
-                Available for processing
+                +{stats?.vehicleGrowth || 0} from last month
               </p>
             </CardContent>
           </Card>
@@ -182,7 +252,7 @@ const CompanyDashboard = () => {
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.activeInspections}</div>
+              <div className="text-2xl font-bold">{stats?.activeInspections || 0}</div>
               <p className="text-xs text-muted-foreground">
                 Currently in progress
               </p>
@@ -195,64 +265,144 @@ const CompanyDashboard = () => {
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.completedAppraisals}</div>
+              <div className="text-2xl font-bold">{stats?.completedAppraisals || 0}</div>
               <p className="text-xs text-muted-foreground">
                 In selected period
               </p>
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${revenueStats?.totalRevenue?.toLocaleString() || '0'}</div>
+              <p className="text-xs text-muted-foreground">
+                +{revenueStats?.growthRate || 0}% from last period
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Secondary Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Team Members</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalUsers}</div>
+              <div className="text-2xl font-bold">{userStats?.totalUsers || 0}</div>
               <p className="text-xs text-muted-foreground">
-                Active users
+                {userStats?.activeUsers || 0} active users
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Avg Processing Time</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">+{revenueStats.growthRate || 0}%</div>
+              <div className="text-2xl font-bold">{performanceStats?.avgProcessingTime || '0'}h</div>
               <p className="text-xs text-muted-foreground">
-                Compared to previous period
+                Per inspection/appraisal
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Processes</CardTitle>
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">System Efficiency</CardTitle>
+              <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{(stats.monthlyInspections || 0) + (stats.monthlyAppraisals || 0)}</div>
+              <div className="text-2xl font-bold">{systemStats?.efficiency || 0}%</div>
               <p className="text-xs text-muted-foreground">
-                In selected period
+                Overall performance
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{systemStats?.pendingTasks || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                Require attention
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Charts Row */}
+        {/* Charts Row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Monthly Activity */}
+          {/* Revenue Trend */}
           <Card>
             <CardHeader>
-              <CardTitle>Monthly Activity</CardTitle>
-              <CardDescription>Inspections and appraisals over time</CardDescription>
+              <CardTitle>Revenue Trend</CardTitle>
+              <CardDescription>Monthly revenue over time</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={monthlyData}>
+                <AreaChart data={revenueStats?.monthlyData || []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']} />
+                  <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Vehicle Distribution */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Vehicle Distribution</CardTitle>
+              <CardDescription>Vehicles by type and status</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={vehicleStats?.distribution || []}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    dataKey="value"
+                    label={({ name, percent }: { name: string; percent: number }) => 
+                      `${name}: ${(percent * 100).toFixed(0)}%`
+                    }
+                  >
+                    {(vehicleStats?.distribution || []).map((entry, index: number) => (
+                      <Cell key={`cell-${index}`} fill={entry.color || '#8884d8'} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Charts Row 2 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Activity Trends */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Activity Trends</CardTitle>
+              <CardDescription>Inspections vs Appraisals</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={activityStats?.monthlyData || []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis />
@@ -264,29 +414,21 @@ const CompanyDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Vehicle Types */}
+          {/* User Performance */}
           <Card>
             <CardHeader>
-              <CardTitle>Vehicle Distribution</CardTitle>
-              <CardDescription>Breakdown by vehicle type</CardDescription>
+              <CardTitle>User Performance</CardTitle>
+              <CardDescription>Top performing team members</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={vehicleTypes}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {vehicleTypes.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
+                <BarChart data={performanceStats?.topUsers || []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
                   <Tooltip />
-                </PieChart>
+                  <Bar dataKey="completedTasks" fill="#3b82f6" name="Completed Tasks" />
+                </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -296,18 +438,20 @@ const CompanyDashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest inspections and appraisals</CardDescription>
+            <CardDescription>Latest system activities and updates</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+              {recentActivity.length > 0 ? recentActivity.map((activity, index: number) => (
+                <div key={activity.id || index} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                   <div className="flex items-center space-x-4">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Car className="h-5 w-5 text-primary" />
+                      {activity.type === 'Inspection' ? <Activity className="h-5 w-5 text-primary" /> : 
+                       activity.type === 'Appraisal' ? <CheckCircle className="h-5 w-5 text-primary" /> :
+                       <Car className="h-5 w-5 text-primary" />}
                     </div>
                     <div>
-                      <p className="font-medium">{activity.vehicle}</p>
+                      <p className="font-medium">{activity.description || activity.vehicle}</p>
                       <p className="text-sm text-muted-foreground">
                         {activity.type} by {activity.user}
                       </p>
@@ -325,7 +469,11 @@ const CompanyDashboard = () => {
                     <p className="text-sm text-muted-foreground mt-1">{activity.time}</p>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No recent activity found
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
