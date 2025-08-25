@@ -1,39 +1,166 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, Car, CheckCircle, Activity, TrendingUp, Calendar } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Users, Car, CheckCircle, Activity, TrendingUp, Calendar as CalendarIcon } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { companyServices } from '@/api/services';
+import { toast } from 'sonner';
 
 const CompanyDashboard = () => {
-  const stats = {
-    totalVehicles: 156,
-    activeInspections: 23,
-    completedAppraisals: 89,
-    totalUsers: 8,
-    monthlyInspections: 45,
-    monthlyAppraisals: 32
+  const [dateRange, setDateRange] = useState({
+    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    to: new Date()
+  });
+  
+  const [stats, setStats] = useState({
+    totalVehicles: 0,
+    activeInspections: 0,
+    completedAppraisals: 0,
+    totalUsers: 0,
+    monthlyInspections: 0,
+    monthlyAppraisals: 0
+  });
+
+  const [vehicleStats, setVehicleStats] = useState({});
+  const [inspectionStats, setInspectionStats] = useState({});
+  const [appraisalStats, setAppraisalStats] = useState({});
+  const [userStats, setUserStats] = useState({});
+  const [revenueStats, setRevenueStats] = useState({});
+  const [activityStats, setActivityStats] = useState({});
+  const [recentActivity, setRecentActivity] = useState([]);
+
+  const [monthlyData, setMonthlyData] = useState([]);
+  const [vehicleTypes, setVehicleTypes] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      const params = {
+        from: format(dateRange.from, 'yyyy-MM-dd'),
+        to: format(dateRange.to, 'yyyy-MM-dd')
+      };
+
+      const [
+        statsResponse,
+        vehicleResponse,
+        inspectionResponse,
+        appraisalResponse,
+        userResponse,
+        revenueResponse,
+        activityResponse,
+        recentResponse
+      ] = await Promise.all([
+        companyServices.getDashboardStats(params),
+        companyServices.getVehicleStats(params),
+        companyServices.getInspectionStats(params),
+        companyServices.getAppraisalStats(params),
+        companyServices.getUserStats(params),
+        companyServices.getRevenueStats(params),
+        companyServices.getActivityStats(params),
+        companyServices.getRecentActivity(params)
+      ]);
+
+      if (statsResponse.data.success) {
+        setStats(statsResponse.data.data);
+      }
+      
+      if (vehicleResponse.data.success) {
+        setVehicleStats(vehicleResponse.data.data);
+        setVehicleTypes(vehicleResponse.data.data.vehicleTypes || []);
+      }
+      
+      if (inspectionResponse.data.success) {
+        setInspectionStats(inspectionResponse.data.data);
+      }
+      
+      if (appraisalResponse.data.success) {
+        setAppraisalStats(appraisalResponse.data.data);
+      }
+      
+      if (userResponse.data.success) {
+        setUserStats(userResponse.data.data);
+      }
+      
+      if (revenueResponse.data.success) {
+        setRevenueStats(revenueResponse.data.data);
+      }
+      
+      if (activityResponse.data.success) {
+        setActivityStats(activityResponse.data.data);
+        setMonthlyData(activityResponse.data.data.monthlyData || []);
+      }
+      
+      if (recentResponse.data.success) {
+        setRecentActivity(recentResponse.data.data);
+      }
+
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const monthlyData = [
-    { month: 'Jan', inspections: 32, appraisals: 28 },
-    { month: 'Feb', inspections: 38, appraisals: 35 },
-    { month: 'Mar', inspections: 42, appraisals: 30 },
-    { month: 'Apr', inspections: 39, appraisals: 38 },
-    { month: 'May', inspections: 45, appraisals: 32 }
-  ];
-
-  const vehicleTypes = [
-    { name: 'Sedan', value: 45, color: '#3b82f6' },
-    { name: 'SUV', value: 30, color: '#10b981' },
-    { name: 'Hatchback', value: 15, color: '#f59e0b' },
-    { name: 'Others', value: 10, color: '#ef4444' }
-  ];
+  useEffect(() => {
+    loadDashboardData();
+  }, [dateRange]);
 
   return (
     <DashboardLayout title="Company Dashboard">
       <div className="space-y-8">
+        {/* Header with Date Filter */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+            <p className="text-muted-foreground">Overview of your company's performance</p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="justify-start text-left font-normal">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                        {format(dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange.from}
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  numberOfMonths={2}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+            <Button onClick={loadDashboardData} disabled={loading}>
+              Refresh
+            </Button>
+          </div>
+        </div>
+
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card>
@@ -70,7 +197,7 @@ const CompanyDashboard = () => {
             <CardContent>
               <div className="text-2xl font-bold">{stats.completedAppraisals}</div>
               <p className="text-xs text-muted-foreground">
-                This month
+                In selected period
               </p>
             </CardContent>
           </Card>
@@ -90,26 +217,26 @@ const CompanyDashboard = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Growth</CardTitle>
+              <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">+12.5%</div>
+              <div className="text-2xl font-bold">+{revenueStats.growthRate || 0}%</div>
               <p className="text-xs text-muted-foreground">
-                Compared to last month
+                Compared to previous period
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">This Month</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Total Processes</CardTitle>
+              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.monthlyInspections + stats.monthlyAppraisals}</div>
+              <div className="text-2xl font-bold">{(stats.monthlyInspections || 0) + (stats.monthlyAppraisals || 0)}</div>
               <p className="text-xs text-muted-foreground">
-                Total processes
+                In selected period
               </p>
             </CardContent>
           </Card>
@@ -173,12 +300,7 @@ const CompanyDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                { id: 'VH001', type: 'Inspection', vehicle: 'Toyota Camry 2020', status: 'Completed', user: 'John Doe', time: '2 hours ago' },
-                { id: 'VH002', type: 'Appraisal', vehicle: 'Honda Accord 2019', status: 'In Progress', user: 'Jane Smith', time: '4 hours ago' },
-                { id: 'VH003', type: 'Inspection', vehicle: 'BMW X5 2021', status: 'Pending', user: 'Mike Johnson', time: '6 hours ago' },
-                { id: 'VH004', type: 'Appraisal', vehicle: 'Mercedes C-Class 2020', status: 'Completed', user: 'Sarah Wilson', time: '1 day ago' }
-              ].map((activity, index) => (
+              {recentActivity.map((activity, index) => (
                 <div key={index} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                   <div className="flex items-center space-x-4">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">

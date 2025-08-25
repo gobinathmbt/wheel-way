@@ -9,9 +9,11 @@ export interface Company {
   _id: string;
   company_name: string;
   email: string;
+  address: string;
   contact_person: string;
   plan_id?: Plan;
   current_user_count: number;
+  phone: number;
   user_limit: number;
   is_active: boolean;
   created_at: string;

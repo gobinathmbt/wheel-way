@@ -2,13 +2,30 @@
 const express = require('express');
 const { protect, authorize, companyScopeCheck } = require('../middleware/auth');
 const {
-  getDashboard,
+  // Dashboard endpoints
+  getDashboardStats,
+  getVehicleStats,
+  getInspectionStats,
+  getAppraisalStats,
+  getUserStats,
+  getRevenueStats,
+  getActivityStats,
+  getRecentActivity,
+  
+  // Settings endpoints
+  getS3Config,
+  getCallbackConfig,
+  getBillingInfo,
+  
+  // User management
   getUsers,
   createUser,
   updateUser,
   deleteUser,
   toggleUserStatus,
   sendWelcomeEmail,
+  
+  // Settings actions
   updateS3Config,
   updateCallbackConfig,
   testS3Connection,
@@ -30,7 +47,14 @@ router.use(authorize('company_super_admin', 'company_admin'));
 router.use(companyScopeCheck);
 
 // Dashboard routes
-router.get('/dashboard', getDashboard);
+router.get('/dashboard/stats', getDashboardStats);
+router.get('/dashboard/vehicles', getVehicleStats);
+router.get('/dashboard/inspections', getInspectionStats);
+router.get('/dashboard/appraisals', getAppraisalStats);
+router.get('/dashboard/users', getUserStats);
+router.get('/dashboard/revenue', getRevenueStats);
+router.get('/dashboard/activity', getActivityStats);
+router.get('/dashboard/recent-activity', getRecentActivity);
 
 // User management routes (only super admin)
 router.get('/users', authorize('company_super_admin'), getUsers);
@@ -47,6 +71,9 @@ router.get('/users/:userId/permissions', authorize('company_super_admin'), getUs
 router.put('/users/:userId/permissions', authorize('company_super_admin'), updateUserPermissions);
 
 // Settings routes (only super admin)
+router.get('/settings/s3', authorize('company_super_admin'), getS3Config);
+router.get('/settings/callback', authorize('company_super_admin'), getCallbackConfig);
+router.get('/settings/billing', authorize('company_super_admin'), getBillingInfo);
 router.put('/settings/s3', authorize('company_super_admin'), updateS3Config);
 router.put('/settings/callback', authorize('company_super_admin'), updateCallbackConfig);
 router.post('/settings/test-s3', authorize('company_super_admin'), testS3Connection);

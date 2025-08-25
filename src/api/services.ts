@@ -81,8 +81,29 @@ export const masterServices = {
 // Company Services
 export const companyServices = {
   // Dashboard
-  getDashboardStats: () =>
-    apiClient.get('/api/company/dashboard'),
+  getDashboardStats: (params?: any) =>
+    apiClient.get('/api/company/dashboard/stats', { params }),
+  
+  getVehicleStats: (params?: any) =>
+    apiClient.get('/api/company/dashboard/vehicles', { params }),
+  
+  getInspectionStats: (params?: any) =>
+    apiClient.get('/api/company/dashboard/inspections', { params }),
+  
+  getAppraisalStats: (params?: any) =>
+    apiClient.get('/api/company/dashboard/appraisals', { params }),
+  
+  getUserStats: (params?: any) =>
+    apiClient.get('/api/company/dashboard/users', { params }),
+  
+  getRevenueStats: (params?: any) =>
+    apiClient.get('/api/company/dashboard/revenue', { params }),
+  
+  getActivityStats: (params?: any) =>
+    apiClient.get('/api/company/dashboard/activity', { params }),
+  
+  getRecentActivity: (params?: any) =>
+    apiClient.get('/api/company/dashboard/recent-activity', { params }),
   
   // Users
   getUsers: (params?: any) =>
@@ -117,11 +138,20 @@ export const companyServices = {
     apiClient.put(`/api/company/users/${userId}/permissions`, data),
   
   // Settings
+  getS3Config: () =>
+    apiClient.get('/api/company/settings/s3'),
+  
   updateS3Config: (data: any) =>
     apiClient.put('/api/company/settings/s3', data),
   
+  getCallbackConfig: () =>
+    apiClient.get('/api/company/settings/callback'),
+  
   updateCallbackConfig: (data: any) =>
     apiClient.put('/api/company/settings/callback', data),
+  
+  getBillingInfo: () =>
+    apiClient.get('/api/company/settings/billing'),
   
   testS3Connection: (data: any) =>
     apiClient.post('/api/company/settings/test-s3', data),

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Cloud, Link, CreditCard, Save, TestTube } from 'lucide-react';
+import { Cloud, Link, CreditCard, Save, TestTube, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import apiClient from '@/api/axios';
+import { companyServices } from '@/api/services';
 
 const CompanySettings = () => {
+  const [loading, setLoading] = useState(false);
   const [s3Config, setS3Config] = useState({
     bucket: '',
     access_key: '',
@@ -26,7 +27,7 @@ const CompanySettings = () => {
     webhook_secret: ''
   });
 
-  const [planInfo] = useState({
+  const [planInfo, setPlanInfo] = useState({
     current_plan: 'Basic Plan',
     user_limit: 15,
     current_users: 8,
@@ -35,44 +36,107 @@ const CompanySettings = () => {
     amount: 99
   });
 
+  // Load configurations on mount
+  useEffect(() => {
+    const loadConfigurations = async () => {
+      setLoading(true);
+      try {
+        const [s3Response, callbackResponse, billingResponse] = await Promise.all([
+          companyServices.getS3Config(),
+          companyServices.getCallbackConfig(),
+          companyServices.getBillingInfo()
+        ]);
+
+        if (s3Response.data.success) {
+          setS3Config(s3Response.data.data || s3Config);
+        }
+        
+        if (callbackResponse.data.success) {
+          setCallbackConfig(callbackResponse.data.data || callbackConfig);
+        }
+        
+        if (billingResponse.data.success) {
+          setPlanInfo(billingResponse.data.data || planInfo);
+        }
+      } catch (error) {
+        console.error('Failed to load configurations:', error);
+        toast.error('Failed to load settings');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadConfigurations();
+  }, []);
+
   const handleS3Save = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
-      await apiClient.put('/api/company/settings/s3', s3Config);
-      toast.success('S3 configuration saved successfully');
+      const response = await companyServices.updateS3Config(s3Config);
+      if (response.data.success) {
+        toast.success('S3 configuration saved successfully');
+      }
     } catch (error) {
-      toast.error('Failed to save S3 configuration');
+      toast.error(error.response?.data?.message || 'Failed to save S3 configuration');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleCallbackSave = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
-      await apiClient.put('/api/company/settings/callback', callbackConfig);
-      toast.success('Callback URLs saved successfully');
+      const response = await companyServices.updateCallbackConfig(callbackConfig);
+      if (response.data.success) {
+        toast.success('Callback URLs saved successfully');
+      }
     } catch (error) {
-      toast.error('Failed to save callback URLs');
+      toast.error(error.response?.data?.message || 'Failed to save callback URLs');
+    } finally {
+      setLoading(false);
     }
   };
 
   const testS3Connection = async () => {
+    setLoading(true);
     try {
-      await apiClient.post('/api/company/settings/test-s3', s3Config);
-      toast.success('S3 connection test successful');
+      const response = await companyServices.testS3Connection(s3Config);
+      if (response.data.success) {
+        toast.success('S3 connection test successful');
+      }
     } catch (error) {
-      toast.error('S3 connection test failed');
+      toast.error(error.response?.data?.message || 'S3 connection test failed');
+    } finally {
+      setLoading(false);
     }
   };
 
   const testWebhook = async (type) => {
+    setLoading(true);
     try {
       const url = type === 'inspection' ? callbackConfig.inspection_callback_url : callbackConfig.tradein_callback_url;
-      await apiClient.post('/api/company/settings/test-webhook', { url, type });
-      toast.success(`${type} webhook test successful`);
+      const response = await companyServices.testWebhook({ url, type });
+      if (response.data.success) {
+        toast.success(`${type} webhook test successful`);
+      }
     } catch (error) {
-      toast.error(`${type} webhook test failed`);
+      toast.error(error.response?.data?.message || `${type} webhook test failed`);
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (loading && !s3Config.bucket) {
+    return (
+      <DashboardLayout title="Company Settings">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Company Settings">
@@ -84,6 +148,7 @@ const CompanySettings = () => {
         </div>
 
         <Tabs defaultValue="storage" className="space-y-6">
+          {/* ... keep existing TabsList the same */}
           <TabsList>
             <TabsTrigger value="storage" className="flex items-center gap-2">
               <Cloud className="h-4 w-4" />
@@ -108,6 +173,7 @@ const CompanySettings = () => {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleS3Save} className="space-y-6">
+                  {/* ... keep existing form fields the same */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="bucket">S3 Bucket Name</Label>
@@ -165,11 +231,11 @@ const CompanySettings = () => {
                   </div>
 
                   <div className="flex space-x-4">
-                    <Button type="submit" className="flex items-center gap-2">
-                      <Save className="h-4 w-4" />
+                    <Button type="submit" disabled={loading} className="flex items-center gap-2">
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       Save Configuration
                     </Button>
-                    <Button type="button" variant="outline" onClick={testS3Connection}>
+                    <Button type="button" variant="outline" onClick={testS3Connection} disabled={loading}>
                       <TestTube className="h-4 w-4 mr-2" />
                       Test Connection
                     </Button>
@@ -179,7 +245,7 @@ const CompanySettings = () => {
             </Card>
           </TabsContent>
 
-          {/* Webhook Configuration */}
+          {/* ... keep existing webhook and billing tabs the same but add loading states */}
           <TabsContent value="webhooks">
             <Card>
               <CardHeader>
@@ -230,14 +296,15 @@ const CompanySettings = () => {
                   </div>
 
                   <div className="flex space-x-4">
-                    <Button type="submit" className="flex items-center gap-2">
-                      <Save className="h-4 w-4" />
+                    <Button type="submit" disabled={loading} className="flex items-center gap-2">
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       Save Webhooks
                     </Button>
                     <Button 
                       type="button" 
                       variant="outline" 
                       onClick={() => testWebhook('inspection')}
+                      disabled={loading}
                     >
                       Test Inspection
                     </Button>
@@ -245,6 +312,7 @@ const CompanySettings = () => {
                       type="button" 
                       variant="outline" 
                       onClick={() => testWebhook('tradein')}
+                      disabled={loading}
                     >
                       Test Trade-in
                     </Button>
@@ -256,8 +324,8 @@ const CompanySettings = () => {
 
           {/* Billing & Plan */}
           <TabsContent value="billing">
+            {/* ... keep existing billing content the same */}
             <div className="space-y-6">
-              {/* Current Plan */}
               <Card>
                 <CardHeader>
                   <CardTitle>Current Plan</CardTitle>
@@ -301,7 +369,7 @@ const CompanySettings = () => {
                 </CardContent>
               </Card>
 
-              {/* Plan Upgrade */}
+              {/* ... keep existing upgrade and billing history cards the same */}
               <Card>
                 <CardHeader>
                   <CardTitle>Upgrade Plan</CardTitle>
@@ -331,7 +399,6 @@ const CompanySettings = () => {
                 </CardContent>
               </Card>
 
-              {/* Billing History */}
               <Card>
                 <CardHeader>
                   <CardTitle>Billing History</CardTitle>
