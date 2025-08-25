@@ -76,7 +76,7 @@ const VehicleSchema = new mongoose.Schema({
     sold_price: { type: Number, default: 0 },
     included_in_exports: { type: Boolean, default: true }
   }],
-  
+    
   // Vehicle Source
   vehicle_source: [{
     supplier: String,
@@ -110,7 +110,7 @@ const VehicleSchema = new mongoose.Schema({
     imported_as_damaged: Boolean
   }],
   
-  // Vehicle Attachments
+  // Vehicle Attachments - Enhanced with S3 metadata
   vehicle_attachments: [{
     vehicle_stock_id: Number,
     type: {
@@ -118,16 +118,31 @@ const VehicleSchema = new mongoose.Schema({
       enum: ['image', 'file']
     },
     url: String,
+    s3_key: String, // S3 object key for deletion
+    s3_bucket: String, // S3 bucket name
     size: Number,
     mime_type: String,
     filename: String,
+    original_filename: String, // Store original filename
     position: Number,
     image_category: {
       type: String,
-      enum: ['listImage', 'otherImage']
+      enum: ['listImage', 'otherImage', 'inspectionImage']
+    },
+    file_category: {
+      type: String,
+      enum: ['document', 'report', 'certificate', 'other']
+    },
+    uploaded_at: {
+      type: Date,
+      default: Date.now
+    },
+    uploaded_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
     }
   }],
-  
+
   // Vehicle Engine & Transmission
   vehicle_eng_transmission: [{
     engine_no: String,
