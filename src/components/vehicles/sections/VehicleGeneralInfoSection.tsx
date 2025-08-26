@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Edit3, Save, X } from "lucide-react";
+import { Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { vehicleServices } from "@/api/services";
+import { Pencil } from "lucide-react";
 
 interface VehicleGeneralInfoSectionProps {
   vehicle: any;
@@ -20,10 +21,32 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
   onUpdate,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const otherDetails = vehicle.vehicle_other_details?.[0] || {};
+  
+  // Safe access to nested objects with fallbacks
+  const otherDetails = vehicle?.vehicle_other_details?.[0] || {};
+  const sourceDetails = vehicle?.vehicle_source?.[0] || {};
   
   const [formData, setFormData] = useState({
+    // Basic vehicle info
     status: otherDetails.status || "",
+    make: vehicle?.make || "",
+    model: vehicle?.model || "",
+    variant: vehicle?.variant || "",
+    year: vehicle?.year || "",
+    body_style: vehicle?.body_style || "",
+    vehicle_type: vehicle?.vehicle_type || "",
+    vin: vehicle?.vin || "",
+    plate_no: vehicle?.plate_no || "",
+    chassis_no: vehicle?.chassis_no || "",
+    model_no: vehicle?.model_no || "",
+    
+    // Source info
+    purchase_date: sourceDetails.purchase_date || "",
+    purchase_type: sourceDetails.purchase_type || "",
+    supplier: sourceDetails.supplier || "",
+    purchase_notes: sourceDetails.purchase_notes || "",
+    
+    // Other details
     trader_acquisition: otherDetails.trader_acquisition || "",
     odometer_certified: otherDetails.odometer_certified || false,
     odometer_status: otherDetails.odometer_status || "",
@@ -36,14 +59,49 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
     included_in_exports: otherDetails.included_in_exports || true,
   });
 
-  // Only show if there's data
-  if (!vehicle.vehicle_other_details?.length) {
-    return null;
-  }
-
   const handleSave = async () => {
     try {
-      await vehicleServices.updateVehicleGeneralInfo(vehicle._id, { vehicle_other_details: [formData] });
+      // Update vehicle basic info
+      await vehicleServices.updateVehicle(vehicle._id, {
+        make: formData.make,
+        model: formData.model,
+        variant: formData.variant,
+        year: formData.year,
+        body_style: formData.body_style,
+        vehicle_type: formData.vehicle_type,
+        vin: formData.vin,
+        plate_no: formData.plate_no,
+        chassis_no: formData.chassis_no,
+        model_no: formData.model_no,
+      });
+
+      // Update vehicle other details
+      await vehicleServices.updateVehicleGeneralInfo(vehicle._id, { 
+        vehicle_other_details: [{
+          status: formData.status,
+          trader_acquisition: formData.trader_acquisition,
+          odometer_certified: formData.odometer_certified,
+          odometer_status: formData.odometer_status,
+          purchase_price: formData.purchase_price,
+          exact_expenses: formData.exact_expenses,
+          estimated_expenses: formData.estimated_expenses,
+          gst_inclusive: formData.gst_inclusive,
+          retail_price: formData.retail_price,
+          sold_price: formData.sold_price,
+          included_in_exports: formData.included_in_exports,
+        }]
+      });
+
+      // Update vehicle source
+      await vehicleServices.updateVehicleSource(vehicle._id, {
+        vehicle_source: [{
+          purchase_date: formData.purchase_date,
+          purchase_type: formData.purchase_type,
+          supplier: formData.supplier,
+          purchase_notes: formData.purchase_notes,
+        }]
+      });
+
       toast.success("General information updated successfully");
       setIsEditing(false);
       onUpdate();
@@ -54,7 +112,22 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
 
   const handleCancel = () => {
     setFormData({
+      // Reset to original values
       status: otherDetails.status || "",
+      make: vehicle?.make || "",
+      model: vehicle?.model || "",
+      variant: vehicle?.variant || "",
+      year: vehicle?.year || "",
+      body_style: vehicle?.body_style || "",
+      vehicle_type: vehicle?.vehicle_type || "",
+      vin: vehicle?.vin || "",
+      plate_no: vehicle?.plate_no || "",
+      chassis_no: vehicle?.chassis_no || "",
+      model_no: vehicle?.model_no || "",
+      purchase_date: sourceDetails.purchase_date || "",
+      purchase_type: sourceDetails.purchase_type || "",
+      supplier: sourceDetails.supplier || "",
+      purchase_notes: sourceDetails.purchase_notes || "",
       trader_acquisition: otherDetails.trader_acquisition || "",
       odometer_certified: otherDetails.odometer_certified || false,
       odometer_status: otherDetails.odometer_status || "",
@@ -77,15 +150,15 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
             <span>General Information</span>
             {!isEditing && (
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditing(true);
-                }}
-              >
-                <Edit3 className="h-4 w-4" />
-              </Button>
+  variant="ghost"
+  size="sm"
+  onClick={(e) => {
+    e.stopPropagation();
+    setIsEditing(true);
+  }}
+>
+  <Pencil className="h-4 w-4" />
+</Button>
             )}
           </div>
         </AccordionTrigger>
@@ -94,13 +167,119 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
             <CardContent className="pt-6">
               {isEditing ? (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div>
                       <Label htmlFor="status">Status</Label>
                       <Input
                         id="status"
                         value={formData.status}
                         onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="make">Manufacture</Label>
+                      <Input
+                        id="make"
+                        value={formData.make}
+                        onChange={(e) => setFormData({ ...formData, make: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="model">Model</Label>
+                      <Input
+                        id="model"
+                        value={formData.model}
+                        onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="variant">Variant</Label>
+                      <Input
+                        id="variant"
+                        value={formData.variant}
+                        onChange={(e) => setFormData({ ...formData, variant: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="year">Year</Label>
+                      <Input
+                        id="year"
+                        type="number"
+                        value={formData.year}
+                        onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="body_style">Body Style</Label>
+                      <Input
+                        id="body_style"
+                        value={formData.body_style}
+                        onChange={(e) => setFormData({ ...formData, body_style: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="vehicle_type">Vehicle Type</Label>
+                      <Input
+                        id="vehicle_type"
+                        value={formData.vehicle_type}
+                        onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="vin">VIN</Label>
+                      <Input
+                        id="vin"
+                        value={formData.vin}
+                        onChange={(e) => setFormData({ ...formData, vin: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="plate_no">Reg Plate No</Label>
+                      <Input
+                        id="plate_no"
+                        value={formData.plate_no}
+                        onChange={(e) => setFormData({ ...formData, plate_no: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="chassis_no">Chassis</Label>
+                      <Input
+                        id="chassis_no"
+                        value={formData.chassis_no}
+                        onChange={(e) => setFormData({ ...formData, chassis_no: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="model_no">Model No</Label>
+                      <Input
+                        id="model_no"
+                        value={formData.model_no}
+                        onChange={(e) => setFormData({ ...formData, model_no: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="purchase_date">Purchase Date</Label>
+                      <Input
+                        id="purchase_date"
+                        type="date"
+                        value={formData.purchase_date}
+                        onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="purchase_type">Purchase Type</Label>
+                      <Input
+                        id="purchase_type"
+                        value={formData.purchase_type}
+                        onChange={(e) => setFormData({ ...formData, purchase_type: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="supplier">Supplier</Label>
+                      <Input
+                        id="supplier"
+                        value={formData.supplier}
+                        onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
                       />
                     </div>
                     <div>
@@ -111,39 +290,13 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
                         onChange={(e) => setFormData({ ...formData, trader_acquisition: e.target.value })}
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="purchase_price">Purchase Price</Label>
+                    <div className="col-span-3">
+                      <Label htmlFor="purchase_notes">Purchase Notes</Label>
                       <Input
-                        id="purchase_price"
-                        type="number"
-                        value={formData.purchase_price}
-                        onChange={(e) => setFormData({ ...formData, purchase_price: Number(e.target.value) })}
+                        id="purchase_notes"
+                        value={formData.purchase_notes}
+                        onChange={(e) => setFormData({ ...formData, purchase_notes: e.target.value })}
                       />
-                    </div>
-                    <div>
-                      <Label htmlFor="retail_price">Retail Price</Label>
-                      <Input
-                        id="retail_price"
-                        type="number"
-                        value={formData.retail_price}
-                        onChange={(e) => setFormData({ ...formData, retail_price: Number(e.target.value) })}
-                      />
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="odometer_certified"
-                        checked={formData.odometer_certified}
-                        onCheckedChange={(checked) => setFormData({ ...formData, odometer_certified: checked })}
-                      />
-                      <Label htmlFor="odometer_certified">Odometer Certified</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="gst_inclusive"
-                        checked={formData.gst_inclusive}
-                        onCheckedChange={(checked) => setFormData({ ...formData, gst_inclusive: checked })}
-                      />
-                      <Label htmlFor="gst_inclusive">GST Inclusive</Label>
                     </div>
                   </div>
                   <div className="flex justify-end space-x-2">
@@ -158,30 +311,70 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                   <div>
                     <Label className="text-sm font-medium">Status</Label>
-                    <p className="text-sm text-muted-foreground">{otherDetails.status}</p>
+                    <p className="text-sm text-muted-foreground">{formData.status || "N/A"}</p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">Purchase Price</Label>
-                    <p className="text-sm text-muted-foreground">${otherDetails.purchase_price}</p>
+                    <Label className="text-sm font-medium">Manufacture</Label>
+                    <p className="text-sm text-muted-foreground">{formData.make || "N/A"}</p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">Retail Price</Label>
-                    <p className="text-sm text-muted-foreground">${otherDetails.retail_price}</p>
+                    <Label className="text-sm font-medium">Model</Label>
+                    <p className="text-sm text-muted-foreground">{formData.model || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Variant</Label>
+                    <p className="text-sm text-muted-foreground">{formData.variant || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Year</Label>
+                    <p className="text-sm text-muted-foreground">{formData.year || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Body Style</Label>
+                    <p className="text-sm text-muted-foreground">{formData.body_style || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Vehicle Type</Label>
+                    <p className="text-sm text-muted-foreground">{formData.vehicle_type || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">VIN</Label>
+                    <p className="text-sm text-muted-foreground">{formData.vin || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Reg Plate No</Label>
+                    <p className="text-sm text-muted-foreground">{formData.plate_no || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Chassis</Label>
+                    <p className="text-sm text-muted-foreground">{formData.chassis_no || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Model No</Label>
+                    <p className="text-sm text-muted-foreground">{formData.model_no || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Purchase Date</Label>
+                    <p className="text-sm text-muted-foreground">{formData.purchase_date || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Purchase Type</Label>
+                    <p className="text-sm text-muted-foreground">{formData.purchase_type || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Supplier</Label>
+                    <p className="text-sm text-muted-foreground">{formData.supplier || "N/A"}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Trader Acquisition</Label>
-                    <p className="text-sm text-muted-foreground">{otherDetails.trader_acquisition}</p>
+                    <p className="text-sm text-muted-foreground">{formData.trader_acquisition || "N/A"}</p>
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium">Odometer Certified</Label>
-                    <p className="text-sm text-muted-foreground">{otherDetails.odometer_certified ? 'Yes' : 'No'}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">GST Inclusive</Label>
-                    <p className="text-sm text-muted-foreground">{otherDetails.gst_inclusive ? 'Yes' : 'No'}</p>
+                  <div className="col-span-4">
+                    <Label className="text-sm font-medium">Purchase Notes</Label>
+                    <p className="text-sm text-muted-foreground">{formData.purchase_notes || "N/A"}</p>
                   </div>
                 </div>
               )}
