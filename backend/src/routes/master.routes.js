@@ -53,4 +53,7 @@ router.put('/aws-settings', updateAwsSettings);
 router.post('/test-aws', testAwsConnection);
 router.get('/aws-settings', getAwsSettings);
 
+// Master admin dropdown routes
+router.use('/dropdowns', require('./master.dropdown.routes'));
+
 module.exports = router;

@@ -24,6 +24,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
         { icon: Users, label: 'Permission', path: '/master/permissions' },
         { icon: FileText, label: 'Plans', path: '/master/plans' },
         { icon: Settings, label: 'Settings', path: '/master/settings' },
+        { icon: Settings, label: 'Master Dropdown', path: '/master/dropdowns' },
       ];
     }
 

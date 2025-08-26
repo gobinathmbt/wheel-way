@@ -78,6 +78,32 @@ export const masterServices = {
     apiClient.post('/api/master/test-smtp', data)
 };
 
+export const masterDropdownServices = {
+  getMasterDropdowns: (params?: any) =>
+    apiClient.get('/api/master/dropdowns', { params }),
+  
+  createMasterDropdown: (data: any) =>
+    apiClient.post('/api/master/dropdowns', data),
+  
+  updateMasterDropdown: (id: string, data: any) =>
+    apiClient.put(`/api/master/dropdowns/${id}`, data),
+  
+  deleteMasterDropdown: (id: string) =>
+    apiClient.delete(`/api/master/dropdowns/${id}`),
+  
+  addMasterValue: (dropdownId: string, data: any) =>
+    apiClient.post(`/api/master/dropdowns/${dropdownId}/values`, data),
+  
+  updateMasterValue: (dropdownId: string, valueId: string, data: any) =>
+    apiClient.put(`/api/master/dropdowns/${dropdownId}/values/${valueId}`, data),
+  
+  deleteMasterValue: (dropdownId: string, valueId: string) =>
+    apiClient.delete(`/api/master/dropdowns/${dropdownId}/values/${valueId}`),
+  
+  reorderMasterValues: (dropdownId: string, data: any) =>
+    apiClient.put(`/api/master/dropdowns/${dropdownId}/reorder/values`, data)
+};
+
 // Company Services
 export const companyServices = {
   // Dashboard
@@ -416,6 +442,7 @@ export default {
   master: masterServices,
   company: companyServices,
   dropdown: dropdownServices,
+  masterDropdown: masterDropdownServices,
   config: configServices,
   vehicle: vehicleServices,
   inspection: inspectionServices,
