@@ -85,7 +85,7 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
           </TabsContent>
 
           <TabsContent value="details" className="space-y-6">
-           <VehicleGeneralInfoSection vehicle={vehicle} onUpdate={onUpdate} />
+            <VehicleGeneralInfoSection vehicle={vehicle} onUpdate={onUpdate} />
             <VehicleSourceSection vehicle={vehicle} onUpdate={onUpdate} />
             <VehicleRegistrationSection vehicle={vehicle} onUpdate={onUpdate} />
             <VehicleImportSection vehicle={vehicle} onUpdate={onUpdate} />
@@ -94,7 +94,6 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
             <VehicleSafetySection vehicle={vehicle} onUpdate={onUpdate} />
             <VehicleOdometerSection vehicle={vehicle} onUpdate={onUpdate} />
             <VehicleOwnershipSection vehicle={vehicle} onUpdate={onUpdate} />
-            
           </TabsContent>
 
           <TabsContent value="attachments">
