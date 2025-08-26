@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, Settings, Save, Filter, X } from "lucide-react";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,11 +52,6 @@ interface Permission {
   description: string;
 }
 
-interface UserPermission {
-  permission_id: Permission;
-  actions: string[];
-}
-
 interface User {
   _id: string;
   username: string;
@@ -64,7 +60,7 @@ interface User {
   last_name: string;
   role: string;
   is_active: boolean;
-  permissions: UserPermission[];
+  permissions: string[];
 }
 
 const UserPermissions = () => {
@@ -101,7 +97,7 @@ const UserPermissions = () => {
       permissions,
     }: {
       userId: string;
-      permissions: any[];
+      permissions: string[];
     }) => companyServices.updateUserPermissions(userId, { permissions }),
     onSuccess: () => {
       toast.success("User permissions updated successfully");
@@ -124,17 +120,14 @@ const UserPermissions = () => {
     if (availablePermissions) {
       const initialPermissions = availablePermissions.map(
         (permission: Permission) => {
-          const userPermission = user.permissions?.find(
-            (up: UserPermission) => up.permission_id._id === permission._id
-          );
+          const hasPermission = user.permissions?.includes(permission.internal_name);
 
           return {
             permission_id: permission._id,
             module_name: permission.module_name,
             internal_name: permission.internal_name,
             description: permission.description,
-            enabled: !!userPermission,
-            actions: userPermission?.actions || ["read"],
+            enabled: hasPermission
           };
         }
       );
@@ -144,30 +137,11 @@ const UserPermissions = () => {
     setIsDialogOpen(true);
   };
 
-  const handlePermissionToggle = (permissionId: string, enabled: boolean) => {
+  const handlePermissionToggle = (internalName: string, enabled: boolean) => {
     setUserPermissions((prev) =>
       prev.map((p) =>
-        p.permission_id === permissionId
-          ? { ...p, enabled, actions: enabled ? p.actions : [] }
-          : p
-      )
-    );
-  };
-
-  const handleActionToggle = (
-    permissionId: string,
-    action: string,
-    checked: boolean
-  ) => {
-    setUserPermissions((prev) =>
-      prev.map((p) =>
-        p.permission_id === permissionId
-          ? {
-              ...p,
-              actions: checked
-                ? [...p.actions, action]
-                : p.actions.filter((a: string) => a !== action),
-            }
+        p.internal_name === internalName
+          ? { ...p, enabled }
           : p
       )
     );
@@ -178,10 +152,7 @@ const UserPermissions = () => {
 
     const enabledPermissions = userPermissions
       .filter((p) => p.enabled)
-      .map((p) => ({
-        permission_id: p.permission_id,
-        actions: p.actions.length > 0 ? p.actions : ["read"],
-      }));
+      .map((p) => p.internal_name);
 
     updatePermissionsMutation.mutate({
       userId: selectedUser._id,
@@ -207,8 +178,6 @@ const UserPermissions = () => {
     setStatusFilter(status);
     setPage(1);
   };
-
-  const actionTypes = ["create", "read", "update", "delete"];
 
   useEffect(() => {
     setPage(1);
@@ -418,16 +387,6 @@ const UserPermissions = () => {
                   <Card key={permission.permission_id} className="p-4">
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id={permission.permission_id}
-                          checked={permission.enabled}
-                          onCheckedChange={(checked) =>
-                            handlePermissionToggle(
-                              permission.permission_id,
-                              !!checked
-                            )
-                          }
-                        />
                         <Label
                           htmlFor={permission.permission_id}
                           className="font-semibold"
@@ -439,43 +398,19 @@ const UserPermissions = () => {
                         </Badge>
                       </div>
 
+                      <Switch
+                          checked={permission.enabled}
+                          onCheckedChange={(checked) =>
+                            handlePermissionToggle(
+                              permission.internal_name,
+                              checked
+                            )
+                          }
+                        />
+
                       <p className="text-sm text-muted-foreground ml-6">
                         {permission.description}
                       </p>
-
-                      {permission.enabled && (
-                        <div className="ml-6 space-y-2">
-                          <Label className="text-sm font-medium">
-                            Actions:
-                          </Label>
-                          <div className="flex flex-wrap gap-2">
-                            {actionTypes.map((action) => (
-                              <div
-                                key={action}
-                                className="flex items-center space-x-2"
-                              >
-                                <Checkbox
-                                  id={`${permission.permission_id}-${action}`}
-                                  checked={permission.actions.includes(action)}
-                                  onCheckedChange={(checked) =>
-                                    handleActionToggle(
-                                      permission.permission_id,
-                                      action,
-                                      !!checked
-                                    )
-                                  }
-                                />
-                                <Label
-                                  htmlFor={`${permission.permission_id}-${action}`}
-                                  className="text-sm capitalize"
-                                >
-                                  {action}
-                                </Label>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </Card>
                 ))}

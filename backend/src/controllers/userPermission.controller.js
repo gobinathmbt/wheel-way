@@ -36,7 +36,7 @@ const getUserPermissions = async (req, res) => {
     const user = await User.findOne({ 
       _id: userId, 
       company_id: req.user.company_id 
-    }).populate('permissions.permission_id', 'module_name internal_name description');
+    }).select('permissions');
 
     if (!user) {
       return res.status(404).json({
@@ -65,7 +65,7 @@ const getUserPermissions = async (req, res) => {
 const updateUserPermissions = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { permissions } = req.body;
+    const { permissions } = req.body; // Array of internal names
 
     const user = await User.findOne({ 
       _id: userId, 
@@ -79,30 +79,22 @@ const updateUserPermissions = async (req, res) => {
       });
     }
 
-    // Validate that all permission IDs exist and are active
-    const permissionIds = permissions.map(p => p.permission_id);
+    // Validate that all permission internal names exist and are active
     const validPermissions = await Permission.find({ 
-      _id: { $in: permissionIds },
+      internal_name: { $in: permissions },
       is_active: true 
     });
 
-    if (validPermissions.length !== permissionIds.length) {
+    if (validPermissions.length !== permissions.length) {
       return res.status(400).json({
         success: false,
         message: 'One or more permissions are invalid or inactive'
       });
     }
 
-    // Update user permissions
-    user.permissions = permissions.map(p => ({
-      permission_id: p.permission_id,
-      actions: p.actions || ['read']
-    }));
-
+    // Update user permissions with internal names
+    user.permissions = permissions;
     await user.save();
-
-    // Populate the permissions for response
-    await user.populate('permissions.permission_id', 'module_name internal_name description');
 
     await logEvent({
       event_type: 'user_management',
@@ -158,7 +150,6 @@ const getUsersWithPermissions = async (req, res) => {
     }
 
     const users = await User.find(filter)
-      .populate('permissions.permission_id', 'module_name internal_name description')
       .select('_id username email first_name last_name role is_active permissions')
       .sort({ created_at: -1 })
       .skip(skip)

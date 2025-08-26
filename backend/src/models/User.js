@@ -38,13 +38,7 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  permissions: [{
-    permission_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Permission'
-    },
-    actions: [String] // ['create', 'read', 'update', 'delete']
-  }],
+  permissions: [String], // Array of internal names instead of objects
   last_login: Date,
   login_attempts: {
     type: Number,
