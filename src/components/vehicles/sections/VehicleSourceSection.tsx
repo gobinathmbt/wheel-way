@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Edit3, Save, X } from "lucide-react";
+import { Pencil, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { vehicleServices } from "@/api/services";
 
@@ -70,7 +70,7 @@ const VehicleSourceSection: React.FC<VehicleSourceSectionProps> = ({
                   setIsEditing(true);
                 }}
               >
-                <Edit3 className="h-4 w-4" />
+                <Pencil className="h-4 w-4" />
               </Button>
             )}
           </div>
