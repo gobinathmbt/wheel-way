@@ -4,8 +4,9 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client
 export interface S3Config {
   region: string;
   bucket: string;
-  accessKeyId: string;
-  secretAccessKey: string;
+  access_key: string;
+  secret_key: string;
+  url?: string;
   folder?: string;
 }
 
@@ -18,24 +19,67 @@ export interface UploadResult {
 export class S3Uploader {
   private client: S3Client;
   private bucket: string;
-  private folder: string;
+  private baseUrl: string;
 
   constructor(config: S3Config) {
     this.client = new S3Client({
       region: config.region,
       credentials: {
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
+        accessKeyId: config.access_key,
+        secretAccessKey: config.secret_key,
       },
     });
     this.bucket = config.bucket;
-    this.folder = config.folder || 'uploads';
+    this.baseUrl = config.url || `https://${config.bucket}.s3.${config.region}.amazonaws.com/`;
   }
 
-  async uploadFile(file: File, category: string = 'general'): Promise<UploadResult> {
+  private getUserFromSession() {
+    try {
+      const userStr = sessionStorage.getItem('user');
+      if (userStr) {
+        return JSON.parse(userStr);
+      }
+    } catch (error) {
+      console.error('Error getting user from session:', error);
+    }
+    return null;
+  }
+
+  private generateFolderPath(category: string): string {
+    const user = this.getUserFromSession();
+    if (!user) {
+      throw new Error('User session not found');
+    }
+
+    const companyId = user.company_id;
+    const userId = user.id;
+
+    // Map category to folder structure
+    let mainFolder = '';
+    switch (category) {
+      case 'listImage':
+        mainFolder = 'listing-images';
+        break;
+      case 'inspectionImage':
+        mainFolder = 'inspection';
+        break;
+      case 'otherImage':
+        mainFolder = 'other-images';
+        break;
+      case 'document':
+      default:
+        mainFolder = 'documents';
+        break;
+    }
+
+    return `${mainFolder}/${companyId}/${userId}`;
+  }
+
+  async uploadFile(file: File, category: string = 'document'): Promise<UploadResult> {
     const timestamp = Date.now();
     const fileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const key = `${this.folder}/${category}/${fileName}`;
+    const folderPath = this.generateFolderPath(category);
+    const key = `${folderPath}/${fileName}`;
 
     const command = new PutObjectCommand({
       Bucket: this.bucket,
@@ -47,7 +91,10 @@ export class S3Uploader {
 
     await this.client.send(command);
 
-    const url = `https://${this.bucket}.s3.amazonaws.com/${key}`;
+    // Use the provided base URL or construct one
+    const url = this.baseUrl.endsWith('/') 
+      ? `${this.baseUrl}${key}` 
+      : `${this.baseUrl}/${key}`;
     
     return {
       url,
@@ -66,6 +113,8 @@ export class S3Uploader {
   }
 
   getPublicUrl(key: string): string {
-    return `https://${this.bucket}.s3.amazonaws.com/${key}`;
+    return this.baseUrl.endsWith('/') 
+      ? `${this.baseUrl}${key}` 
+      : `${this.baseUrl}/${key}`;
   }
 }

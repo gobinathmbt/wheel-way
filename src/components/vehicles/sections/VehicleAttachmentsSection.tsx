@@ -48,9 +48,18 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
       console.log('S3 config response:', response);
       const config = response.data.data;
       
-      if (config && config.bucket && config.accessKeyId) {
-        setS3Config(config);
-        setS3Uploader(new S3Uploader(config));
+     if (config && config.bucket && config.access_key) {
+        // Map the API response to our S3Config interface
+        const s3ConfigMapped: S3Config = {
+          region: config.region,
+          bucket: config.bucket,
+          access_key: config.access_key,
+          secret_key: config.secret_key,
+          url: config.url
+        };
+        
+        setS3Config(s3ConfigMapped);
+        setS3Uploader(new S3Uploader(s3ConfigMapped));
       } else {
         toast.error("S3 configuration not found. Please configure S3 settings first.");
       }
@@ -88,7 +97,7 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
         setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
 
         // Determine category folder for S3
-        const s3Category = uploadType === 'images' ? `images/${uploadCategory}` : 'documents';
+      const s3Category = uploadType === 'images' ? uploadCategory : 'document';
         
         // Upload to S3
         const uploadResult = await s3Uploader.uploadFile(file, s3Category);
