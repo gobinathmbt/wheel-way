@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -60,8 +59,8 @@ interface Permission {
 
 interface MasterDropdown {
   _id: string;
-  dropdown_name: string;
-  display_name: string;
+  option_value: string;
+  display_value: string;
   is_active: boolean;
 }
 
@@ -72,7 +71,8 @@ const Permissions = () => {
   const [status, setStatus] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [deletingPermission, setDeletingPermission] = useState<Permission | null>(null);
+  const [deletingPermission, setDeletingPermission] =
+    useState<Permission | null>(null);
   const [editingPermission, setEditingPermission] = useState<Permission | null>(
     null
   );
@@ -88,10 +88,8 @@ const Permissions = () => {
     queryKey: ["master-modules-for-permissions"],
     queryFn: () =>
       masterServices
-        .getModulesForPermissions({
-          page: 1,
-          limit: 100,
-          status: 'active'
+        .getMasterdropdownvalues({
+          dropdown_name: ["modules"],
         })
         .then((res) => res.data),
   });
@@ -217,14 +215,14 @@ const Permissions = () => {
     toggleStatusMutation.mutate({ id, is_active: !currentStatus });
   };
 
-  const handleModuleSelect = (dropdownName: string) => {
-    const selectedDropdown = dropdownsData?.data?.find(
-      (dropdown: MasterDropdown) => dropdown.dropdown_name === dropdownName
+  const handleModuleSelect = (optionValue: string) => {
+    const selectedModule = availableModules.find(
+      (moduleValue) => moduleValue.option_value === optionValue
     );
-    if (selectedDropdown) {
+    if (selectedModule) {
       setFormData({
         ...formData,
-        module_name: selectedDropdown.dropdown_name
+        module_name: selectedModule.option_value,
       });
     }
   };
@@ -243,7 +241,11 @@ const Permissions = () => {
     setPage(1);
   }, [search, status]);
 
-  const availableModules = dropdownsData?.data || [];
+  const availableModules =
+    dropdownsData?.data?.find(
+      (dropdown) => dropdown.dropdown_name === "modules"
+    )?.values || [];
+  console.log(availableModules);
 
   return (
     <DashboardLayout title="User Permissions">
@@ -271,8 +273,9 @@ const Permissions = () => {
                       id="module_name"
                       value={
                         availableModules.find(
-                          (mod: MasterDropdown) => mod.dropdown_name === formData.module_name
-                        )?.display_name || formData.module_name
+                          (moduleValue) =>
+                            moduleValue.option_value === formData.module_name
+                        )?.display_value || formData.module_name
                       }
                       disabled
                     />
@@ -286,12 +289,12 @@ const Permissions = () => {
                         <SelectValue placeholder="Select a module" />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableModules.map((dropdown: MasterDropdown) => (
+                        {availableModules.map((moduleValue) => (
                           <SelectItem
-                            key={dropdown._id}
-                            value={dropdown.dropdown_name}
+                            key={moduleValue._id}
+                            value={moduleValue.option_value}
                           >
-                            {dropdown.display_name}
+                            {moduleValue.display_value}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -418,9 +421,11 @@ const Permissions = () => {
                 <TableBody>
                   {permissionsData?.data?.map(
                     (permission: Permission, index: number) => {
-                      const moduleDisplayName = availableModules.find(
-                        (mod: MasterDropdown) => mod.dropdown_name === permission.module_name
-                      )?.display_name || permission.module_name;
+                      const moduleDisplayName =
+                        availableModules.find(
+                          (moduleValue) =>
+                            moduleValue.option_value === permission.module_name
+                        )?.display_value || permission.module_name;
 
                       return (
                         <TableRow key={permission._id}>

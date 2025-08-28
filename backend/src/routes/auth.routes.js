@@ -74,4 +74,43 @@ router.post('/register-company', [
 // @route   GET /api/auth/me
 router.get('/me', protect, getMe);
 
+// @route   GET /api/auth/me/permissions
+router.get('/me/permissions', protect, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    
+    if (req.user.role === 'master_admin') {
+      return res.status(200).json({
+        success: true,
+        data: {
+          permissions: ['all'] // Master admin has all permissions
+        }
+      });
+    }
+
+    const user = await User.findById(req.user.id).select('permissions');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        permissions: user.permissions || []
+      }
+    });
+
+  } catch (error) {
+    console.error('Get user permissions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving user permissions'
+    });
+  }
+});
+
 module.exports = router;

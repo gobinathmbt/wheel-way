@@ -2,7 +2,7 @@
 const express = require('express');
 const { 
   getDropdowns, 
-  getModulesForPermissions,
+  getMasterdropdownvalues,
   createDropdown, 
   updateDropdown, 
   deleteDropdown, 
@@ -19,7 +19,7 @@ const router = express.Router();
 
 // CRUD for master dropdowns
 router.get('/', getDropdowns);
-router.get('/modules', getModulesForPermissions);
+router.post('/dropdown_values', getMasterdropdownvalues);
 router.post('/', createDropdown);
 router.put('/:id', updateDropdown);
 router.delete('/:id', deleteDropdown);

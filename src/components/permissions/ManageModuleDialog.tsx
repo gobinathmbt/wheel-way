@@ -39,16 +39,7 @@ interface ManageModuleDialogProps {
 }
 
 const AVAILABLE_MODULES = [
-  { module_name: 'dashboard', display_name: 'Dashboard' },
-  { module_name: 'users', display_name: 'Users' },
-  { module_name: 'permissions', display_name: 'Permissions' },
-  { module_name: 'dropdown_master', display_name: 'Dropdown Master' },
-  { module_name: 'inspection_config', display_name: 'Inspection Config' },
-  { module_name: 'tradein_config', display_name: 'Trade-in Config' },
-  { module_name: 'vehicle_stock', display_name: 'Vehicle Stock' },
-  { module_name: 'inspection_list', display_name: 'Inspection List' },
-  { module_name: 'tradein_list', display_name: 'Trade-in List' },
-  { module_name: 'settings', display_name: 'Settings' }
+  
 ];
 
 const ManageModuleDialog: React.FC<ManageModuleDialogProps> = ({

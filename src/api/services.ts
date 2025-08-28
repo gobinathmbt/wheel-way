@@ -10,7 +10,10 @@ export const authServices = {
     apiClient.post('/api/auth/register-company', data),
   
   getMe: () =>
-    apiClient.get('/api/auth/me')
+    apiClient.get('/api/auth/me'),
+
+  getCurrentUserPermissions: () =>
+    apiClient.get('/api/auth/me/permissions')
 };
 
 // Master Admin Services
@@ -50,8 +53,8 @@ export const masterServices = {
   
   getDropdowns: (params?: any) => apiClient.get('api/master/dropdowns', { params }),
   
-  getModulesForPermissions: (params: { page: number; limit: number; status: string }) =>
-  apiClient.get('api/master/dropdowns/modules', { params }),
+  getMasterdropdownvalues: (data: any) =>
+  apiClient.post('api/master/dropdowns/dropdown_values',  data ),
 
   // Permissions
   getPermissions: (params?: any) =>

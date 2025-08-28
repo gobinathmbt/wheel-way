@@ -48,19 +48,31 @@ const getDropdowns = async (req, res) => {
 // @desc    Get all active master dropdowns for permissions module selection
 // @route   GET /api/master/dropdowns/modules
 // @access  Private (Master Admin)
-const getModulesForPermissions = async (req, res) => {
+const getMasterdropdownvalues = async (req, res) => {
   try {
-    const modules = await MasterDropdown.find({ 
-      is_active: true 
-    }).select('dropdown_name display_name description').sort({ display_name: 1 });
+    const { dropdown_name } = req.body; // this will be an array
+
+    if (!dropdown_name || !Array.isArray(dropdown_name)) {
+      return res.status(400).json({
+        success: false,
+        message: "dropdown_name must be an array",
+      });
+    }
+
+    // Fetch only matching dropdowns
+    const dropdowns = await MasterDropdown.find({
+      dropdown_name: { $in: dropdown_name },
+      is_active: true,
+    })
+      .lean();
 
     res.status(200).json({
       success: true,
-      data: modules,
+      data: dropdowns, // return full data of matched dropdowns
     });
   } catch (error) {
-    console.error('Master: Get modules for permissions error:', error);
-    res.status(500).json({ success: false, message: 'Error retrieving modules' });
+    console.error("Master: Get modules for permissions error:", error);
+    res.status(500).json({ success: false, message: "Error retrieving modules" });
   }
 };
 
@@ -337,7 +349,7 @@ const getMasterInspection = async (_req, res) => {
 
 module.exports = {
   getDropdowns,
-  getModulesForPermissions,
+  getMasterdropdownvalues,
   createDropdown,
   updateDropdown,
   deleteDropdown,

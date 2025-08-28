@@ -16,7 +16,7 @@ import {
 import { Eye, Download, Upload, Calendar, Car } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
-import { vehicleServices, inspectionServices } from '@/api/services';
+import { vehicleServices, inspectionServices, authServices } from '@/api/services';
 import ConfigurationSearchmore from '@/components/inspection/ConfigurationSearchmore';
 import VehicleDetailSideModal from '@/components/vehicles/VehicleDetailSideModal';
 
@@ -26,6 +26,15 @@ const InspectionList = () => {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [page, setPage] = useState(1);
   const limit = 20;
+
+  // Fetch current user's permissions
+  const { data: userPermissions } = useQuery({
+    queryKey: ['user-permissions'],
+    queryFn: async () => {
+      const response = await authServices.getCurrentUserPermissions();
+      return response.data;
+    }
+  });
 
   const { data: vehiclesData, isLoading, refetch } = useQuery({
     queryKey: ['inspection-vehicles', page, searchTerm, statusFilter],
@@ -47,7 +56,18 @@ const InspectionList = () => {
   const vehicles = vehiclesData?.data || [];
   const totalPages = Math.ceil((vehiclesData?.total || 0) / limit);
 
+  // Check if user has specific permission
+  console.log(userPermissions);
+  const hasPermission = (permission: string) => {
+    return userPermissions?.data?.permissions?.includes(permission) || false;
+  };
+
   const handleStartInspection = async (vehicleId: string) => {
+    if (!hasPermission('start_inspection')) {
+      toast.error('You do not have permission to start inspections');
+      return;
+    }
+
     try {
       await inspectionServices.startInspection(vehicleId);
       toast.success('Inspection started successfully');
@@ -58,6 +78,11 @@ const InspectionList = () => {
   };
 
   const handleViewDetails = async (vehicleId: string) => {
+    if (!hasPermission('view_vehicle_details')) {
+      toast.error('You do not have permission to view vehicle details');
+      return;
+    }
+
     try {
       const response = await vehicleServices.getVehicleDetail(vehicleId);
       setSelectedVehicle(response.data.data);
@@ -65,6 +90,8 @@ const InspectionList = () => {
       toast.error('Failed to load vehicle details');
     }
   };
+
+  // ... keep existing code (handleClearSearch, handleFilterChange, getStatusColor functions)
 
   const handleClearSearch = () => {
     setSearchTerm('');
@@ -98,14 +125,18 @@ const InspectionList = () => {
             <p className="text-muted-foreground">Manage vehicle inspection workflows</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline">
-              <Upload className="h-4 w-4 mr-2" />
-              Import Vehicles
-            </Button>
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Export Report
-            </Button>
+            {hasPermission('import_vehicles') && (
+              <Button variant="outline">
+                <Upload className="h-4 w-4 mr-2" />
+                Import Vehicles
+              </Button>
+            )}
+            {hasPermission('export_reports') && (
+              <Button variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export Report
+              </Button>
+            )}
           </div>
         </div>
 
@@ -222,14 +253,16 @@ const InspectionList = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleViewDetails(vehicle.vehicle_stock_id)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {vehicle.inspection_status === 'pending' && (
+                            {hasPermission('view_vehicle_details') && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleViewDetails(vehicle.vehicle_stock_id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {vehicle.inspection_status === 'pending' && hasPermission('start_inspection') && (
                               <Button 
                                 size="sm"
                                 onClick={() => handleStartInspection(vehicle.vehicle_stock_id)}
