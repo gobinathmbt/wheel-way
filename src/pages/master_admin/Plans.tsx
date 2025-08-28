@@ -18,6 +18,7 @@ const MasterPlans = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [deletePlanId, setDeletePlanId] = useState(null);
+  const [page, setPage] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
     display_name: '',
@@ -250,6 +251,7 @@ const MasterPlans = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>S.No</TableHead>
                     <TableHead>Plan Name</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>User Limit</TableHead>
@@ -259,8 +261,9 @@ const MasterPlans = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {plans?.map((plan) => (
+                  {plans?.map((plan ,index: number) => (
                     <TableRow key={plan._id}>
+                      <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
                       <TableCell>
                         <div>
                           <p className="font-medium">{plan.display_name}</p>

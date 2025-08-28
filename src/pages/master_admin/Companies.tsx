@@ -20,6 +20,7 @@ const MasterCompanies = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [deletePlanId, setDeletePlanId] = useState(null);
+  const [page, setPage] = useState(1);
   const [editCompany, setEditCompany] = useState(null);
 
 
@@ -152,6 +153,7 @@ console.log("companies", companies);
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>S.No</TableHead>
                     <TableHead>Company</TableHead>
                     <TableHead>Contact Person</TableHead>
                     <TableHead>Plan</TableHead>
@@ -162,8 +164,9 @@ console.log("companies", companies);
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCompanies.map((company) => (
+                  {filteredCompanies.map((company ,index: number) => (
                     <TableRow key={company._id}>
+                      <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
                       <TableCell>
                         <div>
                           <p className="font-medium">{company.company_name}</p>
