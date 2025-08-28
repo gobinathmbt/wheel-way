@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, Settings, Save, Filter, X, Layers } from "lucide-react";
@@ -84,7 +83,11 @@ const UserPermissions = () => {
 
   // ... keep existing code (data fetching and mutations)
 
-  const { data: usersData, isLoading, refetch } = useQuery({
+  const {
+    data: usersData,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["company-users-permissions", page, search, statusFilter],
     queryFn: () =>
       companyServices
@@ -132,14 +135,15 @@ const UserPermissions = () => {
     if (availablePermissions) {
       const initialPermissions: UserPermission[] = availablePermissions.map(
         (permission: Permission) => {
-          const hasPermission = user.permissions?.includes(permission.internal_name) || false;
+          const hasPermission =
+            user.permissions?.includes(permission.internal_name) || false;
 
           return {
             permission_id: permission._id,
             module_name: permission.module_name,
             internal_name: permission.internal_name,
             description: permission.description,
-            enabled: hasPermission
+            enabled: hasPermission,
           };
         }
       );
@@ -156,15 +160,13 @@ const UserPermissions = () => {
 
   // Check if user can manage modules (only for company_admin role)
   const canManageModules = (user: User) => {
-    return user.role === 'company_admin';
+    return user.role === "company_admin";
   };
 
   const handlePermissionToggle = (internalName: string, enabled: boolean) => {
     setUserPermissions((prev) =>
       prev.map((p) =>
-        p.internal_name === internalName
-          ? { ...p, enabled }
-          : p
+        p.internal_name === internalName ? { ...p, enabled } : p
       )
     );
   };
@@ -366,41 +368,56 @@ const UserPermissions = () => {
                     <Pagination>
                       <PaginationContent>
                         <PaginationItem>
-                          <PaginationPrevious 
-                            onClick={() => handlePageChange(Math.max(1, page - 1))}
-                            className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          <PaginationPrevious
+                            onClick={() =>
+                              handlePageChange(Math.max(1, page - 1))
+                            }
+                            className={
+                              page === 1
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
                           />
                         </PaginationItem>
-                        
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          let pageNum;
-                          if (totalPages <= 5) {
-                            pageNum = i + 1;
-                          } else if (page <= 3) {
-                            pageNum = i + 1;
-                          } else if (page >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i;
-                          } else {
-                            pageNum = page - 2 + i;
+
+                        {Array.from(
+                          { length: Math.min(5, totalPages) },
+                          (_, i) => {
+                            let pageNum;
+                            if (totalPages <= 5) {
+                              pageNum = i + 1;
+                            } else if (page <= 3) {
+                              pageNum = i + 1;
+                            } else if (page >= totalPages - 2) {
+                              pageNum = totalPages - 4 + i;
+                            } else {
+                              pageNum = page - 2 + i;
+                            }
+
+                            return (
+                              <PaginationItem key={pageNum}>
+                                <PaginationLink
+                                  onClick={() => handlePageChange(pageNum)}
+                                  isActive={page === pageNum}
+                                  className="cursor-pointer"
+                                >
+                                  {pageNum}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
                           }
-                          
-                          return (
-                            <PaginationItem key={pageNum}>
-                              <PaginationLink
-                                onClick={() => handlePageChange(pageNum)}
-                                isActive={page === pageNum}
-                                className="cursor-pointer"
-                              >
-                                {pageNum}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        })}
-                        
+                        )}
+
                         <PaginationItem>
-                          <PaginationNext 
-                            onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
-                            className={page === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          <PaginationNext
+                            onClick={() =>
+                              handlePageChange(Math.min(totalPages, page + 1))
+                            }
+                            className={
+                              page === totalPages
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
                           />
                         </PaginationItem>
                       </PaginationContent>
@@ -425,57 +442,56 @@ const UserPermissions = () => {
             <div className="flex-1 min-h-0">
               <ScrollArea className="h-[60vh] pr-4">
                 <div className="space-y-6">
-                  {Object.entries(groupedPermissions).map(([moduleName, permissions]) => (
-                    <div key={moduleName} className="space-y-3">
-                      <div className="sticky top-0 bg-background pb-2 border-b z-20">
-                        <h3 className="text-lg font-semibold text-primary">
-                          {moduleName}
-                        </h3>
-                      </div>
-                      
-                      <div className="space-y-3 pl-2">
-                        {permissions.map((permission) => (
-                          <div 
-                            key={permission.permission_id} 
-                            className="flex items-start space-x-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors relative z-10"
-                          >
-                            <Switch
-                              checked={permission.enabled}
-                              onCheckedChange={(checked) =>
-                                handlePermissionToggle(
-                                  permission.internal_name,
-                                  checked
-                                )
-                              }
-                              className="mt-1 relative z-10"
-                            />
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center space-x-2">
-                                <Label className="font-medium text-sm">
-                                  {permission.internal_name}
-                                </Label>
-                                <Badge variant="outline" className="text-xs">
-                                  {permission.internal_name}
-                                </Badge>
+                  {Object.entries(groupedPermissions).map(
+                    ([moduleName, permissions]) => (
+                      <div key={moduleName} className="space-y-3">
+                        <div className="sticky top-0 bg-background pb-2 border-b z-20">
+                          <h3 className="text-lg font-semibold text-primary">
+                            {moduleName}
+                          </h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-2">
+                          {permissions.map((permission) => (
+                            <div
+                              key={permission.permission_id}
+                              className="flex items-start space-x-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors relative z-10"
+                            >
+                              <Switch
+                                checked={permission.enabled}
+                                onCheckedChange={(checked) =>
+                                  handlePermissionToggle(
+                                    permission.internal_name,
+                                    checked
+                                  )
+                                }
+                                className="mt-1 relative z-10"
+                              />
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center space-x-2">
+                                  <Label className="font-medium text-sm">
+                                    {permission.internal_name}
+                                  </Label>
+                                  <Badge variant="outline" className="text-xs">
+                                    {permission.internal_name}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground leading-relaxed">
+                                  {permission.description}
+                                </p>
                               </div>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {permission.description}
-                              </p>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               </ScrollArea>
             </div>
 
             <div className="flex justify-end space-x-2 pt-4 border-t flex-shrink-0">
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-              >
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
               <Button
@@ -483,7 +499,9 @@ const UserPermissions = () => {
                 disabled={updatePermissionsMutation.isPending}
               >
                 <Save className="h-4 w-4 mr-2" />
-                {updatePermissionsMutation.isPending ? "Saving..." : "Save Permissions"}
+                {updatePermissionsMutation.isPending
+                  ? "Saving..."
+                  : "Save Permissions"}
               </Button>
             </div>
           </DialogContent>
