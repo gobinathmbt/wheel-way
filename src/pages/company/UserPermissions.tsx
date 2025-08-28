@@ -29,7 +29,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Pagination,
@@ -40,7 +39,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { companyServices } from "@/api/services";
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -63,6 +62,14 @@ interface User {
   permissions: string[];
 }
 
+interface UserPermission {
+  permission_id: string;
+  module_name: string;
+  internal_name: string;
+  description: string;
+  enabled: boolean;
+}
+
 const UserPermissions = () => {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
@@ -70,7 +77,7 @@ const UserPermissions = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [userPermissions, setUserPermissions] = useState<any[]>([]);
+  const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
 
   const { data: usersData, isLoading, refetch } = useQuery({
     queryKey: ["company-users-permissions", page, search, statusFilter],
@@ -118,9 +125,9 @@ const UserPermissions = () => {
 
     // Initialize permissions state
     if (availablePermissions) {
-      const initialPermissions = availablePermissions.map(
+      const initialPermissions: UserPermission[] = availablePermissions.map(
         (permission: Permission) => {
-          const hasPermission = user.permissions?.includes(permission.internal_name);
+          const hasPermission = user.permissions?.includes(permission.internal_name) || false;
 
           return {
             permission_id: permission._id,
@@ -185,6 +192,16 @@ const UserPermissions = () => {
 
   const totalPages = usersData?.pagination?.total_pages || 1;
 
+  // Group permissions by module
+  const groupedPermissions = userPermissions.reduce((acc, permission) => {
+    const module = permission.module_name;
+    if (!acc[module]) {
+      acc[module] = [];
+    }
+    acc[module].push(permission);
+    return acc;
+  }, {} as Record<string, UserPermission[]>);
+
   return (
     <DashboardLayout title="User Permissions">
       <div className="space-y-6">
@@ -231,13 +248,13 @@ const UserPermissions = () => {
               </div>
 
               <Button
-  onClick={handleClear}
-  disabled={!search}
-  className="bg-blue-600 text-white hover:bg-gray-700"
->
-  <X className="h-4 w-4 mr-2 text-white" />
-  Clear
-</Button>
+                onClick={handleClear}
+                disabled={!search}
+                className="bg-blue-600 text-white hover:bg-gray-700"
+              >
+                <X className="h-4 w-4 mr-2 text-white" />
+                Clear
+              </Button>
 
               <Select value={statusFilter} onValueChange={handleStatusFilter}>
                 <SelectTrigger className="w-48">
@@ -250,11 +267,6 @@ const UserPermissions = () => {
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
-
-              {/* <Button onClick={handleSearch} disabled={isLoading}>
-                <Search className="h-4 w-4 mr-2" />
-                Search
-              </Button> */}
             </div>
           </CardContent>
         </Card>
@@ -373,64 +385,77 @@ const UserPermissions = () => {
 
         {/* Permissions Management Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>
                 Manage Permissions - {selectedUser?.first_name}{" "}
                 {selectedUser?.last_name}
               </DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div className="grid gap-4">
-                {userPermissions.map((permission) => (
-                  <Card key={permission.permission_id} className="p-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-2">
-                        <Label
-                          htmlFor={permission.permission_id}
-                          className="font-semibold"
-                        >
-                          {permission.module_name}
-                        </Label>
-                        <Badge variant="outline">
-                          {permission.internal_name}
-                        </Badge>
+            <div className="flex-1 min-h-0">
+              <ScrollArea className="h-[60vh] pr-4">
+                <div className="space-y-6">
+                  {Object.entries(groupedPermissions).map(([moduleName, permissions]) => (
+                    <div key={moduleName} className="space-y-3">
+                      <div className="sticky top-0 bg-background pb-2 border-b">
+                        <h3 className="text-lg font-semibold text-primary">
+                          {moduleName}
+                        </h3>
                       </div>
-
-                      <Switch
-                          checked={permission.enabled}
-                          onCheckedChange={(checked) =>
-                            handlePermissionToggle(
-                              permission.internal_name,
-                              checked
-                            )
-                          }
-                        />
-
-                      <p className="text-sm text-muted-foreground ml-6">
-                        {permission.description}
-                      </p>
+                      
+                      <div className="space-y-3 pl-2">
+                        {permissions.map((permission) => (
+                          <div 
+                            key={permission.permission_id} 
+                            className="flex items-start space-x-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                          >
+                            <Switch
+                              checked={permission.enabled}
+                              onCheckedChange={(checked) =>
+                                handlePermissionToggle(
+                                  permission.internal_name,
+                                  checked
+                                )
+                              }
+                              className="mt-1"
+                            />
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center space-x-2">
+                                <Label className="font-medium text-sm">
+                                  {permission.internal_name}
+                                </Label>
+                                <Badge variant="outline" className="text-xs">
+                                  {permission.internal_name}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground leading-relaxed">
+                                {permission.description}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </Card>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
 
-              <div className="flex justify-end space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSavePermissions}
-                  disabled={updatePermissionsMutation.isPending}
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Permissions
-                </Button>
-              </div>
+            <div className="flex justify-end space-x-2 pt-4 border-t flex-shrink-0">
+              <Button
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSavePermissions}
+                disabled={updatePermissionsMutation.isPending}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {updatePermissionsMutation.isPending ? "Saving..." : "Save Permissions"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
