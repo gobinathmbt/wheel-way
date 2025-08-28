@@ -50,7 +50,8 @@ export const masterServices = {
   
   getDropdowns: (params?: any) => apiClient.get('api/master/dropdowns', { params }),
   
-  getModulesForPermissions: () => apiClient.get('api/master/dropdowns/modules'),
+  getModulesForPermissions: (params: { page: number; limit: number; status: string }) =>
+  apiClient.get('api/master/dropdowns/modules', { params }),
 
   // Permissions
   getPermissions: (params?: any) =>

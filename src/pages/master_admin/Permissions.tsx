@@ -40,6 +40,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import DeleteConfirmationDialog from "@/components/dialogs/DeleteConfirmationDialog";
 import { masterServices } from "@/api/services";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 
@@ -70,6 +71,8 @@ const Permissions = () => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingPermission, setDeletingPermission] = useState<Permission | null>(null);
   const [editingPermission, setEditingPermission] = useState<Permission | null>(
     null
   );
@@ -82,10 +85,10 @@ const Permissions = () => {
 
   // Fetch master dropdowns for module selection
   const { data: dropdownsData } = useQuery({
-    queryKey: ["master-dropdowns-for-permissions"],
+    queryKey: ["master-modules-for-permissions"],
     queryFn: () =>
       masterServices
-        .getDropdowns({
+        .getModulesForPermissions({
           page: 1,
           limit: 100,
           status: 'active'
@@ -100,8 +103,8 @@ const Permissions = () => {
         .getPermissions({
           page,
           limit: 10,
-          search: search || undefined,
-          status: status || undefined,
+          search: search.trim() || undefined,
+          status: status === "all" ? undefined : status,
         })
         .then((res) => res.data),
   });
@@ -142,11 +145,15 @@ const Permissions = () => {
     onSuccess: () => {
       toast.success("Permission deleted successfully");
       queryClient.invalidateQueries({ queryKey: ["master-permissions"] });
+      setIsDeleteDialogOpen(false);
+      setDeletingPermission(null);
     },
     onError: (error: any) => {
       toast.error(
         error.response?.data?.message || "Failed to delete permission"
       );
+      setIsDeleteDialogOpen(false);
+      setDeletingPermission(null);
     },
   });
 
@@ -195,9 +202,14 @@ const Permissions = () => {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this permission?")) {
-      deleteMutation.mutate(id);
+  const handleDeleteClick = (permission: Permission) => {
+    setDeletingPermission(permission);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deletingPermission) {
+      deleteMutation.mutate(deletingPermission._id);
     }
   };
 
@@ -212,9 +224,19 @@ const Permissions = () => {
     if (selectedDropdown) {
       setFormData({
         ...formData,
-        module_name: selectedDropdown.dropdown_name // Store internal name in database
+        module_name: selectedDropdown.dropdown_name
       });
     }
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+    setPage(1); // Reset to first page when searching
+  };
+
+  const handleStatusChange = (value: string) => {
+    setStatus(value);
+    setPage(1); // Reset to first page when filtering
   };
 
   useEffect(() => {
@@ -354,12 +376,12 @@ const Permissions = () => {
                   <Input
                     placeholder="Search permissions..."
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={handleSearchChange}
                     className="pl-9"
                   />
                 </div>
               </div>
-              <Select value={status} onValueChange={setStatus}>
+              <Select value={status} onValueChange={handleStatusChange}>
                 <SelectTrigger className="w-full md:w-48">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
@@ -450,7 +472,7 @@ const Permissions = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleDelete(permission._id)}
+                                onClick={() => handleDeleteClick(permission)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -465,6 +487,19 @@ const Permissions = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Delete Confirmation Dialog */}
+        <DeleteConfirmationDialog
+          isOpen={isDeleteDialogOpen}
+          onClose={() => {
+            setIsDeleteDialogOpen(false);
+            setDeletingPermission(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Permission"
+          description={`Are you sure you want to delete the permission "${deletingPermission?.internal_name}"? This action cannot be undone.`}
+          isLoading={deleteMutation.isPending}
+        />
       </div>
     </DashboardLayout>
   );

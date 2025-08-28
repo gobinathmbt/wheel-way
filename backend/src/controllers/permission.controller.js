@@ -12,15 +12,15 @@ const getPermissions = async (req, res) => {
 
     let filter = {};
     
-    if (search) {
+    if (search && search.trim()) {
       filter.$or = [
-        { module_name: { $regex: search, $options: 'i' } },
-        { internal_name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { module_name: { $regex: search.trim(), $options: 'i' } },
+        { internal_name: { $regex: search.trim(), $options: 'i' } },
+        { description: { $regex: search.trim(), $options: 'i' } }
       ];
     }
 
-    if (status !== undefined && status !== '') {
+    if (status !== undefined && status !== '' && status !== 'all') {
       filter.is_active = status === 'true';
     }
 
@@ -31,6 +31,7 @@ const getPermissions = async (req, res) => {
       .limit(parseInt(limit));
 
     const total = await Permission.countDocuments(filter);
+    
     res.status(200).json({
       success: true,
       data: permissions,
@@ -88,7 +89,7 @@ const createPermission = async (req, res) => {
     const { module_name, internal_name, description } = req.body;
 
     // Check if internal_name already exists
-    const existingPermission = await Permission.findOne({ internal_name });
+    const existingPermission = await Permission.findOne({ internal_name: internal_name.toLowerCase().replace(/\s+/g, '_') });
     if (existingPermission) {
       return res.status(400).json({
         success: false,
