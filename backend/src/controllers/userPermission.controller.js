@@ -120,6 +120,103 @@ const updateUserPermissions = async (req, res) => {
   }
 };
 
+// @desc    Get user modules
+// @route   GET /api/company/users/:userId/modules
+// @access  Private (Company Super Admin)
+const getUserModules = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findOne({ 
+      _id: userId, 
+      company_id: req.user.company_id 
+    }).select('module_access');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user.module_access || []
+    });
+
+  } catch (error) {
+    console.error('Get user modules error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving user modules'
+    });
+  }
+};
+
+// @desc    Update user modules
+// @route   PUT /api/company/users/:userId/modules
+// @access  Private (Company Super Admin)
+const updateUserModules = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { modules } = req.body; // Array of module names
+
+    const user = await User.findOne({ 
+      _id: userId, 
+      company_id: req.user.company_id 
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Define available modules
+    const availableModules = [
+      'dashboard', 'users', 'permissions', 'dropdown_master', 
+      'inspection_config', 'tradein_config', 'vehicle_stock', 
+      'inspection_list', 'tradein_list', 'settings'
+    ];
+
+    // Validate modules
+    const invalidModules = modules.filter(module => !availableModules.includes(module));
+    if (invalidModules.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid modules: ${invalidModules.join(', ')}`
+      });
+    }
+
+    // Update user module access
+    user.module_access = modules;
+    await user.save();
+
+    await logEvent({
+      event_type: 'user_management',
+      event_action: 'user_modules_updated',
+      event_description: `Module access updated for user ${user.email}`,
+      user_id: req.user.id,
+      company_id: req.user.company_id,
+      user_role: req.user.role
+    });
+
+    res.status(200).json({
+      success: true,
+      data: user.module_access,
+      message: 'User module access updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Update user modules error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating user modules'
+    });
+  }
+};
+
 // @desc    Get users with their permissions for company
 // @route   GET /api/company/users-permissions
 // @access  Private (Company Super Admin)
@@ -150,7 +247,7 @@ const getUsersWithPermissions = async (req, res) => {
     }
 
     const users = await User.find(filter)
-      .select('_id username email first_name last_name role is_active permissions')
+      .select('_id username email first_name last_name role is_active permissions module_access')
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -181,5 +278,7 @@ module.exports = {
   getAvailablePermissions,
   getUserPermissions,
   updateUserPermissions,
+  getUserModules,
+  updateUserModules,
   getUsersWithPermissions
 };

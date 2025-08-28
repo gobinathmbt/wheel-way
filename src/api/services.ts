@@ -175,6 +175,13 @@ export const companyServices = {
   
   updateUserPermissions: (userId: string, data: any) =>
     apiClient.put(`/api/company/users/${userId}/permissions`, data),
+
+  // Module Access
+  getUserModules: (userId: string) =>
+    apiClient.get(`/api/company/users/${userId}/modules`),
+  
+  updateUserModules: (userId: string, data: any) =>
+    apiClient.put(`/api/company/users/${userId}/modules`, data),
   
   // Settings
   getS3Config: () =>

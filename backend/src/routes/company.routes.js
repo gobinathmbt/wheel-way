@@ -38,6 +38,8 @@ const {
   getAvailablePermissions,
   getUserPermissions,
   updateUserPermissions,
+  getUserModules,
+  updateUserModules,
   getUsersWithPermissions
 } = require('../controllers/userPermission.controller');
 
@@ -73,6 +75,10 @@ router.get('/permissions/available', authorize('company_super_admin'), getAvaila
 router.get('/users-permissions', authorize('company_super_admin'), getUsersWithPermissions);
 router.get('/users/:userId/permissions', authorize('company_super_admin'), getUserPermissions);
 router.put('/users/:userId/permissions', authorize('company_super_admin'), updateUserPermissions);
+
+// Module management routes (only super admin)
+router.get('/users/:userId/modules', authorize('company_super_admin'), getUserModules);
+router.put('/users/:userId/modules', authorize('company_super_admin'), updateUserModules);
 
 // Settings routes (only super admin)
 router.get('/settings/s3', authorize('company_super_admin'), getS3Config);

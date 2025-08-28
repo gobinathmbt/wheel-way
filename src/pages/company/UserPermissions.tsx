@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Settings, Save, Filter, X } from "lucide-react";
+import { Search, Settings, Save, Filter, X, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 
@@ -41,6 +41,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { companyServices } from "@/api/services";
+import ManageModuleDialog from "@/components/permissions/ManageModuleDialog";
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
 
@@ -60,6 +61,7 @@ interface User {
   role: string;
   is_active: boolean;
   permissions: string[];
+  module_access?: string[];
 }
 
 interface UserPermission {
@@ -77,6 +79,7 @@ const UserPermissions = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isModuleDialogOpen, setIsModuleDialogOpen] = useState(false);
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
 
   // ... keep existing code (data fetching and mutations)
@@ -144,6 +147,11 @@ const UserPermissions = () => {
     }
 
     setIsDialogOpen(true);
+  };
+
+  const handleManageModules = (user: User) => {
+    setSelectedUser(user);
+    setIsModuleDialogOpen(true);
   };
 
   const handlePermissionToggle = (internalName: string, enabled: boolean) => {
@@ -294,6 +302,7 @@ const UserPermissions = () => {
                       <TableHead>Role</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Permissions Count</TableHead>
+                      <TableHead>Module Access</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -318,15 +327,26 @@ const UserPermissions = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>{user.permissions?.length || 0}</TableCell>
+                        <TableCell>{user.module_access?.length || 0}</TableCell>
                         <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleManagePermissions(user)}
-                          >
-                            <Settings className="h-4 w-4 mr-2" />
-                            Manage Permissions
-                          </Button>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleManagePermissions(user)}
+                            >
+                              <Settings className="h-4 w-4 mr-2" />
+                              Permissions
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleManageModules(user)}
+                            >
+                              <Layers className="h-4 w-4 mr-2" />
+                              Modules
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -461,6 +481,13 @@ const UserPermissions = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Module Management Dialog */}
+        <ManageModuleDialog
+          open={isModuleDialogOpen}
+          onOpenChange={setIsModuleDialogOpen}
+          user={selectedUser}
+        />
       </div>
     </DashboardLayout>
   );
