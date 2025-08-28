@@ -79,6 +79,8 @@ const UserPermissions = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
 
+  // ... keep existing code (data fetching and mutations)
+
   const { data: usersData, isLoading, refetch } = useQuery({
     queryKey: ["company-users-permissions", page, search, statusFilter],
     queryFn: () =>
@@ -398,7 +400,7 @@ const UserPermissions = () => {
                 <div className="space-y-6">
                   {Object.entries(groupedPermissions).map(([moduleName, permissions]) => (
                     <div key={moduleName} className="space-y-3">
-                      <div className="sticky top-0 bg-background pb-2 border-b">
+                      <div className="sticky top-0 bg-background pb-2 border-b z-20">
                         <h3 className="text-lg font-semibold text-primary">
                           {moduleName}
                         </h3>
@@ -408,7 +410,7 @@ const UserPermissions = () => {
                         {permissions.map((permission) => (
                           <div 
                             key={permission.permission_id} 
-                            className="flex items-start space-x-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                            className="flex items-start space-x-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors relative z-10"
                           >
                             <Switch
                               checked={permission.enabled}
@@ -418,7 +420,7 @@ const UserPermissions = () => {
                                   checked
                                 )
                               }
-                              className="mt-1"
+                              className="mt-1 relative z-10"
                             />
                             <div className="flex-1 space-y-1">
                               <div className="flex items-center space-x-2">
