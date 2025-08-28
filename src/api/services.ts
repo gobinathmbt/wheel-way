@@ -48,6 +48,10 @@ export const masterServices = {
   deletePlan: (id: string) =>
     apiClient.delete(`/api/master/plans/${id}`),
   
+  getDropdowns: (params?: any) => apiClient.get('api/master/dropdowns', { params }),
+  
+  getModulesForPermissions: () => apiClient.get('api/master/dropdowns/modules'),
+
   // Permissions
   getPermissions: (params?: any) =>
     apiClient.get('/api/master/permissions', { params }),

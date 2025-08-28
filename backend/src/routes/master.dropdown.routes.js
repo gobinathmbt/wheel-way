@@ -1,6 +1,17 @@
 
 const express = require('express');
-const { getDropdowns, createDropdown, updateDropdown, deleteDropdown, addValue, updateValue, deleteValue, reorderValues, getMasterInspection } = require('../controllers/masterDropdown.controller');
+const { 
+  getDropdowns, 
+  getModulesForPermissions,
+  createDropdown, 
+  updateDropdown, 
+  deleteDropdown, 
+  addValue, 
+  updateValue, 
+  deleteValue, 
+  reorderValues, 
+  getMasterInspection 
+} = require('../controllers/masterDropdown.controller');
 const router = express.Router();
 
 // Note: parent master.routes.js already applies protect + authorize('master_admin')
@@ -8,6 +19,7 @@ const router = express.Router();
 
 // CRUD for master dropdowns
 router.get('/', getDropdowns);
+router.get('/modules', getModulesForPermissions);
 router.post('/', createDropdown);
 router.put('/:id', updateDropdown);
 router.delete('/:id', deleteDropdown);

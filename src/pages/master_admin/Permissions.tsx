@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -56,6 +57,13 @@ interface Permission {
   created_at: string;
 }
 
+interface MasterDropdown {
+  _id: string;
+  dropdown_name: string;
+  display_name: string;
+  is_active: boolean;
+}
+
 const Permissions = () => {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
@@ -70,6 +78,19 @@ const Permissions = () => {
     internal_name: "",
     description: "",
     is_active: true,
+  });
+
+  // Fetch master dropdowns for module selection
+  const { data: dropdownsData } = useQuery({
+    queryKey: ["master-dropdowns-for-permissions"],
+    queryFn: () =>
+      masterServices
+        .getDropdowns({
+          page: 1,
+          limit: 100,
+          status: 'active'
+        })
+        .then((res) => res.data),
   });
 
   const { data: permissionsData, isLoading } = useQuery({
@@ -184,9 +205,23 @@ const Permissions = () => {
     toggleStatusMutation.mutate({ id, is_active: !currentStatus });
   };
 
+  const handleModuleSelect = (dropdownName: string) => {
+    const selectedDropdown = dropdownsData?.data?.find(
+      (dropdown: MasterDropdown) => dropdown.dropdown_name === dropdownName
+    );
+    if (selectedDropdown) {
+      setFormData({
+        ...formData,
+        module_name: selectedDropdown.dropdown_name // Store internal name in database
+      });
+    }
+  };
+
   useEffect(() => {
     setPage(1);
   }, [search, status]);
+
+  const availableModules = dropdownsData?.data || [];
 
   return (
     <DashboardLayout title="User Permissions">
@@ -209,14 +244,37 @@ const Permissions = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="module_name">Module Name</Label>
-                  <Input
-                    id="module_name"
-                    value={formData.module_name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, module_name: e.target.value })
-                    }
-                    required
-                  />
+                  {editingPermission ? (
+                    <Input
+                      id="module_name"
+                      value={
+                        availableModules.find(
+                          (mod: MasterDropdown) => mod.dropdown_name === formData.module_name
+                        )?.display_name || formData.module_name
+                      }
+                      disabled
+                    />
+                  ) : (
+                    <Select
+                      value={formData.module_name}
+                      onValueChange={handleModuleSelect}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a module" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableModules.map((dropdown: MasterDropdown) => (
+                          <SelectItem
+                            key={dropdown._id}
+                            value={dropdown.dropdown_name}
+                          >
+                            {dropdown.display_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -230,8 +288,12 @@ const Permissions = () => {
                         internal_name: e.target.value,
                       })
                     }
+                    placeholder="create_user"
                     required
                   />
+                  <p className="text-sm text-muted-foreground">
+                    Internal permission identifier (lowercase, underscores)
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -242,6 +304,7 @@ const Permissions = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
+                    placeholder="Ability to create new users"
                     required
                   />
                 </div>
@@ -332,64 +395,70 @@ const Permissions = () => {
                 </TableHeader>
                 <TableBody>
                   {permissionsData?.data?.map(
-                    (permission: Permission, index: number) => (
-                      <TableRow key={permission._id}>
-                        <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                        <TableCell className="font-medium">
-                          {permission.module_name}
-                        </TableCell>
-                        <TableCell>{permission.internal_name}</TableCell>
-                        <TableCell>{permission.description}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              permission.is_active ? "default" : "secondary"
-                            }
-                          >
-                            {permission.is_active ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {permission.created_by
-                            ? `${permission.created_by.first_name} ${permission.created_by.last_name}`
-                            : "N/A"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(permission)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                handleToggleStatus(
-                                  permission._id,
-                                  permission.is_active
-                                )
+                    (permission: Permission, index: number) => {
+                      const moduleDisplayName = availableModules.find(
+                        (mod: MasterDropdown) => mod.dropdown_name === permission.module_name
+                      )?.display_name || permission.module_name;
+
+                      return (
+                        <TableRow key={permission._id}>
+                          <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
+                          <TableCell className="font-medium">
+                            {moduleDisplayName}
+                          </TableCell>
+                          <TableCell>{permission.internal_name}</TableCell>
+                          <TableCell>{permission.description}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                permission.is_active ? "default" : "secondary"
                               }
                             >
-                              {permission.is_active ? (
-                                <ToggleRight className="h-4 w-4" />
-                              ) : (
-                                <ToggleLeft className="h-4 w-4" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(permission._id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
+                              {permission.is_active ? "Active" : "Inactive"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {permission.created_by
+                              ? `${permission.created_by.first_name} ${permission.created_by.last_name}`
+                              : "N/A"}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(permission)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  handleToggleStatus(
+                                    permission._id,
+                                    permission.is_active
+                                  )
+                                }
+                              >
+                                {permission.is_active ? (
+                                  <ToggleRight className="h-4 w-4" />
+                                ) : (
+                                  <ToggleLeft className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(permission._id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
                   )}
                 </TableBody>
               </Table>
