@@ -166,7 +166,7 @@ const MasterDropdownMaster = () => {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="dropdown_name">Dropdown Name</Label>
+                  <Label htmlFor="dropdown_name">Internal Name</Label>
                   <Input
                     id="dropdown_name"
                     value={formData.dropdown_name}
