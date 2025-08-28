@@ -130,12 +130,20 @@ const getUserModules = async (req, res) => {
     const user = await User.findOne({ 
       _id: userId, 
       company_id: req.user.company_id 
-    }).select('module_access');
+    }).select('module_access role');
 
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
+      });
+    }
+
+    // Only allow module management for company_admin users
+    if (user.role !== 'company_admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Module management is only available for company admin users'
       });
     }
 
@@ -170,6 +178,14 @@ const updateUserModules = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'User not found'
+      });
+    }
+
+    // Only allow module management for company_admin users
+    if (user.role !== 'company_admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Module management is only available for company admin users'
       });
     }
 
@@ -217,9 +233,8 @@ const updateUserModules = async (req, res) => {
   }
 };
 
-// @desc    Get users with their permissions for company
-// @route   GET /api/company/users-permissions
-// @access  Private (Company Super Admin)
+// ... keep existing code (getUsersWithPermissions function)
+
 const getUsersWithPermissions = async (req, res) => {
   try {
     const { page = 1, limit = 10, search, status } = req.query;

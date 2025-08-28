@@ -154,6 +154,11 @@ const UserPermissions = () => {
     setIsModuleDialogOpen(true);
   };
 
+  // Check if user can manage modules (only for company_admin role)
+  const canManageModules = (user: User) => {
+    return user.role === 'company_admin';
+  };
+
   const handlePermissionToggle = (internalName: string, enabled: boolean) => {
     setUserPermissions((prev) =>
       prev.map((p) =>
@@ -338,14 +343,16 @@ const UserPermissions = () => {
                               <Settings className="h-4 w-4 mr-2" />
                               Permissions
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleManageModules(user)}
-                            >
-                              <Layers className="h-4 w-4 mr-2" />
-                              Modules
-                            </Button>
+                            {canManageModules(user) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleManageModules(user)}
+                              >
+                                <Layers className="h-4 w-4 mr-2" />
+                                Modules
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
