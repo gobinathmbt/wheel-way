@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Edit3, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { vehicleServices } from "@/api/services";
@@ -84,11 +85,13 @@ const VehicleOverviewSection: React.FC<VehicleOverviewSectionProps> = ({
               {/* Hero Image */}
               {vehicle.vehicle_hero_image && (
                 <div className="mb-6">
-                  <img
-                    src={vehicle.vehicle_hero_image}
-                    alt="Vehicle"
-                    className="w-full h-48 object-cover rounded-lg"
-                  />
+                  <AspectRatio ratio={16 / 9} className="bg-muted rounded-lg overflow-hidden">
+                    <img
+                      src={vehicle.vehicle_hero_image}
+                      alt="Vehicle"
+                      className="w-full h-full object-cover"
+                    />
+                  </AspectRatio>
                 </div>
               )}
 
