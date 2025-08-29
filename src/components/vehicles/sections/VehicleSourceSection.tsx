@@ -29,14 +29,16 @@ const VehicleSourceSection: React.FC<VehicleSourceSectionProps> = ({
     purchase_notes: sourceData.purchase_notes || "",
   });
 
-  // Only show if there's data
-  if (!vehicle.vehicle_source?.length) {
-    return null;
-  }
-
   const handleSave = async () => {
     try {
-      await vehicleServices.updateVehicleSource(vehicle._id, { vehicle_source: [formData] });
+      await vehicleServices.updateVehicleSource(vehicle._id, { 
+        vehicle_source: [{
+          supplier: formData.supplier,
+          purchase_date: formData.purchase_date,
+          purchase_type: formData.purchase_type,
+          purchase_notes: formData.purchase_notes,
+        }]
+      });
       toast.success("Vehicle source updated successfully");
       setIsEditing(false);
       onUpdate();
@@ -130,21 +132,21 @@ const VehicleSourceSection: React.FC<VehicleSourceSectionProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium">Supplier</Label>
-                    <p className="text-sm text-muted-foreground">{sourceData.supplier}</p>
+                    <p className="text-sm text-muted-foreground">{formData.supplier || "N/A"}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Purchase Date</Label>
                     <p className="text-sm text-muted-foreground">
-                      {sourceData.purchase_date ? new Date(sourceData.purchase_date).toLocaleDateString() : 'N/A'}
+                      {formData.purchase_date ? new Date(formData.purchase_date).toLocaleDateString() : 'N/A'}
                     </p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Purchase Type</Label>
-                    <p className="text-sm text-muted-foreground">{sourceData.purchase_type}</p>
+                    <p className="text-sm text-muted-foreground">{formData.purchase_type || "N/A"}</p>
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <Label className="text-sm font-medium">Purchase Notes</Label>
-                    <p className="text-sm text-muted-foreground">{sourceData.purchase_notes}</p>
+                    <p className="text-sm text-muted-foreground">{formData.purchase_notes || "N/A"}</p>
                   </div>
                 </div>
               )}
