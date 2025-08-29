@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/auth/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, Bell, User, LogOut, Settings, Home, Users, FileText, Car, Database, Cog } from 'lucide-react';
+import { Menu, Bell, User, LogOut, Settings, Home, Users, FileText, Car, Database, Cog, Lock } from 'lucide-react';
 import { authServices } from '@/api/services';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -97,6 +98,28 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
   const navigationItems = getFilteredNavigationItems();
 
+  // Check if user has no access to any modules (for company_admin users only)
+  const hasNoModuleAccess = user?.role === 'company_admin' && 
+    (!userModule?.data?.module || !Array.isArray(userModule.data.module) || userModule.data.module.length === 0);
+
+  // No Access Component
+  const NoAccessContent = () => (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="text-center p-8 max-w-md">
+        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
+          <Lock className="h-10 w-10 text-muted-foreground" />
+        </div>
+        <h2 className="text-2xl font-bold mb-4">Access Restricted</h2>
+        <p className="text-muted-foreground mb-4">
+          You don't have access to any modules. Please contact your administrator to get the necessary permissions.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Administrator can assign module permissions from the User Management section.
+        </p>
+      </div>
+    </div>
+  );
+
   const Sidebar = ({ className = '' }) => (
     <div className={`flex flex-col h-full bg-card border-r ${className}`}>
       <div className="p-6">
@@ -107,26 +130,33 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
       </div>
       
       <nav className="flex-1 px-4 space-y-2">
-        {navigationItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = location.pathname === item.path;
-          
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
-                isActive 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              }`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+        {navigationItems.length > 0 ? (
+          navigationItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+            
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                  isActive 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                }`}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Icon className="h-5 w-5" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })
+        ) : (
+          <div className="text-center p-4 text-muted-foreground">
+            <Lock className="h-8 w-8 mx-auto mb-2" />
+            <p className="text-sm">No modules accessible</p>
+          </div>
+        )}
       </nav>
       
       <div className="p-4 border-t">
@@ -177,7 +207,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                 </Button>
               </SheetTrigger>
             </Sheet>
-            <h1 className="text-2xl font-bold">{title}</h1>
+            <h1 className="text-2xl font-bold">{hasNoModuleAccess ? 'Access Restricted' : title}</h1>
           </div>
           
           <div className="flex items-center space-x-4">
@@ -195,7 +225,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto p-6">
-          {children}
+          {hasNoModuleAccess ? <NoAccessContent /> : children}
         </main>
       </div>
     </div>

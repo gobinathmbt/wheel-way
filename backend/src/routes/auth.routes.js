@@ -117,16 +117,17 @@ router.get('/me/module', protect, async (req, res) => {
   try {
     const User = require('../models/User');
     
-    if (req.user.role === 'master_admin') {
+    if (req.user.role === 'master_admin' || req.user.role === 'company_super_admin') {
       return res.status(200).json({
         success: true,
         data: {
-          permissions: ['all'] // Master admin has all permissions
+          module: ['all'], // Admin roles have all module access
+          hasAccess: true
         }
       });
     }
 
-    const user = await User.findById(req.user.id).select('module_access');
+    const user = await User.findById(req.user.id).select('module_access role');
     
     if (!user) {
       return res.status(404).json({
@@ -135,18 +136,23 @@ router.get('/me/module', protect, async (req, res) => {
       });
     }
 
+    // Check if user has any module access
+    const hasModuleAccess = user.module_access && Array.isArray(user.module_access) && user.module_access.length > 0;
+
     res.status(200).json({
       success: true,
       data: {
-        module: user.module_access || []
+        module: user.module_access || [],
+        hasAccess: hasModuleAccess,
+        role: user.role
       }
     });
 
   } catch (error) {
-    console.error('Get user permissions error:', error);
+    console.error('Get user module access error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error retrieving user permissions'
+      message: 'Error retrieving user module access'
     });
   }
 });
