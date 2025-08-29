@@ -51,18 +51,6 @@ const UserSchema = new mongoose.Schema({
   }],
   module_access: [{
     type: String,
-    enum: [
-      'dashboard', 
-      'users', 
-      'permissions', 
-      'dropdown_master', 
-      'inspection_config', 
-      'tradein_config', 
-      'vehicle_stock', 
-      'inspection_list', 
-      'tradein_list', 
-      'settings'
-    ],
     trim: true
   }],
   is_active: {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Settings, Save, X } from "lucide-react";
@@ -38,10 +37,6 @@ interface ManageModuleDialogProps {
   user: User | null;
 }
 
-const AVAILABLE_MODULES = [
-  
-];
-
 const ManageModuleDialog: React.FC<ManageModuleDialogProps> = ({
   open,
   onOpenChange,
@@ -49,6 +44,18 @@ const ManageModuleDialog: React.FC<ManageModuleDialogProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const [moduleAccess, setModuleAccess] = useState<ModuleAccess[]>([]);
+
+  // Move the dropdownsData query inside the component
+  const { data: dropdownsData } = useQuery({
+    queryKey: ["master-modules-for-permissions"],
+    queryFn: () =>
+      companyServices
+        .getMasterdropdownvalues({
+          dropdown_name: ["modules"],
+        })
+        .then((res) => res.data),
+    enabled: open, // Only fetch when dialog is open
+  });
 
   const { data: userModules } = useQuery({
     queryKey: ["user-modules", user?._id],
@@ -70,16 +77,23 @@ const ManageModuleDialog: React.FC<ManageModuleDialogProps> = ({
     },
   });
 
+  // Get available modules from dropdown data
+  const availableModules =
+    dropdownsData?.data?.find(
+      (dropdown) => dropdown.dropdown_name === "modules"
+    )?.values || [];
+
+  // Initialize module access when data is loaded
   useEffect(() => {
-    if (user && userModules) {
-      const initialModules: ModuleAccess[] = AVAILABLE_MODULES.map(module => ({
-        module_name: module.module_name,
-        display_name: module.display_name,
-        enabled: userModules.includes(module.module_name)
+    if (availableModules.length > 0) {
+      const initialModules = availableModules.map((module: any) => ({
+        module_name: module.option_value,
+        display_name: module.display_value,
+        enabled: userModules?.includes(module.option_value) || false,
       }));
       setModuleAccess(initialModules);
     }
-  }, [user, userModules]);
+  }, [availableModules, userModules]);
 
   const handleModuleToggle = (moduleName: string, enabled: boolean) => {
     setModuleAccess(prev =>

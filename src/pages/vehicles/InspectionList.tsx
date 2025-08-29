@@ -57,7 +57,6 @@ const InspectionList = () => {
   const totalPages = Math.ceil((vehiclesData?.total || 0) / limit);
 
   // Check if user has specific permission
-  console.log(userPermissions);
   const hasPermission = (permission: string) => {
     return userPermissions?.data?.permissions?.includes(permission) || false;
   };

@@ -89,4 +89,6 @@ router.put('/settings/callback', authorize('company_super_admin'), updateCallbac
 router.post('/settings/test-s3', authorize('company_super_admin'), testS3Connection);
 router.post('/settings/test-webhook', authorize('company_super_admin'), testWebhook);
 
+router.use('/company/dropdowns', authorize('company_super_admin'), require('./master.dropdown.routes'));
+
 module.exports = router;

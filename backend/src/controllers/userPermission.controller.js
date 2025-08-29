@@ -169,9 +169,9 @@ const updateUserModules = async (req, res) => {
     const { userId } = req.params;
     const { modules } = req.body; // Array of module names
 
-    const user = await User.findOne({ 
-      _id: userId, 
-      company_id: req.user.company_id 
+    const user = await User.findOne({
+      _id: userId,
+      company_id: req.user.company_id
     });
 
     if (!user) {
@@ -189,23 +189,7 @@ const updateUserModules = async (req, res) => {
       });
     }
 
-    // Define available modules
-    const availableModules = [
-      'dashboard', 'users', 'permissions', 'dropdown_master', 
-      'inspection_config', 'tradein_config', 'vehicle_stock', 
-      'inspection_list', 'tradein_list', 'settings'
-    ];
-
-    // Validate modules
-    const invalidModules = modules.filter(module => !availableModules.includes(module));
-    if (invalidModules.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid modules: ${invalidModules.join(', ')}`
-      });
-    }
-
-    // Update user module access
+    // Directly update user module access with whatever frontend sends
     user.module_access = modules;
     await user.save();
 

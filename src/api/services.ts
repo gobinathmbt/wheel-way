@@ -13,8 +13,12 @@ export const authServices = {
     apiClient.get('/api/auth/me'),
 
   getCurrentUserPermissions: () =>
-    apiClient.get('/api/auth/me/permissions')
+    apiClient.get('/api/auth/me/permissions'),
+
+  getCurrentUserModule: () =>
+    apiClient.get('/api/auth/me/module')
 };
+
 
 // Master Admin Services
 export const masterServices = {
@@ -126,6 +130,9 @@ export const companyServices = {
   
   getAppraisalStats: (params?: any) =>
     apiClient.get('/api/company/dashboard/appraisals', { params }),
+
+  getMasterdropdownvalues: (data: any) =>
+  apiClient.post('api/company/company/dropdowns/dropdown_values',  data ),
   
   getUserStats: (params?: any) =>
     apiClient.get('/api/company/dashboard/users', { params }),
