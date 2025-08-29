@@ -11,6 +11,8 @@ import ProtectedRoute from "./auth/ProtectedRoute";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import RegisterCompany from "./pages/RegisterCompany";
+import NoAccess from "./pages/NoAccess";
+import Unauthorized from "./pages/Unauthorized";
 
 // Master Admin Pages
 import MasterDashboard from "./pages/master_admin/Dashboard";
@@ -19,7 +21,6 @@ import MasterPlans from "./pages/master_admin/Plans";
 import MasterSettings from "./pages/master_admin/Settings";
 import Permissions from './pages/master_admin/Permissions';
 import MasterDropdownMaster from "./pages/master_admin/DropdownMaster";
-
 
 // Company Pages  
 import CompanyDashboard from "./pages/company/Dashboard";
@@ -51,6 +52,8 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register-company" element={<RegisterCompany />} />
+            <Route path="/no-access" element={<NoAccess />} />
+            <Route path="/unauthorized" element={<Unauthorized />} />
             
             {/* Master Admin Routes */}
             <Route path="/master/dashboard" element={
@@ -86,7 +89,7 @@ const App = () => (
             
             {/* Company Routes */}
             <Route path="/company/dashboard" element={
-              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']}>
+              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']} requiredModule="vehicle_dashboard">
                 <CompanyDashboard />
               </ProtectedRoute>
             } />
@@ -121,14 +124,14 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* Vehicle Routes */}
+            {/* Vehicle Routes with Module Requirements */}
             <Route path="/vehicles/inspection" element={
-              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']}>
+              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']} requiredModule="vehicle_inspection">
                 <InspectionList />
               </ProtectedRoute>
             } />
             <Route path="/vehicles/tradein" element={
-              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']}>
+              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']} requiredModule="vehicle_tradein">
                 <TradeinList />
               </ProtectedRoute>
             } />

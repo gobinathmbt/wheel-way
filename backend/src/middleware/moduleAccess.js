@@ -51,4 +51,14 @@ const checkModuleAccess = (requiredModule) => {
   };
 };
 
-module.exports = { checkModuleAccess };
+// Route-specific module access middleware
+const routeModuleAccess = {
+  vehicleDashboard: checkModuleAccess('vehicle_dashboard'),
+  vehicleInspection: checkModuleAccess('vehicle_inspection'),
+  vehicleTradein: checkModuleAccess('vehicle_tradein')
+};
+
+module.exports = { 
+  checkModuleAccess, 
+  routeModuleAccess 
+};
