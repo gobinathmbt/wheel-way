@@ -1,4 +1,3 @@
-
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -70,9 +69,18 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  is_first_login: {
+    type: Boolean,
+    default: true
+  },
   last_login: {
     type: Date
   },
+  login_attempts: {
+    type: Number,
+    default: 0
+  },
+  account_locked_until: Date,
   email_verified: {
     type: Boolean,
     default: false
@@ -80,6 +88,10 @@ const UserSchema = new mongoose.Schema({
   email_verification_token: String,
   password_reset_token: String,
   password_reset_expires: Date,
+  created_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   created_at: {
     type: Date,
     default: Date.now
@@ -90,7 +102,7 @@ const UserSchema = new mongoose.Schema({
   }
 });
 
-// Index for efficient queries
+// Indexes for efficient queries
 UserSchema.index({ email: 1 });
 UserSchema.index({ username: 1 });
 UserSchema.index({ company_id: 1 });
@@ -108,7 +120,6 @@ UserSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
     return next();
   }
-
   try {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
@@ -123,9 +134,44 @@ UserSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
+// Alias for comparePassword (from Code 1)
+UserSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
+
 // Method to get user's full name
 UserSchema.methods.getFullName = function() {
   return `${this.first_name} ${this.last_name}`;
+};
+
+// Check if account is locked
+UserSchema.methods.isAccountLocked = function() {
+  return !!(this.account_locked_until && this.account_locked_until > Date.now());
+};
+
+// Increment login attempts
+UserSchema.methods.incrementLoginAttempts = function() {
+  if (this.account_locked_until && this.account_locked_until < Date.now()) {
+    return this.updateOne({
+      $unset: { account_locked_until: 1 },
+      $set: { login_attempts: 1 }
+    });
+  }
+
+  const updates = { $inc: { login_attempts: 1 } };
+
+  if (this.login_attempts + 1 >= 5 && !this.isAccountLocked()) {
+    updates.$set = { account_locked_until: Date.now() + 2 * 60 * 60 * 1000 }; // 2 hours
+  }
+
+  return this.updateOne(updates);
+};
+
+// Reset login attempts
+UserSchema.methods.resetLoginAttempts = function() {
+  return this.updateOne({
+    $unset: { login_attempts: 1, account_locked_until: 1 }
+  });
 };
 
 module.exports = mongoose.model('User', UserSchema);
