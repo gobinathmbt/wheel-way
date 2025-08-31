@@ -81,7 +81,7 @@ router.get('/users/:userId/modules', authorize('company_super_admin'), getUserMo
 router.put('/users/:userId/modules', authorize('company_super_admin'), updateUserModules);
 
 // Settings routes (only super admin)
-router.get('/settings/s3', authorize('company_super_admin'), getS3Config);
+router.get('/settings/s3', authorize('company_super_admin','company_admin'), getS3Config);
 router.get('/settings/callback', authorize('company_super_admin'), getCallbackConfig);
 router.get('/settings/billing', authorize('company_super_admin'), getBillingInfo);
 router.put('/settings/s3', authorize('company_super_admin'), updateS3Config);
