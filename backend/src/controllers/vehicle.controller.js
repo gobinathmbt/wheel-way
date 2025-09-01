@@ -1,3 +1,4 @@
+
 const Vehicle = require("../models/Vehicle");
 const { logEvent } = require("./logs.controller");
 const {
@@ -94,6 +95,133 @@ const getVehicleDetail = async (req, res) => {
     });
   }
 };
+
+// @desc    Create new vehicle stock
+// @route   POST /api/vehicle/create-stock
+// @access  Private (Company Admin/Super Admin)
+const createVehicleStock = async (req, res) => {
+  try {
+    const {
+      dealership,
+      status,
+      purchase_type,
+      manufacture,
+      make,
+      model,
+      variant,
+      body_style,
+      vin,
+      vehicle_type,
+      plate_no,
+      supplier,
+      purchase_date,
+      purchase_notes,
+      year,
+      vehicle_hero_image
+    } = req.body;
+
+    // Validate required fields
+    if (!make || !model || !year || !vin || !plate_no) {
+      return res.status(400).json({
+        success: false,
+        message: "Make, model, year, VIN, and registration number are required",
+      });
+    }
+
+    // Generate new vehicle stock ID
+    const lastVehicle = await Vehicle.findOne({ company_id: req.user.company_id })
+      .sort({ vehicle_stock_id: -1 })
+      .limit(1);
+    
+    const nextStockId = lastVehicle ? lastVehicle.vehicle_stock_id + 1 : 1;
+
+    // Check if VIN or plate number already exists for this company
+    const existingVehicle = await Vehicle.findOne({
+      company_id: req.user.company_id,
+      $or: [{ vin }, { plate_no }]
+    });
+
+    if (existingVehicle) {
+      return res.status(400).json({
+        success: false,
+        message: existingVehicle.vin === vin 
+          ? "A vehicle with this VIN already exists" 
+          : "A vehicle with this registration number already exists",
+      });
+    }
+
+    // Create vehicle data
+    const vehicleData = {
+      vehicle_stock_id: nextStockId,
+      company_id: req.user.company_id,
+      vehicle_type: vehicle_type || 'tradein',
+      vehicle_hero_image: vehicle_hero_image || 'https://via.placeholder.com/400x300',
+      vin,
+      plate_no,
+      make,
+      model,
+      year: parseInt(year),
+      chassis_no: vin, // Using VIN as chassis number
+      variant,
+      body_style,
+      status: 'pending',
+      queue_status: 'processed', // Skip queue processing for manually created vehicles
+    };
+
+    // Add vehicle source information
+    if (supplier || purchase_date || purchase_type || purchase_notes) {
+      vehicleData.vehicle_source = [{
+        supplier,
+        purchase_date: purchase_date ? new Date(purchase_date) : null,
+        purchase_type,
+        purchase_notes
+      }];
+    }
+
+    // Add other details if provided
+    if (status) {
+      vehicleData.vehicle_other_details = [{
+        status,
+        trader_acquisition: dealership
+      }];
+    }
+
+    const newVehicle = new Vehicle(vehicleData);
+    await newVehicle.save();
+
+    // Log the event
+    await logEvent({
+      event_type: "vehicle_operation",
+      event_action: "vehicle_stock_created",
+      event_description: `New vehicle stock created: ${make} ${model} (${year})`,
+      user_id: req.user.id,
+      company_id: req.user.company_id,
+      user_role: req.user.role,
+      metadata: {
+        vehicle_stock_id: nextStockId,
+        make,
+        model,
+        year,
+        vin,
+        plate_no
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Vehicle stock created successfully",
+      data: newVehicle,
+    });
+  } catch (error) {
+    console.error("Create vehicle stock error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error creating vehicle stock",
+    });
+  }
+};
+
+// ... keep existing code (bulk import, update, delete, receive vehicle data, process queue, section updates, attachments)
 
 // @desc    Bulk import vehicles
 // @route   POST /api/vehicle/bulk-import
@@ -787,6 +915,7 @@ const deleteVehicleAttachment = async (req, res) => {
 module.exports = {
   getVehicleStock,
   getVehicleDetail,
+  createVehicleStock,
   bulkImportVehicles,
   updateVehicle,
   deleteVehicle,

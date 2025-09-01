@@ -117,6 +117,8 @@ export const masterDropdownServices = {
 };
 
 // Company Services
+// ... keep existing code (company services)
+
 export const companyServices = {
   // Dashboard
   getDashboardStats: (params?: any) =>
@@ -215,6 +217,9 @@ export const companyServices = {
   testWebhook: (data: any) =>
     apiClient.post('/api/company/settings/test-webhook', data)
 };
+
+// ... keep existing code (dropdown services, config services)
+
 // Dropdown Services
 export const dropdownServices = {
   getDropdowns: (params?: any) =>
@@ -361,6 +366,9 @@ export const vehicleServices = {
   deleteVehicle: (id: string) =>
     apiClient.delete(`/api/vehicle/${id}`),
 
+  createVehicleStock: (data: any) =>
+    apiClient.post('/api/vehicle/create-stock', data),
+
   // Vehicle Section Updates
   updateVehicleOverview: (vehicleId: string, data: any) =>
     apiClient.put(`/api/vehicle/${vehicleId}/overview`, data),
@@ -403,6 +411,7 @@ export const vehicleServices = {
     apiClient.delete(`/api/vehicle/${vehicleId}/attachments/${attachmentId}`)
 };
 
+// ... keep existing code (inspection services, tradein services, logs services)
 
 // Inspection Services
 export const inspectionServices = {

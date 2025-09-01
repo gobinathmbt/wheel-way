@@ -27,6 +27,12 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Eye,
   Download,
   Upload,
@@ -34,17 +40,20 @@ import {
   Car,
   DollarSign,
   TrendingUp,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { vehicleServices, tradeinServices } from "@/api/services";
 import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
 import VehicleDetailSideModal from "@/components/vehicles/VehicleDetailSideModal";
+import CreateVehicleStockModal from "@/components/vehicles/CreateVehicleStockModal";
 
 const TradeinList = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [page, setPage] = useState(1);
   const limit = 20;
 
@@ -103,6 +112,11 @@ const TradeinList = () => {
     }
   };
 
+  const handleCreateSuccess = () => {
+    refetch();
+    toast.success("Vehicle stock created successfully");
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
@@ -142,11 +156,30 @@ const TradeinList = () => {
               Manage vehicle trade-in evaluations and offers
             </p>
           </div>
+
           <div className="flex space-x-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowCreateModal(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Vehicle Stock
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Create Vehicle Stock (same for Import and Export)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
             <Button variant="outline">
               <Upload className="h-4 w-4 mr-2" />
               Import Vehicles
             </Button>
+            
             <Button variant="outline">
               <Download className="h-4 w-4 mr-2" />
               Export Report
@@ -381,6 +414,13 @@ const TradeinList = () => {
         isOpen={!!selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
         onUpdate={refetch}
+      />
+
+      {/* Create Vehicle Stock Modal */}
+      <CreateVehicleStockModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleCreateSuccess}
       />
     </DashboardLayout>
   );

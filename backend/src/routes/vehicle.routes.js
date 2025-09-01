@@ -5,6 +5,7 @@ const {
   getVehicleStock,
   getVehicleDetail,
   bulkImportVehicles,
+  createVehicleStock,
   updateVehicle,
   deleteVehicle,
   receiveVehicleData,
@@ -44,6 +45,7 @@ router.use(companyScopeCheck);
 router.get('/stock', getVehicleStock);
 router.get('/detail/:vehicleId', getVehicleDetail);
 router.post('/bulk-import', bulkImportVehicles);
+router.post('/create-stock', createVehicleStock);
 router.put('/:id', updateVehicle);
 router.delete('/:id', deleteVehicle);
 
