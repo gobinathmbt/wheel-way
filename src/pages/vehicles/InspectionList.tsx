@@ -365,6 +365,7 @@ const InspectionList = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateSuccess}
+        vehicleType="inspection"
       />
     </DashboardLayout>
   );

@@ -34,12 +34,14 @@ interface CreateVehicleStockModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  vehicleType: "inspection" | "tradein";
 }
 
 const CreateVehicleStockModal = ({
   isOpen,
   onClose,
   onSuccess,
+  vehicleType,
 }: CreateVehicleStockModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [purchaseDate, setPurchaseDate] = useState<Date>();
@@ -54,7 +56,7 @@ const CreateVehicleStockModal = ({
     variant: "",
     body_style: "",
     vin: "",
-    vehicle_type: "tradein",
+    vehicle_type: vehicleType,
     plate_no: "",
     supplier: "",
     purchase_notes: "",
@@ -84,10 +86,11 @@ const CreateVehicleStockModal = ({
         purchase_date: purchaseDate ? purchaseDate.toISOString() : null,
         chassis_no: formData.vin, // Using VIN as chassis number for now
         vehicle_hero_image: "https://via.placeholder.com/400x300", // Placeholder image
+        vehicle_type: vehicleType, // Ensure we use the passed vehicleType
       };
 
       await vehicleServices.createVehicleStock(submitData);
-      toast.success("Vehicle stock created successfully");
+      toast.success(`Vehicle stock created successfully for ${vehicleType}`);
       onSuccess();
       onClose();
       
@@ -103,7 +106,7 @@ const CreateVehicleStockModal = ({
         variant: "",
         body_style: "",
         vin: "",
-        vehicle_type: "tradein",
+        vehicle_type: vehicleType,
         plate_no: "",
         supplier: "",
         purchase_notes: "",
@@ -117,13 +120,23 @@ const CreateVehicleStockModal = ({
     }
   };
 
+  const getModalTitle = () => {
+    return vehicleType === "inspection" ? "Create Inspection Vehicle Stock" : "Create Trade-in Vehicle Stock";
+  };
+
+  const getModalDescription = () => {
+    return vehicleType === "inspection" 
+      ? "Add a new vehicle to the inspection inventory" 
+      : "Add a new vehicle to the trade-in inventory";
+  };
+
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent className="sm:max-w-md overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Create Vehicle Stock</SheetTitle>
+          <SheetTitle>{getModalTitle()}</SheetTitle>
           <SheetDescription>
-            Add a new vehicle to the trade-in inventory
+            {getModalDescription()}
           </SheetDescription>
         </SheetHeader>
 
@@ -264,15 +277,15 @@ const CreateVehicleStockModal = ({
           <div className="space-y-2">
             <Label htmlFor="vehicle_type">Vehicle Type</Label>
             <Select
-              value={formData.vehicle_type}
-              onValueChange={(value) => handleInputChange("vehicle_type", value)}
+              value={vehicleType}
+              disabled
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select vehicle type" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="tradein">Trade-in</SelectItem>
                 <SelectItem value="inspection">Inspection</SelectItem>
+                <SelectItem value="tradein">Trade-in</SelectItem>
               </SelectContent>
             </Select>
           </div>

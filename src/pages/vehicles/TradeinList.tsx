@@ -417,10 +417,11 @@ const TradeinList = () => {
       />
 
       {/* Create Vehicle Stock Modal */}
-      <CreateVehicleStockModal
+       <CreateVehicleStockModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}
+        vehicleType="tradein"
       />
     </DashboardLayout>
   );
