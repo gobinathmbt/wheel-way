@@ -13,19 +13,29 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Eye, Download, Upload, Calendar, Car } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Eye, Download, Upload, Calendar, Car, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { vehicleServices, inspectionServices, authServices } from '@/api/services';
 import ConfigurationSearchmore from '@/components/inspection/ConfigurationSearchmore';
 import VehicleDetailSideModal from '@/components/vehicles/VehicleDetailSideModal';
+import CreateVehicleStockModal from '@/components/vehicles/CreateVehicleStockModal';
 
 const InspectionList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [page, setPage] = useState(1);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const limit = 20;
+
+  // ... keep existing code (userPermissions query)
 
   // Fetch current user's permissions
   const { data: userPermissions } = useQuery({
@@ -90,6 +100,11 @@ const InspectionList = () => {
     }
   };
 
+  const handleCreateSuccess = () => {
+    refetch();
+    setIsCreateModalOpen(false);
+  };
+
   // ... keep existing code (handleClearSearch, handleFilterChange, getStatusColor functions)
 
   const handleClearSearch = () => {
@@ -124,12 +139,34 @@ const InspectionList = () => {
             <p className="text-muted-foreground">Manage vehicle inspection workflows</p>
           </div>
           <div className="flex space-x-2">
+
+            <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline"
+                      onClick={() => setIsCreateModalOpen(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Vehicle Stock
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Create Vehicle Stock</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              
             {hasPermission('import_vehicles') && (
               <Button variant="outline">
                 <Upload className="h-4 w-4 mr-2" />
                 Import Vehicles
               </Button>
             )}
+           
+              
+            
             {hasPermission('export_reports') && (
               <Button variant="outline">
                 <Download className="h-4 w-4 mr-2" />
@@ -321,6 +358,13 @@ const InspectionList = () => {
         isOpen={!!selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
         onUpdate={refetch}
+      />
+
+      {/* Create Vehicle Stock Modal */}
+      <CreateVehicleStockModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleCreateSuccess}
       />
     </DashboardLayout>
   );
