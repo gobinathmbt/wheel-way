@@ -2,37 +2,25 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { useQuery } from '@tanstack/react-query';
-import { authServices } from '@/api/services';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles: string[];
-  requiredModule?: string; // Add optional module requirement
+  requiredRole?: string | string[];
+  allowInactiveSubscription?: boolean;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
-  allowedRoles, 
-  requiredModule 
+  requiredRole,
+  allowInactiveSubscription = false
 }) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
-  // Fetch user module access
-  const { data: userModule, isLoading: moduleLoading } = useQuery({
-    queryKey: ['user-module'],
-    queryFn: async () => {
-      const response = await authServices.getCurrentUserModule();
-      return response.data;
-    },
-    enabled: !!user && !isLoading
-  });
-
-  if (isLoading || moduleLoading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -41,19 +29,23 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!allowedRoles.includes(user.role)) {
-    return <Navigate to="/unauthorized" replace />;
+  // Check role authorization
+  if (requiredRole) {
+    const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+    if (!roles.includes(user.role)) {
+      return <Navigate to="/unauthorized" replace />;
+    }
   }
 
-  // Check module access for company_admin users
-  if (requiredModule && user.role === 'company_admin') {
-    // If user has no module access at all
-    if (!userModule?.data?.module || !Array.isArray(userModule.data.module) || userModule.data.module.length === 0) {
-      return <Navigate to="/no-access" replace />;
+  // Check subscription status for company users
+  if (user.role !== 'master_admin' && !allowInactiveSubscription) {
+    // If subscription is inactive, redirect to subscription page for super admin
+    if (user.subscription_inactive && user.role === 'company_super_admin') {
+      return <Navigate to="/subscription" replace />;
     }
-
-    // Check if user has the required module
-    if (!userModule.data.module.includes(requiredModule)) {
+    
+    // If subscription is expired (beyond grace period) and user is not super admin, deny access
+    if (user.subscription_inactive && user.role !== 'company_super_admin') {
       return <Navigate to="/unauthorized" replace />;
     }
   }

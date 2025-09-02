@@ -1,10 +1,9 @@
+
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const MasterAdmin = require('../models/MasterAdmin');
 const User = require('../models/User');
 const Company = require('../models/Company');
-const Plan = require('../models/Plan');
-const mailService = require('../config/mailer');
 const { logEvent } = require('./logs.controller');
 const config = require('../config/env');
 
@@ -65,12 +64,26 @@ const login = async (req, res) => {
       });
     }
 
-    // For regular users, check if account is locked
-    if (userType === 'user' && user.isAccountLocked()) {
-      return res.status(423).json({
-        success: false,
-        message: 'Account is temporarily locked due to too many failed login attempts'
-      });
+    // For regular users, check company subscription status
+    if (userType === 'user' && user.company_id) {
+      const company = user.company_id;
+      
+      // Check if subscription is expired (beyond grace period)
+      if (company.isSubscriptionExpired() && user.role !== 'company_super_admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Company subscription has expired. Please contact your administrator.',
+          subscription_expired: true
+        });
+      }
+
+      // Check if user account is locked
+      if (user.isAccountLocked()) {
+        return res.status(423).json({
+          success: false,
+          message: 'Account is temporarily locked due to too many failed login attempts'
+        });
+      }
     }
 
     // Check password - use the comparePassword method from the model
@@ -118,13 +131,22 @@ const login = async (req, res) => {
       id: user._id,
       email: user.email,
       role: user.role,
-      company_id: user.company_id,
+      company_id: user.company_id?._id || user.company_id,
       is_first_login: user.is_first_login || false
     };
 
     if (userType === 'user') {
       userData.username = user.username;
       userData.company_name = user.company_id?.company_name;
+      
+      // Add subscription status for company users
+      if (user.company_id) {
+        const company = user.company_id;
+        userData.subscription_status = company.subscription_status;
+        userData.subscription_inactive = company.subscription_status === 'inactive';
+        userData.in_grace_period = company.isInGracePeriod();
+        userData.grace_period_days = company.getGracePeriodDaysRemaining();
+      }
     } else {
       userData.first_name = user.first_name;
       userData.last_name = user.last_name;
@@ -173,7 +195,6 @@ const registerCompany = async (req, res) => {
       city,
       state,
       country,
-      plan_id,
       password
     } = req.body;
 
@@ -203,16 +224,7 @@ const registerCompany = async (req, res) => {
       });
     }
 
-    // Validate plan
-    const plan = await Plan.findOne({ name: plan_id, is_active: true });
-    if (!plan) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid subscription plan'
-      });
-    }
-
-    // Create company
+    // Create company without plan_id (will be set during subscription)
     const company = new Company({
       company_name,
       contact_person,
@@ -222,8 +234,7 @@ const registerCompany = async (req, res) => {
       city,
       state,
       country,
-      plan_id: plan._id,
-      user_limit: plan.user_limit
+      subscription_status: 'inactive'
     });
 
     await company.save();
@@ -255,7 +266,7 @@ const registerCompany = async (req, res) => {
       company_id: company._id,
       ip_address: req.ip,
       user_agent: req.get('User-Agent'),
-      metadata: { company_name, email, plan: plan.name }
+      metadata: { company_name, email }
     });
 
     res.status(201).json({
@@ -264,8 +275,7 @@ const registerCompany = async (req, res) => {
       company: {
         id: company._id,
         name: company_name,
-        email,
-        plan: plan.display_name
+        email
       }
     });
 
@@ -309,6 +319,15 @@ const getMe = async (req, res) => {
     if (user.role !== 'master_admin') {
       userData.username = user.username;
       userData.company_name = user.company_id?.company_name;
+      
+      // Add subscription status for company users
+      if (user.company_id) {
+        const company = user.company_id;
+        userData.subscription_status = company.subscription_status;
+        userData.subscription_inactive = company.subscription_status === 'inactive';
+        userData.in_grace_period = company.isInGracePeriod();
+        userData.grace_period_days = company.getGracePeriodDaysRemaining();
+      }
     } else {
       userData.first_name = user.first_name;
       userData.last_name = user.last_name;

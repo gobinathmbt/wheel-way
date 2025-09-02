@@ -19,7 +19,6 @@ export const authServices = {
     apiClient.get('/api/auth/me/module')
 };
 
-
 // Master Admin Services
 export const masterServices = {
   // Dashboard
@@ -87,7 +86,14 @@ export const masterServices = {
     apiClient.put('/api/master/smtp-settings', data),
   
   testSmtp: (data: any) =>
-    apiClient.post('/api/master/test-smtp', data)
+    apiClient.post('/api/master/test-smtp', data),
+
+  // Payment Settings
+  updatePaymentSettings: (data: any) =>
+    apiClient.put('/api/master/payment-settings', data),
+  
+  getPaymentSettings: () =>
+    apiClient.get('/api/master/payment-settings')
 };
 
 export const masterDropdownServices = {
@@ -116,9 +122,31 @@ export const masterDropdownServices = {
     apiClient.put(`/api/master/dropdowns/${dropdownId}/reorder/values`, data)
 };
 
-// Company Services
-// ... keep existing code (company services)
+// Subscription Services
+export const subscriptionServices = {
+  getPlanConfig: () =>
+    apiClient.get('/api/subscription/plan-config'),
+  
+  calculateCost: (data: any) =>
+    apiClient.post('/api/subscription/calculate-cost', data),
+  
+  createSubscription: (data: any) =>
+    apiClient.post('/api/subscription/create', data),
+  
+  completeSubscription: (id: string, data: any) =>
+    apiClient.post(`/api/subscription/${id}/complete`, data),
+  
+  getSubscriptionHistory: () =>
+    apiClient.get('/api/subscription/history'),
+  
+  getSubscriptionStatus: () =>
+    apiClient.get('/api/subscription/status'),
+  
+  getPaymentSettings: () =>
+    apiClient.get('/api/subscription/payment-settings')
+};
 
+// Company Services
 export const companyServices = {
   // Dashboard
   getDashboardStats: (params?: any) =>
@@ -154,8 +182,6 @@ export const companyServices = {
   getRecentActivity: (params?: any) =>
     apiClient.get('/api/company/dashboard/recent-activity', { params }),
 
-  // ... keep existing code (users, permissions, settings)
-  
   // Users
   getUsers: (params?: any) =>
     apiClient.get('/api/company/users', { params }),
@@ -411,8 +437,6 @@ export const vehicleServices = {
     apiClient.delete(`/api/vehicle/${vehicleId}/attachments/${attachmentId}`)
 };
 
-// ... keep existing code (inspection services, tradein services, logs services)
-
 // Inspection Services
 export const inspectionServices = {
   getInspections: (params?: any) =>
@@ -467,7 +491,6 @@ export const logServices = {
     apiClient.get('/api/logs/analytics', { params })
 };
 
-
 export default {
   auth: authServices,
   master: masterServices,
@@ -478,5 +501,6 @@ export default {
   vehicle: vehicleServices,
   inspection: inspectionServices,
   tradein: tradeinServices,
-  logs: logServices
+  logs: logServices,
+  subscription: subscriptionServices
 };
