@@ -55,5 +55,6 @@ router.get('/aws-settings', getAwsSettings);
 
 // Master admin dropdown routes
 router.use('/dropdowns', require('./master.dropdown.routes'));
+router.use('/master/dropdowns', authorize('master_admin'), require('./master.dropdown.routes'));
 
 module.exports = router;

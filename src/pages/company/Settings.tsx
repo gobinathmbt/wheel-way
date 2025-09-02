@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Cloud, Link, CreditCard, Save, TestTube, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Cloud, Link, CreditCard, Save, TestTube, Loader2, Package, Calendar, Users, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { companyServices } from '@/api/services';
+import { companyServices, subscriptionServices } from '@/api/services';
+import { useQuery } from '@tanstack/react-query';
 
 const CompanySettings = () => {
   const [loading, setLoading] = useState(false);
@@ -27,13 +29,30 @@ const CompanySettings = () => {
     webhook_secret: ''
   });
 
-  const [planInfo, setPlanInfo] = useState({
-    current_plan: 'Basic Plan',
-    user_limit: 15,
-    current_users: 8,
-    billing_cycle: 'Monthly',
-    next_billing: '2024-12-01',
-    amount: 99
+  // Load current subscription
+  const { data: currentSubscription, refetch: refetchSubscription } = useQuery({
+    queryKey: ['current-subscription'],
+    queryFn: async () => {
+      try {
+        const response = await subscriptionServices.getCurrentSubscription();
+        return response.data.data;
+      } catch (error) {
+        return null;
+      }
+    }
+  });
+
+  // Load subscription history
+  const { data: subscriptionHistory } = useQuery({
+    queryKey: ['subscription-history'],
+    queryFn: async () => {
+      try {
+        const response = await subscriptionServices.getSubscriptionHistory();
+        return response.data.data;
+      } catch (error) {
+        return [];
+      }
+    }
   });
 
   // Load configurations on mount
@@ -41,10 +60,9 @@ const CompanySettings = () => {
     const loadConfigurations = async () => {
       setLoading(true);
       try {
-        const [s3Response, callbackResponse, billingResponse] = await Promise.all([
+        const [s3Response, callbackResponse] = await Promise.all([
           companyServices.getS3Config(),
-          companyServices.getCallbackConfig(),
-          companyServices.getBillingInfo()
+          companyServices.getCallbackConfig()
         ]);
 
         if (s3Response.data.success) {
@@ -53,10 +71,6 @@ const CompanySettings = () => {
         
         if (callbackResponse.data.success) {
           setCallbackConfig(callbackResponse.data.data || callbackConfig);
-        }
-        
-        if (billingResponse.data.success) {
-          setPlanInfo(billingResponse.data.data || planInfo);
         }
       } catch (error) {
         console.error('Failed to load configurations:', error);
@@ -128,7 +142,7 @@ const CompanySettings = () => {
     }
   };
 
-  if (loading && !s3Config.bucket) {
+  if (loading && !s3Config.bucket && !currentSubscription) {
     return (
       <DashboardLayout title="Company Settings">
         <div className="flex items-center justify-center h-64">
@@ -144,12 +158,15 @@ const CompanySettings = () => {
         {/* Header */}
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Company Settings</h2>
-          <p className="text-muted-foreground">Configure your company's integrations and billing</p>
+          <p className="text-muted-foreground">Configure your company's integrations and subscription</p>
         </div>
 
-        <Tabs defaultValue="storage" className="space-y-6">
-          {/* ... keep existing TabsList the same */}
+        <Tabs defaultValue="subscription" className="space-y-6">
           <TabsList>
+            <TabsTrigger value="subscription" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Subscription
+            </TabsTrigger>
             <TabsTrigger value="storage" className="flex items-center gap-2">
               <Cloud className="h-4 w-4" />
               Cloud Storage
@@ -158,11 +175,156 @@ const CompanySettings = () => {
               <Link className="h-4 w-4" />
               Webhooks
             </TabsTrigger>
-            <TabsTrigger value="billing" className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4" />
-              Billing & Plan
-            </TabsTrigger>
           </TabsList>
+
+          {/* Subscription Tab */}
+          <TabsContent value="subscription">
+            <div className="space-y-6">
+              {/* Current Subscription Status */}
+              {currentSubscription ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Package className="h-5 w-5" />
+                      Current Subscription
+                      <Badge variant={currentSubscription.subscription_status === 'active' ? 'default' : 
+                                   currentSubscription.subscription_status === 'grace_period' ? 'destructive' : 'secondary'}>
+                        {currentSubscription.subscription_status}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {currentSubscription.subscription_status === 'grace_period' && (
+                      <Alert variant="destructive" className="mb-4">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>
+                          Your subscription has expired. You have {currentSubscription.days_remaining || 0} days remaining in the grace period.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <Users className="h-8 w-8 mx-auto mb-2 text-primary" />
+                        <div className="text-2xl font-bold">{currentSubscription.number_of_users}</div>
+                        <p className="text-sm text-muted-foreground">Users</p>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <Calendar className="h-8 w-8 mx-auto mb-2 text-primary" />
+                        <div className="text-2xl font-bold">{currentSubscription.days_remaining || 0}</div>
+                        <p className="text-sm text-muted-foreground">Days Left</p>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <Package className="h-8 w-8 mx-auto mb-2 text-primary" />
+                        <div className="text-2xl font-bold">{currentSubscription.selected_modules?.length || 0}</div>
+                        <p className="text-sm text-muted-foreground">Modules</p>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <CreditCard className="h-8 w-8 mx-auto mb-2 text-primary" />
+                        <div className="text-2xl font-bold">${currentSubscription.total_amount}</div>
+                        <p className="text-sm text-muted-foreground">Total Paid</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium">Start Date</Label>
+                        <p className="text-lg">{new Date(currentSubscription.subscription_start_date).toLocaleDateString()}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">End Date</Label>
+                        <p className="text-lg">{new Date(currentSubscription.subscription_end_date).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <Label className="text-sm font-medium">Active Modules</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {currentSubscription.selected_modules?.map((module, index) => (
+                          <Badge key={index} variant="outline" className="capitalize">
+                            {module.module_name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-6">
+                      <Button onClick={() => window.location.href = '/subscription'}>
+                        Renew Subscription
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-destructive" />
+                      No Active Subscription
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        You don't have an active subscription. Please set up your subscription to access all features.
+                      </AlertDescription>
+                    </Alert>
+                    <div className="mt-4">
+                      <Button onClick={() => window.location.href = '/subscription'}>
+                        Set Up Subscription
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Subscription History */}
+              {subscriptionHistory && subscriptionHistory.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Subscription History</CardTitle>
+                    <CardDescription>Your past subscriptions and payments</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {subscriptionHistory.map((subscription, index) => (
+                        <div key={index} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                          <div>
+                            <p className="font-medium">
+                              {subscription.number_of_users} Users × {subscription.number_of_days} Days
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(subscription.subscription_start_date).toLocaleDateString()} - 
+                              {new Date(subscription.subscription_end_date).toLocaleDateString()}
+                            </p>
+                            <div className="flex gap-1 mt-1">
+                              {subscription.selected_modules?.slice(0, 3).map((module, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs capitalize">
+                                  {module.module_name}
+                                </Badge>
+                              ))}
+                              {subscription.selected_modules?.length > 3 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{subscription.selected_modules.length - 3} more
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">${subscription.total_amount}</p>
+                            <Badge variant={subscription.payment_status === 'completed' ? 'default' : 'secondary'}>
+                              {subscription.payment_status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
 
           {/* S3 Configuration */}
           <TabsContent value="storage">
@@ -173,7 +335,6 @@ const CompanySettings = () => {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleS3Save} className="space-y-6">
-                  {/* ... keep existing form fields the same */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="bucket">S3 Bucket Name</Label>
@@ -245,7 +406,7 @@ const CompanySettings = () => {
             </Card>
           </TabsContent>
 
-          {/* ... keep existing webhook and billing tabs the same but add loading states */}
+          {/* Webhooks */}
           <TabsContent value="webhooks">
             <Card>
               <CardHeader>
@@ -320,112 +481,6 @@ const CompanySettings = () => {
                 </form>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          {/* Billing & Plan */}
-          <TabsContent value="billing">
-            {/* ... keep existing billing content the same */}
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Current Plan</CardTitle>
-                  <CardDescription>Your subscription details and usage</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
-                        <Label className="text-sm font-medium">Plan</Label>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-2xl font-bold">{planInfo.current_plan}</span>
-                          <Badge variant="default">Active</Badge>
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium">Billing</Label>
-                        <p className="text-2xl font-bold">${planInfo.amount}/{planInfo.billing_cycle.toLowerCase()}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <Label className="text-sm font-medium">User Usage</Label>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-lg">{planInfo.current_users}/{planInfo.user_limit}</span>
-                          <span className="text-sm text-muted-foreground">users</span>
-                        </div>
-                        <div className="w-full bg-secondary rounded-full h-2 mt-2">
-                          <div 
-                            className="bg-primary h-2 rounded-full" 
-                            style={{width: `${(planInfo.current_users / planInfo.user_limit) * 100}%`}}
-                          ></div>
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium">Next Billing Date</Label>
-                        <p className="text-lg font-medium">{new Date(planInfo.next_billing).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* ... keep existing upgrade and billing history cards the same */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Upgrade Plan</CardTitle>
-                  <CardDescription>Get more users and features</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 border rounded-lg">
-                      <h3 className="font-semibold">Basic</h3>
-                      <p className="text-2xl font-bold">$99<span className="text-sm font-normal">/month</span></p>
-                      <p className="text-sm text-muted-foreground">Up to 15 users</p>
-                      <Badge variant="default" className="mt-2">Current</Badge>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <h3 className="font-semibold">Intermediate</h3>
-                      <p className="text-2xl font-bold">$199<span className="text-sm font-normal">/month</span></p>
-                      <p className="text-sm text-muted-foreground">Up to 30 users + Support</p>
-                      <Button className="mt-2 w-full" variant="outline">Upgrade</Button>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <h3 className="font-semibold">Pro</h3>
-                      <p className="text-2xl font-bold">$299<span className="text-sm font-normal">/month</span></p>
-                      <p className="text-sm text-muted-foreground">Up to 50 users + Custom UI</p>
-                      <Button className="mt-2 w-full" variant="outline">Upgrade</Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Billing History</CardTitle>
-                  <CardDescription>Your recent payments and invoices</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      { date: '2024-11-01', amount: 99, status: 'Paid', invoice: 'INV-001' },
-                      { date: '2024-10-01', amount: 99, status: 'Paid', invoice: 'INV-002' },
-                      { date: '2024-09-01', amount: 99, status: 'Paid', invoice: 'INV-003' }
-                    ].map((payment, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                        <div>
-                          <p className="font-medium">{payment.invoice}</p>
-                          <p className="text-sm text-muted-foreground">{new Date(payment.date).toLocaleDateString()}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">${payment.amount}</p>
-                          <Badge variant="default">{payment.status}</Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
           </TabsContent>
         </Tabs>
       </div>

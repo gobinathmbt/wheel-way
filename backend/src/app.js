@@ -19,6 +19,7 @@ const inspectionRoutes = require('./routes/inspection.routes');
 const tradeinRoutes = require('./routes/tradein.routes');
 const docsRoutes = require('./routes/docs.routes');
 const logsRoutes = require('./routes/logs.routes');
+const subscriptionRoutes = require('./routes/subscription.routes');
 
 // Import middleware
 const errorHandler = require('./middleware/error');
@@ -80,6 +81,7 @@ app.use('/api/inspection', inspectionRoutes);
 app.use('/api/tradein', tradeinRoutes);
 app.use('/api/docs', docsRoutes);
 app.use('/api/logs', logsRoutes);
+app.use('/api/subscription', subscriptionRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

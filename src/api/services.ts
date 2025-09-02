@@ -19,6 +19,26 @@ export const authServices = {
     apiClient.get('/api/auth/me/module')
 };
 
+// Subscription Services
+export const subscriptionServices = {
+  getPricingConfig: () =>
+    apiClient.get('/api/subscription/pricing-config'),
+  
+  calculatePrice: (data: any) =>
+    apiClient.post('/api/subscription/calculate-price', data),
+  
+  createSubscription: (data: any) =>
+    apiClient.post('/api/subscription/create', data),
+  
+  updatePaymentStatus: (subscriptionId: string, data: any) =>
+    apiClient.patch(`/api/subscription/${subscriptionId}/payment-status`, data),
+  
+  getCurrentSubscription: () =>
+    apiClient.get('/api/subscription/current'),
+  
+  getSubscriptionHistory: () =>
+    apiClient.get('/api/subscription/history')
+};
 
 // Master Admin Services
 export const masterServices = {
@@ -44,7 +64,7 @@ export const masterServices = {
   
   // Plans
   getPlans: () =>
-    apiClient.get('/api/master/plans'),
+    apiClient.get('/api/subscription/pricing-config'),
   
   createPlan: (data: any) =>
     apiClient.post('/api/master/plans', data),
@@ -59,6 +79,7 @@ export const masterServices = {
   
   getMasterdropdownvalues: (data: any) =>
   apiClient.post('api/master/dropdowns/dropdown_values',  data ),
+  
 
   // Permissions
   getPermissions: (params?: any) =>
@@ -87,7 +108,14 @@ export const masterServices = {
     apiClient.put('/api/master/smtp-settings', data),
   
   testSmtp: (data: any) =>
-    apiClient.post('/api/master/test-smtp', data)
+    apiClient.post('/api/master/test-smtp', data),
+
+  // Payment Settings
+  updatePaymentSettings: (data: any) =>
+    apiClient.put('/api/master/payment-settings', data),
+  
+  getPaymentSettings: () =>
+    apiClient.get('/api/master/payment-settings')
 };
 
 export const masterDropdownServices = {
@@ -117,8 +145,6 @@ export const masterDropdownServices = {
 };
 
 // Company Services
-// ... keep existing code (company services)
-
 export const companyServices = {
   // Dashboard
   getDashboardStats: (params?: any) =>
@@ -218,7 +244,7 @@ export const companyServices = {
     apiClient.post('/api/company/settings/test-webhook', data)
 };
 
-// ... keep existing code (dropdown services, config services)
+// ... keep existing code (other services remain the same)
 
 // Dropdown Services
 export const dropdownServices = {
@@ -366,9 +392,6 @@ export const vehicleServices = {
   deleteVehicle: (id: string) =>
     apiClient.delete(`/api/vehicle/${id}`),
 
-  createVehicleStock: (data: any) =>
-    apiClient.post('/api/vehicle/create-stock', data),
-
   // Vehicle Section Updates
   updateVehicleOverview: (vehicleId: string, data: any) =>
     apiClient.put(`/api/vehicle/${vehicleId}/overview`, data),
@@ -411,7 +434,6 @@ export const vehicleServices = {
     apiClient.delete(`/api/vehicle/${vehicleId}/attachments/${attachmentId}`)
 };
 
-// ... keep existing code (inspection services, tradein services, logs services)
 
 // Inspection Services
 export const inspectionServices = {
@@ -470,6 +492,7 @@ export const logServices = {
 
 export default {
   auth: authServices,
+  subscription: subscriptionServices,
   master: masterServices,
   company: companyServices,
   dropdown: dropdownServices,

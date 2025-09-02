@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,302 +7,308 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2, Check, X } from 'lucide-react';
+import { Plus, Save, Trash2, Users, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/axios';
-import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
+import { companyServices, masterServices } from '@/api/services';
 
 const MasterPlans = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingPlan, setEditingPlan] = useState(null);
-  const [deletePlanId, setDeletePlanId] = useState(null);
-  const [page, setPage] = useState(1);
-  const [formData, setFormData] = useState({
-    name: '',
-    display_name: '',
-    description: '',
-    price: 0,
-    user_limit: 15,
-    features: [],
-    is_active: true
+  const [availableModules, setAvailableModules] = useState([]);
+  const [planData, setPlanData] = useState({
+    per_user_cost: 10,
+    modules: []
   });
 
-  const { data: plans, isLoading, refetch } = useQuery({
-    queryKey: ['plans'],
+  console.log(planData)
+  // Load current plan configuration
+  const { data: currentPlan, isLoading, refetch } = useQuery({
+    queryKey: ['pricing-config'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/master/plans');
+      const response = await apiClient.get('/api/subscription/pricing-config');
       return response.data.data;
     }
   });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingPlan) {
-        await apiClient.put(`/api/master/plans/${editingPlan._id}`, formData);
-        toast.success('Plan updated successfully');
-      } else {
-        await apiClient.post('/api/master/plans', formData);
-        toast.success('Plan created successfully');
+  // Load available modules
+  useEffect(() => {
+    const loadModules = async () => {
+      try {
+        const response = await masterServices.getMasterdropdownvalues({
+          dropdown_name: ["company_superadmin_modules"],
+        });
+        if (response.data.success) {
+          setAvailableModules(response.data.data[0].values || []);
+        }
+      } catch (error) {
+        console.error('Failed to load modules:', error);
+        toast.error('Failed to load available modules');
       }
-      setIsDialogOpen(false);
-      setEditingPlan(null);
-      setFormData({
-        name: '',
-        display_name: '',
-        description: '',
-        price: 0,
-        user_limit: 15,
-        features: [],
-        is_active: true
+    };
+    loadModules();
+  }, []);
+
+  // Update form when current plan loads
+  useEffect(() => {
+    if (currentPlan) {
+      setPlanData({
+        per_user_cost: currentPlan.per_user_cost || 10,
+        modules: currentPlan.modules || []
       });
-      refetch();
-    } catch (error) {
-      toast.error('Failed to save plan');
+    }
+  }, [currentPlan]);
+
+  const handleModuleCostChange = (moduleName, cost) => {
+    setPlanData(prev => ({
+      ...prev,
+      modules: prev.modules.map(module => 
+        module.module_name === moduleName 
+          ? { ...module, cost_per_module: parseFloat(cost) || 0 }
+          : module
+      )
+    }));
+  };
+
+  const addModule = (module) => {
+    if (!planData.modules.find(m => m.module_name === module.option_value)) {
+      setPlanData(prev => ({
+        ...prev,
+        modules: [...prev.modules, {
+          module_name: module.option_value,
+          cost_per_module: 0
+        }]
+      }));
     }
   };
 
-  const handleEdit = (plan) => {
-    setEditingPlan(plan);
-    setFormData({
-      name: plan.name,
-      display_name: plan.display_name,
-      description: plan.description,
-      price: plan.price,
-      user_limit: plan.user_limit,
-      features: plan.features,
-      is_active: plan.is_active
-    });
-    setIsDialogOpen(true);
+  const removeModule = (moduleName) => {
+    setPlanData(prev => ({
+      ...prev,
+      modules: prev.modules.filter(m => m.module_name !== moduleName)
+    }));
   };
 
-  const handleDelete = async (planId) => {
-    if (!deletePlanId) return;
+  const handleSave = async () => {
     try {
-      await apiClient.delete(`/api/master/plans/${planId}`);
-      toast.success('Plan deleted successfully');
-      setDeletePlanId(null);
+      if (currentPlan) {
+        await apiClient.put(`/api/master/plans/${currentPlan._id}`, planData);
+      } else {
+        await apiClient.post('/api/master/plans', planData);
+      }
+      toast.success('Plan configuration saved successfully');
       refetch();
+      setIsDialogOpen(false);
     } catch (error) {
-      toast.error('Failed to delete plan');
+      toast.error('Failed to save plan configuration');
     }
   };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout title="Plan Configuration">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
-    <DashboardLayout title="Subscription Plans">
+    <DashboardLayout title="Plan Configuration">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Subscription Plans</h2>
-            <p className="text-muted-foreground">Manage pricing plans and features</p>
+            <h2 className="text-3xl font-bold tracking-tight">Plan Configuration</h2>
+            <p className="text-muted-foreground">Configure pricing for users and modules</p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => setEditingPlan(null)}>
+              <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Plan
+                Configure Pricing
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>{editingPlan ? 'Edit Plan' : 'Create New Plan'}</DialogTitle>
+                <DialogTitle>Configure Plan Pricing</DialogTitle>
                 <DialogDescription>
-                  Configure the plan details and pricing
+                  Set the cost per user and per module for subscription calculation
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name">Plan Name</Label>
+              
+              <div className="space-y-6">
+                {/* Per User Cost */}
+                <div className="space-y-2">
+                  <Label htmlFor="per_user_cost">Cost Per User (per day)</Label>
+                  <div className="relative">
+                    <Users className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="basic, intermediate, pro"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="display_name">Display Name</Label>
-                    <Input
-                      id="display_name"
-                      value={formData.display_name}
-                      onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-                      placeholder="Basic Plan"
-                      required
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Input
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Plan description"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="price">Price ($)</Label>
-                    <Input
-                      id="price"
+                      id="per_user_cost"
                       type="number"
-                      value={formData.price}
-                      onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="user_limit">User Limit</Label>
-                    <Input
-                      id="user_limit"
-                      type="number"
-                      value={formData.user_limit}
-                      onChange={(e) => setFormData({ ...formData, user_limit: parseInt(e.target.value) })}
-                      required
+                      min="0"
+                      step="0.01"
+                      value={planData.per_user_cost}
+                      onChange={(e) => setPlanData(prev => ({ 
+                        ...prev, 
+                        per_user_cost: parseFloat(e.target.value) || 0 
+                      }))}
+                      className="pl-10"
+                      placeholder="10.00"
                     />
                   </div>
                 </div>
+
+                {/* Module Pricing */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <Label>Module Pricing (per day)</Label>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Module
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add Module</DialogTitle>
+                          <DialogDescription>Select a module to add pricing</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-2">
+                          {availableModules
+                            .filter(module => !planData.modules.find(m => m.module_name === module.value))
+                            .map((module) => (
+                            <Button
+                              key={module.value}
+                              variant="outline"
+                              className="w-full justify-start"
+                              onClick={() => addModule(module)}
+                            >
+                              {module.display_value}
+                            </Button>
+                          ))}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+
+                  <div className="space-y-3">
+                    {planData.modules.map((module, index) => (
+                      <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex-1">
+                          <Label className="capitalize">{module.module_name}</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm">$</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={module.cost_per_module}
+                            onChange={(e) => handleModuleCostChange(module.module_name, e.target.value)}
+                            className="w-20"
+                            placeholder="0.00"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeModule(module.module_name)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit">
-                    {editingPlan ? 'Update' : 'Create'} Plan
+                  <Button onClick={handleSave}>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Configuration
                   </Button>
                 </div>
-              </form>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
 
-        {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {plans?.map((plan) => (
-            <Card key={plan._id} className="relative">
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle className="flex items-center gap-2">
-                    {plan.display_name}
-                    <Badge variant={plan.is_active ? "default" : "secondary"}>
-                      {plan.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                  </CardTitle>
-                  <div className="flex space-x-1">
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(plan)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setDeletePlanId(plan._id)}>
-                      <Trash2 className="h-4 w-4" />
-                  </Button>
-                  </div>
-                </div>
-                <CardDescription>{plan.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="text-3xl font-bold">${plan.price}<span className="text-sm font-normal text-muted-foreground">/month</span></div>
-                  <div className="space-y-2">
-                    <p className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Up to {plan.user_limit} users
-                    </p>
-                    {plan.name === 'intermediate' && (
-                      <p className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-green-500" />
-                        Customer Support
-                      </p>
-                    )}
-                    {plan.name === 'pro' && (
-                      <>
-                        <p className="flex items-center gap-2">
-                          <Check className="h-4 w-4 text-green-500" />
-                          Customer Support
-                        </p>
-                        <p className="flex items-center gap-2">
-                          <Check className="h-4 w-4 text-green-500" />
-                          Custom UI Requirements
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        {/* Current Configuration Display */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                User Pricing
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <div className="text-3xl font-bold">${currentPlan?.per_user_cost || 0}</div>
+                <p className="text-muted-foreground">per user per day</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Module Pricing
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {currentPlan?.modules?.length > 0 ? (
+                  currentPlan.modules.map((module, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <span className="capitalize">{module.module_name}</span>
+                      <Badge variant="outline">${module.cost_per_module}/day</Badge>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-center">No modules configured</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Plans Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Plans</CardTitle>
-            <CardDescription>Complete overview of all subscription plans</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        {/* Pricing Summary */}
+        {currentPlan && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Pricing Summary</CardTitle>
+              <CardDescription>Current pricing configuration overview</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold">${currentPlan.per_user_cost}</div>
+                  <p className="text-sm text-muted-foreground">Per User Daily</p>
+                </div>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold">{currentPlan.modules?.length || 0}</div>
+                  <p className="text-sm text-muted-foreground">Configured Modules</p>
+                </div>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold">
+                    ${(currentPlan.modules?.reduce((sum, m) => sum + m.cost_per_module, 0) || 0).toFixed(2)}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Total Module Cost/Day</p>
+                </div>
               </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>S.No</TableHead>
-                    <TableHead>Plan Name</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>User Limit</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Companies</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {plans?.map((plan ,index: number) => (
-                    <TableRow key={plan._id}>
-                      <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{plan.display_name}</p>
-                          <p className="text-sm text-muted-foreground">{plan.description}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>${plan.price}/month</TableCell>
-                      <TableCell>{plan.user_limit} users</TableCell>
-                      <TableCell>
-                        <Badge variant={plan.is_active ? "default" : "secondary"}>
-                          {plan.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>0</TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(plan)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setDeletePlanId(plan._id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
-      <ConfirmDeleteDialog
-        open={!!deletePlanId}
-        onClose={() => setDeletePlanId(null)}
-        onConfirm={handleDelete}
-      />
-
-      </DashboardLayout>
+    </DashboardLayout>
   );
 };
 

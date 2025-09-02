@@ -1,9 +1,10 @@
+
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const MasterAdmin = require('../models/MasterAdmin');
 const User = require('../models/User');
 const Company = require('../models/Company');
-const Plan = require('../models/Plan');
+const Subscription = require('../models/Subscriptions');
 const mailService = require('../config/mailer');
 const { logEvent } = require('./logs.controller');
 const config = require('../config/env');
@@ -65,6 +66,33 @@ const login = async (req, res) => {
       });
     }
 
+    // For company users, check subscription status
+    if (userType === 'user' && user.company_id) {
+      const subscription = await Subscription.findOne({
+        company_id: user.company_id._id,
+        is_active: true
+      }).sort({ created_at: -1 });
+
+      if (subscription) {
+        const now = new Date();
+        const subscriptionStatus = subscription.subscription_status;
+        
+        // If subscription expired and grace period over, deny access to company_admin
+        if (subscriptionStatus === 'expired' && user.role === 'company_admin') {
+          return res.status(403).json({
+            success: false,
+            message: 'Subscription expired. Contact your administrator.'
+          });
+        }
+      } else if (user.role === 'company_admin') {
+        // No subscription found, deny access to company_admin
+        return res.status(403).json({
+          success: false,
+          message: 'No active subscription. Contact your administrator.'
+        });
+      }
+    }
+
     // For regular users, check if account is locked
     if (userType === 'user' && user.isAccountLocked()) {
       return res.status(423).json({
@@ -122,6 +150,22 @@ const login = async (req, res) => {
       is_first_login: user.is_first_login || false
     };
 
+    // Check subscription status for company users
+    if (userType === 'user' && user.company_id) {
+      const subscription = await Subscription.findOne({
+        company_id: user.company_id._id,
+        is_active: true
+      }).sort({ created_at: -1 });
+
+      if (subscription) {
+        userData.subscription_status = subscription.subscription_status;
+        userData.subscription_days_remaining = subscription.days_remaining;
+        userData.subscription_in_grace_period = subscription.subscription_status === 'grace_period';
+      } else {
+        userData.subscription_status = 'none';
+      }
+    }
+
     if (userType === 'user') {
       userData.username = user.username;
       userData.company_name = user.company_id?.company_name;
@@ -173,7 +217,6 @@ const registerCompany = async (req, res) => {
       city,
       state,
       country,
-      plan_id,
       password
     } = req.body;
 
@@ -203,16 +246,7 @@ const registerCompany = async (req, res) => {
       });
     }
 
-    // Validate plan
-    const plan = await Plan.findOne({ name: plan_id, is_active: true });
-    if (!plan) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid subscription plan'
-      });
-    }
-
-    // Create company
+    // Create company without plan_id
     const company = new Company({
       company_name,
       contact_person,
@@ -222,8 +256,8 @@ const registerCompany = async (req, res) => {
       city,
       state,
       country,
-      plan_id: plan._id,
-      user_limit: plan.user_limit
+      subscription_status: 'inactive', // Set to inactive initially
+      user_limit: 1 // Default to 1 user initially
     });
 
     await company.save();
@@ -255,7 +289,7 @@ const registerCompany = async (req, res) => {
       company_id: company._id,
       ip_address: req.ip,
       user_agent: req.get('User-Agent'),
-      metadata: { company_name, email, plan: plan.name }
+      metadata: { company_name, email }
     });
 
     res.status(201).json({
@@ -265,7 +299,7 @@ const registerCompany = async (req, res) => {
         id: company._id,
         name: company_name,
         email,
-        plan: plan.display_name
+        subscription_required: true
       }
     });
 
@@ -305,6 +339,22 @@ const getMe = async (req, res) => {
       company_id: user.company_id?._id,
       is_first_login: user.is_first_login || false
     };
+
+    // Check subscription status for company users
+    if (user.role !== 'master_admin' && user.company_id) {
+      const subscription = await Subscription.findOne({
+        company_id: user.company_id._id,
+        is_active: true
+      }).sort({ created_at: -1 });
+
+      if (subscription) {
+        userData.subscription_status = subscription.subscription_status;
+        userData.subscription_days_remaining = subscription.days_remaining;
+        userData.subscription_in_grace_period = subscription.subscription_status === 'grace_period';
+      } else {
+        userData.subscription_status = 'none';
+      }
+    }
 
     if (user.role !== 'master_admin') {
       userData.username = user.username;

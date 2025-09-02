@@ -37,24 +37,16 @@ const CompanySchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  plan_id: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Plan',
-    required: true
-  },
   subscription_status: {
     type: String,
-    enum: ['active', 'inactive', 'suspended', 'trial'],
-    default: 'trial'
+    enum: ['active', 'inactive', 'suspended', 'trial', 'grace_period'],
+    default: 'inactive'
   },
-  subscription_start_date: {
-    type: Date,
-    default: Date.now
-  },
+  subscription_start_date: Date,
   subscription_end_date: Date,
   user_limit: {
     type: Number,
-    default: 15
+    default: 1
   },
   current_user_count: {
     type: Number,

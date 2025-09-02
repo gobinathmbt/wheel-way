@@ -30,6 +30,7 @@ import DropdownMaster from "./pages/company/DropdownMaster";
 import InspectionConfig from "./pages/company/InspectionConfig";
 import TradeinConfig from "./pages/company/TradeinConfig";
 import UserPermissions from './pages/company/UserPermissions';
+import Subscription from "./pages/company/Subscription";
 
 // Vehicle Pages
 import InspectionList from "./pages/vehicles/InspectionList";
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register-company" element={<RegisterCompany />} />
             <Route path="/no-access" element={<NoAccess />} />
+            <Route path="/subscription" element={<Subscription />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
             
             {/* Master Admin Routes */}
