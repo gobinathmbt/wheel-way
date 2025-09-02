@@ -34,7 +34,7 @@ import CompanySettings from '@/pages/company/Settings';
 import CompanySubscription from '@/pages/company/Subscription';
 
 // Vehicle Pages
-import VehicleStock from '@/pages/vehicles/VehicleStock';
+// import VehicleStock from '@/pages/vehicles/VehicleStock';
 import InspectionList from '@/pages/vehicles/InspectionList';
 import TradeinList from '@/pages/vehicles/TradeinList';
 
@@ -107,7 +107,7 @@ function App() {
                   <ProtectedRoute requiredRole={['company_super_admin', 'company_admin']}>
                     <Routes>
                       <Route path="/" element={<Navigate to="/vehicles/stock" replace />} />
-                      <Route path="/stock" element={<VehicleStock />} />
+                      {/* <Route path="/stock" element={<VehicleStock />} /> */}
                       <Route path="/inspections" element={<InspectionList />} />
                       <Route path="/tradein" element={<TradeinList />} />
                     </Routes>
