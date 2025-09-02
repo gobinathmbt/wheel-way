@@ -44,27 +44,6 @@ const MasterAdminSchema = new mongoose.Schema({
     },
     sqs_queue_url: String
   },
-  payment_settings: {
-    stripe: {
-      public_key: String,
-      secret_key: String,
-      webhook_secret: String
-    },
-    paypal: {
-      client_id: String,
-      client_secret: String,
-      mode: {
-        type: String,
-        enum: ['sandbox', 'live'],
-        default: 'sandbox'
-      }
-    },
-    razorpay: {
-      key_id: String,
-      key_secret: String,
-      webhook_secret: String
-    }
-  },
   is_active: {
     type: Boolean,
     default: true

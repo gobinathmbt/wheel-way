@@ -17,9 +17,7 @@ const {
   testSmtp,
   updateAwsSettings,
   testAwsConnection,
-  getAwsSettings,
-  updatePaymentSettings,
-  getPaymentSettings
+  getAwsSettings
 } = require('../controllers/master.controller');
 
 const router = express.Router();
@@ -54,10 +52,6 @@ router.post('/test-smtp', testSmtp);
 router.put('/aws-settings', updateAwsSettings);
 router.post('/test-aws', testAwsConnection);
 router.get('/aws-settings', getAwsSettings);
-
-// Payment settings routes
-router.put('/payment-settings', updatePaymentSettings);
-router.get('/payment-settings', getPaymentSettings);
 
 // Master admin dropdown routes
 router.use('/dropdowns', require('./master.dropdown.routes'));

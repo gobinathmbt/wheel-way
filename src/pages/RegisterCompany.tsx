@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Car, Building, Mail, Phone, MapPin, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -20,6 +21,7 @@ const RegisterCompany = () => {
     city: '',
     state: '',
     country: '',
+    plan_id: '',
     password: '',
     confirm_password: ''
   });
@@ -28,6 +30,12 @@ const RegisterCompany = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  const plans = [
+    { id: 'basic', name: 'Basic Plan - 15 Users ($99/month)' },
+    { id: 'intermediate', name: 'Intermediate Plan - 30 Users ($199/month)' },
+    { id: 'pro', name: 'Pro Plan - 50 Users ($399/month)' }
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +67,7 @@ const RegisterCompany = () => {
         city: formData.city,
         state: formData.state,
         country: formData.country,
+        plan_id: formData.plan_id,
         password: formData.password
       });
       
@@ -98,7 +107,7 @@ const RegisterCompany = () => {
               <span>Company Registration</span>
             </CardTitle>
             <CardDescription>
-              Fill in your company details to create your VehiclePro account. You can configure your subscription after registration.
+              Fill in your company details to create your VehiclePro account
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -216,6 +225,22 @@ const RegisterCompany = () => {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="plan">Select Plan</Label>
+                <Select onValueChange={(value) => handleInputChange('plan_id', value)} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose your subscription plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {plans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
@@ -278,7 +303,6 @@ const RegisterCompany = () => {
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• Your company will be registered in our system</li>
                   <li>• You can immediately login with your credentials</li>
-                  <li>• Configure your subscription plan and payment details</li>
                   <li>• Access to your dashboard to manage users and vehicles</li>
                   <li>• Ability to configure inspection and trade-in workflows</li>
                 </ul>

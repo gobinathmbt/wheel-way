@@ -12,10 +12,6 @@ interface User {
   company_name?: string;
   first_name?: string;
   last_name?: string;
-  subscription_status?: boolean;          // active or not
-  subscription_inactive?: boolean;        // convenience flag
-  subscription_end_date?: string;         // ISO date string
-  subscription_grace_active?: boolean;
 }
 
 interface AuthContextType {

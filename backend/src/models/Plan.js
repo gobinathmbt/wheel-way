@@ -5,47 +5,73 @@ const PlanSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    unique: true,
-    default: 'default'
+    unique: true
   },
   display_name: {
     type: String,
-    required: true,
-    default: 'Default Plan Configuration'
+    required: true
   },
-  description: {
-    type: String,
-    default: 'Plan configuration for subscription pricing'
-  },
-  per_user_cost: {
+  description: String,
+  price: {
     type: Number,
     required: true,
-    min: 0,
-    default: 0
+    min: 0
   },
-  module_costs: [{
-    module_name: {
-      type: String,
-      required: true
-    },
-    cost: {
-      type: Number,
-      required: true,
-      min: 0
-    }
-  }],
   currency: {
     type: String,
     default: 'USD'
   },
   billing_period: {
     type: String,
-    enum: ['daily', 'monthly', 'yearly'],
-    default: 'daily'
+    enum: ['monthly', 'yearly'],
+    default: 'monthly'
+  },
+  user_limit: {
+    type: Number,
+    required: true,
+    min: 1
+  },
+  features: [{
+    name: String,
+    description: String,
+    included: {
+      type: Boolean,
+      default: true
+    },
+    limit: Number // Optional limit for specific features
+  }],
+  custom_ui: {
+    type: Boolean,
+    default: false
+  },
+  customer_support: {
+    type: String,
+    enum: ['email', 'priority', 'dedicated'],
+    default: 'email'
+  },
+  api_access: {
+    type: Boolean,
+    default: false
+  },
+  advanced_analytics: {
+    type: Boolean,
+    default: false
+  },
+  multi_location: {
+    type: Boolean,
+    default: false
+  },
+  white_label: {
+    type: Boolean,
+    default: false
   },
   is_active: {
     type: Boolean,
     default: true
+  },
+  sort_order: {
+    type: Number,
+    default: 0
   },
   created_by: {
     type: mongoose.Schema.Types.ObjectId,
@@ -67,25 +93,12 @@ PlanSchema.pre('save', function(next) {
   next();
 });
 
-// Calculate cost based on users and modules
-PlanSchema.methods.calculateCost = function(users, modules, days) {
-  let totalCost = 0;
-  
-  // Calculate user cost
-  totalCost += this.per_user_cost * users * days;
-  
-  // Calculate module cost
-  modules.forEach(moduleName => {
-    const moduleConfig = this.module_costs.find(m => m.module_name === moduleName);
-    if (moduleConfig) {
-      totalCost += moduleConfig.cost * days;
-    }
-  });
-  
-  return totalCost;
-};
+// Virtual for monthly price (if yearly billing)
+PlanSchema.virtual('monthly_price').get(function() {
+  return this.billing_period === 'yearly' ? this.price / 12 : this.price;
+});
 
 // Index for efficient queries
-PlanSchema.index({ is_active: 1 });
+PlanSchema.index({ is_active: 1, sort_order: 1 });
 
 module.exports = mongoose.model('Plan', PlanSchema);

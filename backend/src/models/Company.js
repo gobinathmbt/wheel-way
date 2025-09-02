@@ -40,37 +40,23 @@ const CompanySchema = new mongoose.Schema({
   plan_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Plan',
-    default: null
+    required: true
   },
   subscription_status: {
     type: String,
-    enum: ['active', 'inactive', 'suspended', 'trial', 'grace_period'],
-    default: 'inactive'
+    enum: ['active', 'inactive', 'suspended', 'trial'],
+    default: 'trial'
   },
   subscription_start_date: {
     type: Date,
-    default: null
+    default: Date.now
   },
-  subscription_end_date: {
-    type: Date,
-    default: null
-  },
-  subscription_days: {
-    type: Number,
-    default: 0
-  },
+  subscription_end_date: Date,
   user_limit: {
     type: Number,
-    default: 0
+    default: 15
   },
   current_user_count: {
-    type: Number,
-    default: 0
-  },
-  selected_modules: [{
-    type: String
-  }],
-  subscription_amount: {
     type: Number,
     default: 0
   },
@@ -110,43 +96,6 @@ CompanySchema.pre('save', function(next) {
   this.updated_at = new Date();
   next();
 });
-
-// Check if company is in grace period
-CompanySchema.methods.isInGracePeriod = function() {
-  if (!this.subscription_end_date) return false;
-  
-  const now = new Date();
-  const endDate = new Date(this.subscription_end_date);
-  const gracePeriodEnd = new Date(endDate.getTime() + (2 * 24 * 60 * 60 * 1000)); // 2 days grace period
-  
-  return now > endDate && now <= gracePeriodEnd;
-};
-
-// Check if subscription is expired (beyond grace period)
-CompanySchema.methods.isSubscriptionExpired = function() {
-  if (!this.subscription_end_date) return true;
-  
-  const now = new Date();
-  const endDate = new Date(this.subscription_end_date);
-  const gracePeriodEnd = new Date(endDate.getTime() + (2 * 24 * 60 * 60 * 1000)); // 2 days grace period
-  
-  return now > gracePeriodEnd;
-};
-
-// Get grace period days remaining
-CompanySchema.methods.getGracePeriodDaysRemaining = function() {
-  if (!this.subscription_end_date) return 0;
-  
-  const now = new Date();
-  const endDate = new Date(this.subscription_end_date);
-  const gracePeriodEnd = new Date(endDate.getTime() + (2 * 24 * 60 * 60 * 1000));
-  
-  if (now <= endDate) return 0; // Not in grace period yet
-  if (now > gracePeriodEnd) return -1; // Grace period expired
-  
-  const diffTime = gracePeriodEnd.getTime() - now.getTime();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-};
 
 // Virtual for company age
 CompanySchema.virtual('company_age').get(function() {
