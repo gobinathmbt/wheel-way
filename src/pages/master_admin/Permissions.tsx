@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -7,6 +8,8 @@ import {
   Trash2,
   ToggleLeft,
   ToggleRight,
+  X,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,6 +39,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -68,7 +79,7 @@ const Permissions = () => {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingPermission, setDeletingPermission] =
@@ -94,7 +105,7 @@ const Permissions = () => {
         .then((res) => res.data),
   });
 
-  const { data: permissionsData, isLoading } = useQuery({
+  const { data: permissionsData, isLoading, refetch } = useQuery({
     queryKey: ["master-permissions", page, search, status],
     queryFn: () =>
       masterServices
@@ -227,14 +238,24 @@ const Permissions = () => {
     }
   };
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
-    setPage(1); // Reset to first page when searching
+  const handleSearch = () => {
+    setPage(1);
+    refetch();
   };
 
-  const handleStatusChange = (value: string) => {
+  const handleClear = () => {
+    setSearch("");
+    setStatus("all");
+    setPage(1);
+  };
+
+  const handleStatusFilter = (value: string) => {
     setStatus(value);
-    setPage(1); // Reset to first page when filtering
+    setPage(1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
   };
 
   useEffect(() => {
@@ -246,12 +267,20 @@ const Permissions = () => {
       (dropdown) => dropdown.dropdown_name === "company_admin_modules"
     )?.values || [];
 
+  const totalPages = permissionsData?.pagination?.total_pages || 1;
+  const totalRecords = permissionsData?.pagination?.total_records || 0;
+  const currentPage = permissionsData?.pagination?.current_page || 1;
 
   return (
     <DashboardLayout title="User Permissions">
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Permissions Management</h1>
+          <div>
+            <h1 className="text-3xl font-bold">Permissions Management</h1>
+            <p className="text-muted-foreground">
+              Manage system permissions and user access controls
+            </p>
+          </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={resetForm}>
@@ -367,25 +396,53 @@ const Permissions = () => {
           </Dialog>
         </div>
 
+        {/* Search and Filters */}
         <Card>
           <CardHeader>
-            <CardTitle>Filters</CardTitle>
+            <CardTitle>Search & Filter</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex gap-4">
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search permissions..."
                     value={search}
-                    onChange={handleSearchChange}
-                    className="pl-9"
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-10"
+                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                   />
+                  {search && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                      onClick={handleClear}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
-              <Select value={status} onValueChange={handleStatusChange}>
-                <SelectTrigger className="w-full md:w-48">
+
+              <Button onClick={handleSearch} className="bg-blue-600 text-white hover:bg-blue-700">
+                <Search className="h-4 w-4 mr-2" />
+                Search
+              </Button>
+
+              <Button
+                onClick={handleClear}
+                variant="outline"
+                disabled={!search && status === "all"}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Clear
+              </Button>
+
+              <Select value={status} onValueChange={handleStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -398,97 +455,185 @@ const Permissions = () => {
           </CardContent>
         </Card>
 
+        {/* Permissions Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Permissions</CardTitle>
+            <div className="flex justify-between items-center">
+              <CardTitle>Permissions</CardTitle>
+              <div className="text-sm text-muted-foreground">
+                Total: {totalRecords} permissions
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div>Loading permissions...</div>
+              <div className="flex justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>S.No</TableHead>
-                    <TableHead>Module Name</TableHead>
-                    <TableHead>Internal Name</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created By</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {permissionsData?.data?.map(
-                    (permission: Permission, index: number) => {
-                      const moduleDisplayName =
-                        availableModules.find(
-                          (moduleValue) =>
-                            moduleValue.option_value === permission.module_name
-                        )?.display_value || permission.module_name;
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>S.No</TableHead>
+                      <TableHead>Module Name</TableHead>
+                      <TableHead>Internal Name</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created By</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {permissionsData?.data?.map(
+                      (permission: Permission, index: number) => {
+                        const moduleDisplayName =
+                          availableModules.find(
+                            (moduleValue) =>
+                              moduleValue.option_value === permission.module_name
+                          )?.display_value || permission.module_name;
 
-                      return (
-                        <TableRow key={permission._id}>
-                          <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                          <TableCell className="font-medium">
-                            {moduleDisplayName}
-                          </TableCell>
-                          <TableCell>{permission.internal_name}</TableCell>
-                          <TableCell>{permission.description}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                permission.is_active ? "default" : "secondary"
-                              }
-                            >
-                              {permission.is_active ? "Active" : "Inactive"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {permission.created_by
-                              ? `${permission.created_by.first_name} ${permission.created_by.last_name}`
-                              : "N/A"}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(permission)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  handleToggleStatus(
-                                    permission._id,
-                                    permission.is_active
-                                  )
+                        return (
+                          <TableRow key={permission._id}>
+                            <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
+                            <TableCell className="font-medium">
+                              {moduleDisplayName}
+                            </TableCell>
+                            <TableCell>{permission.internal_name}</TableCell>
+                            <TableCell className="max-w-xs truncate">
+                              {permission.description}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  permission.is_active ? "default" : "secondary"
                                 }
                               >
-                                {permission.is_active ? (
-                                  <ToggleRight className="h-4 w-4" />
-                                ) : (
-                                  <ToggleLeft className="h-4 w-4" />
-                                )}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteClick(permission)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    }
-                  )}
-                </TableBody>
-              </Table>
+                                {permission.is_active ? "Active" : "Inactive"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {permission.created_by
+                                ? `${permission.created_by.first_name} ${permission.created_by.last_name}`
+                                : "N/A"}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEdit(permission)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleToggleStatus(
+                                      permission._id,
+                                      permission.is_active
+                                    )
+                                  }
+                                >
+                                  {permission.is_active ? (
+                                    <ToggleRight className="h-4 w-4" />
+                                  ) : (
+                                    <ToggleLeft className="h-4 w-4" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteClick(permission)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+                    )}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-4">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() =>
+                              handlePageChange(Math.max(1, currentPage - 1))
+                            }
+                            className={
+                              currentPage === 1
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
+                          />
+                        </PaginationItem>
+
+                        {Array.from(
+                          { length: Math.min(5, totalPages) },
+                          (_, i) => {
+                            let pageNum;
+                            if (totalPages <= 5) {
+                              pageNum = i + 1;
+                            } else if (currentPage <= 3) {
+                              pageNum = i + 1;
+                            } else if (currentPage >= totalPages - 2) {
+                              pageNum = totalPages - 4 + i;
+                            } else {
+                              pageNum = currentPage - 2 + i;
+                            }
+
+                            return (
+                              <PaginationItem key={pageNum}>
+                                <PaginationLink
+                                  onClick={() => handlePageChange(pageNum)}
+                                  isActive={currentPage === pageNum}
+                                  className="cursor-pointer"
+                                >
+                                  {pageNum}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          }
+                        )}
+
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() =>
+                              handlePageChange(
+                                Math.min(totalPages, currentPage + 1)
+                              )
+                            }
+                            className={
+                              currentPage === totalPages
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+
+                {/* Show message when no data */}
+                {permissionsData?.data?.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">
+                      {search || status !== "all"
+                        ? "No permissions found matching your criteria"
+                        : "No permissions found"}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

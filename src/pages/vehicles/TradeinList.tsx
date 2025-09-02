@@ -44,7 +44,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { vehicleServices, tradeinServices } from "@/api/services";
+import { vehicleServices, tradeinServices, authServices } from "@/api/services";
 import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
 import VehicleDetailSideModal from "@/components/vehicles/VehicleDetailSideModal";
 import CreateVehicleStockModal from "@/components/vehicles/CreateVehicleStockModal";
@@ -56,6 +56,15 @@ const TradeinList = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [page, setPage] = useState(1);
   const limit = 20;
+
+  // Fetch current user's permissions
+  const { data: userPermissions } = useQuery({
+    queryKey: ["user-permissions"],
+    queryFn: async () => {
+      const response = await authServices.getCurrentUserPermissions();
+      return response.data;
+    },
+  });
 
   const handleClearSearch = () => {
     setSearchTerm("");
@@ -93,7 +102,17 @@ const TradeinList = () => {
   const vehicles = vehiclesData?.data || [];
   const totalPages = Math.ceil((vehiclesData?.total || 0) / limit);
 
+  // Check if user has specific permission
+  const hasPermission = (permission: string) => {
+    return userPermissions?.data?.permissions?.includes(permission) || false;
+  };
+
   const handleStartAppraisal = async (vehicleId: string) => {
+    if (!hasPermission("start_appraisal")) {
+      toast.error("You do not have permission to start appraisals");
+      return;
+    }
+
     try {
       await tradeinServices.startAppraisal(vehicleId);
       toast.success("Trade-in appraisal started successfully");
@@ -104,6 +123,11 @@ const TradeinList = () => {
   };
 
   const handleViewDetails = async (vehicleId: string) => {
+    if (!hasPermission("view_vehicle_details")) {
+      toast.error("You do not have permission to view vehicle details");
+      return;
+    }
+
     try {
       const response = await vehicleServices.getVehicleDetail(vehicleId);
       setSelectedVehicle(response.data.data);
@@ -158,32 +182,38 @@ const TradeinList = () => {
           </div>
 
           <div className="flex space-x-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="outline"
-                    onClick={() => setShowCreateModal(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Vehicle Stock
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Create Vehicle Stock (same for Import and Export)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {hasPermission("create_vehicle_stock") && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline"
+                      onClick={() => setShowCreateModal(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Vehicle Stock
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Create Vehicle Stock (same for Import and Export)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             
-            <Button variant="outline">
-              <Upload className="h-4 w-4 mr-2" />
-              Import Vehicles
-            </Button>
+            {hasPermission("import_vehicles") && (
+              <Button variant="outline">
+                <Upload className="h-4 w-4 mr-2" />
+                Import Vehicles
+              </Button>
+            )}
             
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Export Report
-            </Button>
+            {hasPermission("export_reports") && (
+              <Button variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export Report
+              </Button>
+            )}
           </div>
         </div>
 
@@ -304,7 +334,7 @@ const TradeinList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {vehicles.map((vehicle: any ,index: number) => (
+                    {vehicles.map((vehicle: any, index: number) => (
                       <TableRow key={vehicle._id}>
                         <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
                         <TableCell>
@@ -343,25 +373,28 @@ const TradeinList = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                handleViewDetails(vehicle.vehicle_stock_id)
-                              }
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {vehicle.tradein_status === "pending" && (
+                            {hasPermission("view_vehicle_details") && (
                               <Button
+                                variant="ghost"
                                 size="sm"
                                 onClick={() =>
-                                  handleStartAppraisal(vehicle.vehicle_stock_id)
+                                  handleViewDetails(vehicle.vehicle_stock_id)
                                 }
                               >
-                                Start Appraisal
+                                <Eye className="h-4 w-4" />
                               </Button>
                             )}
+                            {vehicle.tradein_status === "pending" &&
+                              hasPermission("start_appraisal") && (
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    handleStartAppraisal(vehicle.vehicle_stock_id)
+                                  }
+                                >
+                                  Start Appraisal
+                                </Button>
+                              )}
                           </div>
                         </TableCell>
                       </TableRow>
