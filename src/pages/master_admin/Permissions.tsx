@@ -89,7 +89,7 @@ const Permissions = () => {
     queryFn: () =>
       masterServices
         .getMasterdropdownvalues({
-          dropdown_name: ["modules"],
+          dropdown_name: ["company_admin_modules"],
         })
         .then((res) => res.data),
   });
@@ -243,9 +243,9 @@ const Permissions = () => {
 
   const availableModules =
     dropdownsData?.data?.find(
-      (dropdown) => dropdown.dropdown_name === "modules"
+      (dropdown) => dropdown.dropdown_name === "company_admin_modules"
     )?.values || [];
-  console.log(availableModules);
+
 
   return (
     <DashboardLayout title="User Permissions">
