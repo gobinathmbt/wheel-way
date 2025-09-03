@@ -100,7 +100,7 @@ const Permissions = () => {
     queryFn: () =>
       masterServices
         .getMasterdropdownvalues({
-          dropdown_name: ["company_admin_modules"],
+          dropdown_name: ["company_superadmin_modules"],
         })
         .then((res) => res.data),
   });
@@ -264,7 +264,7 @@ const Permissions = () => {
 
   const availableModules =
     dropdownsData?.data?.find(
-      (dropdown) => dropdown.dropdown_name === "company_admin_modules"
+      (dropdown) => dropdown.dropdown_name === "company_superadmin_modules"
     )?.values || [];
 
   const totalPages = permissionsData?.pagination?.total_pages || 1;

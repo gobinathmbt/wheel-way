@@ -74,7 +74,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
     const allNavigationItems = getNavigationItems();
     
     // If user is master_admin or company_super_admin, show all items
-    if (user?.role === 'master_admin' || user?.role === 'company_super_admin') {
+    if (user?.role === 'master_admin' ) {
       return allNavigationItems;
     }
 

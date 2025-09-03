@@ -51,7 +51,7 @@ const ManageModuleDialog: React.FC<ManageModuleDialogProps> = ({
     queryFn: () =>
       companyServices
         .getMasterdropdownvalues({
-          dropdown_name: ["company_admin_modules"],
+          dropdown_name: ["company_superadmin_modules"],
         })
         .then((res) => res.data),
     enabled: open, // Only fetch when dialog is open
@@ -80,7 +80,7 @@ const ManageModuleDialog: React.FC<ManageModuleDialogProps> = ({
   // Get available modules from dropdown data
   const availableModules =
     dropdownsData?.data?.find(
-      (dropdown) => dropdown.dropdown_name === "company_admin_modules"
+      (dropdown) => dropdown.dropdown_name === "company_superadmin_modules"
     )?.values || [];
 
   // Initialize module access when data is loaded
