@@ -62,7 +62,6 @@ const getCompanies = async (req, res) => {
     }
 
     const companies = await Company.find(query)
-      .populate('plan_id', 'plan_name')
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit));
