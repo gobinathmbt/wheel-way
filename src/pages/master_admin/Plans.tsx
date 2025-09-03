@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Save, Trash2, Users, Package } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Save, Trash2, Users, Package, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/axios';
@@ -15,13 +15,16 @@ import { companyServices, masterServices } from '@/api/services';
 
 const MasterPlans = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isModuleDialogOpen, setIsModuleDialogOpen] = useState(false);
   const [availableModules, setAvailableModules] = useState([]);
   const [planData, setPlanData] = useState({
     per_user_cost: 10,
     modules: []
   });
+  const [tempSelectedModules, setTempSelectedModules] = useState([]);
 
   console.log(planData)
+  
   // Load current plan configuration
   const { data: currentPlan, isLoading, refetch } = useQuery({
     queryKey: ['pricing-config'],
@@ -58,29 +61,50 @@ const MasterPlans = () => {
       });
     }
   }, [currentPlan]);
+
+  // Initialize temp selected modules when dialog opens
+  useEffect(() => {
+    if (isModuleDialogOpen) {
+      setTempSelectedModules([...planData.modules]);
+    }
+  }, [isModuleDialogOpen, planData.modules]);
+
   console.log(currentPlan)
 
-  const handleModuleCostChange = (moduleName, cost) => {
-    setPlanData(prev => ({
-      ...prev,
-      modules: prev.modules.map(module => 
+  const handleModuleCostChange = (moduleName, cost, isTemp = false) => {
+    if (isTemp) {
+      setTempSelectedModules(prev => prev.map(module => 
         module.module_name === moduleName 
           ? { ...module, cost_per_module: parseFloat(cost) || 0 }
           : module
-      )
-    }));
-  };
-
-  const addModule = (module) => {
-    if (!planData.modules.find(m => m.module_name === module.option_value)) {
+      ));
+    } else {
       setPlanData(prev => ({
         ...prev,
-        modules: [...prev.modules, {
+        modules: prev.modules.map(module => 
+          module.module_name === moduleName 
+            ? { ...module, cost_per_module: parseFloat(cost) || 0 }
+            : module
+        )
+      }));
+    }
+  };
+
+  const handleModuleToggle = (module, checked) => {
+    if (checked) {
+      // Add module if not already present
+      if (!tempSelectedModules.find(m => m.module_name === module.option_value)) {
+        setTempSelectedModules(prev => [...prev, {
           module_name: module.option_value,
           display_value: module.display_value,
           cost_per_module: 0
-        }]
-      }));
+        }]);
+      }
+    } else {
+      // Remove module
+      setTempSelectedModules(prev => 
+        prev.filter(m => m.module_name !== module.option_value)
+      );
     }
   };
 
@@ -89,6 +113,21 @@ const MasterPlans = () => {
       ...prev,
       modules: prev.modules.filter(m => m.module_name !== moduleName)
     }));
+  };
+
+  const removeTempModule = (moduleName) => {
+    setTempSelectedModules(prev => 
+      prev.filter(m => m.module_name !== moduleName)
+    );
+  };
+
+  const handleModuleDialogSave = () => {
+    setPlanData(prev => ({
+      ...prev,
+      modules: [...tempSelectedModules]
+    }));
+    setIsModuleDialogOpen(false);
+    toast.success('Modules updated successfully');
   };
 
   const handleSave = async () => {
@@ -132,15 +171,15 @@ const MasterPlans = () => {
                 Configure Pricing
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
+            <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+              <DialogHeader className="flex-shrink-0">
                 <DialogTitle>Configure Plan Pricing</DialogTitle>
                 <DialogDescription>
                   Set the cost per user and per module for subscription calculation
                 </DialogDescription>
               </DialogHeader>
               
-              <div className="space-y-6">
+              <div className="flex-1 overflow-y-auto space-y-6 pr-2">
                 {/* Per User Cost */}
                 <div className="space-y-2">
                   <Label htmlFor="per_user_cost">Cost Per User (per day)</Label>
@@ -166,76 +205,152 @@ const MasterPlans = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <Label>Module Pricing (per day)</Label>
-                    <Dialog>
+                    <Dialog open={isModuleDialogOpen} onOpenChange={setIsModuleDialogOpen}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm">
                           <Plus className="h-4 w-4 mr-2" />
-                          Add Module
+                          Manage Modules
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Add Module</DialogTitle>
-                          <DialogDescription>Select a module to add pricing</DialogDescription>
+                      <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+                        <DialogHeader className="flex-shrink-0">
+                          <DialogTitle>Manage Modules</DialogTitle>
+                          <DialogDescription>Select modules and set their pricing</DialogDescription>
                         </DialogHeader>
-                        <div className="space-y-2">
-                          {availableModules
-                            .filter(module => !planData.modules.find(m => m.module_name === module.value))
-                            .map((module) => (
-                            <Button
-                              key={module.value}
-                              variant="outline"
-                              className="w-full justify-start"
-                              onClick={() => addModule(module)}
-                            >
-                              {module.display_value}
-                            </Button>
-                          ))}
+                        
+                        <div className="flex-1 overflow-hidden flex gap-6">
+                          {/* Available Modules */}
+                          <div className="flex-1">
+                            <Label className="text-sm font-medium mb-3 block">Available Modules</Label>
+                            <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2">
+                              {availableModules.map((module) => {
+                                const isSelected = tempSelectedModules.find(m => m.module_name === module.option_value);
+                                return (
+                                  <div key={module.option_value} className="flex items-center space-x-2 p-2 border rounded-lg hover:bg-muted/50 transition-colors">
+                                    <Checkbox
+                                      id={module.option_value}
+                                      checked={!!isSelected}
+                                      onCheckedChange={(checked) => handleModuleToggle(module, checked)}
+                                    />
+                                    <Label htmlFor={module.option_value} className="flex-1 cursor-pointer">
+                                      {module.display_value}
+                                    </Label>
+                                    {isSelected && (
+                                      <Check className="h-4 w-4 text-green-600" />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Selected Modules with Pricing */}
+                          <div className="flex-1">
+                            <Label className="text-sm font-medium mb-3 block">
+                              Selected Modules ({tempSelectedModules.length})
+                            </Label>
+                            <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2">
+                              {tempSelectedModules.length > 0 ? (
+                                tempSelectedModules.map((module, index) => (
+                                  <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg bg-muted/20">
+                                    <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <Label className="capitalize text-sm font-medium block truncate">
+                                        {module.display_value}
+                                      </Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2 flex-shrink-0">
+                                      <span className="text-sm">$</span>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={module.cost_per_module}
+                                        onChange={(e) => handleModuleCostChange(module.module_name, e.target.value, true)}
+                                        className="w-20"
+                                        placeholder="0.00"
+                                      />
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => removeTempModule(module.module_name)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                  <p>No modules selected</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end space-x-2 pt-4 border-t flex-shrink-0">
+                          <Button variant="outline" onClick={() => setIsModuleDialogOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={handleModuleDialogSave}>
+                            <Save className="h-4 w-4 mr-2" />
+                            Apply Changes
+                          </Button>
                         </div>
                       </DialogContent>
                     </Dialog>
                   </div>
 
-                  <div className="space-y-3">
-                    {planData.modules.map((module, index) => (
-                      <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                        <div className="flex-1">
-                          <Label className="capitalize">{module.module_name}</Label>
+                  <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2">
+                    {planData.modules.length > 0 ? (
+                      planData.modules.map((module, index) => (
+                        <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex-1">
+                            <Label className="capitalize">{module.display_value}</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm">$</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={module.cost_per_module}
+                              onChange={(e) => handleModuleCostChange(module.module_name, e.target.value)}
+                              className="w-20"
+                              placeholder="0.00"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeModule(module.module_name)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm">$</span>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={module.cost_per_module}
-                            onChange={(e) => handleModuleCostChange(module.module_name, e.target.value)}
-                            className="w-20"
-                            placeholder="0.00"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeModule(module.module_name)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>No modules configured</p>
+                        <p className="text-sm">Click "Manage Modules" to add modules</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
+              </div>
 
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSave}>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Configuration
-                  </Button>
-                </div>
+              <div className="flex justify-end space-x-2 pt-4 border-t flex-shrink-0">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSave}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Configuration
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -270,7 +385,7 @@ const MasterPlans = () => {
                 {currentPlan?.modules?.length > 0 ? (
                   currentPlan.modules.map((module, index) => (
                     <div key={index} className="flex justify-between items-center">
-                      <span className="capitalize">{module.module_name}</span>
+                      <span className="capitalize">{module.display_value}</span>
                       <Badge variant="outline">${module.cost_per_module}/day</Badge>
                     </div>
                   ))

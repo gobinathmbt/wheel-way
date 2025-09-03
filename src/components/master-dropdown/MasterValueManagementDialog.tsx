@@ -1,16 +1,28 @@
-
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, Edit, Trash2, GripVertical } from 'lucide-react';
-import { toast } from 'sonner';
-import { masterDropdownServices } from '@/api/services';
+import React, { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Plus, Edit, Trash2, GripVertical } from "lucide-react";
+import { toast } from "sonner";
+import { masterDropdownServices } from "@/api/services";
 import {
   DndContext,
   closestCenter,
@@ -18,17 +30,15 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-} from '@dnd-kit/core';
+} from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import {
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+} from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface MasterValueManagementDialogProps {
   isOpen: boolean;
@@ -71,24 +81,14 @@ const SortableRow = ({ value, onEdit, onDelete }: any) => {
         </Badge>
       </TableCell>
       <TableCell>
-        {value.is_default && (
-          <Badge variant="outline">Default</Badge>
-        )}
+        {value.is_default && <Badge variant="outline">Default</Badge>}
       </TableCell>
       <TableCell>
         <div className="flex items-center space-x-1">
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => onEdit(value)}
-          >
+          <Button variant="ghost" size="sm" onClick={() => onEdit(value)}>
             <Edit className="h-3 w-3" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => onDelete(value._id)}
-          >
+          <Button variant="ghost" size="sm" onClick={() => onDelete(value._id)}>
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
@@ -97,22 +97,19 @@ const SortableRow = ({ value, onEdit, onDelete }: any) => {
   );
 };
 
-const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = ({
-  isOpen,
-  onClose,
-  dropdown,
-  onRefetch
-}) => {
+const MasterValueManagementDialog: React.FC<
+  MasterValueManagementDialogProps
+> = ({ isOpen, onClose, dropdown, onRefetch }) => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedValue, setSelectedValue] = useState(null);
   const [localDropdown, setLocalDropdown] = useState(dropdown);
   const [valueFormData, setValueFormData] = useState({
-    option_value: '',
-    display_value: '',
+    option_value: "",
+    display_value: "",
     display_order: 0,
     is_default: false,
-    is_active: true
+    is_active: true,
   });
 
   const sensors = useSensors(
@@ -130,15 +127,19 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
     const { active, over } = event;
 
     if (active.id !== over.id) {
-      const oldIndex = localDropdown.values.findIndex((item: any) => item._id === active.id);
-      const newIndex = localDropdown.values.findIndex((item: any) => item._id === over.id);
+      const oldIndex = localDropdown.values.findIndex(
+        (item: any) => item._id === active.id
+      );
+      const newIndex = localDropdown.values.findIndex(
+        (item: any) => item._id === over.id
+      );
 
       const newValues = arrayMove(localDropdown.values, oldIndex, newIndex);
-      
+
       // Update display orders
       const updatedValues = newValues.map((value: any, index: number) => ({
         ...value,
-        display_order: index
+        display_order: index,
       }));
 
       // Update local state immediately for UI responsiveness
@@ -147,15 +148,18 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
       // Update backend
       try {
         const valueIds = updatedValues.map((value: any) => value._id);
-        const response = await masterDropdownServices.reorderMasterValues(dropdown._id, { valueIds });
-        
+        const response = await masterDropdownServices.reorderMasterValues(
+          dropdown._id,
+          { valueIds }
+        );
+
         // Update local state with backend response to ensure consistency
         setLocalDropdown(response.data.data);
-        
-        toast.success('Values reordered successfully');
+
+        toast.success("Values reordered successfully");
         onRefetch(); // Refresh the main dropdown list
       } catch (error) {
-        toast.error('Failed to reorder values');
+        toast.error("Failed to reorder values");
         // Revert local state on error
         setLocalDropdown(dropdown);
       }
@@ -165,45 +169,55 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
   const handleAddValue = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await masterDropdownServices.addMasterValue(dropdown._id, valueFormData);
+      const response = await masterDropdownServices.addMasterValue(
+        dropdown._id,
+        valueFormData
+      );
       setLocalDropdown(response.data.data);
-      toast.success('Value added successfully');
+      toast.success("Value added successfully");
       setIsAddDialogOpen(false);
       setValueFormData({
-        option_value: '',
-        display_value: '',
-        display_order: 0,
+        option_value: "",
+        display_value: "",
+        display_order: localDropdown?.values?.length || 0, // reset properly for next add
         is_default: false,
-        is_active: true
+        is_active: true,
       });
       onRefetch();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to add value');
+      toast.error(error.response?.data?.message || "Failed to add value");
     }
   };
 
   const handleEditValue = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await masterDropdownServices.updateMasterValue(dropdown._id, selectedValue._id, valueFormData);
+      const response = await masterDropdownServices.updateMasterValue(
+        dropdown._id,
+        selectedValue._id,
+        valueFormData
+      );
       setLocalDropdown(response.data.data);
-      toast.success('Value updated successfully');
+      toast.success("Value updated successfully");
       setIsEditDialogOpen(false);
       setSelectedValue(null);
       onRefetch();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update value');
+      toast.error(error.response?.data?.message || "Failed to update value");
     }
   };
 
   const handleDeleteValue = async (valueId: string) => {
     try {
-      const response = await masterDropdownServices.deleteMasterValue(dropdown._id, valueId);
+      const response = await masterDropdownServices.deleteMasterValue(
+        dropdown._id,
+        valueId
+      );
       setLocalDropdown(response.data.data);
-      toast.success('Value deleted successfully');
+      toast.success("Value deleted successfully");
       onRefetch();
     } catch (error) {
-      toast.error('Failed to delete value');
+      toast.error("Failed to delete value");
     }
   };
 
@@ -214,28 +228,46 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
       display_value: value.display_value || value.option_value,
       display_order: value.display_order,
       is_default: value.is_default,
-      is_active: value.is_active
+      is_active: value.is_active,
     });
     setIsEditDialogOpen(true);
   };
 
-  const sortedValues = localDropdown?.values?.sort((a: any, b: any) => a.display_order - b.display_order) || [];
+  const sortedValues =
+    localDropdown?.values?.sort(
+      (a: any, b: any) => a.display_order - b.display_order
+    ) || [];
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Manage Master Values - {dropdown?.display_name}</DialogTitle>
+            <DialogTitle>
+              Manage Master Values - {dropdown?.display_name}
+            </DialogTitle>
             <DialogDescription>
-              Add, edit, and manage option values for this master dropdown. Drag to reorder.
+              Add, edit, and manage option values for this master dropdown. Drag
+              to reorder.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="flex-1 space-y-4 overflow-hidden">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-medium">Option Values</h3>
-              <Button onClick={() => setIsAddDialogOpen(true)}>
+              <Button
+                onClick={() => {
+                  const nextOrder = localDropdown?.values?.length || 0; // next available index
+                  setValueFormData({
+                    option_value: "",
+                    display_value: "",
+                    display_order: nextOrder,
+                    is_default: false,
+                    is_active: true,
+                  });
+                  setIsAddDialogOpen(true);
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Value
               </Button>
@@ -243,7 +275,7 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
 
             <div className="border rounded-md">
               <ScrollArea className="h-[400px]">
-                <DndContext 
+                <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
                   onDragEnd={handleDragEnd}
@@ -260,7 +292,7 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      <SortableContext 
+                      <SortableContext
                         items={sortedValues.map((value: any) => value._id)}
                         strategy={verticalListSortingStrategy}
                       >
@@ -288,7 +320,8 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
           <DialogHeader>
             <DialogTitle>Add Value to {dropdown?.display_name}</DialogTitle>
             <DialogDescription>
-              Add a new option value to this master dropdown. Only one default value is allowed per dropdown.
+              Add a new option value to this master dropdown. Only one default
+              value is allowed per dropdown.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddValue} className="space-y-4">
@@ -297,7 +330,12 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
               <Input
                 id="option_value"
                 value={valueFormData.option_value}
-                onChange={(e) => setValueFormData({ ...valueFormData, option_value: e.target.value })}
+                onChange={(e) =>
+                  setValueFormData({
+                    ...valueFormData,
+                    option_value: e.target.value,
+                  })
+                }
                 placeholder="excellent"
                 required
               />
@@ -307,7 +345,12 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
               <Input
                 id="display_value"
                 value={valueFormData.display_value}
-                onChange={(e) => setValueFormData({ ...valueFormData, display_value: e.target.value })}
+                onChange={(e) =>
+                  setValueFormData({
+                    ...valueFormData,
+                    display_value: e.target.value,
+                  })
+                }
                 placeholder="Excellent"
                 required
               />
@@ -316,20 +359,30 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
               <Switch
                 id="is_default"
                 checked={valueFormData.is_default}
-                onCheckedChange={(checked) => setValueFormData({ ...valueFormData, is_default: checked })}
+                onCheckedChange={(checked) =>
+                  setValueFormData({ ...valueFormData, is_default: checked })
+                }
               />
-              <Label htmlFor="is_default">Default value (will override existing default)</Label>
+              <Label htmlFor="is_default">
+                Default value (will override existing default)
+              </Label>
             </div>
             <div className="flex items-center space-x-2">
               <Switch
                 id="is_active"
                 checked={valueFormData.is_active}
-                onCheckedChange={(checked) => setValueFormData({ ...valueFormData, is_active: checked })}
+                onCheckedChange={(checked) =>
+                  setValueFormData({ ...valueFormData, is_active: checked })
+                }
               />
               <Label htmlFor="is_active">Active</Label>
             </div>
             <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddDialogOpen(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit">Add Value</Button>
@@ -344,7 +397,8 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
           <DialogHeader>
             <DialogTitle>Edit Value</DialogTitle>
             <DialogDescription>
-              Update this option value. Only one default value is allowed per dropdown.
+              Update this option value. Only one default value is allowed per
+              dropdown.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditValue} className="space-y-4">
@@ -353,7 +407,12 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
               <Input
                 id="edit_option_value"
                 value={valueFormData.option_value}
-                onChange={(e) => setValueFormData({ ...valueFormData, option_value: e.target.value })}
+                onChange={(e) =>
+                  setValueFormData({
+                    ...valueFormData,
+                    option_value: e.target.value,
+                  })
+                }
                 placeholder="excellent"
                 required
               />
@@ -363,7 +422,12 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
               <Input
                 id="edit_display_value"
                 value={valueFormData.display_value}
-                onChange={(e) => setValueFormData({ ...valueFormData, display_value: e.target.value })}
+                onChange={(e) =>
+                  setValueFormData({
+                    ...valueFormData,
+                    display_value: e.target.value,
+                  })
+                }
                 placeholder="Excellent"
                 required
               />
@@ -374,7 +438,12 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
                 id="edit_display_order"
                 type="number"
                 value={valueFormData.display_order}
-                onChange={(e) => setValueFormData({ ...valueFormData, display_order: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  setValueFormData({
+                    ...valueFormData,
+                    display_order: parseInt(e.target.value),
+                  })
+                }
                 placeholder="0"
               />
             </div>
@@ -382,20 +451,30 @@ const MasterValueManagementDialog: React.FC<MasterValueManagementDialogProps> = 
               <Switch
                 id="edit_is_default"
                 checked={valueFormData.is_default}
-                onCheckedChange={(checked) => setValueFormData({ ...valueFormData, is_default: checked })}
+                onCheckedChange={(checked) =>
+                  setValueFormData({ ...valueFormData, is_default: checked })
+                }
               />
-              <Label htmlFor="edit_is_default">Default value (will override existing default)</Label>
+              <Label htmlFor="edit_is_default">
+                Default value (will override existing default)
+              </Label>
             </div>
             <div className="flex items-center space-x-2">
               <Switch
                 id="edit_is_active"
                 checked={valueFormData.is_active}
-                onCheckedChange={(checked) => setValueFormData({ ...valueFormData, is_active: checked })}
+                onCheckedChange={(checked) =>
+                  setValueFormData({ ...valueFormData, is_active: checked })
+                }
               />
               <Label htmlFor="edit_is_active">Active</Label>
             </div>
             <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit">Update Value</Button>
