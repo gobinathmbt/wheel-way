@@ -42,18 +42,23 @@ const calculatePrice = async (req, res) => {
     }
 
     // Calculate user cost
-    const userCost = plan.per_user_cost * number_of_users;
+    // Calculate user cost (only charge when at least one module is selected)
+    let userCost = 0;
+    if (selected_modules && selected_modules.length > 0) {
+      userCost = plan.per_user_cost * number_of_users;
+    }
 
     // Calculate module cost
     let moduleCost = 0;
     const moduleDetails = [];
-    
+
     if (selected_modules && selected_modules.length > 0) {
       for (const moduleName of selected_modules) {
         const moduleConfig = plan.modules.find(m => m.module_name === moduleName);
         if (moduleConfig) {
           moduleCost += moduleConfig.cost_per_module;
           moduleDetails.push({
+            display_value: moduleConfig.display_value,
             module_name: moduleName,
             cost: moduleConfig.cost_per_module
           });
@@ -93,10 +98,10 @@ const calculatePrice = async (req, res) => {
 // Create subscription
 const createSubscription = async (req, res) => {
   try {
-    const { 
-      number_of_days, 
-      number_of_users, 
-      selected_modules, 
+    const {
+      number_of_days,
+      number_of_users,
+      selected_modules,
       total_amount,
       payment_method
     } = req.body;
@@ -107,14 +112,14 @@ const createSubscription = async (req, res) => {
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(startDate.getDate() + number_of_days);
-    
+
     const gracePeriodEnd = new Date(endDate);
     gracePeriodEnd.setDate(gracePeriodEnd.getDate() + 2); // 2 days grace period
 
     // Get module details with costs
     const plan = await Plan.findOne({ is_active: true });
     const moduleDetails = [];
-    
+
     if (selected_modules && selected_modules.length > 0) {
       for (const moduleName of selected_modules) {
         const moduleConfig = plan.modules.find(m => m.module_name === moduleName);
@@ -148,7 +153,7 @@ const createSubscription = async (req, res) => {
       event_description: `Subscription created for company`,
       company_id: companyId,
       user_id: req.user.id,
-      metadata: { 
+      metadata: {
         subscription_id: subscription._id,
         amount: total_amount,
         payment_method
@@ -203,7 +208,7 @@ const updatePaymentStatus = async (req, res) => {
         event_action: 'payment_completed',
         event_description: `Payment completed for subscription`,
         company_id: subscription.company_id,
-        metadata: { 
+        metadata: {
           subscription_id: subscription._id,
           transaction_id: payment_transaction_id
         }
@@ -227,7 +232,7 @@ const updatePaymentStatus = async (req, res) => {
 const getCompanySubscription = async (req, res) => {
   try {
     const companyId = req.user.company_id;
-    
+
     const subscription = await Subscription.findOne({
       company_id: companyId,
       is_active: true
@@ -257,11 +262,50 @@ const getCompanySubscription = async (req, res) => {
   }
 };
 
+const getSubscriptionStatus = async (req, res) => {
+  try {
+    const companyId = req.user.company_id;
+    
+    // Get company with subscription status
+    const company = await Company.findById(companyId);
+    
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found'
+      });
+    }
+    
+    // Get active subscription if exists
+    const activeSubscription = await Subscription.findOne({
+      company_id: companyId,
+      is_active: true
+    }).sort({ created_at: -1 });
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        status: company.subscription_status,
+        ends_at: company.subscription_end_date,
+        active_subscription: activeSubscription,
+        grace_period: activeSubscription?.grace_period_end || null,
+        days_remaining: activeSubscription?.days_remaining || 0
+      }
+    });
+  } catch (error) {
+    console.error('Get subscription status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching subscription status'
+    });
+  }
+};
+
 // Get subscription history
 const getSubscriptionHistory = async (req, res) => {
   try {
     const companyId = req.user.company_id;
-    
+
     const subscriptions = await Subscription.find({
       company_id: companyId
     }).sort({ created_at: -1 });
@@ -291,5 +335,6 @@ module.exports = {
   createSubscription,
   updatePaymentStatus,
   getCompanySubscription,
-  getSubscriptionHistory
+  getSubscriptionHistory,
+  getSubscriptionStatus
 };

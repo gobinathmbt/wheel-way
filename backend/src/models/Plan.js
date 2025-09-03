@@ -13,6 +13,10 @@ const PlanSchema = new mongoose.Schema({
       type: String,
       required: true
     },
+    display_value: {
+      type: String,
+      required: true
+    },
     cost_per_module: {
       type: Number,
       required: true,

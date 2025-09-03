@@ -31,5 +31,6 @@ router.get('/current', authorize('company_super_admin', 'company_admin'), getCom
 
 // Get subscription history
 router.get('/history', authorize('company_super_admin'), getSubscriptionHistory);
+router.use('/company/dropdowns', authorize('master_admin'), require('./master.dropdown.routes'));
 
 module.exports = router;

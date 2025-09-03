@@ -31,11 +31,17 @@ const Login = () => {
     try {
       await login(email, password);
       toast.success('Login successful');
-      
+
       // Get user data from auth context after successful login
       const userData = JSON.parse(sessionStorage.getItem('user') || '{}');
       console.log('User data after login:', userData);
-      
+
+      if (userData.subscription_modal_required) {
+        // Redirect to subscription page/modal
+        navigate("/subscription");
+        return; // Stop further navigation
+      }
+
       // Navigate based on user role
       if (from) {
         // If there was a specific page they were trying to access, go there

@@ -58,6 +58,7 @@ const MasterPlans = () => {
       });
     }
   }, [currentPlan]);
+  console.log(currentPlan)
 
   const handleModuleCostChange = (moduleName, cost) => {
     setPlanData(prev => ({
@@ -76,6 +77,7 @@ const MasterPlans = () => {
         ...prev,
         modules: [...prev.modules, {
           module_name: module.option_value,
+          display_value: module.display_value,
           cost_per_module: 0
         }]
       }));

@@ -63,9 +63,6 @@ router.post('/register-company', [
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('Country is required'),
-  body('plan_id')
-    .isIn(['basic', 'intermediate', 'pro'])
-    .withMessage('Valid plan selection is required'),
   body('password')
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters')

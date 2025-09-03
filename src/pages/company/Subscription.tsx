@@ -1,17 +1,14 @@
-
 import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
-import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar, Users, CreditCard, Package, Calculator, Loader2, AlertTriangle } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Calendar, Users, CreditCard, Package, Calculator, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { companyServices } from '@/api/services';
@@ -21,16 +18,15 @@ const Subscription = () => {
   const [subscriptionData, setSubscriptionData] = useState({
     number_of_days: 30,
     number_of_users: 1,
-    selected_modules: ['dashboard', 'users', 'permissions', 'dropdownmaster', 'settings']
+    selected_modules: [] // 👈 removed default 5
   });
   const [pricing, setPricing] = useState(null);
-  const [availableModules, setAvailableModules] = useState([]);
   const [isCalculating, setIsCalculating] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('stripe');
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentSubscription, setCurrentSubscription] = useState(null);
 
-  // Load pricing config and modules
+  // Load pricing config from master plans
   const { data: pricingConfig } = useQuery({
     queryKey: ['pricing-config'],
     queryFn: async () => {
@@ -38,24 +34,6 @@ const Subscription = () => {
       return response.data.data;
     }
   });
-
-  // Load available modules
-  useEffect(() => {
-    const loadModules = async () => {
-      try {
-        const response = await companyServices.getMasterdropdownvalues({
-          dropdown_name: ["modules"],
-        });
-        if (response.data.success) {
-          setAvailableModules(response.data.data.modules || []);
-        }
-      } catch (error) {
-        console.error('Failed to load modules:', error);
-        toast.error('Failed to load available modules');
-      }
-    };
-    loadModules();
-  }, []);
 
   // Load current subscription
   useQuery({
@@ -88,14 +66,15 @@ const Subscription = () => {
     }
   };
 
-  const handleModuleToggle = (moduleName, checked) => {
+  const handleModuleToggle = (moduleValue, checked, display_value) => {
     setSubscriptionData(prev => ({
       ...prev,
       selected_modules: checked
-        ? [...prev.selected_modules, moduleName]
-        : prev.selected_modules.filter(m => m !== moduleName)
+        ? [...prev.selected_modules, moduleValue, display_value]
+        : prev.selected_modules.filter(m => m !== moduleValue)
     }));
   };
+
 
   const createSubscription = async (paymentMethod) => {
     try {
@@ -114,9 +93,7 @@ const Subscription = () => {
     setIsProcessing(true);
     try {
       const subscription = await createSubscription('stripe');
-      
-      // In a real implementation, you would integrate with Stripe Elements
-      // For now, we'll simulate payment success
+
       setTimeout(async () => {
         try {
           await apiClient.patch(`/api/subscription/${subscription._id}/payment-status`, {
@@ -140,8 +117,7 @@ const Subscription = () => {
     setIsProcessing(true);
     try {
       const subscription = await createSubscription('paypal');
-      
-      // Simulate PayPal payment
+
       setTimeout(async () => {
         try {
           await apiClient.patch(`/api/subscription/${subscription._id}/payment-status`, {
@@ -165,8 +141,7 @@ const Subscription = () => {
     setIsProcessing(true);
     try {
       const subscription = await createSubscription('razorpay');
-      
-      // Simulate Razorpay payment
+
       setTimeout(async () => {
         try {
           await apiClient.patch(`/api/subscription/${subscription._id}/payment-status`, {
@@ -198,7 +173,6 @@ const Subscription = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
                 Current Subscription
                 <Badge variant={currentSubscription.subscription_status === 'active' ? 'default' : 'secondary'}>
                   {currentSubscription.subscription_status}
@@ -220,24 +194,13 @@ const Subscription = () => {
                   <p className="text-2xl font-bold">${currentSubscription.total_amount}</p>
                 </div>
               </div>
-              
+
               <div>
                 <Label className="text-sm font-medium">Active Modules</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {currentSubscription.selected_modules?.map((module, index) => (
                     <Badge key={index} variant="outline">{module.module_name}</Badge>
                   ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Start Date</Label>
-                  <p>{new Date(currentSubscription.subscription_start_date).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">End Date</Label>
-                  <p>{new Date(currentSubscription.subscription_end_date).toLocaleDateString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -274,9 +237,9 @@ const Subscription = () => {
                       min="1"
                       max="365"
                       value={subscriptionData.number_of_days}
-                      onChange={(e) => setSubscriptionData(prev => ({ 
-                        ...prev, 
-                        number_of_days: parseInt(e.target.value) || 1 
+                      onChange={(e) => setSubscriptionData(prev => ({
+                        ...prev,
+                        number_of_days: parseInt(e.target.value) || 1
                       }))}
                       className="pl-10"
                     />
@@ -293,9 +256,9 @@ const Subscription = () => {
                       min="1"
                       max="1000"
                       value={subscriptionData.number_of_users}
-                      onChange={(e) => setSubscriptionData(prev => ({ 
-                        ...prev, 
-                        number_of_users: parseInt(e.target.value) || 1 
+                      onChange={(e) => setSubscriptionData(prev => ({
+                        ...prev,
+                        number_of_users: parseInt(e.target.value) || 1
                       }))}
                       className="pl-10"
                     />
@@ -305,37 +268,29 @@ const Subscription = () => {
 
               <div className="space-y-4">
                 <Label>Select Modules</Label>
-                <div className="text-sm text-muted-foreground mb-2">
-                  Dashboard, Users, Permissions, Dropdown Master, and Settings are included by default
-                </div>
-                
                 <div className="space-y-3">
-                  {/* Default modules (always selected) */}
-                  {['dashboard', 'users', 'permissions', 'dropdownmaster', 'settings'].map((module) => (
-                    <div key={module} className="flex items-center space-x-2">
-                      <Checkbox checked={true} disabled />
-                      <Label className="capitalize text-muted-foreground">{module}</Label>
-                      <Badge variant="secondary" className="ml-auto">Default</Badge>
-                    </div>
-                  ))}
-                  
-                  {/* Additional modules */}
-                  {availableModules
-                    .filter(module => !['dashboard', 'users', 'permissions', 'dropdownmaster', 'settings'].includes(module.value?.toLowerCase()))
-                    .map((module) => (
-                    <div key={module.value} className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={subscriptionData.selected_modules.includes(module.value)}
-                        onCheckedChange={(checked) => handleModuleToggle(module.value, checked)}
-                      />
-                      <Label className="capitalize">{module.label}</Label>
-                      {pricingConfig?.modules?.find(m => m.module_name === module.value) && (
-                        <Badge variant="outline" className="ml-auto">
-                          ${pricingConfig.modules.find(m => m.module_name === module.value).cost_per_module}/day
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
+                  {/* All modules dynamically */}
+                  {pricingConfig?.modules?.map((module) => {
+                    const isSelected = subscriptionData.selected_modules.includes(module.module_name);
+
+                    return (
+                      <div key={module.module_name} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/20 transition-colors">
+                        <div className="flex items-center space-x-3">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <Label className="font-medium">{module.display_value}</Label>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline">${module.cost_per_module}/day</Badge>
+                          <Switch
+                            checked={isSelected}
+                            onCheckedChange={(checked) => handleModuleToggle(module.module_name, checked, module.display_value)}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </CardContent>
@@ -386,7 +341,7 @@ const Subscription = () => {
                     <div className="space-y-1">
                       {pricing.module_details?.map((module, index) => (
                         <div key={index} className="flex justify-between text-sm">
-                          <span className="capitalize">{module.module_name}</span>
+                          <span>{module.display_value}</span>
                           <span>${module.cost}/day</span>
                         </div>
                       ))}
@@ -421,9 +376,8 @@ const Subscription = () => {
 
                 <TabsContent value="stripe" className="space-y-4">
                   <div className="text-center space-y-4">
-                    <p className="text-muted-foreground">Pay securely with Stripe</p>
-                    <Button 
-                      onClick={handleStripePayment} 
+                    <Button
+                      onClick={handleStripePayment}
                       disabled={isProcessing}
                       className="w-full"
                     >
@@ -441,9 +395,8 @@ const Subscription = () => {
 
                 <TabsContent value="paypal" className="space-y-4">
                   <div className="text-center space-y-4">
-                    <p className="text-muted-foreground">Pay with your PayPal account</p>
-                    <Button 
-                      onClick={handlePayPalPayment} 
+                    <Button
+                      onClick={handlePayPalPayment}
                       disabled={isProcessing}
                       className="w-full bg-blue-600 hover:bg-blue-700"
                     >
@@ -461,9 +414,8 @@ const Subscription = () => {
 
                 <TabsContent value="razorpay" className="space-y-4">
                   <div className="text-center space-y-4">
-                    <p className="text-muted-foreground">Pay with Razorpay</p>
-                    <Button 
-                      onClick={handleRazorpayPayment} 
+                    <Button
+                      onClick={handleRazorpayPayment}
                       disabled={isProcessing}
                       className="w-full bg-green-600 hover:bg-green-700"
                     >

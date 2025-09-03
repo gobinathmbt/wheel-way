@@ -41,6 +41,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  if (user.subscription_modal_required) {
+    return <Navigate to="/subscription" />;
+  }
+
   if (!allowedRoles.includes(user.role)) {
     return <Navigate to="/unauthorized" replace />;
   }

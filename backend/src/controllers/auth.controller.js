@@ -12,11 +12,11 @@ const config = require('../config/env');
 // Generate JWT Token
 const generateToken = (user) => {
   return jwt.sign(
-    { 
-      id: user._id, 
-      email: user.email, 
+    {
+      id: user._id,
+      email: user.email,
       role: user.role,
-      company_id: user.company_id 
+      company_id: user.company_id
     },
     config.JWT_SECRET,
     { expiresIn: config.JWT_EXPIRE }
@@ -76,7 +76,7 @@ const login = async (req, res) => {
       if (subscription) {
         const now = new Date();
         const subscriptionStatus = subscription.subscription_status;
-        
+
         // If subscription expired and grace period over, deny access to company_admin
         if (subscriptionStatus === 'expired' && user.role === 'company_admin') {
           return res.status(403).json({
@@ -156,6 +156,26 @@ const login = async (req, res) => {
         company_id: user.company_id._id,
         is_active: true
       }).sort({ created_at: -1 });
+
+      if (subscription) {
+        const now = new Date();
+        const endDate = subscription.subscription_end_date;
+
+        if (!endDate || endDate < now || subscription.subscription_status === 'inactive') {
+          // Mark that modal should show
+          userData.subscription_modal_required = true;
+        } else {
+          userData.subscription_modal_required = false;
+        }
+
+        userData.subscription_status = subscription.subscription_status;
+        userData.subscription_days_remaining = subscription.days_remaining;
+        userData.subscription_in_grace_period = subscription.subscription_status === 'grace_period';
+      } else {
+        // No subscription exists
+        userData.subscription_modal_required = true;
+        userData.subscription_status = 'none';
+      }
 
       if (subscription) {
         userData.subscription_status = subscription.subscription_status;
@@ -318,7 +338,7 @@ const registerCompany = async (req, res) => {
 const getMe = async (req, res) => {
   try {
     let user;
-    
+
     if (req.user.role === 'master_admin') {
       user = await MasterAdmin.findById(req.user.id);
     } else {

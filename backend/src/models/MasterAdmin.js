@@ -1,4 +1,3 @@
-
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -53,11 +52,25 @@ const MasterAdminSchema = new mongoose.Schema({
     host: String,
     port: Number,
     secure: Boolean,
-    username: String,
+    user: String,
     password: String,
     from_email: String,
     from_name: String
   },
+    aws_settings: {
+    access_key_id: String,
+    secret_access_key: String,
+    region: {
+      type: String,
+      default: 'us-east-1'
+    },
+    sqs_queue_url: String
+  },
+  is_active: {
+    type: Boolean,
+    default: true
+  },
+  last_login: Date,
   created_at: {
     type: Date,
     default: Date.now
