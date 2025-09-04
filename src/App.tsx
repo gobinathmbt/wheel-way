@@ -36,6 +36,17 @@ import Subscription from "./pages/company/Subscription";
 import InspectionList from "./pages/vehicles/InspectionList";
 import TradeinList from "./pages/vehicles/TradeinList";
 
+// Workshop Pages
+import Workshop from "./pages/company/Workshop";
+import WorkshopConfig from "./pages/company/WorkshopConfig";
+
+import SupplierManagement from "./pages/company/SupplierManagement";
+
+// Supplier Pages
+import SupplierLogin from "./pages/supplier/SupplierLogin";
+import SupplierDashboard from "./pages/supplier/SupplierDashboard";
+import SupplierVehicleDetails from "./pages/supplier/SupplierVehicleDetails";
+
 import Documentation from "./pages/Documentation";
 import NotFound from "./pages/NotFound";
 
@@ -137,6 +148,28 @@ const App = () => (
                 <TradeinList />
               </ProtectedRoute>
             } />
+
+            {/* Workshop Routes */}
+            <Route path="/company/workshop" element={
+              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']}>
+                <Workshop />
+              </ProtectedRoute>
+            } />
+            <Route path="/company/suppliers" element={
+              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']}>
+                <SupplierManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/company/workshop-config/:vehicleId/:vehicleType" element={
+              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']}>
+                <WorkshopConfig />
+              </ProtectedRoute>
+            } />
+
+            {/* Supplier Routes (Public) */}
+            <Route path="/supplier/login" element={<SupplierLogin />} />
+            <Route path="/supplier/dashboard" element={<SupplierDashboard />} />
+            <Route path="/supplier/vehicle/:vehicleStockId/:vehicleType" element={<SupplierVehicleDetails />} />
             
             {/* Documentation */}
             <Route path="/docs" element={

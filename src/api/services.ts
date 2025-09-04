@@ -162,6 +162,9 @@ export const companyServices = {
   getMasterdropdownvalues: (data: any) =>
   apiClient.post('api/company/company/dropdowns/dropdown_values',  data ),
   
+  getCompanyMasterdropdownvalues: (data: any) =>
+  apiClient.post('api/company/company_dropdowns/dropdowns/dropdown_values',  data ),
+  
   getUserStats: (params?: any) =>
     apiClient.get('/api/company/dashboard/users', { params }),
   
@@ -383,6 +386,9 @@ export const vehicleServices = {
   getVehicleDetail: (vehicleId: string) =>
     apiClient.get(`/api/vehicle/detail/${vehicleId}`),
   
+  createVehicleStock: (data: any) =>
+    apiClient.post('/api/vehicle/create-stock', data),
+  
   bulkImportVehicles: (data: any) =>
     apiClient.post('/api/vehicle/bulk-import', data),
   
@@ -490,6 +496,63 @@ export const logServices = {
 };
 
 
+// Supplier Services
+export const supplierServices = {
+  getSuppliers: (params?: any) =>
+    apiClient.get('/api/supplier', { params }),
+  
+  getSupplier: (id: string) =>
+    apiClient.get(`/api/supplier/${id}`),
+  
+  createSupplier: (data: any) =>
+    apiClient.post('/api/supplier', data),
+  
+  updateSupplier: (id: string, data: any) =>
+    apiClient.put(`/api/supplier/${id}`, data),
+  
+  deleteSupplier: (id: string) =>
+    apiClient.delete(`/api/supplier/${id}`),
+  
+  searchSuppliersByTags: (data: any) =>
+    apiClient.post('/api/supplier/search-by-tags', data)
+};
+
+// Workshop Services
+export const workshopServices = {
+  getWorkshopVehicles: (params?: any) =>
+    apiClient.get('/api/workshop/vehicles', { params }),
+  
+  getWorkshopVehicleDetails: (vehicleId: string,vehicleType: string,) =>
+    apiClient.get(`/api/workshop/vehicle/${vehicleId}/${vehicleType}`),
+  
+  createQuote: (data: any) =>
+    apiClient.post('/api/workshop/quote', data),
+  
+  getQuotesForField: (vehicleType: string, vehicleStockId: string, fieldId: string) =>
+    apiClient.get(`/api/workshop/quotes/${vehicleType}/${vehicleStockId}/${fieldId}`),
+  
+  approveSupplierQuote: (quoteId: string, supplierId: string) =>
+    apiClient.post(`/api/workshop/quote/${quoteId}/approve/${supplierId}`)
+};
+
+// Supplier Auth Services
+export const supplierAuthServices = {
+  login: (email: string, password: string) =>
+    apiClient.post('/api/supplier-auth/login', { email, password }),
+  
+  getProfile: () =>
+    apiClient.get('/api/supplier-auth/profile'),
+  
+  getVehicles: () =>
+    apiClient.get('/api/supplier-auth/vehicles'),
+  
+  getVehicleDetails: (vehicleStockId: string,vehicleType:string) =>
+    apiClient.get(`/api/supplier-auth/vehicle/${vehicleStockId}/${vehicleType}`),
+  
+  submitResponse: (quoteId: string, data: any) =>
+    apiClient.post(`/api/supplier-auth/quote/${quoteId}/respond`, data)
+};
+
 export default {
   auth: authServices,
   subscription: subscriptionServices,
@@ -501,5 +564,8 @@ export default {
   vehicle: vehicleServices,
   inspection: inspectionServices,
   tradein: tradeinServices,
-  logs: logServices
+  logs: logServices,
+  supplier: supplierServices,
+  workshop: workshopServices,
+  supplierAuth: supplierAuthServices
 };

@@ -8,7 +8,7 @@ const GlobalLogSchema = new mongoose.Schema({
     enum: [
       'auth', 'user_management', 'vehicle_operation', 'inspection',
       'tradein', 'configuration', 'api_call', 'data_export',
-      'system_error', 'security_event', 'queue_operation','system_operation','supplier_operation'
+      'system_error', 'security_event', 'queue_operation','system_operation'
     ]
   },
   event_action: {

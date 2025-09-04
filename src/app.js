@@ -18,9 +18,6 @@ const configRoutes = require('./routes/config.routes');
 const inspectionRoutes = require('./routes/inspection.routes');
 const tradeinRoutes = require('./routes/tradein.routes');
 const docsRoutes = require('./routes/docs.routes');
-const workshopRoutes = require('./routes/workshop.routes');
-const supplierRoutes = require('./routes/supplier.routes');
-const supplierAuthRoutes = require('./routes/supplierAuth.routes');
 const logsRoutes = require('./routes/logs.routes');
 const subscriptionRoutes = require('./routes/subscription.routes');
 
@@ -85,9 +82,6 @@ app.use('/api/tradein', tradeinRoutes);
 app.use('/api/docs', docsRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/subscription', subscriptionRoutes);
-app.use('/api/workshop', workshopRoutes);
-app.use('/api/supplier', supplierRoutes);
-app.use('/api/supplier-auth', supplierAuthRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

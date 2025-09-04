@@ -13,6 +13,7 @@ const {
   getPerformanceStats,
   getSystemStats,
   getRecentActivity,
+  getCompanyMasterdropdownvalues,
   
   // Settings endpoints
   getS3Config,
@@ -88,6 +89,8 @@ router.put('/settings/s3', authorize('company_super_admin'), updateS3Config);
 router.put('/settings/callback', authorize('company_super_admin'), updateCallbackConfig);
 router.post('/settings/test-s3', authorize('company_super_admin'), testS3Connection);
 router.post('/settings/test-webhook', authorize('company_super_admin'), testWebhook);
+
+router.post('/company_dropdowns/dropdowns/dropdown_values', authorize('company_super_admin','company_admin'), getCompanyMasterdropdownvalues);
 
 router.use('/company/dropdowns', authorize('company_super_admin'), require('./master.dropdown.routes'));
 

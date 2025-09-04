@@ -3,6 +3,7 @@ const User = require("../models/User");
 const Company = require("../models/Company");
 const Vehicle = require("../models/Vehicle");
 const { logEvent } = require("./logs.controller");
+const DropdownMaster = require("../models/DropdownMaster");
 
 // @desc    Get company dashboard overview stats
 // @route   GET /api/company/dashboard/stats
@@ -1040,6 +1041,35 @@ const testWebhook = async (req, res) => {
   }
 };
 
+
+const getCompanyMasterdropdownvalues = async (req, res) => {
+  try {
+    const { dropdown_name } = req.body; // this will be an array
+
+    if (!dropdown_name || !Array.isArray(dropdown_name)) {
+      return res.status(400).json({
+        success: false,
+        message: "dropdown_name must be an array",
+      });
+    }
+
+    // Fetch only matching dropdowns
+    const dropdowns = await DropdownMaster.find({
+      dropdown_name: { $in: dropdown_name },
+      is_active: true,
+    })
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      data: dropdowns, // return full data of matched dropdowns
+    });
+  } catch (error) {
+    console.error("Master: Get modules for permissions error:", error);
+    res.status(500).json({ success: false, message: "Error retrieving modules" });
+  }
+};
+
 module.exports = {
   // Dashboard endpoints
   getDashboardStats,
@@ -1071,4 +1101,5 @@ module.exports = {
   updateCallbackConfig,
   testS3Connection,
   testWebhook,
+  getCompanyMasterdropdownvalues,
 };
