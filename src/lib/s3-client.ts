@@ -1,5 +1,8 @@
-
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
 
 export interface S3Config {
   region: string;
@@ -30,17 +33,19 @@ export class S3Uploader {
       },
     });
     this.bucket = config.bucket;
-    this.baseUrl = config.url || `https://${config.bucket}.s3.${config.region}.amazonaws.com/`;
+    this.baseUrl =
+      config.url ||
+      `https://${config.bucket}.s3.${config.region}.amazonaws.com/`;
   }
 
   private getUserFromSession() {
     try {
-      const userStr = sessionStorage.getItem('user');
+      const userStr = sessionStorage.getItem("user");
       if (userStr) {
         return JSON.parse(userStr);
       }
     } catch (error) {
-      console.error('Error getting user from session:', error);
+      console.error("Error getting user from session:", error);
     }
     return null;
   }
@@ -48,54 +53,43 @@ export class S3Uploader {
   private generateFolderPath(category: string): string {
     const user = this.getUserFromSession();
     if (!user) {
-      throw new Error('User session not found');
+      throw new Error("User session not found");
     }
 
     const companyId = user.company_id;
     const userId = user.id;
 
-    // Map category to folder structure
-    let mainFolder = '';
-    switch (category) {
-      case 'listImage':
-        mainFolder = 'listing-images';
-        break;
-      case 'inspectionImage':
-        mainFolder = 'inspection';
-        break;
-      case 'otherImage':
-        mainFolder = 'other-images';
-        break;
-      case 'document':
-      default:
-        mainFolder = 'documents';
-        break;
-    }
-
-    return `${mainFolder}/${companyId}/${userId}`;
+    return `${companyId}/${userId}/${category}`;
   }
 
-  async uploadFile(file: File, category: string = 'document'): Promise<UploadResult> {
+  async uploadFile(
+    file: File,
+    category: string = "document"
+  ): Promise<UploadResult> {
     const timestamp = Date.now();
-    const fileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const fileName = `${timestamp}-${file.name.replace(
+      /[^a-zA-Z0-9.-]/g,
+      "_"
+    )}`;
     const folderPath = this.generateFolderPath(category);
     const key = `${folderPath}/${fileName}`;
+
+    const arrayBuffer = await file.arrayBuffer(); // ✅ Convert to ArrayBuffer for AWS
 
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
-      Body: file,
+      Body: new Uint8Array(arrayBuffer), // ✅ Use Uint8Array, works in browser
       ContentType: file.type,
-      ACL: 'public-read',
+      ACL: "public-read",
     });
 
     await this.client.send(command);
 
-    // Use the provided base URL or construct one
-    const url = this.baseUrl.endsWith('/') 
-      ? `${this.baseUrl}${key}` 
+    const url = this.baseUrl.endsWith("/")
+      ? `${this.baseUrl}${key}`
       : `${this.baseUrl}/${key}`;
-    
+
     return {
       url,
       key,
@@ -113,8 +107,8 @@ export class S3Uploader {
   }
 
   getPublicUrl(key: string): string {
-    return this.baseUrl.endsWith('/') 
-      ? `${this.baseUrl}${key}` 
+    return this.baseUrl.endsWith("/")
+      ? `${this.baseUrl}${key}`
       : `${this.baseUrl}/${key}`;
   }
 }

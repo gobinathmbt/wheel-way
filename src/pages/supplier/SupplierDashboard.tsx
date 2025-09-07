@@ -22,7 +22,7 @@ const SupplierDashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = sessionStorage.getItem("token");
+    const token = sessionStorage.getItem("supplier_token");
     const user = sessionStorage.getItem("supplier_user");
 
     if (!token || !user) {
@@ -43,7 +43,7 @@ const SupplierDashboard = () => {
   });
 
   const handleLogout = () => {
-    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("supplier_token");
     sessionStorage.removeItem("supplier_user");
     navigate("/supplier/login");
   };

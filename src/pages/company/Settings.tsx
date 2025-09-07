@@ -8,10 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Cloud, Link, CreditCard, Save, TestTube, Loader2, Package, Calendar, Users, AlertTriangle } from 'lucide-react';
+import { Cloud, Link, CreditCard, Save, TestTube, Loader2, Package, Calendar, Users, AlertTriangle, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { companyServices, subscriptionServices } from '@/api/services';
 import { useQuery } from '@tanstack/react-query';
+import SubscriptionModal from '@/components/subscription/SubscriptionModal';
+import apiClient from '@/api/axios';
 
 const CompanySettings = () => {
   const [loading, setLoading] = useState(false);
@@ -29,12 +31,15 @@ const CompanySettings = () => {
     webhook_secret: ''
   });
 
-  // Load current subscription
-  const { data: currentSubscription, refetch: refetchSubscription } = useQuery({
-    queryKey: ['current-subscription'],
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [subscriptionModalMode, setSubscriptionModalMode] = useState<'upgrade' | 'renewal'>('upgrade');
+
+  // Load company subscription info
+  const { data: companySubscription, refetch: refetchSubscription } = useQuery({
+    queryKey: ['company-subscription-info'],
     queryFn: async () => {
       try {
-        const response = await subscriptionServices.getCurrentSubscription();
+        const response = await apiClient.get('/api/subscription/company-info');
         return response.data.data;
       } catch (error) {
         return null;
@@ -57,6 +62,7 @@ const CompanySettings = () => {
 
   // Load configurations on mount
   useEffect(() => {
+   
     const loadConfigurations = async () => {
       setLoading(true);
       try {
@@ -79,9 +85,28 @@ const CompanySettings = () => {
         setLoading(false);
       }
     };
-
+refetchSubscription()
     loadConfigurations();
   }, []);
+
+  const handleUpgradeClick = () => {
+    setSubscriptionModalMode('upgrade');
+    setShowSubscriptionModal(true);
+  };
+
+  const handleRenewClick = () => {
+    setSubscriptionModalMode('renewal');
+    setShowSubscriptionModal(true);
+  };
+
+  const getSubscriptionStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'default';
+      case 'grace_period': return 'destructive';
+      case 'inactive': return 'secondary';
+      default: return 'secondary';
+    }
+  };
 
   const handleS3Save = async (e) => {
     e.preventDefault();
@@ -142,7 +167,7 @@ const CompanySettings = () => {
     }
   };
 
-  if (loading && !s3Config.bucket && !currentSubscription) {
+  if (loading && !s3Config.bucket && !companySubscription) {
     return (
       <DashboardLayout title="Company Settings">
         <div className="flex items-center justify-center h-64">
@@ -161,6 +186,9 @@ const CompanySettings = () => {
             <TabsTrigger value="subscription" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
               Subscription
+              {companySubscription?.subscription_status === 'grace_period' && (
+                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+              )}
             </TabsTrigger>
             <TabsTrigger value="storage" className="flex items-center gap-2">
               <Cloud className="h-4 w-4" />
@@ -176,24 +204,23 @@ const CompanySettings = () => {
           <TabsContent value="subscription">
             <div className="space-y-6">
               {/* Current Subscription Status */}
-              {currentSubscription ? (
+              {companySubscription?.subscription_status !== 'inactive' ? (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Package className="h-5 w-5" />
                       Current Subscription
-                      <Badge variant={currentSubscription.subscription_status === 'active' ? 'default' : 
-                                   currentSubscription.subscription_status === 'grace_period' ? 'destructive' : 'secondary'}>
-                        {currentSubscription.subscription_status}
+                      <Badge variant={getSubscriptionStatusColor(companySubscription.subscription_status)}>
+                        {companySubscription.subscription_status}
                       </Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {currentSubscription.subscription_status === 'grace_period' && (
+                    {companySubscription.subscription_status === 'grace_period' && (
                       <Alert variant="destructive" className="mb-4">
                         <AlertTriangle className="h-4 w-4" />
                         <AlertDescription>
-                          Your subscription has expired. You have {currentSubscription.days_remaining || 0} days remaining in the grace period.
+                          Your subscription has expired. You have {companySubscription.days_remaining || 0} days remaining in the grace period.
                         </AlertDescription>
                       </Alert>
                     )}
@@ -201,52 +228,68 @@ const CompanySettings = () => {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div className="text-center p-4 bg-muted/50 rounded-lg">
                         <Users className="h-8 w-8 mx-auto mb-2 text-primary" />
-                        <div className="text-2xl font-bold">{currentSubscription.number_of_users}</div>
+                        <div className="text-2xl font-bold">{companySubscription.number_of_users || 1}</div>
                         <p className="text-sm text-muted-foreground">Users</p>
                       </div>
                       <div className="text-center p-4 bg-muted/50 rounded-lg">
                         <Calendar className="h-8 w-8 mx-auto mb-2 text-primary" />
-                        <div className="text-2xl font-bold">{currentSubscription.days_remaining || 0}</div>
+                        <div className="text-2xl font-bold">{companySubscription.days_remaining || 0}</div>
                         <p className="text-sm text-muted-foreground">Days Left</p>
                       </div>
                       <div className="text-center p-4 bg-muted/50 rounded-lg">
                         <Package className="h-8 w-8 mx-auto mb-2 text-primary" />
-                        <div className="text-2xl font-bold">{currentSubscription.selected_modules?.length || 0}</div>
+                        <div className="text-2xl font-bold">{companySubscription.module_access?.length || 0}</div>
                         <p className="text-sm text-muted-foreground">Modules</p>
                       </div>
                       <div className="text-center p-4 bg-muted/50 rounded-lg">
-                        <CreditCard className="h-8 w-8 mx-auto mb-2 text-primary" />
-                        <div className="text-2xl font-bold">${currentSubscription.total_amount}</div>
-                        <p className="text-sm text-muted-foreground">Total Paid</p>
+                        <Calendar className="h-8 w-8 mx-auto mb-2 text-primary" />
+                        <div className="text-2xl font-bold">{companySubscription.number_of_days || 0}</div>
+                        <p className="text-sm text-muted-foreground">Total Days</p>
                       </div>
                     </div>
 
                     <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label className="text-sm font-medium">Start Date</Label>
-                        <p className="text-lg">{new Date(currentSubscription.subscription_start_date).toLocaleDateString()}</p>
+                        <p className="text-lg">
+                          {companySubscription.subscription_start_date 
+                            ? new Date(companySubscription.subscription_start_date).toLocaleDateString()
+                            : 'N/A'
+                          }
+                        </p>
                       </div>
                       <div>
                         <Label className="text-sm font-medium">End Date</Label>
-                        <p className="text-lg">{new Date(currentSubscription.subscription_end_date).toLocaleDateString()}</p>
+                        <p className="text-lg">
+                          {companySubscription.subscription_end_date 
+                            ? new Date(companySubscription.subscription_end_date).toLocaleDateString()
+                            : 'N/A'
+                          }
+                        </p>
                       </div>
                     </div>
 
                     <div className="mt-4">
                       <Label className="text-sm font-medium">Active Modules</Label>
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {currentSubscription.selected_modules?.map((module, index) => (
+                        {companySubscription.module_access?.map((module, index) => (
                           <Badge key={index} variant="outline" className="capitalize">
-                            {module.module_name}
+                            {module.replace('_', ' ')}
                           </Badge>
                         ))}
                       </div>
                     </div>
 
-                    <div className="mt-6">
-                      <Button onClick={() => window.location.href = '/subscription'}>
-                        Renew Subscription
+                    <div className="mt-6 flex gap-4">
+                      <Button onClick={handleUpgradeClick} variant="outline">
+                        <TrendingUp className="mr-2 h-4 w-4" />
+                        Upgrade Plan
                       </Button>
+                      {companySubscription.can_renew && (
+                        <Button onClick={handleRenewClick}>
+                          Renew Subscription
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -266,7 +309,7 @@ const CompanySettings = () => {
                       </AlertDescription>
                     </Alert>
                     <div className="mt-4">
-                      <Button onClick={() => window.location.href = '/subscription'}>
+                      <Button onClick={() => setShowSubscriptionModal(true)}>
                         Set Up Subscription
                       </Button>
                     </div>
@@ -478,6 +521,16 @@ const CompanySettings = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Subscription Modal */}
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={() => setShowSubscriptionModal(false)}
+          mode={companySubscription?.subscription_status === 'inactive' ? 'new' : subscriptionModalMode}
+          canClose={true}
+          refetchSubscription={refetchSubscription}
+          currentSubscription={companySubscription}
+        />
       </div>
     </DashboardLayout>
   );

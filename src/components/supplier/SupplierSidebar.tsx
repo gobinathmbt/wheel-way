@@ -10,43 +10,64 @@ const SupplierSidebar = () => {
       icon: BarChart3,
       label: 'Dashboard',
       path: '/supplier/dashboard',
-      description: 'Overview and statistics'
+      description: 'Overview and statistics',
+      count: 0
     },
     {
       icon: User,
       label: 'Profile',
       path: '/supplier/profile',
-      description: 'Supplier profile settings'
+      description: 'Supplier profile settings',
+      count: 0
     },
     {
       icon: ClipboardList,
       label: 'Quote Requests',
-      path: '/supplier/quote-requests',
-      description: 'Pending quote requests'
+      path: '/supplier/quotes/quote_request',
+      description: 'Pending quote requests',
+      count: 0
     },
     {
       icon: CheckCircle,
       label: 'Quote Approved',
-      path: '/supplier/quote-approved',
-      description: 'Approved quotes'
+      path: '/supplier/quotes/quote_approved',
+      description: 'Approved quotes',
+      count: 0
     },
     {
       icon: XCircle,
       label: 'Quote Rejected',
-      path: '/supplier/quote-rejected',
-      description: 'Rejected quotes'
+      path: '/supplier/quotes/quote_rejected',
+      description: 'Rejected quotes',
+      count: 0
     },
     {
       icon: Clock,
       label: 'Work In Progress',
-      path: '/supplier/work-in-progress',
-      description: 'Ongoing work'
+      path: '/supplier/quotes/work_in_progress',
+      description: 'Ongoing work',
+      count: 0
+    },
+    {
+      icon: FileCheck,
+      label: 'Work Review',
+      path: '/supplier/quotes/work_review',
+      description: 'Work under review',
+      count: 0
     },
     {
       icon: FileCheck,
       label: 'Completed Jobs',
-      path: '/supplier/completed-jobs',
-      description: 'Finished work'
+      path: '/supplier/quotes/completed_jobs',
+      description: 'Finished work',
+      count: 0
+    },
+    {
+      icon: XCircle,
+      label: 'Rework',
+      path: '/supplier/quotes/rework',
+      description: 'Rework required',
+      count: 0
     }
   ];
 
@@ -77,14 +98,21 @@ const SupplierSidebar = () => {
               }`}
             >
               <Icon className={`h-5 w-5 ${isActive ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-accent-foreground'}`} />
-              <div className="flex-1">
-                <div className={`font-medium ${isActive ? 'text-primary-foreground' : 'text-foreground'}`}>
-                  {item.label}
-                </div>
-                <div className={`text-xs ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                  {item.description}
-                </div>
-              </div>
+                      <div className="flex-1">
+                        <div className={`font-medium ${isActive ? 'text-primary-foreground' : 'text-foreground'}`}>
+                          {item.label}
+                        </div>
+                        <div className={`text-xs ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                          {item.description}
+                        </div>
+                      </div>
+                      {item.count > 0 && (
+                        <div className={`text-xs px-2 py-1 rounded-full ${
+                          isActive ? 'bg-primary-foreground text-primary' : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {item.count}
+                        </div>
+                      )}
             </Link>
           );
         })}

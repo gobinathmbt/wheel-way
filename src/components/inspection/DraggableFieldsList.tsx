@@ -67,6 +67,11 @@ function SortableField({ field, onEditField, onDeleteField }: SortableFieldProps
             Image
           </Badge>
         )}
+        {field.has_notes && (
+          <Badge variant="outline" className="text-xs">
+            Image
+          </Badge>
+        )}
         {field.field_type === "dropdown" && field.dropdown_config?.dropdown_id && (
           <Badge variant="outline" className="text-xs">
             Dropdown

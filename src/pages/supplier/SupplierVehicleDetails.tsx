@@ -30,7 +30,7 @@ const SupplierVehicleDetails = () => {
   });
 
   useEffect(() => {
-    const token = sessionStorage.getItem('token');
+    const token = sessionStorage.getItem('supplier_token');
     const user = sessionStorage.getItem('supplier_user');
     
     if (!token || !user) {

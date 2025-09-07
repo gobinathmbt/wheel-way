@@ -12,7 +12,7 @@ const FieldConfigSchema = new mongoose.Schema({
   },
   field_type: {
     type: String,
-    enum: ['text', 'number', 'currency', 'video', 'dropdown', 'image', 'date', 'boolean'],
+    enum: ['text', 'number', 'currency', 'video', 'dropdown', 'image', 'date', 'boolean', 'calculation_field','mutiplier'],
     required: true
   },
   is_required: {
@@ -34,7 +34,12 @@ const FieldConfigSchema = new mongoose.Schema({
     allow_multiple: Boolean,
     custom_options: [String]
   },
+
   has_image: {
+    type: Boolean,
+    default: false
+  },
+  has_notes: {
     type: Boolean,
     default: false
   },
@@ -93,6 +98,36 @@ const CategoryConfigSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  calculations: [{
+    calculation_id: {
+      type: String,
+      required: true
+    },
+    display_name: {
+      type: String,
+      required: true
+    },
+    internal_name: {
+      type: String,
+      required: true
+    },
+    formula: [{
+      field_id: String,
+      operation: {
+        type: String,
+        enum: ['+', '-', '*', '/', '(', ')']
+      },
+      order: Number
+    }],
+    is_active: {
+      type: Boolean,
+      default: true
+    },
+    created_at: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   sections: [SectionConfigSchema]
 });
 

@@ -3,6 +3,8 @@ const WorkshopQuote = require("../models/WorkshopQuote");
 const Vehicle = require("../models/Vehicle");
 const { logEvent } = require("./logs.controller");
 const jwt = require("jsonwebtoken");
+const config = require('../config/env');
+const { type } = require("os");
 
 // @desc    Supplier login
 // @route   POST /api/supplier-auth/login
@@ -32,7 +34,7 @@ const supplierLogin = async (req, res) => {
     }
 
     // Check password (static password: Welcome@123)
-    if (password !== "Welcome@123") {
+    if (password !== supplier.password) {
       return res.status(401).json({
         success: false,
         message: "Invalid credentials",
@@ -46,7 +48,7 @@ const supplierLogin = async (req, res) => {
         email: supplier.email,
         company_id: supplier.company_id,
       },
-      process.env.JWT_SECRET || "your-secret-key",
+      config.JWT_SECRET || "your-secret-key",
       { expiresIn: "30d" }
     );
 
@@ -60,6 +62,7 @@ const supplierLogin = async (req, res) => {
           email: supplier.email,
           supplier_shop_name: supplier.supplier_shop_name,
           company_id: supplier.company_id,
+          type: "supplier",
         },
         token,
       },
@@ -188,12 +191,6 @@ const submitSupplierResponse = async (req, res) => {
     } = req.body;
     const supplierId = req.supplier.supplier_id;
 
-    if (!estimated_cost || !estimated_time) {
-      return res.status(400).json({
-        success: false,
-        message: "Estimated cost and time are required",
-      });
-    }
 
     const quote = await WorkshopQuote.findOne({
       _id: quoteId,
@@ -204,6 +201,12 @@ const submitSupplierResponse = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Quote not found or not assigned to this supplier",
+      });
+    }
+    if (quote.status === 'quote_approved') {
+      return res.status(404).json({
+        success: false,
+        message: "Quote Is Already Taken By Another Supplier",
       });
     }
 
@@ -230,7 +233,7 @@ const submitSupplierResponse = async (req, res) => {
       quote.supplier_responses.push(responseData);
     }
 
-    quote.status = "in_progress";
+
     await quote.save();
 
     res.status(200).json({

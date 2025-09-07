@@ -51,6 +51,9 @@ router.use(protect);
 router.use(authorize('company_super_admin', 'company_admin'));
 router.use(companyScopeCheck);
 
+// Dealership routes (only super admin)
+router.use('/dealerships', authorize('company_super_admin'), require('./dealership.routes'));
+
 // Dashboard routes
 router.get('/dashboard/stats', getDashboardStats);
 router.get('/dashboard/vehicles', getVehicleStats);

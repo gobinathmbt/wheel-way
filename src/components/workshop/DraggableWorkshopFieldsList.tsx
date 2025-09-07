@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   DndContext,
   closestCenter,
@@ -7,56 +7,51 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-} from '@dnd-kit/core';
+} from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import {
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { Badge } from '@/components/ui/badge';
-import { GripVertical } from 'lucide-react';
+} from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Badge } from "@/components/ui/badge";
+import { GripVertical } from "lucide-react";
 
 interface SortableFieldProps {
   field: any;
   index: number;
+  getFieldBorderColor: (field: any) => string;
 }
 
-function SortableField({ field, index }: SortableFieldProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: `field-${field.field_id || index}` });
+function SortableField({
+  field,
+  index,
+  getFieldBorderColor,
+}: SortableFieldProps) {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: `field-${field.field_id || index}` });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
-  const getFieldBorderColor = (field: any) => {
-    const hasQuotes = field.quotes && field.quotes.length > 0;
-    const approvedQuote = field.quotes?.find((q: any) => q.status === "approved");
-    
-    if (approvedQuote) return "border-yellow-500";
-    if (hasQuotes) return "border-blue-500";
-    return "border-orange-500";
-  };
-
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center justify-between p-3 bg-white rounded-md border-2 ${getFieldBorderColor(field)} shadow-sm`}
+      className={`flex items-center justify-between p-3 bg-white rounded-md border-2 ${getFieldBorderColor(
+        field
+      )} shadow-sm`}
     >
       <div className="flex items-center space-x-3">
-        <div {...attributes} {...listeners} className="cursor-grab hover:cursor-grabbing">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab hover:cursor-grabbing"
+        >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="flex-1">
@@ -90,12 +85,12 @@ function SortableField({ field, index }: SortableFieldProps) {
 interface DraggableWorkshopFieldsListProps {
   fields: any[];
   onUpdateOrder: (fields: any[]) => void;
+  getFieldBorderColor: (field: any) => string;
 }
 
-const DraggableWorkshopFieldsList: React.FC<DraggableWorkshopFieldsListProps> = ({
-  fields,
-  onUpdateOrder
-}) => {
+const DraggableWorkshopFieldsList: React.FC<
+  DraggableWorkshopFieldsListProps
+> = ({ fields, onUpdateOrder, getFieldBorderColor }) => {
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -107,13 +102,13 @@ const DraggableWorkshopFieldsList: React.FC<DraggableWorkshopFieldsListProps> = 
     const { active, over } = event;
 
     if (active.id !== over?.id) {
-      const activeIndex = fields.findIndex((_, index) => 
-        `field-${fields[index].field_id || index}` === active.id
+      const activeIndex = fields.findIndex(
+        (_, index) => `field-${fields[index].field_id || index}` === active.id
       );
-      const overIndex = fields.findIndex((_, index) => 
-        `field-${fields[index].field_id || index}` === over?.id
+      const overIndex = fields.findIndex(
+        (_, index) => `field-${fields[index].field_id || index}` === over?.id
       );
-      
+
       if (activeIndex !== -1 && overIndex !== -1) {
         const newFields = arrayMove(fields, activeIndex, overIndex);
         onUpdateOrder(newFields);
@@ -128,7 +123,9 @@ const DraggableWorkshopFieldsList: React.FC<DraggableWorkshopFieldsListProps> = 
       onDragEnd={handleDragEnd}
     >
       <SortableContext
-        items={fields.map((_, index) => `field-${fields[index].field_id || index}`)}
+        items={fields.map(
+          (_, index) => `field-${fields[index].field_id || index}`
+        )}
         strategy={verticalListSortingStrategy}
       >
         <div className="space-y-2">
@@ -137,6 +134,7 @@ const DraggableWorkshopFieldsList: React.FC<DraggableWorkshopFieldsListProps> = 
               key={`field-${field.field_id || index}`}
               field={field}
               index={index}
+              getFieldBorderColor={getFieldBorderColor}
             />
           ))}
         </div>

@@ -5,7 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
+import { dealershipServices } from '@/api/services';
 import apiClient from '@/api/axios';
 
 interface User {
@@ -16,6 +20,7 @@ interface User {
   last_name: string;
   role: string;
   is_active: boolean;
+  dealership_ids?: any[];
 }
 
 interface UserEditDialogProps {
@@ -36,9 +41,19 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({
     email: '',
     first_name: '',
     last_name: '',
-    role: 'company_admin'
+    role: 'company_admin',
+    dealership_ids: [] as string[]
   });
   const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch available dealerships
+  const { data: dealerships } = useQuery({
+    queryKey: ['dealerships-dropdown'],
+    queryFn: async () => {
+      const response = await dealershipServices.getDealershipsDropdown();
+      return response.data.data;
+    }
+  });
 
   useEffect(() => {
     if (user) {
@@ -47,7 +62,8 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({
         email: user.email,
         first_name: user.first_name,
         last_name: user.last_name,
-        role: user.role
+        role: user.role,
+        dealership_ids: user.dealership_ids?.map(d => d._id || d) || []
       });
     }
   }, [user]);
@@ -78,9 +94,19 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({
         email: user.email,
         first_name: user.first_name,
         last_name: user.last_name,
-        role: user.role
+        role: user.role,
+        dealership_ids: user.dealership_ids?.map(d => d._id || d) || []
       });
     }
+  };
+
+  const handleDealershipToggle = (dealershipId: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      dealership_ids: checked 
+        ? [...prev.dealership_ids, dealershipId]
+        : prev.dealership_ids.filter(id => id !== dealershipId)
+    }));
   };
 
   return (
@@ -140,10 +166,52 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="company_super_admin">Company Super Admin</SelectItem>
                 <SelectItem value="company_admin">Company Admin</SelectItem>
               </SelectContent>
             </Select>
           </div>
+          
+          {/* Dealership Assignment */}
+          <div>
+            <Label>Assigned Dealerships</Label>
+            <div className="mt-2 border rounded-lg p-3 max-h-48">
+              <ScrollArea className="h-full">
+                {dealerships && dealerships.length > 0 ? (
+                  <div className="space-y-2">
+                    {dealerships.map((dealership: any) => (
+                      <div key={dealership._id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`dealership-${dealership._id}`}
+                          checked={formData.dealership_ids.includes(dealership._id)}
+                          onCheckedChange={(checked) => 
+                            handleDealershipToggle(dealership._id, checked as boolean)
+                          }
+                        />
+                        <Label 
+                          htmlFor={`dealership-${dealership._id}`}
+                          className="flex-1 cursor-pointer text-sm"
+                        >
+                          <div>
+                            <div className="font-medium">{dealership.dealership_name}</div>
+                            <div className="text-xs text-muted-foreground">{dealership.dealership_id}</div>
+                          </div>
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    No dealerships available
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Select dealerships this user can access
+            </p>
+          </div>
+          
           <div className="flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
               Cancel

@@ -11,7 +11,7 @@ const apiClient = axios.create({
 // Request interceptor for auth token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('token');
+    const token = sessionStorage.getItem('token') || sessionStorage.getItem('supplier_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -24,7 +24,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 402) {
       sessionStorage.removeItem('token');
       window.location.href = '/login';
     }

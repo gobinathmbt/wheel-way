@@ -8,7 +8,8 @@ const {
   createSubscription,
   updatePaymentStatus,
   getCompanySubscription,
-  getSubscriptionHistory
+  getSubscriptionHistory,
+  getCompanySubscriptionInfo
 } = require('../controllers/subscription.controller');
 
 // All routes require authentication
@@ -31,6 +32,8 @@ router.get('/current', authorize('company_super_admin', 'company_admin'), getCom
 
 // Get subscription history
 router.get('/history', authorize('company_super_admin'), getSubscriptionHistory);
-router.use('/company/dropdowns', authorize('master_admin'), require('./master.dropdown.routes'));
+
+// Get company subscription info
+router.get('/company-info', authorize('company_super_admin', 'company_admin'), getCompanySubscriptionInfo);
 
 module.exports = router;

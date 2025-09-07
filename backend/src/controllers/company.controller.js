@@ -1,7 +1,7 @@
-
 const User = require("../models/User");
 const Company = require("../models/Company");
 const Vehicle = require("../models/Vehicle");
+const Dealership = require("../models/Dealership");
 const { logEvent } = require("./logs.controller");
 const DropdownMaster = require("../models/DropdownMaster");
 
@@ -18,44 +18,44 @@ const getDashboardStats = async (req, res) => {
     if (from && to) {
       dateFilter.created_at = {
         $gte: new Date(from),
-        $lte: new Date(to)
+        $lte: new Date(to),
       };
     }
 
     // Get real vehicle counts
-    const totalVehicles = await Vehicle.countDocuments({ 
-      company_id: companyId 
-    });
-    
-    const vehiclesInPeriod = await Vehicle.countDocuments({ 
+    const totalVehicles = await Vehicle.countDocuments({
       company_id: companyId,
-      ...dateFilter
+    });
+
+    const vehiclesInPeriod = await Vehicle.countDocuments({
+      company_id: companyId,
+      ...dateFilter,
     });
 
     const previousPeriodStart = new Date(from);
     previousPeriodStart.setMonth(previousPeriodStart.getMonth() - 1);
-    
-    const vehiclesLastMonth = await Vehicle.countDocuments({ 
+
+    const vehiclesLastMonth = await Vehicle.countDocuments({
       company_id: companyId,
       created_at: {
         $gte: previousPeriodStart,
-        $lte: new Date(from)
-      }
+        $lte: new Date(from),
+      },
     });
 
     // Calculate active inspections (vehicles with inspection_result)
     const activeInspections = await Vehicle.countDocuments({
       company_id: companyId,
-      'inspection_result.0': { $exists: true },
-      'inspection_result.status': { $in: ['in_progress', 'pending'] }
+      "inspection_result.0": { $exists: true },
+      "inspection_result.status": { $in: ["in_progress", "pending"] },
     });
 
     // Calculate completed appraisals in period
     const completedAppraisals = await Vehicle.countDocuments({
       company_id: companyId,
-      'trade_in_result.0': { $exists: true },
-      'trade_in_result.status': 'completed',
-      ...dateFilter
+      "trade_in_result.0": { $exists: true },
+      "trade_in_result.status": "completed",
+      ...dateFilter,
     });
 
     const stats = {
@@ -64,7 +64,7 @@ const getDashboardStats = async (req, res) => {
       activeInspections,
       completedAppraisals,
       vehiclesInPeriod,
-      pendingVehicles: totalVehicles - activeInspections - completedAppraisals
+      pendingVehicles: totalVehicles - activeInspections - completedAppraisals,
     };
 
     res.status(200).json({
@@ -91,30 +91,32 @@ const getVehicleStats = async (req, res) => {
     // Get vehicle counts by type
     const vehiclesByType = await Vehicle.aggregate([
       { $match: { company_id: companyId } },
-      { $group: { _id: '$vehicle_type', count: { $sum: 1 } } }
+      { $group: { _id: "$vehicle_type", count: { $sum: 1 } } },
     ]);
 
     // Get vehicles by status
     const vehiclesByStatus = await Vehicle.aggregate([
       { $match: { company_id: companyId } },
-      { $group: { _id: '$status', count: { $sum: 1 } } }
+      { $group: { _id: "$status", count: { $sum: 1 } } },
     ]);
 
     // Get vehicles by make (top 10)
     const vehiclesByMake = await Vehicle.aggregate([
       { $match: { company_id: companyId } },
-      { $group: { _id: '$make', count: { $sum: 1 } } },
+      { $group: { _id: "$make", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
-      { $limit: 10 }
+      { $limit: 10 },
     ]);
 
-    const totalVehicles = await Vehicle.countDocuments({ company_id: companyId });
-    
+    const totalVehicles = await Vehicle.countDocuments({
+      company_id: companyId,
+    });
+
     // Format data for charts
     const distribution = vehiclesByType.map((item, index) => ({
-      name: item._id || 'Unknown',
+      name: item._id || "Unknown",
       value: item.count,
-      color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]
+      color: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"][index % 5],
     }));
 
     const vehicleStats = {
@@ -123,7 +125,9 @@ const getVehicleStats = async (req, res) => {
       byStatus: vehiclesByStatus,
       byMake: vehiclesByMake,
       distribution,
-      availableVehicles: totalVehicles - (vehiclesByStatus.find(s => s._id === 'processing')?.count || 0)
+      availableVehicles:
+        totalVehicles -
+        (vehiclesByStatus.find((s) => s._id === "processing")?.count || 0),
     };
 
     res.status(200).json({
@@ -151,31 +155,31 @@ const getInspectionStats = async (req, res) => {
     if (from && to) {
       dateFilter.updated_at = {
         $gte: new Date(from),
-        $lte: new Date(to)
+        $lte: new Date(to),
       };
     }
 
     // Get vehicles with inspections
     const totalInspections = await Vehicle.countDocuments({
       company_id: companyId,
-      'inspection_result.0': { $exists: true },
-      ...dateFilter
+      "inspection_result.0": { $exists: true },
+      ...dateFilter,
     });
 
     const completedInspections = await Vehicle.countDocuments({
       company_id: companyId,
-      'inspection_result.status': 'completed',
-      ...dateFilter
+      "inspection_result.status": "completed",
+      ...dateFilter,
     });
 
     const inProgressInspections = await Vehicle.countDocuments({
       company_id: companyId,
-      'inspection_result.status': 'in_progress'
+      "inspection_result.status": "in_progress",
     });
 
     const pendingInspections = await Vehicle.countDocuments({
       company_id: companyId,
-      'inspection_result.status': 'pending'
+      "inspection_result.status": "pending",
     });
 
     // Calculate average completion time (mock calculation)
@@ -185,7 +189,10 @@ const getInspectionStats = async (req, res) => {
       inProgressInspections,
       pendingInspections,
       averageTimeToComplete: 2.5, // hours - would need to calculate from actual timestamps
-      successRate: totalInspections > 0 ? Math.round((completedInspections / totalInspections) * 100) : 0
+      successRate:
+        totalInspections > 0
+          ? Math.round((completedInspections / totalInspections) * 100)
+          : 0,
     };
 
     res.status(200).json({
@@ -213,40 +220,54 @@ const getAppraisalStats = async (req, res) => {
     if (from && to) {
       dateFilter.updated_at = {
         $gte: new Date(from),
-        $lte: new Date(to)
+        $lte: new Date(to),
       };
     }
 
     const totalAppraisals = await Vehicle.countDocuments({
       company_id: companyId,
-      'trade_in_result.0': { $exists: true },
-      ...dateFilter
+      "trade_in_result.0": { $exists: true },
+      ...dateFilter,
     });
 
     const completedAppraisals = await Vehicle.countDocuments({
       company_id: companyId,
-      'trade_in_result.status': 'completed',
-      ...dateFilter
+      "trade_in_result.status": "completed",
+      ...dateFilter,
     });
 
     const activeAppraisals = await Vehicle.countDocuments({
       company_id: companyId,
-      'trade_in_result.status': 'in_progress'
+      "trade_in_result.status": "in_progress",
     });
 
     // Calculate average appraisal value from vehicle retail prices
     const avgAppraisalResult = await Vehicle.aggregate([
-      { $match: { company_id: companyId, 'vehicle_other_details.retail_price': { $gt: 0 } } },
-      { $group: { _id: null, avgValue: { $avg: '$vehicle_other_details.retail_price' } } }
+      {
+        $match: {
+          company_id: companyId,
+          "vehicle_other_details.retail_price": { $gt: 0 },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          avgValue: { $avg: "$vehicle_other_details.retail_price" },
+        },
+      },
     ]);
 
     const appraisalStats = {
       totalAppraisals,
       completedAppraisals,
       activeAppraisals,
-      pendingAppraisals: totalAppraisals - completedAppraisals - activeAppraisals,
+      pendingAppraisals:
+        totalAppraisals - completedAppraisals - activeAppraisals,
       averageAppraisalValue: Math.round(avgAppraisalResult[0]?.avgValue || 0),
-      completionRate: totalAppraisals > 0 ? Math.round((completedAppraisals / totalAppraisals) * 100) : 0
+      completionRate:
+        totalAppraisals > 0
+          ? Math.round((completedAppraisals / totalAppraisals) * 100)
+          : 0,
     };
 
     res.status(200).json({
@@ -282,7 +303,7 @@ const getUserStats = async (req, res) => {
     // Get users by role
     const usersByRole = await User.aggregate([
       { $match: { company_id: companyId } },
-      { $group: { _id: '$role', count: { $sum: 1 } } }
+      { $group: { _id: "$role", count: { $sum: 1 } } },
     ]);
 
     // Get recent user activity (last 30 days)
@@ -291,7 +312,7 @@ const getUserStats = async (req, res) => {
 
     const recentlyActiveUsers = await User.countDocuments({
       company_id: companyId,
-      updated_at: { $gte: thirtyDaysAgo }
+      updated_at: { $gte: thirtyDaysAgo },
     });
 
     const userStats = {
@@ -303,7 +324,10 @@ const getUserStats = async (req, res) => {
         acc[curr._id] = curr.count;
         return acc;
       }, {}),
-      activityRate: totalUsers > 0 ? Math.round((recentlyActiveUsers / totalUsers) * 100) : 0
+      activityRate:
+        totalUsers > 0
+          ? Math.round((recentlyActiveUsers / totalUsers) * 100)
+          : 0,
     };
 
     res.status(200).json({
@@ -330,22 +354,24 @@ const getRevenueStats = async (req, res) => {
     // Calculate revenue from vehicle retail prices
     const revenueResult = await Vehicle.aggregate([
       { $match: { company_id: companyId } },
-      { $unwind: '$vehicle_other_details' },
-      { $group: { 
-        _id: null, 
-        totalRevenue: { $sum: '$vehicle_other_details.retail_price' },
-        avgRevenue: { $avg: '$vehicle_other_details.retail_price' },
-        count: { $sum: 1 }
-      }}
+      { $unwind: "$vehicle_other_details" },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$vehicle_other_details.retail_price" },
+          avgRevenue: { $avg: "$vehicle_other_details.retail_price" },
+          count: { $sum: 1 },
+        },
+      },
     ]);
 
     // Monthly revenue data (mock - would need proper timestamp grouping)
     const monthlyData = [
-      { month: 'Jan', revenue: 85000 },
-      { month: 'Feb', revenue: 95000 },
-      { month: 'Mar', revenue: 110000 },
-      { month: 'Apr', revenue: 118000 },
-      { month: 'May', revenue: 125000 }
+      { month: "Jan", revenue: 85000 },
+      { month: "Feb", revenue: 95000 },
+      { month: "Mar", revenue: 110000 },
+      { month: "Apr", revenue: 118000 },
+      { month: "May", revenue: 125000 },
     ];
 
     const revenueStats = {
@@ -353,7 +379,7 @@ const getRevenueStats = async (req, res) => {
       averageRevenue: Math.round(revenueResult[0]?.avgRevenue || 0),
       monthlyRevenue: monthlyData[monthlyData.length - 1]?.revenue || 0,
       growthRate: 12.5, // Would calculate from actual data
-      monthlyData
+      monthlyData,
     };
 
     res.status(200).json({
@@ -378,26 +404,28 @@ const getActivityStats = async (req, res) => {
 
     // Get monthly activity data (mock - would aggregate by actual dates)
     const monthlyData = [
-      { month: 'Jan', inspections: 32, appraisals: 28 },
-      { month: 'Feb', inspections: 38, appraisals: 35 },
-      { month: 'Mar', inspections: 42, appraisals: 30 },
-      { month: 'Apr', inspections: 39, appraisals: 38 },
-      { month: 'May', inspections: 45, appraisals: 32 }
+      { month: "Jan", inspections: 32, appraisals: 28 },
+      { month: "Feb", inspections: 38, appraisals: 35 },
+      { month: "Mar", inspections: 42, appraisals: 30 },
+      { month: "Apr", inspections: 39, appraisals: 38 },
+      { month: "May", inspections: 45, appraisals: 32 },
     ];
 
     const totalActivities = await Vehicle.countDocuments({
       company_id: companyId,
       $or: [
-        { 'inspection_result.0': { $exists: true } },
-        { 'trade_in_result.0': { $exists: true } }
-      ]
+        { "inspection_result.0": { $exists: true } },
+        { "trade_in_result.0": { $exists: true } },
+      ],
     });
 
     const activityStats = {
       monthlyData,
       totalActivities,
       dailyAverage: Math.round(totalActivities / 30),
-      peakActivity: Math.max(...monthlyData.map(d => d.inspections + d.appraisals))
+      peakActivity: Math.max(
+        ...monthlyData.map((d) => d.inspections + d.appraisals)
+      ),
     };
 
     res.status(200).json({
@@ -422,16 +450,16 @@ const getPerformanceStats = async (req, res) => {
 
     // Get top performing users (mock data - would calculate from real activities)
     const topUsers = [
-      { name: 'John Doe', completedTasks: 45 },
-      { name: 'Jane Smith', completedTasks: 38 },
-      { name: 'Mike Johnson', completedTasks: 35 },
-      { name: 'Sarah Wilson', completedTasks: 32 }
+      { name: "John Doe", completedTasks: 45 },
+      { name: "Jane Smith", completedTasks: 38 },
+      { name: "Mike Johnson", completedTasks: 35 },
+      { name: "Sarah Wilson", completedTasks: 32 },
     ];
 
     // Calculate processing times
     const completedVehicles = await Vehicle.countDocuments({
       company_id: companyId,
-      status: 'completed'
+      status: "completed",
     });
 
     const performanceStats = {
@@ -439,7 +467,7 @@ const getPerformanceStats = async (req, res) => {
       completionRate: 85,
       efficiency: 92,
       topUsers,
-      totalProcessedVehicles: completedVehicles
+      totalProcessedVehicles: completedVehicles,
     };
 
     res.status(200).json({
@@ -465,17 +493,17 @@ const getSystemStats = async (req, res) => {
     // Get pending tasks
     const pendingInspections = await Vehicle.countDocuments({
       company_id: companyId,
-      'inspection_result.status': 'pending'
+      "inspection_result.status": "pending",
     });
 
     const pendingAppraisals = await Vehicle.countDocuments({
       company_id: companyId,
-      'trade_in_result.status': 'pending'
+      "trade_in_result.status": "pending",
     });
 
     const errorCount = await Vehicle.countDocuments({
       company_id: companyId,
-      queue_status: 'failed'
+      queue_status: "failed",
     });
 
     const systemStats = {
@@ -484,7 +512,7 @@ const getSystemStats = async (req, res) => {
       errorCount,
       uptime: 99.8,
       processingCapacity: 100,
-      currentLoad: 67
+      currentLoad: 67,
     };
 
     res.status(200).json({
@@ -512,37 +540,42 @@ const getRecentActivity = async (req, res) => {
     const recentVehicles = await Vehicle.find({
       company_id: companyId,
       $or: [
-        { 'inspection_result.0': { $exists: true } },
-        { 'trade_in_result.0': { $exists: true } }
-      ]
+        { "inspection_result.0": { $exists: true } },
+        { "trade_in_result.0": { $exists: true } },
+      ],
     })
-    .populate('created_by', 'first_name last_name')
-    .sort({ updated_at: -1 })
-    .limit(parseInt(limit));
+      .populate("created_by", "first_name last_name")
+      .sort({ updated_at: -1 })
+      .limit(parseInt(limit));
 
-    const recentActivity = recentVehicles.map(vehicle => {
-      const hasInspection = vehicle.inspection_result && vehicle.inspection_result.length > 0;
-      const hasAppraisal = vehicle.trade_in_result && vehicle.trade_in_result.length > 0;
-      
-      let type = 'Vehicle';
-      let status = 'Pending';
-      
+    const recentActivity = recentVehicles.map((vehicle) => {
+      const hasInspection =
+        vehicle.inspection_result && vehicle.inspection_result.length > 0;
+      const hasAppraisal =
+        vehicle.trade_in_result && vehicle.trade_in_result.length > 0;
+
+      let type = "Vehicle";
+      let status = "Pending";
+
       if (hasInspection) {
-        type = 'Inspection';
-        status = vehicle.inspection_result[0]?.status || 'Pending';
+        type = "Inspection";
+        status = vehicle.inspection_result[0]?.status || "Pending";
       } else if (hasAppraisal) {
-        type = 'Appraisal';
-        status = vehicle.trade_in_result[0]?.status || 'Pending';
+        type = "Appraisal";
+        status = vehicle.trade_in_result[0]?.status || "Pending";
       }
 
       return {
         id: vehicle.vehicle_stock_id,
         type,
-        vehicle: vehicle.name || `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+        vehicle:
+          vehicle.name || `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
         status: status.charAt(0).toUpperCase() + status.slice(1),
-        user: vehicle.created_by ? `${vehicle.created_by.first_name} ${vehicle.created_by.last_name}` : 'System',
+        user: vehicle.created_by
+          ? `${vehicle.created_by.first_name} ${vehicle.created_by.last_name}`
+          : "System",
         time: getTimeAgo(vehicle.updated_at),
-        description: `${type} ${status} for ${vehicle.make} ${vehicle.model}`
+        description: `${type} ${status} for ${vehicle.make} ${vehicle.model}`,
       };
     });
 
@@ -567,18 +600,20 @@ const getTimeAgo = (date) => {
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
-  if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-  if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-  return 'Just now';
+  if (days > 0) return `${days} day${days > 1 ? "s" : ""} ago`;
+  if (hours > 0) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+  if (minutes > 0) return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+  return "Just now";
 };
 
 // ... keep existing code (settings and user management functions)
 
 const getS3Config = async (req, res) => {
   try {
-    const company = await Company.findById(req.user.company_id).select('s3_config');
-    
+    const company = await Company.findById(req.user.company_id).select(
+      "s3_config"
+    );
+
     if (!company) {
       return res.status(404).json({
         success: false,
@@ -601,8 +636,10 @@ const getS3Config = async (req, res) => {
 
 const getCallbackConfig = async (req, res) => {
   try {
-    const company = await Company.findById(req.user.company_id).select('integration_settings');
-    
+    const company = await Company.findById(req.user.company_id).select(
+      "integration_settings"
+    );
+
     if (!company) {
       return res.status(404).json({
         success: false,
@@ -626,9 +663,11 @@ const getCallbackConfig = async (req, res) => {
 const getBillingInfo = async (req, res) => {
   try {
     const company = await Company.findById(req.user.company_id)
-      .populate('plan_id')
-      .select('plan_id user_limit current_user_count subscription_status subscription_start_date subscription_end_date');
-    
+      .populate("plan_id")
+      .select(
+        "plan_id user_limit current_user_count subscription_status subscription_start_date subscription_end_date"
+      );
+
     if (!company) {
       return res.status(404).json({
         success: false,
@@ -637,12 +676,12 @@ const getBillingInfo = async (req, res) => {
     }
 
     const billingInfo = {
-      current_plan: company.plan_id?.name || 'Basic Plan',
+      current_plan: company.plan_id?.name || "Basic Plan",
       user_limit: company.user_limit,
       current_users: company.current_user_count,
-      billing_cycle: 'Monthly',
+      billing_cycle: "Monthly",
       next_billing: company.subscription_end_date,
-      amount: company.plan_id?.price || 99
+      amount: company.plan_id?.price || 99,
     };
 
     res.status(200).json({
@@ -665,7 +704,10 @@ const getUsers = async (req, res) => {
     const { page = 1, limit = 10, search, status } = req.query;
     const skip = (page - 1) * limit;
 
-    let filter = { company_id: req.user.company_id };
+    let filter = {
+      company_id: req.user.company_id,
+      is_primary_admin: { $ne: true },
+    };
 
     if (search) {
       filter.$or = [
@@ -682,6 +724,7 @@ const getUsers = async (req, res) => {
 
     const users = await User.find(filter)
       .populate("company_id")
+      .populate('dealership_ids', 'dealership_id dealership_name dealership_address')
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -740,7 +783,7 @@ const getUsers = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { username, email, first_name, last_name } = req.body;
+    const { username, email, first_name, last_name, role, dealership_ids } = req.body;
 
     const existingUser = await User.findOne({
       company_id: req.user.company_id,
@@ -764,6 +807,8 @@ const createUser = async (req, res) => {
     const user = new User({
       ...req.body,
       password: defaultPassword,
+      role: role || 'company_admin',
+      dealership_ids: dealership_ids || [],
       company_id: req.user.company_id,
       is_first_login: true,
       created_by: req.user.id,
@@ -800,13 +845,19 @@ const createUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    const { password, ...updateData } = req.body;
+    const { password, dealership_ids, ...updateData } = req.body;
+
+    // Include dealership_ids in update if provided
+    const finalUpdateData = {
+      ...updateData,
+      ...(dealership_ids !== undefined && { dealership_ids })
+    };
 
     const user = await User.findOneAndUpdate(
       { _id: req.params.id, company_id: req.user.company_id },
-      updateData,
+      finalUpdateData,
       { new: true, runValidators: true }
-    ).select("-password");
+    ).select("-password").populate('dealership_ids', 'dealership_id dealership_name');
 
     if (!user) {
       return res.status(404).json({
@@ -973,16 +1024,17 @@ const updateS3Config = async (req, res) => {
 
 const updateCallbackConfig = async (req, res) => {
   try {
-    const { inspection_callback_url, tradein_callback_url, webhook_secret } = req.body;
+    const { inspection_callback_url, tradein_callback_url, webhook_secret } =
+      req.body;
 
     const company = await Company.findByIdAndUpdate(
       req.user.company_id,
       {
         $set: {
-          integration_settings: { 
+          integration_settings: {
             webhook_url: inspection_callback_url,
             tradein_callback_url,
-            webhook_secret
+            webhook_secret,
           },
           updated_at: new Date(),
         },
@@ -1041,7 +1093,6 @@ const testWebhook = async (req, res) => {
   }
 };
 
-
 const getCompanyMasterdropdownvalues = async (req, res) => {
   try {
     const { dropdown_name } = req.body; // this will be an array
@@ -1057,8 +1108,7 @@ const getCompanyMasterdropdownvalues = async (req, res) => {
     const dropdowns = await DropdownMaster.find({
       dropdown_name: { $in: dropdown_name },
       is_active: true,
-    })
-      .lean();
+    }).lean();
 
     res.status(200).json({
       success: true,
@@ -1066,7 +1116,9 @@ const getCompanyMasterdropdownvalues = async (req, res) => {
     });
   } catch (error) {
     console.error("Master: Get modules for permissions error:", error);
-    res.status(500).json({ success: false, message: "Error retrieving modules" });
+    res
+      .status(500)
+      .json({ success: false, message: "Error retrieving modules" });
   }
 };
 
@@ -1082,12 +1134,12 @@ module.exports = {
   getPerformanceStats,
   getSystemStats,
   getRecentActivity,
-  
+
   // Settings endpoints
   getS3Config,
   getCallbackConfig,
   getBillingInfo,
-  
+
   // User management
   getUsers,
   createUser,
@@ -1095,7 +1147,7 @@ module.exports = {
   deleteUser,
   toggleUserStatus,
   sendWelcomeEmail,
-  
+
   // Settings actions
   updateS3Config,
   updateCallbackConfig,

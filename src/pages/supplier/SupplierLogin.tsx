@@ -21,7 +21,7 @@ const SupplierLogin = () => {
     },
     onSuccess: (data) => {
       // Store supplier token
-      sessionStorage.setItem('token', data.data.token);
+      sessionStorage.setItem('supplier_token', data.data.token);
       sessionStorage.setItem('supplier_user', JSON.stringify(data.data.supplier));
       
       toast.success('Login successful');

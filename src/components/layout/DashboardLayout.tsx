@@ -6,11 +6,12 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { 
   Menu, Bell, User, LogOut, Settings, Home, Users, FileText, Car, 
   Database, Cog, Lock, ChevronLeft, ChevronDown, ChevronRight,
-  Building2, Shield, CreditCard, Globe, UserCog, Wrench, 
+  Building2, Shield, CreditCard, Globe, UserCog, Wrench, Building,
   Truck, ClipboardList, Package, BarChart3, Search, Archive
 } from 'lucide-react';
-import { authServices } from '@/api/services';
+import { authServices, subscriptionServices } from '@/api/services';
 import { Link, useLocation } from 'react-router-dom';
+import SubscriptionModal from '@/components/subscription/SubscriptionModal';
 import {
   Tooltip,
   TooltipContent,
@@ -77,6 +78,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
   const [clickedMenu, setClickedMenu] = useState<string | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   // Generate user-specific cookie keys
   const sidebarCookieKey = getUserSpecificKey('sidebar-collapsed', user?.email);
@@ -139,6 +141,28 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
     }
   });
 
+  // Get company subscription info
+  const { data: companySubscription } = useQuery({
+    queryKey: ['company-subscription-info'],
+    queryFn: async () => {
+      if (user?.role === 'company_super_admin' || user?.role === 'company_admin') {
+        const response = await subscriptionServices.getCompanySubscriptionInfo();
+        return response.data.data;
+      }
+      return null;
+    },
+    enabled: !!(user?.role === 'company_super_admin' || user?.role === 'company_admin')
+  });
+
+  // Show subscription modal for force cases
+  useEffect(() => {
+    if (user?.subscription_modal_required && user?.role === 'company_super_admin') {
+      setShowSubscriptionModal(true);
+    }
+  }, [user]);
+
+  console.log(userModule)
+
   const getNavigationItems = (): NavigationItem[] => {
     if (user?.role === 'master_admin') {
       return [
@@ -153,13 +177,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
     if (user?.role === 'company_super_admin') {
       return [
-        { icon: Home, label: 'Dashboard', path: '/company/dashboard' },
-        { icon: Users, label: 'Users', path: '/company/users' },
-        { icon: Shield, label: 'Permission', path: '/company/permissions' },
-        { icon: Database, label: 'Dropdown Master', path: '/company/dropdown-master' },
+        { icon: Home, label: 'Dashboard', path: '/company/dashboard', module: 'vehicle_dashboard' },
+        { icon: Building, label: 'Multi Dealership', path: '/company/dealerships', module: 'multi_dealsership' },
+        { icon: Users, label: 'Users', path: '/company/users' , module: 'vehicle_user' },
+        { icon: Shield, label: 'Permission', path: '/company/permissions', module: 'vehicle_permission' },
+        { icon: Database, label: 'Dropdown Master', path: '/company/dropdown-master' , module: 'dropdown_master' },
         { 
           icon: Search, 
           label: 'Inspection',
+          module: 'vehicle_inspection',
           children: [
             { icon: ClipboardList, label: 'Inspections', path: '/vehicles/inspection' },
             { icon: Cog, label: 'Inspection Config', path: '/company/inspection-config' },
@@ -168,6 +194,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
         { 
           icon: Archive, 
           label: 'Trade-in',
+                module: 'vehicle_tradein',
           children: [
             { icon: Car, label: 'Trade-ins', path: '/vehicles/tradein' },
             { icon: Settings, label: 'Tradein Config', path: '/company/tradein-config' },
@@ -176,16 +203,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
         { 
           icon: Wrench, 
           label: 'Workshop',
+                module: 'work_shop',
           children: [
             { icon: Package, label: 'Workshop', path: '/company/workshop' },
             { icon: Truck, label: 'Suppliers', path: '/company/suppliers' },
           ]
         },
-        { icon: UserCog, label: 'Settings', path: '/company/settings' },
+        { icon: UserCog, label: 'Settings', path: '/company/settings', module: 'company_settings' },
       ];
     }
 
-    return [
+     return [
       { icon: BarChart3, label: 'Dashboard', path: '/company/dashboard', module: 'vehicle_dashboard' },
       { icon: Search, label: 'Inspections', path: '/vehicles/inspection', module: 'vehicle_inspection' },
       { icon: Archive, label: 'Trade-ins', path: '/vehicles/tradein', module: 'vehicle_tradein' },
@@ -200,7 +228,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
     }
 
     if (!userModule?.data?.module || !Array.isArray(userModule.data.module)) {
-      return allNavigationItems.filter(item => !item.module);
+      return allNavigationItems?.filter(item => !item.module);
     }
 
     return allNavigationItems.filter(item => {
@@ -214,8 +242,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
   const navigationItems = getFilteredNavigationItems();
 
-  const hasNoModuleAccess = user?.role === 'company_admin' && 
-    (!userModule?.data?.module || !Array.isArray(userModule.data.module) || userModule.data.module.length === 0);
+const hasNoModuleAccess = 
+  (user?.role === 'company_admin' || user?.role === 'company_super_admin') &&
+  (!userModule?.data?.module || !Array.isArray(userModule.data.module) || userModule.data.module.length === 0);
 
   // Check if current path matches any child path
   const isMenuActive = (item: NavigationItem): boolean => {

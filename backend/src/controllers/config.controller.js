@@ -1536,6 +1536,379 @@ const toggleInspectionCategoryStatus = async (req, res) => {
   }
 };
 
+// Calculation management for inspection configs
+const addInspectionCalculation = async (req, res) => {
+  try {
+    const { id: configId, categoryId } = req.params;
+    const { display_name, internal_name } = req.body;
+
+    const config = await InspectionConfig.findById(configId);
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    const category = config.categories.find(cat => cat.category_id === categoryId);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    // Check if calculation name already exists in this category
+    const existingCalculation = category.calculations?.find(calc => 
+      calc.internal_name === internal_name || calc.display_name === display_name
+    );
+
+    if (existingCalculation) {
+      return res.status(400).json({
+        success: false,
+        message: 'Calculation with this name already exists'
+      });
+    }
+
+    const newCalculation = {
+      calculation_id: `calc_${Date.now()}`,
+      display_name,
+      internal_name,
+      formula: [],
+      is_active: true
+    };
+
+    if (!category.calculations) {
+      category.calculations = [];
+    }
+    category.calculations.push(newCalculation);
+    
+    await config.save();
+
+    res.status(201).json({
+      success: true,
+      data: newCalculation
+    });
+  } catch (error) {
+    console.error('Add calculation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add calculation'
+    });
+  }
+};
+
+const updateInspectionCalculationFormula = async (req, res) => {
+  try {
+    const { id: configId, categoryId, calculationId } = req.params;
+    const { formula } = req.body;
+
+    const config = await InspectionConfig.findById(configId);
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    const category = config.categories.find(cat => cat.category_id === categoryId);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    const calculation = category.calculations?.find(calc => calc.calculation_id === calculationId);
+    if (!calculation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Calculation not found'
+      });
+    }
+
+    calculation.formula = formula;
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      data: calculation
+    });
+  } catch (error) {
+    console.error('Update calculation formula error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update calculation formula'
+    });
+  }
+};
+
+const deleteInspectionCalculation = async (req, res) => {
+  try {
+    const { id: configId, categoryId, calculationId } = req.params;
+
+    const config = await InspectionConfig.findById(configId);
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    const category = config.categories.find(cat => cat.category_id === categoryId);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    if (!category.calculations) {
+      return res.status(404).json({
+        success: false,
+        message: 'No calculations found'
+      });
+    }
+
+    const calculationIndex = category.calculations.findIndex(calc => calc.calculation_id === calculationId);
+    if (calculationIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Calculation not found'
+      });
+    }
+
+    category.calculations.splice(calculationIndex, 1);
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Calculation deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete calculation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete calculation'
+    });
+  }
+};
+
+const toggleInspectionCalculationStatus = async (req, res) => {
+  try {
+    const { id: configId, categoryId, calculationId } = req.params;
+    const { is_active } = req.body;
+
+    const config = await InspectionConfig.findById(configId);
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    const category = config.categories.find(cat => cat.category_id === categoryId);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    const calculation = category.calculations?.find(calc => calc.calculation_id === calculationId);
+    if (!calculation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Calculation not found'
+      });
+    }
+
+    calculation.is_active = is_active;
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      data: calculation
+    });
+  } catch (error) {
+    console.error('Toggle calculation status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to toggle calculation status'
+    });
+  }
+};
+
+// Calculation management for tradein configs
+const addTradeinCalculation = async (req, res) => {
+  try {
+    const { id: configId } = req.params;
+    const { display_name, internal_name } = req.body;
+
+    const config = await TradeinConfig.findById(configId);
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    // Check if calculation name already exists in this config
+    const existingCalculation = config.calculations?.find(calc => 
+      calc.internal_name === internal_name || calc.display_name === display_name
+    );
+
+    if (existingCalculation) {
+      return res.status(400).json({
+        success: false,
+        message: 'Calculation with this name already exists'
+      });
+    }
+
+    const newCalculation = {
+      calculation_id: `calc_${Date.now()}`,
+      display_name,
+      internal_name,
+      formula: [],
+      is_active: true
+    };
+
+    if (!config.calculations) {
+      config.calculations = [];
+    }
+    config.calculations.push(newCalculation);
+    
+    await config.save();
+
+    res.status(201).json({
+      success: true,
+      data: newCalculation
+    });
+  } catch (error) {
+    console.error('Add tradein calculation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add calculation'
+    });
+  }
+};
+
+const updateTradeinCalculationFormula = async (req, res) => {
+  try {
+    const { id: configId, calculationId } = req.params;
+    const { formula } = req.body;
+
+    const config = await TradeinConfig.findById(configId);
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    const calculation = config.calculations?.find(calc => calc.calculation_id === calculationId);
+    if (!calculation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Calculation not found'
+      });
+    }
+
+    calculation.formula = formula;
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      data: calculation
+    });
+  } catch (error) {
+    console.error('Update tradein calculation formula error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update calculation formula'
+    });
+  }
+};
+
+const deleteTradeinCalculation = async (req, res) => {
+  try {
+    const { id: configId, calculationId } = req.params;
+
+    const config = await TradeinConfig.findById(configId);
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    if (!config.calculations) {
+      return res.status(404).json({
+        success: false,
+        message: 'No calculations found'
+      });
+    }
+
+    const calculationIndex = config.calculations.findIndex(calc => calc.calculation_id === calculationId);
+    if (calculationIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Calculation not found'
+      });
+    }
+
+    config.calculations.splice(calculationIndex, 1);
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Calculation deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete tradein calculation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete calculation'
+    });
+  }
+};
+
+const toggleTradeinCalculationStatus = async (req, res) => {
+  try {
+    const { id: configId, calculationId } = req.params;
+    const { is_active } = req.body;
+
+    const config = await TradeinConfig.findById(configId);
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: 'Configuration not found'
+      });
+    }
+
+    const calculation = config.calculations?.find(calc => calc.calculation_id === calculationId);
+    if (!calculation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Calculation not found'
+      });
+    }
+
+    calculation.is_active = is_active;
+    await config.save();
+
+    res.status(200).json({
+      success: true,
+      data: calculation
+    });
+  } catch (error) {
+    console.error('Toggle tradein calculation status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to toggle calculation status'
+    });
+  }
+};
 module.exports = {
   getInspectionConfigs,
   getInspectionConfigDetails,
@@ -1564,4 +1937,12 @@ module.exports = {
   addInspectionCategory,
   updateInspectionCategory,
   toggleInspectionCategoryStatus,
+  addInspectionCalculation,
+  updateInspectionCalculationFormula,
+  deleteInspectionCalculation,
+  toggleInspectionCalculationStatus,
+  addTradeinCalculation,
+  updateTradeinCalculationFormula,
+  deleteTradeinCalculation,
+  toggleTradeinCalculationStatus,
 };

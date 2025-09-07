@@ -3,6 +3,8 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { login, registerCompany, getMe } = require('../controllers/auth.controller');
 const { protect } = require('../middleware/auth');
+const User = require('../models/User');
+const Company = require('../models/Company');
 
 const router = express.Router();
 
@@ -112,9 +114,8 @@ router.get('/me/permissions', protect, async (req, res) => {
 
 router.get('/me/module', protect, async (req, res) => {
   try {
-    const User = require('../models/User');
-    
-    if (req.user.role === 'master_admin' || req.user.role === 'company_super_admin') {
+    // Master Admin: full access
+    if (req.user.role === 'master_admin') {
       return res.status(200).json({
         success: true,
         data: {
@@ -124,8 +125,28 @@ router.get('/me/module', protect, async (req, res) => {
       });
     }
 
+    // Company Super Admin: pull module_access from Company
+    if (req.user.role === 'company_super_admin') {
+      const company = await Company.findById(req.user.company_id).select('module_access');
+      if (!company) {
+        return res.status(404).json({
+          success: false,
+          message: 'Company not found'
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          module: company.module_access || [],
+          hasAccess: company.module_access && company.module_access.length > 0,
+          role: req.user.role
+        }
+      });
+    }
+
+    // Other roles: get module_access from User
     const user = await User.findById(req.user.id).select('module_access role');
-    
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -133,7 +154,6 @@ router.get('/me/module', protect, async (req, res) => {
       });
     }
 
-    // Check if user has any module access
     const hasModuleAccess = user.module_access && Array.isArray(user.module_access) && user.module_access.length > 0;
 
     res.status(200).json({
@@ -153,5 +173,6 @@ router.get('/me/module', protect, async (req, res) => {
     });
   }
 });
+
 
 module.exports = router;

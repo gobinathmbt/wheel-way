@@ -47,6 +47,8 @@ import DraggableSectionsList from "@/components/inspection/DraggableSectionsList
 import ConfigurationSearch from "@/components/inspection/ConfigurationSearch";
 import ConfigurationList from "@/components/inspection/ConfigurationList";
 import AddCategoryDialog from "@/components/inspection/AddCategoryDialog";
+import { Calculator } from "lucide-react";
+import CalculationSettingsDialog from "@/components/inspection/CalculationSettingsDialog";
 
 const InspectionConfig = () => {
   const queryClient = useQueryClient();
@@ -74,8 +76,10 @@ const InspectionConfig = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-
-  // ... keep existing code (form data states) the same
+  const [isCalculationSettingsOpen, setIsCalculationSettingsOpen] =
+    useState(false);
+  const [selectedCategoryForCalculations, setSelectedCategoryForCalculations] =
+    useState<any>(null);
 
   const [configFormData, setConfigFormData] = useState({
     config_name: "",
@@ -101,6 +105,7 @@ const InspectionConfig = () => {
     field_type: "text",
     is_required: false,
     has_image: false,
+    has_notes: false,
     placeholder: "",
     help_text: "",
     dropdown_config: {
@@ -109,7 +114,20 @@ const InspectionConfig = () => {
     },
   });
 
-  // ... keep existing code (queries) the same
+  // Add this function to handle opening calculation settings
+  const handleOpenCalculationSettings = (category: any) => {
+    setSelectedCategoryForCalculations(category);
+    setIsCalculationSettingsOpen(true);
+  };
+
+  // Add this function to check if a category has calculation fields
+  const hasCalculationFields = (category: any) => {
+    return category.sections?.some((section: any) =>
+      section.fields?.some(
+        (field: any) => field.field_type === 'number' || field.field_type === 'currency' || field.field_type === 'calculation_field' || field.field_type === 'mutiplier'
+      )
+    );
+  };
 
   // Queries
   const {
@@ -429,6 +447,7 @@ const InspectionConfig = () => {
         field_type: "text",
         is_required: false,
         has_image: false,
+        has_notes: false,
         placeholder: "",
         help_text: "",
         dropdown_config: {
@@ -634,12 +653,14 @@ const InspectionConfig = () => {
       field_type: fieldFormData.field_type,
       is_required: fieldFormData.is_required,
       has_image: fieldFormData.has_image,
+      has_notes: fieldFormData.has_notes,
       placeholder: fieldFormData.placeholder,
       help_text: fieldFormData.help_text,
       dropdown_config:
         fieldFormData.field_type === "dropdown"
           ? fieldFormData.dropdown_config
           : undefined,
+         
     };
 
     addFieldMutation.mutate({
@@ -673,9 +694,10 @@ const InspectionConfig = () => {
     { value: "currency", label: "Currency" },
     { value: "video", label: "Video" },
     { value: "dropdown", label: "Dropdown" },
-    { value: "image", label: "Image" },
     { value: "date", label: "Date" },
     { value: "boolean", label: "Yes/No" },
+     { value: "calculation_field", label: "Calculation Field" }, // Add this
+     { value: "mutiplier", label: "Multiply Field" }, // Add this
   ];
 
   const configs = configsData?.data || [];
@@ -730,6 +752,7 @@ const InspectionConfig = () => {
             </SelectContent>
           </Select>
         </div>
+
 
         {/* Dropdown Configuration */}
         {fieldFormData.field_type === "dropdown" && (
@@ -838,6 +861,19 @@ const InspectionConfig = () => {
             }
           />
           <Label htmlFor="has_image">Include image capture</Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="has_notes"
+            checked={fieldFormData.has_notes}
+            onCheckedChange={(checked) =>
+              setFieldFormData({
+                ...fieldFormData,
+                has_notes: checked === true,
+              })
+            }
+          />
+          <Label htmlFor="has_notes">Allow To Enter Notes</Label>
         </div>
         <div className="flex justify-end space-x-2">
           <Button
@@ -1073,6 +1109,20 @@ const InspectionConfig = () => {
                         <div className="space-y-4 pl-4">
                           <div className="flex justify-between items-center">
                             <h4 className="font-medium">Sections</h4>
+                            {hasCalculationFields(category) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenCalculationSettings(category);
+                                }}
+                                className="ml-2"
+                              >
+                                <Calculator className="h-4 w-4 mr-1" />
+                                Calculations
+                              </Button>
+                            )}
                             <Dialog
                               open={isSectionDialogOpen}
                               onOpenChange={setIsSectionDialogOpen}
@@ -1380,6 +1430,20 @@ const InspectionConfig = () => {
           category={categoryToEdit}
           isLoading={updateCategoryMutation.isPending}
         />
+
+        {selectedConfig && selectedCategoryForCalculations && (
+          <CalculationSettingsDialog
+            isOpen={isCalculationSettingsOpen}
+            onClose={() => {
+              setIsCalculationSettingsOpen(false);
+              setSelectedCategoryForCalculations(null);
+            }}
+            configId={selectedConfig._id}
+            categoryId={selectedCategoryForCalculations.category_id}
+            category={selectedCategoryForCalculations}
+            configType="inspection"
+          />
+        )}
       </div>
     </DashboardLayout>
   );

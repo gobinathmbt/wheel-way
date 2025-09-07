@@ -24,6 +24,7 @@ import MasterDropdownMaster from "./pages/master_admin/DropdownMaster";
 
 // Company Pages  
 import CompanyDashboard from "./pages/company/Dashboard";
+import Dealerships from "./pages/company/Dealerships";
 import CompanyUsers from "./pages/company/Users";
 import CompanySettings from "./pages/company/Settings";
 import DropdownMaster from "./pages/company/DropdownMaster";
@@ -46,6 +47,11 @@ import SupplierManagement from "./pages/company/SupplierManagement";
 import SupplierLogin from "./pages/supplier/SupplierLogin";
 import SupplierDashboard from "./pages/supplier/SupplierDashboard";
 import SupplierVehicleDetails from "./pages/supplier/SupplierVehicleDetails";
+import QuotesByStatus from "./pages/supplier/QuotesByStatus";
+import SupplierProfile from "./pages/supplier/SupplierProfile";
+
+// Master Inspection Component
+import MasterInspection from "./components/inspection/MasterInspection";
 
 import Documentation from "./pages/Documentation";
 import NotFound from "./pages/NotFound";
@@ -65,7 +71,6 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register-company" element={<RegisterCompany />} />
             <Route path="/no-access" element={<NoAccess />} />
-            <Route path="/subscription" element={<Subscription />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
             
             {/* Master Admin Routes */}
@@ -106,33 +111,38 @@ const App = () => (
                 <CompanyDashboard />
               </ProtectedRoute>
             } />
+            <Route path="/company/dealerships" element={
+              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="multi_dealsership">
+                <Dealerships />
+              </ProtectedRoute>
+            } />
             <Route path="/company/users" element={
-              <ProtectedRoute allowedRoles={['company_super_admin']}>
+              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="vehicle_user">
                 <CompanyUsers />
               </ProtectedRoute>
             } />
             <Route path="/company/permissions" element={
-              <ProtectedRoute allowedRoles={['company_super_admin']}>
+              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="vehicle_permission">
                 <UserPermissions />
               </ProtectedRoute>
             } />
             <Route path="/company/settings" element={
-              <ProtectedRoute allowedRoles={['company_super_admin']}>
+              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="company_settings">
                 <CompanySettings />
               </ProtectedRoute>
             } />
             <Route path="/company/dropdown-master" element={
-              <ProtectedRoute allowedRoles={['company_super_admin']}>
+              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="dropdown_master">
                 <DropdownMaster />
               </ProtectedRoute>
             } />
             <Route path="/company/inspection-config" element={
-              <ProtectedRoute allowedRoles={['company_super_admin']}>
+              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="vehicle_inspection">
                 <InspectionConfig />
               </ProtectedRoute>
             } />
             <Route path="/company/tradein-config" element={
-              <ProtectedRoute allowedRoles={['company_super_admin']}>
+              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="vehicle_tradein">
                 <TradeinConfig />
               </ProtectedRoute>
             } />
@@ -151,17 +161,17 @@ const App = () => (
 
             {/* Workshop Routes */}
             <Route path="/company/workshop" element={
-              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']}>
+              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']} requiredModule="work_shop">
                 <Workshop />
               </ProtectedRoute>
             } />
             <Route path="/company/suppliers" element={
-              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']}>
+              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']} requiredModule="work_shop">
                 <SupplierManagement />
               </ProtectedRoute>
             } />
             <Route path="/company/workshop-config/:vehicleId/:vehicleType" element={
-              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']}>
+              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']} requiredModule="work_shop">
                 <WorkshopConfig />
               </ProtectedRoute>
             } />
@@ -170,6 +180,11 @@ const App = () => (
             <Route path="/supplier/login" element={<SupplierLogin />} />
             <Route path="/supplier/dashboard" element={<SupplierDashboard />} />
             <Route path="/supplier/vehicle/:vehicleStockId/:vehicleType" element={<SupplierVehicleDetails />} />
+            <Route path="/supplier/quotes/:status" element={<QuotesByStatus />} />
+            <Route path="/supplier/profile" element={<SupplierProfile />} />
+            
+            {/* Master Inspection Routes */}
+            <Route path="/vehicle/master/:company_id/:vehicle_stock_id/:vehicle_type/:mode" element={<MasterInspection />} />
             
             {/* Documentation */}
             <Route path="/docs" element={

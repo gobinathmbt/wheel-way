@@ -37,7 +37,10 @@ export const subscriptionServices = {
     apiClient.get('/api/subscription/current'),
   
   getSubscriptionHistory: () =>
-    apiClient.get('/api/subscription/history')
+    apiClient.get('/api/subscription/history'),
+
+  getCompanySubscriptionInfo: () =>
+    apiClient.get('/api/subscription/company-info')
 };
 
 // Master Admin Services
@@ -247,6 +250,30 @@ export const companyServices = {
     apiClient.post('/api/company/settings/test-webhook', data)
 };
 
+// Dealership Services
+export const dealershipServices = {
+  getDealerships: (params?: any) =>
+    apiClient.get('/api/dealership', { params }),
+  
+  getDealership: (id: string) =>
+    apiClient.get(`/api/dealership/${id}`),
+  
+  createDealership: (data: any) =>
+    apiClient.post('/api/dealership', data),
+  
+  updateDealership: (id: string, data: any) =>
+    apiClient.put(`/api/dealership/${id}`, data),
+  
+  deleteDealership: (id: string) =>
+    apiClient.delete(`/api/dealership/${id}`),
+  
+  toggleDealershipStatus: (id: string, data: any) =>
+    apiClient.patch(`/api/dealership/${id}/status`, data),
+  
+  getDealershipsDropdown: () =>
+    apiClient.get('/api/dealership/dropdown')
+};
+
 // ... keep existing code (other services remain the same)
 
 // Dropdown Services
@@ -372,6 +399,39 @@ export const configServices = {
     return await apiClient.patch(`/api/config/inspection/${configId}/categories/${categoryId}/toggle`, { is_active: isActive });
   },
 
+  // Inspection Calculation services
+  addInspectionCalculation: async (configId: string, categoryId: string, calculationData: any) => {
+    return await apiClient.post(`/api/config/inspection/${configId}/categories/${categoryId}/calculations`, calculationData);
+  },
+
+  updateInspectionCalculationFormula: async (configId: string, categoryId: string, calculationId: string, formula: any) => {
+    return await apiClient.put(`/api/config/inspection/${configId}/categories/${categoryId}/calculations/${calculationId}/formula`, { formula });
+  },
+
+  deleteInspectionCalculation: async (configId: string, categoryId: string, calculationId: string) => {
+    return await apiClient.delete(`/api/config/inspection/${configId}/categories/${categoryId}/calculations/${calculationId}`);
+  },
+
+  toggleInspectionCalculationStatus: async (configId: string, categoryId: string, calculationId: string, isActive: boolean) => {
+    return await apiClient.patch(`/api/config/inspection/${configId}/categories/${categoryId}/calculations/${calculationId}/toggle`, { is_active: isActive });
+  },
+
+  // Trade-in Calculation services
+  addTradeinCalculation: async (configId: string, calculationData: any) => {
+    return await apiClient.post(`/api/config/tradein/${configId}/calculations`, calculationData);
+  },
+
+  updateTradeinCalculationFormula: async (configId: string, calculationId: string, formula: any) => {
+    return await apiClient.put(`/api/config/tradein/${configId}/calculations/${calculationId}/formula`, { formula });
+  },
+
+  deleteTradeinCalculation: async (configId: string, calculationId: string) => {
+    return await apiClient.delete(`/api/config/tradein/${configId}/calculations/${calculationId}`);
+  },
+
+  toggleTradeinCalculationStatus: async (configId: string, calculationId: string, isActive: boolean) => {
+    return await apiClient.patch(`/api/config/tradein/${configId}/calculations/${calculationId}/toggle`, { is_active: isActive });
+  },
   saveTradeinConfig: async (id: string, data: any) => {
     const response = await apiClient.put(`/api/config/tradein/${id}`, data);
     return response.data;
@@ -437,7 +497,11 @@ export const vehicleServices = {
     apiClient.post(`/api/vehicle/${vehicleId}/attachments`, data),
 
   deleteVehicleAttachment: (vehicleId: string, attachmentId: string) =>
-    apiClient.delete(`/api/vehicle/${vehicleId}/attachments/${attachmentId}`)
+    apiClient.delete(`/api/vehicle/${vehicleId}/attachments/${attachmentId}`),
+
+  // Workshop Status
+  updateVehicleWorkshopStatus: (vehicleId: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/workshop-status`, data)
 };
 
 
@@ -532,7 +596,13 @@ export const workshopServices = {
     apiClient.get(`/api/workshop/quotes/${vehicleType}/${vehicleStockId}/${fieldId}`),
   
   approveSupplierQuote: (quoteId: string, supplierId: string) =>
-    apiClient.post(`/api/workshop/quote/${quoteId}/approve/${supplierId}`)
+    apiClient.post(`/api/workshop/quote/${quoteId}/approve/${supplierId}`),
+
+  acceptWork: (quoteId: string) =>
+    apiClient.post(`/api/workshop/quote/${quoteId}/accept-work`),
+
+  requestRework: (quoteId: string, reason: string) =>
+    apiClient.post(`/api/workshop/quote/${quoteId}/request-rework`, { reason })
 };
 
 // Supplier Auth Services
@@ -550,14 +620,40 @@ export const supplierAuthServices = {
     apiClient.get(`/api/supplier-auth/vehicle/${vehicleStockId}/${vehicleType}`),
   
   submitResponse: (quoteId: string, data: any) =>
-    apiClient.post(`/api/supplier-auth/quote/${quoteId}/respond`, data)
+    apiClient.post(`/api/supplier-auth/quote/${quoteId}/respond`, data),
+
+  markNotInterested: (quoteId: string) =>
+    apiClient.patch(`/api/supplier-auth/quote/${quoteId}/not-interested`)
 };
+
+// Supplier Dashboard Services
+export const supplierDashboardServices = {
+  getStats: () =>
+    apiClient.get('/api/supplier-dashboard/stats'),
+
+    getsupplierS3Config: () =>
+    apiClient.get('/api/supplier-dashboard/supplier_s3'),
+  
+  getQuotesByStatus: (status: string, params?: any) =>
+    apiClient.get(`/api/supplier-dashboard/quotes/${status}`, { params }),
+  
+  startWork: (quoteId: string) =>
+    apiClient.post(`/api/supplier-dashboard/quote/${quoteId}/start-work`),
+  
+  submitWork: (quoteId: string, data: any) =>
+    apiClient.post(`/api/supplier-dashboard/quote/${quoteId}/submit-work`, data),
+  
+  updateProfile: (data: any) =>
+    apiClient.put('/api/supplier-dashboard/profile', data)
+};
+
 
 export default {
   auth: authServices,
   subscription: subscriptionServices,
   master: masterServices,
   company: companyServices,
+  dealership: dealershipServices,
   dropdown: dropdownServices,
   masterDropdown: masterDropdownServices,
   config: configServices,
@@ -567,5 +663,6 @@ export default {
   logs: logServices,
   supplier: supplierServices,
   workshop: workshopServices,
-  supplierAuth: supplierAuthServices
+  supplierAuth: supplierAuthServices,
+  supplierDashboard: supplierDashboardServices,
 };

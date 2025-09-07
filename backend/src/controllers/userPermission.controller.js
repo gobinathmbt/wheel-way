@@ -224,7 +224,7 @@ const getUsersWithPermissions = async (req, res) => {
     const { page = 1, limit = 10, search, status } = req.query;
     const skip = (page - 1) * limit;
 
-    let filter = { company_id: req.user.company_id };
+    let filter = { company_id: req.user.company_id , is_primary_admin: { $ne: true }};
     
     // Add search functionality
     if (search) {

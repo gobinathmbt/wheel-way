@@ -30,12 +30,13 @@ const FieldEditDialog: React.FC<FieldEditDialogProps> = ({
     field_type: 'text',
     is_required: false,
     has_image: false,
+    has_notes: false,
     placeholder: '',
     help_text: '',
     dropdown_config: {
       dropdown_id: '',
       allow_multiple: false
-    }
+    },
   });
 
   // Load dropdowns for dropdown field type
@@ -55,12 +56,13 @@ const FieldEditDialog: React.FC<FieldEditDialogProps> = ({
         field_type: field.field_type || 'text',
         is_required: field.is_required || false,
         has_image: field.has_image || false,
+        has_notes: field.has_notes || false,
         placeholder: field.placeholder || '',
         help_text: field.help_text || '',
         dropdown_config: {
           dropdown_id: field.dropdown_config?.dropdown_id?.$oid || field.dropdown_config?.dropdown_id || '',
           allow_multiple: field.dropdown_config?.allow_multiple || false
-        }
+        },
       });
     }
   }, [field, isOpen]);
@@ -87,12 +89,13 @@ const FieldEditDialog: React.FC<FieldEditDialogProps> = ({
       field_type: formData.field_type,
       is_required: formData.is_required,
       has_image: formData.has_image,
+      has_notes: formData.has_notes,
       placeholder: formData.placeholder,
       help_text: formData.help_text,
       dropdown_config: formData.field_type === 'dropdown' ? {
         dropdown_id: formData.dropdown_config.dropdown_id,
         allow_multiple: formData.dropdown_config.allow_multiple
-      } : undefined
+      } : undefined,
     };
 
     updateFieldMutation.mutate({
@@ -108,9 +111,11 @@ const FieldEditDialog: React.FC<FieldEditDialogProps> = ({
     { value: "currency", label: "Currency" },
     { value: "video", label: "Video" },
     { value: "dropdown", label: "Dropdown" },
-    { value: "image", label: "Image" },
     { value: "date", label: "Date" },
     { value: "boolean", label: "Yes/No" },
+    { value: "calculation_field", label: "Calculation Field" },
+    { value: "mutiplier", label: "Mutiply Field" },
+
   ];
 
   return (
@@ -202,6 +207,7 @@ const FieldEditDialog: React.FC<FieldEditDialogProps> = ({
             </div>
           )}
 
+
           <div>
             <Label htmlFor="placeholder">Placeholder Text</Label>
             <Input
@@ -238,6 +244,14 @@ const FieldEditDialog: React.FC<FieldEditDialogProps> = ({
               onCheckedChange={(checked) => setFormData({ ...formData, has_image: checked === true })}
             />
             <Label htmlFor="has_image">Include image capture</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="has_notes"
+              checked={formData.has_notes}
+              onCheckedChange={(checked) => setFormData({ ...formData, has_notes: checked === true })}
+            />
+            <Label htmlFor="has_notes">Allow To Enter Notes</Label>
           </div>
 
           <div className="flex justify-end space-x-2">

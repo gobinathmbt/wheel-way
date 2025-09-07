@@ -29,6 +29,14 @@ const {
   addInspectionCategory,
   updateInspectionCategory,
   toggleInspectionCategoryStatus,
+    addInspectionCalculation,
+  updateInspectionCalculationFormula,
+  deleteInspectionCalculation,
+  toggleInspectionCalculationStatus,
+  addTradeinCalculation,
+  updateTradeinCalculationFormula,
+  deleteTradeinCalculation,
+  toggleTradeinCalculationStatus,
 } = require('../controllers/config.controller');
 
 const router = express.Router();
@@ -57,6 +65,12 @@ router.post('/inspection/:id/categories', addInspectionCategory);
 router.put('/inspection/:id/categories/:categoryId', authorize('company_super_admin'), updateInspectionCategory);
 router.patch('/inspection/:id/categories/:categoryId/toggle', authorize('company_super_admin'), toggleInspectionCategoryStatus);
 
+// Inspection Calculation Routes
+router.post('/inspection/:id/categories/:categoryId/calculations', authorize('company_super_admin'), addInspectionCalculation);
+router.put('/inspection/:id/categories/:categoryId/calculations/:calculationId/formula', authorize('company_super_admin'), updateInspectionCalculationFormula);
+router.delete('/inspection/:id/categories/:categoryId/calculations/:calculationId', authorize('company_super_admin'), deleteInspectionCalculation);
+router.patch('/inspection/:id/categories/:categoryId/calculations/:calculationId/toggle', authorize('company_super_admin'), toggleInspectionCalculationStatus);
+
 // Trade-in configuration routes
 router.get('/tradein', getTradeinConfigs);
 router.get('/tradein/:id', getTradeinConfigDetails);
@@ -71,4 +85,9 @@ router.delete('/tradein/:id/sections/:sectionId', authorize('company_super_admin
 router.put('/tradein/:id/sections/reorder', authorize('company_super_admin'), updateTradeinSectionsOrder);
 router.put('/tradein/:id/sections/:sectionId/fields/reorder', authorize('company_super_admin'), updateTradeinFieldsOrder);
 
+// Trade-in Calculation Routes
+router.post('/tradein/:id/calculations', authorize('company_super_admin'), addTradeinCalculation);
+router.put('/tradein/:id/calculations/:calculationId/formula', authorize('company_super_admin'), updateTradeinCalculationFormula);
+router.delete('/tradein/:id/calculations/:calculationId', authorize('company_super_admin'), deleteTradeinCalculation);
+router.patch('/tradein/:id/calculations/:calculationId/toggle', authorize('company_super_admin'), toggleTradeinCalculationStatus);
 module.exports = router;

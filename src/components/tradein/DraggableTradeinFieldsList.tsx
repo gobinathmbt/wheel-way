@@ -57,6 +57,7 @@ function SortableField({ field, configId, sectionId, onEditField, onDeleteField,
             <Badge variant="outline" className="text-xs">{field.field_type}</Badge>
             {field.is_required && <Badge variant="outline" className="text-xs">Required</Badge>}
             {field.has_image && <Badge variant="outline" className="text-xs">Image</Badge>}
+            {field.has_notes && <Badge variant="outline" className="text-xs">Notes</Badge>}
             {getDropdownName(field) && (
               <Badge variant="outline" className="text-xs">
                 {getDropdownName(field)}

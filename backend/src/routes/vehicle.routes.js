@@ -24,7 +24,7 @@ const {
   getVehicleAttachments,
   uploadVehicleAttachment,
   deleteVehicleAttachment,
-
+  updateVehicleWorkshopStatus,
 
 } = require('../controllers/vehicle.controller');
 
@@ -65,5 +65,8 @@ router.put('/:id/ownership', updateVehicleOwnership);
 router.get('/:id/attachments', getVehicleAttachments);
 router.post('/:id/attachments', uploadVehicleAttachment);
 router.delete('/:id/attachments/:attachmentId', deleteVehicleAttachment);
+
+// Workshop status update
+router.put('/:id/workshop-status', updateVehicleWorkshopStatus);
 
 module.exports = router;

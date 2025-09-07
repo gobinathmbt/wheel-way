@@ -49,6 +49,8 @@ import DraggableTradeinSectionsList from "@/components/tradein/DraggableTradeinS
 import { TradeinPreviewModal } from "@/components/tradein/TradeinPreviewModal";
 import ConfigurationSearch from "@/components/inspection/ConfigurationSearch";
 import ConfigurationList from "@/components/inspection/ConfigurationList";
+import { Calculator } from "lucide-react";
+import CalculationSettingsDialog from "@/components/inspection/CalculationSettingsDialog";
 
 const TradeinConfig = () => {
   const [selectedConfig, setSelectedConfig] = useState<any>(null);
@@ -61,6 +63,9 @@ const TradeinConfig = () => {
   const [configToDelete, setConfigToDelete] = useState<any>(null);
   const [selectedSection, setSelectedSection] = useState<any>(null);
   const [editingField, setEditingField] = useState<any>(null);
+  // Add state for calculation settings dialog
+  const [isCalculationSettingsOpen, setIsCalculationSettingsOpen] =
+    useState(false);
 
   // Search and pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -108,12 +113,14 @@ const TradeinConfig = () => {
     field_type: "text",
     is_required: false,
     has_image: false,
+    has_notes: false,
     placeholder: "",
     help_text: "",
     dropdown_config: {
       dropdown_name: "",
       allow_multiple: false,
     },
+   
   });
 
   const queryClient = useQueryClient();
@@ -155,6 +162,14 @@ const TradeinConfig = () => {
       return response.data.data;
     },
   });
+  // Add this function to check if the config has calculation fields
+  const hasCalculationFields = (config: any) => {
+    return config.sections?.some((section: any) =>
+      section.fields?.some(
+        (field: any) => field.field_type === 'number' || field.field_type === 'currency' || field.field_type === 'calculation_field' || field.field_type === 'mutiplier'
+      )
+    );
+  };
 
   const fieldTypes = [
     { value: "text", label: "Text" },
@@ -162,9 +177,10 @@ const TradeinConfig = () => {
     { value: "currency", label: "Currency" },
     { value: "video", label: "Video" },
     { value: "dropdown", label: "Dropdown" },
-    { value: "image", label: "Image" },
     { value: "date", label: "Date" },
     { value: "boolean", label: "Yes/No" },
+    { value: "calculation_field", label: "Calculation Field" }, // Add this
+    { value: "mutiplier", label: "Mutiply Field" }, // Add this
   ];
 
   const deleteConfigMutation = useMutation({
@@ -325,12 +341,14 @@ const TradeinConfig = () => {
       field_type: "text",
       is_required: false,
       has_image: false,
+      has_notes: false,
       placeholder: "",
       help_text: "",
       dropdown_config: {
         dropdown_name: "",
         allow_multiple: false,
       },
+   
     });
   };
 
@@ -350,12 +368,14 @@ const TradeinConfig = () => {
       field_type: field.field_type,
       is_required: field.is_required,
       has_image: field.has_image,
+      has_notes: field.has_notes,
       placeholder: field.placeholder || "",
       help_text: field.help_text || "",
       dropdown_config: {
         dropdown_name: dropdownName || "",
         allow_multiple: field.dropdown_config?.allow_multiple || false,
       },
+     
     });
     setIsFieldDialogOpen(true);
   };
@@ -622,6 +642,15 @@ const TradeinConfig = () => {
                     <Save className="h-4 w-4 mr-2" />
                     Save Changes
                   </Button>
+                  {hasCalculationFields(configDetails) && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsCalculationSettingsOpen(true)}
+                    >
+                      <Calculator className="h-4 w-4 mr-2" />
+                      Calculations
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -732,7 +761,7 @@ const TradeinConfig = () => {
             }
           }}
         >
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingField
@@ -787,7 +816,7 @@ const TradeinConfig = () => {
                   </SelectContent>
                 </Select>
               </div>
-
+      
               {/* Dropdown Configuration */}
               {fieldFormData.field_type === "dropdown" && (
                 <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
@@ -842,7 +871,6 @@ const TradeinConfig = () => {
                   </div>
                 </div>
               )}
-
               <div>
                 <Label htmlFor="placeholder">Placeholder Text</Label>
                 <Input
@@ -897,6 +925,19 @@ const TradeinConfig = () => {
                 />
                 <Label htmlFor="has_image">Include image capture</Label>
               </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="has_notes"
+                  checked={fieldFormData.has_notes}
+                  onCheckedChange={(checked) =>
+                    setFieldFormData({
+                      ...fieldFormData,
+                      has_notes: checked as boolean,
+                    })
+                  }
+                />
+                <Label htmlFor="has_notes">Allow To Enter Notes</Label>
+              </div>
               <div className="flex justify-end space-x-2">
                 <Button
                   type="button"
@@ -921,6 +962,16 @@ const TradeinConfig = () => {
           dropdowns={dropdowns}
         />
 
+        {selectedConfig && configDetails && (
+          <CalculationSettingsDialog
+            isOpen={isCalculationSettingsOpen}
+            onClose={() => setIsCalculationSettingsOpen(false)}
+            configId={selectedConfig._id}
+            categoryId="" // Trade-in doesn't have categories
+            category={configDetails} // Pass the entire config as category for trade-in
+            configType="tradein"
+          />
+        )}
         <DeleteConfirmationDialog
           isOpen={isDeleteDialogOpen}
           onClose={() => {

@@ -1,5 +1,6 @@
 
 const mongoose = require('mongoose');
+const { report } = require('process');
 
 const VehicleSchema = new mongoose.Schema({
   vehicle_stock_id: {
@@ -61,6 +62,8 @@ const VehicleSchema = new mongoose.Schema({
   // Results Arrays
   inspection_result: [mongoose.Schema.Types.Mixed],
   trade_in_result: [mongoose.Schema.Types.Mixed],
+  inspection_report_pdf: String, // URL to the generated PDF report
+  tradein_report_pdf: String, // URL to the generated PDF report
   
   // Vehicle Other Details
   vehicle_other_details: [{
@@ -190,6 +193,17 @@ const VehicleSchema = new mongoose.Schema({
     no_of_previous_owners: Number,
     security_interest_on_ppsr: Boolean,
     comments: String
+  },
+
+  // Workshop Status
+  is_workshop: {
+    type: Boolean,
+    default: false
+  },
+  workshop_progress: {
+    type: String,
+    enum: ['in_progress', 'completed','not_processed_yet'],
+    default: 'not_processed_yet'
   },
   
   // Processing Status

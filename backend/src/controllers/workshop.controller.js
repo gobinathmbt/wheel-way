@@ -11,9 +11,9 @@ const getWorkshopVehicles = async (req, res) => {
     const { page = 1, limit = 20, search, vehicle_type } = req.query;
     const skip = (page - 1) * limit;
 
-    let filter = { 
+    let filter = {
       company_id: req.user.company_id,
-      inspection_result: { $exists: true, $ne: [] }
+      workshop_progress: "in_progress", // 🔥 Only in_progress
     };
 
     if (vehicle_type) {
@@ -26,12 +26,14 @@ const getWorkshopVehicles = async (req, res) => {
         { model: { $regex: search, $options: "i" } },
         { plate_no: { $regex: search, $options: "i" } },
         { vin: { $regex: search, $options: "i" } },
-        { name: { $regex: search, $options: "i" } }
+        { name: { $regex: search, $options: "i" } },
       ];
     }
 
     const vehicles = await Vehicle.find(filter)
-      .select('vehicle_stock_id make model year plate_no vehicle_type vin name vehicle_hero_image inspection_result created_at')
+      .select(
+        "vehicle_stock_id make model year plate_no vehicle_type vin name vehicle_hero_image  created_at"
+      )
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -46,14 +48,14 @@ const getWorkshopVehicles = async (req, res) => {
         current_page: parseInt(page),
         total_pages: Math.ceil(total / limit),
         total_records: total,
-        per_page: parseInt(limit)
-      }
+        per_page: parseInt(limit),
+      },
     });
   } catch (error) {
     console.error("Get workshop vehicles error:", error);
     res.status(500).json({
       success: false,
-      message: "Error retrieving workshop vehicles"
+      message: "Error retrieving workshop vehicles",
     });
   }
 };
@@ -66,25 +68,36 @@ const getWorkshopVehicleDetails = async (req, res) => {
     const vehicle = await Vehicle.findOne({
       vehicle_stock_id: req.params.vehicleId,
       vehicle_type: req.params.vehicleType,
-      company_id: req.user.company_id
+      company_id: req.user.company_id,
     });
 
     if (!vehicle) {
       return res.status(404).json({
         success: false,
-        message: "Vehicle not found"
+        message: "Vehicle not found",
       });
     }
 
+    const quotes = await WorkshopQuote.find({
+      vehicle_stock_id: req.params.vehicleId,
+      vehicle_type: req.params.vehicleType,
+      company_id: req.user.company_id,
+    })
+      .populate("selected_suppliers", "name email supplier_shop_name")
+      .populate("approved_supplier", "name email supplier_shop_name");
+
     res.status(200).json({
       success: true,
-      data: vehicle
+      data: {
+        vehicle,
+        quotes,
+      },
     });
   } catch (error) {
     console.error("Get workshop vehicle details error:", error);
     res.status(500).json({
       success: false,
-      message: "Error retrieving vehicle details"
+      message: "Error retrieving vehicle details",
     });
   }
 };
@@ -101,14 +114,22 @@ const createQuote = async (req, res) => {
       field_name,
       quote_amount,
       quote_description,
-      selected_suppliers
+      selected_suppliers,
+      images, // Add images from request
+      videos  // Add videos from request
     } = req.body;
-
     // Validate required fields
-    if (!vehicle_type || !vehicle_stock_id || !field_id || !quote_amount || !selected_suppliers || !selected_suppliers.length) {
+    if (
+      !vehicle_type ||
+      !vehicle_stock_id ||
+      !field_id ||
+      !quote_amount ||
+      !selected_suppliers ||
+      !selected_suppliers.length
+    ) {
       return res.status(400).json({
         success: false,
-        message: "All required fields must be provided"
+        message: "All required fields must be provided",
       });
     }
 
@@ -117,13 +138,66 @@ const createQuote = async (req, res) => {
       vehicle_type,
       company_id: req.user.company_id,
       vehicle_stock_id,
-      field_id
+      field_id,
     });
 
     if (existingQuote) {
-      return res.status(400).json({
-        success: false,
-        message: "Quote already exists for this field"
+      if (existingQuote.approved_supplier) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "This quote is already approved. Further changes are not allowed.",
+        });
+      }
+
+      // Update existing quote with new suppliers and media
+      const newSuppliers = selected_suppliers.filter(
+        (supplierId) => !existingQuote.selected_suppliers.includes(supplierId)
+      );
+
+      if (newSuppliers.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "All selected suppliers are already part of this quote",
+        });
+      }
+
+      // Add new suppliers to existing quote
+      existingQuote.selected_suppliers.push(...newSuppliers);
+      existingQuote.quote_amount = quote_amount;
+      existingQuote.quote_description = quote_description;
+      
+      // Update media references if provided
+      if (images) {
+        existingQuote.images = images;
+      }
+      if (videos) {
+        existingQuote.videos = videos;
+      }
+
+      await existingQuote.save();
+
+      await logEvent({
+        event_type: "workshop_operation",
+        event_action: "quote_updated",
+        event_description: `Quote updated for field ${field_name} on vehicle ${vehicle_stock_id}`,
+        user_id: req.user.id,
+        company_id: req.user.company_id,
+        user_role: req.user.role,
+        metadata: {
+          quote_id: existingQuote._id,
+          vehicle_stock_id,
+          field_id,
+          field_name,
+          quote_amount,
+          new_supplier_count: newSuppliers.length,
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Quote updated with new suppliers successfully",
+        data: existingQuote,
       });
     }
 
@@ -131,13 +205,13 @@ const createQuote = async (req, res) => {
     const suppliers = await Supplier.find({
       _id: { $in: selected_suppliers },
       company_id: req.user.company_id,
-      is_active: true
+      is_active: true,
     });
 
     if (suppliers.length !== selected_suppliers.length) {
       return res.status(400).json({
         success: false,
-        message: "One or more selected suppliers are invalid"
+        message: "One or more selected suppliers are invalid",
       });
     }
 
@@ -150,13 +224,17 @@ const createQuote = async (req, res) => {
       quote_amount,
       quote_description,
       selected_suppliers,
-      created_by: req.user.id
+      status: "quote_request",
+      created_by: req.user.id,
+      // Store field images and videos for reference
+      field_images: images || [],
+      field_videos: videos || []
     });
 
     await quote.save();
 
-    // TODO: Send email notifications to suppliers
-    // This would require email service integration
+    // TODO: Send email notifications to suppliers with media attachments
+    // This would require email service integration with media links
 
     // Log the event
     await logEvent({
@@ -172,20 +250,22 @@ const createQuote = async (req, res) => {
         field_id,
         field_name,
         quote_amount,
-        supplier_count: selected_suppliers.length
-      }
+        supplier_count: selected_suppliers.length,
+        image_count: images ? images.length : 0,
+        video_count: videos ? videos.length : 0,
+      },
     });
 
     res.status(201).json({
       success: true,
       message: "Quote created and sent to suppliers",
-      data: quote
+      data: quote,
     });
   } catch (error) {
     console.error("Create quote error:", error);
     res.status(500).json({
       success: false,
-      message: "Error creating quote"
+      message: "Error creating quote",
     });
   }
 };
@@ -196,26 +276,28 @@ const createQuote = async (req, res) => {
 const getQuotesForField = async (req, res) => {
   try {
     const { vehicle_type, vehicle_stock_id, field_id } = req.params;
-console.log(vehicle_type, vehicle_stock_id, field_id);
     const quote = await WorkshopQuote.findOne({
       vehicle_type,
       company_id: req.user.company_id,
       vehicle_stock_id: parseInt(vehicle_stock_id),
-      field_id
+      field_id,
     })
-    .populate('selected_suppliers', 'name email supplier_shop_name')
-    .populate('approved_supplier', 'name email supplier_shop_name')
-    .populate('supplier_responses.supplier_id', 'name email supplier_shop_name');
+      .populate("selected_suppliers", "name email supplier_shop_name")
+      .populate("approved_supplier", "name email supplier_shop_name")
+      .populate(
+        "supplier_responses.supplier_id",
+        "name email supplier_shop_name"
+      );
 
     res.status(200).json({
       success: true,
-      data: quote
+      data: quote,
     });
   } catch (error) {
     console.error("Get quotes for field error:", error);
     res.status(500).json({
       success: false,
-      message: "Error retrieving quotes"
+      message: "Error retrieving quotes",
     });
   }
 };
@@ -229,39 +311,39 @@ const approveSupplierQuote = async (req, res) => {
 
     const quote = await WorkshopQuote.findOne({
       _id: quoteId,
-      company_id: req.user.company_id
+      company_id: req.user.company_id,
     });
 
     if (!quote) {
       return res.status(404).json({
         success: false,
-        message: "Quote not found"
+        message: "Quote not found",
       });
     }
 
     // Check if supplier response exists
     const supplierResponse = quote.supplier_responses.find(
-      response => response.supplier_id.toString() === supplierId
+      (response) => response.supplier_id.toString() === supplierId
     );
 
     if (!supplierResponse) {
       return res.status(404).json({
         success: false,
-        message: "Supplier response not found"
+        message: "Supplier response not found",
       });
     }
 
     // Update quote status and approve supplier
-    quote.status = 'completed';
+    quote.status = "quote_approved";
     quote.approved_supplier = supplierId;
     quote.approved_at = new Date();
 
     // Update all responses status
-    quote.supplier_responses.forEach(response => {
+    quote.supplier_responses.forEach((response) => {
       if (response.supplier_id.toString() === supplierId) {
-        response.status = 'approved';
+        response.status = "approved";
       } else {
-        response.status = 'rejected';
+        response.status = "rejected";
       }
     });
 
@@ -283,20 +365,20 @@ const approveSupplierQuote = async (req, res) => {
         quote_id: quote._id,
         approved_supplier: supplierId,
         vehicle_stock_id: quote.vehicle_stock_id,
-        field_id: quote.field_id
-      }
+        field_id: quote.field_id,
+      },
     });
 
     res.status(200).json({
       success: true,
       message: "Supplier quote approved successfully",
-      data: quote
+      data: quote,
     });
   } catch (error) {
     console.error("Approve supplier quote error:", error);
     res.status(500).json({
       success: false,
-      message: "Error approving supplier quote"
+      message: "Error approving supplier quote",
     });
   }
 };
@@ -306,5 +388,5 @@ module.exports = {
   getWorkshopVehicleDetails,
   createQuote,
   getQuotesForField,
-  approveSupplierQuote
+  approveSupplierQuote,
 };

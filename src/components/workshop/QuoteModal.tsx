@@ -1,49 +1,67 @@
-import React, { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
+import React, { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
+} from "@/components/ui/popover";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
-} from '@/components/ui/command';
-import { supplierServices, workshopServices, companyServices } from '@/api/services';
-import { toast } from 'sonner';
-import { DollarSign, Search, X, ChevronLeft, ChevronRight, ChevronsUpDown, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/command";
+import {
+  supplierServices,
+  workshopServices,
+  companyServices,
+} from "@/api/services";
+import { toast } from "sonner";
+import {
+  DollarSign,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsUpDown,
+  Check,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface QuoteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   field: any;
   onSuccess: () => void;
+  existingQuote?: any;
 }
 
 interface MultiSelectDropdownProps {
@@ -53,25 +71,25 @@ interface MultiSelectDropdownProps {
   placeholder: string;
 }
 
-const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({ 
-  options, 
-  selectedValues, 
-  onSelectionChange, 
-  placeholder 
+const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
+  options,
+  selectedValues,
+  onSelectionChange,
+  placeholder,
 }) => {
   const [open, setOpen] = useState(false);
 
   const toggleOption = (displayValue: string) => {
     const isSelected = selectedValues.includes(displayValue);
     if (isSelected) {
-      onSelectionChange(selectedValues.filter(item => item !== displayValue));
+      onSelectionChange(selectedValues.filter((item) => item !== displayValue));
     } else {
       onSelectionChange([...selectedValues, displayValue]);
     }
   };
 
   const removeItem = (valueToRemove: string) => {
-    onSelectionChange(selectedValues.filter(item => item !== valueToRemove));
+    onSelectionChange(selectedValues.filter((item) => item !== valueToRemove));
   };
 
   const clearAll = () => {
@@ -146,38 +164,58 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   );
 };
 
-const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSuccess }) => {
+const QuoteModal: React.FC<QuoteModalProps> = ({
+  open,
+  onOpenChange,
+  field,
+  onSuccess,
+  existingQuote,
+}) => {
   const [currentStep, setCurrentStep] = useState(1); // 1 for quote details, 2 for supplier selection
-  const [quoteAmount, setQuoteAmount] = useState('');
-  const [description, setDescription] = useState('');
+  const [quoteAmount, setQuoteAmount] = useState(
+    existingQuote?.quote_amount?.toString() || ""
+  );
+  const [description, setDescription] = useState(
+    existingQuote?.quote_description || ""
+  );
   const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([]);
   const [searchTags, setSearchTags] = useState<string[]>([]);
-  const [searchText, setSearchText] = useState('');
+  const [searchText, setSearchText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // Get supplier tags for filtering
   const { data: supplierTags } = useQuery({
-    queryKey: ['supplier-tags'],
+    queryKey: ["supplier-tags"],
     queryFn: async () => {
       const response = await companyServices.getCompanyMasterdropdownvalues({
         dropdown_name: ["tradie_tags"],
       });
       return response.data?.data[0]?.values || [];
-    }
+    },
   });
 
   // Search suppliers
   const { data: suppliers, isLoading: suppliersLoading } = useQuery({
-    queryKey: ['suppliers-search', searchTags, searchText],
+    queryKey: ["suppliers-search", searchTags, searchText],
     queryFn: async () => {
       const response = await supplierServices.searchSuppliersByTags({
         tags: searchTags,
-        search: searchText
+        search: searchText,
       });
-      return response.data?.data || [];
+      // Filter out suppliers already in the quote if updating
+      let filteredSuppliers = response.data?.data || [];
+      if (existingQuote) {
+        const existingSupplierIds = existingQuote.selected_suppliers.map(
+          (s) => s._id || s
+        );
+        filteredSuppliers = filteredSuppliers.filter(
+          (supplier) => !existingSupplierIds.includes(supplier._id)
+        );
+      }
+      return filteredSuppliers;
     },
-    enabled: currentStep === 2
+    enabled: currentStep === 2,
   });
 
   // Create quote mutation
@@ -187,28 +225,28 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
       return response.data;
     },
     onSuccess: () => {
-      toast.success('Quote sent to suppliers successfully');
+      toast.success("Quote sent to suppliers successfully");
       onSuccess();
       resetModal();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to send quote');
-    }
+      toast.error(error.response?.data?.message || "Failed to send quote");
+    },
   });
 
   const resetModal = () => {
     setCurrentStep(1);
-    setQuoteAmount('');
-    setDescription('');
+    setQuoteAmount(existingQuote?.quote_amount?.toString() || "");
+    setDescription(existingQuote?.quote_description || "");
     setSelectedSuppliers([]);
     setSearchTags([]);
-    setSearchText('');
+    setSearchText("");
     setCurrentPage(1);
   };
 
   const handleNext = () => {
     if (!quoteAmount) {
-      toast.error('Please enter quote amount');
+      toast.error("Please enter estimation amount");
       return;
     }
     setCurrentStep(2);
@@ -220,11 +258,13 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (selectedSuppliers.length === 0) {
-      toast.error('Please select at least one supplier');
+      toast.error("Please select at least one supplier");
       return;
     }
+
+    console.log(field)
 
     createQuoteMutation.mutate({
       vehicle_type: field.vehicle_type,
@@ -233,35 +273,49 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
       field_name: field.field_name,
       quote_amount: parseFloat(quoteAmount),
       quote_description: description,
-      selected_suppliers: selectedSuppliers
+      selected_suppliers: selectedSuppliers,
+      images: field.images,
+      videos: field.videos,
     });
   };
 
   const toggleSupplierSelection = (supplierId: string) => {
-    setSelectedSuppliers(prev => 
-      prev.includes(supplierId) 
-        ? prev.filter(id => id !== supplierId)
+    setSelectedSuppliers((prev) =>
+      prev.includes(supplierId)
+        ? prev.filter((id) => id !== supplierId)
         : [...prev, supplierId]
     );
   };
 
   const handleBulkSelect = (checked: boolean) => {
     if (checked) {
-      const currentPageSuppliers = paginatedSuppliers.map(supplier => supplier._id);
-      setSelectedSuppliers(prev => [...new Set([...prev, ...currentPageSuppliers])]);
+      const currentPageSuppliers = paginatedSuppliers.map(
+        (supplier) => supplier._id
+      );
+      setSelectedSuppliers((prev) => [
+        ...new Set([...prev, ...currentPageSuppliers]),
+      ]);
     } else {
-      const currentPageSuppliers = paginatedSuppliers.map(supplier => supplier._id);
-      setSelectedSuppliers(prev => prev.filter(id => !currentPageSuppliers.includes(id)));
+      const currentPageSuppliers = paginatedSuppliers.map(
+        (supplier) => supplier._id
+      );
+      setSelectedSuppliers((prev) =>
+        prev.filter((id) => !currentPageSuppliers.includes(id))
+      );
     }
   };
 
   // Pagination logic
   const totalPages = Math.ceil((suppliers?.length || 0) / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedSuppliers = suppliers?.slice(startIndex, startIndex + itemsPerPage) || [];
-  
-  const allCurrentPageSelected = paginatedSuppliers.length > 0 && 
-    paginatedSuppliers.every(supplier => selectedSuppliers.includes(supplier._id));
+  const paginatedSuppliers =
+    suppliers?.slice(startIndex, startIndex + itemsPerPage) || [];
+
+  const allCurrentPageSelected =
+    paginatedSuppliers.length > 0 &&
+    paginatedSuppliers.every((supplier) =>
+      selectedSuppliers.includes(supplier._id)
+    );
 
   const handleModalClose = (openState: boolean) => {
     if (!openState) {
@@ -299,8 +353,48 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
                 </div>
                 {field?.field_value && (
                   <div className="col-span-2">
-                    <span className="text-muted-foreground">Current Value:</span>
-                    <p className="font-medium">{typeof field.field_value === 'object' ? JSON.stringify(field.field_value) : field.field_value}</p>
+                    <span className="text-muted-foreground">
+                      Current Value:
+                    </span>
+                    <p className="font-medium">
+                      {typeof field.field_value === "object"
+                        ? JSON.stringify(field.field_value)
+                        : field.field_value}
+                    </p>
+                  </div>
+                )}
+
+                {field.images && field.images.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-2">Field Images</h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      {field.images.map((image: string, index: number) => (
+                        <img
+                          key={index}
+                          src={image}
+                          alt={`Field image ${index + 1}`}
+                          className="w-full h-20 object-cover rounded"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {field.videos && field.videos.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-2">Field Videos</h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      {field.videos.map((video: string, index: number) => (
+                        <video
+                          key={index}
+                          src={video}
+                          controls
+                          className="w-full h-20 object-cover rounded"
+                        >
+                          Your browser does not support the video tag.
+                        </video>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -309,14 +403,14 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
             {/* Quote Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="quoteAmount">Quote Amount *</Label>
+                <Label htmlFor="quoteAmount">Expected Estimation *</Label>
                 <Input
                   id="quoteAmount"
                   type="number"
                   step="0.01"
                   value={quoteAmount}
                   onChange={(e) => setQuoteAmount(e.target.value)}
-                  placeholder="Enter quote amount"
+                  placeholder="Enter estimation amount"
                   required
                 />
               </div>
@@ -359,12 +453,16 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
             <div className="bg-muted/50 p-3 rounded-lg">
               <div className="flex justify-between items-center">
                 <div>
-                  <span className="text-sm text-muted-foreground">Quote Amount:</span>
+                  <span className="text-sm text-muted-foreground">
+                    Expected Estimation:
+                  </span>
                   <span className="ml-2 font-medium">${quoteAmount}</span>
                 </div>
                 {description && (
                   <div>
-                    <span className="text-sm text-muted-foreground">Description:</span>
+                    <span className="text-sm text-muted-foreground">
+                      Description:
+                    </span>
                     <span className="ml-2 text-sm">{description}</span>
                   </div>
                 )}
@@ -382,7 +480,7 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
                   className="pl-10"
                 />
               </div>
-              
+
               <div>
                 <MultiSelectDropdown
                   options={supplierTags || []}
@@ -419,7 +517,9 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
               {suppliersLoading ? (
                 <div className="p-8 text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                  <p className="mt-2 text-sm text-muted-foreground">Loading suppliers...</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Loading suppliers...
+                  </p>
                 </div>
               ) : (
                 <>
@@ -444,19 +544,30 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
                           <TableRow key={supplier._id}>
                             <TableCell>
                               <Checkbox
-                                checked={selectedSuppliers.includes(supplier._id)}
-                                onCheckedChange={() => toggleSupplierSelection(supplier._id)}
+                                checked={selectedSuppliers.includes(
+                                  supplier._id
+                                )}
+                                onCheckedChange={() =>
+                                  toggleSupplierSelection(supplier._id)
+                                }
                               />
                             </TableCell>
                             <TableCell>{startIndex + index + 1}</TableCell>
-                            <TableCell className="font-medium">{supplier.name}</TableCell>
+                            <TableCell className="font-medium">
+                              {supplier.name}
+                            </TableCell>
                             <TableCell>{supplier.email}</TableCell>
-                            <TableCell>{supplier.supplier_shop_name || '-'}</TableCell>
+                            <TableCell>
+                              {supplier.supplier_shop_name || "-"}
+                            </TableCell>
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          <TableCell
+                            colSpan={6}
+                            className="text-center py-8 text-muted-foreground"
+                          >
                             No suppliers found matching the criteria
                           </TableCell>
                         </TableRow>
@@ -468,37 +579,55 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
                   {totalPages > 1 && (
                     <div className="flex justify-between items-center p-4 border-t">
                       <div className="text-sm text-muted-foreground">
-                        Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, suppliers?.length || 0)} of {suppliers?.length || 0} entries
+                        Showing {startIndex + 1} to{" "}
+                        {Math.min(
+                          startIndex + itemsPerPage,
+                          suppliers?.length || 0
+                        )}{" "}
+                        of {suppliers?.length || 0} entries
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          onClick={() =>
+                            setCurrentPage((prev) => Math.max(1, prev - 1))
+                          }
                           disabled={currentPage === 1}
                         >
                           Previous
                         </Button>
-                        
+
                         <div className="flex items-center gap-1">
-                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                            const pageNum = i + 1;
-                            return (
-                              <Button
-                                key={pageNum}
-                                variant={currentPage === pageNum ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setCurrentPage(pageNum)}
-                              >
-                                {pageNum}
-                              </Button>
-                            );
-                          })}
+                          {Array.from(
+                            { length: Math.min(5, totalPages) },
+                            (_, i) => {
+                              const pageNum = i + 1;
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={
+                                    currentPage === pageNum
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  size="sm"
+                                  onClick={() => setCurrentPage(pageNum)}
+                                >
+                                  {pageNum}
+                                </Button>
+                              );
+                            }
+                          )}
                           {totalPages > 5 && (
                             <>
                               <span className="px-2">...</span>
                               <Button
-                                variant={currentPage === totalPages ? "default" : "outline"}
+                                variant={
+                                  currentPage === totalPages
+                                    ? "default"
+                                    : "outline"
+                                }
                                 size="sm"
                                 onClick={() => setCurrentPage(totalPages)}
                               >
@@ -507,11 +636,15 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
                             </>
                           )}
                         </div>
-                        
+
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          onClick={() =>
+                            setCurrentPage((prev) =>
+                              Math.min(totalPages, prev + 1)
+                            )
+                          }
                           disabled={currentPage === totalPages}
                         >
                           Next
@@ -533,11 +666,7 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
 
             {/* Actions */}
             <div className="flex justify-between">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleBack}
-              >
+              <Button type="button" variant="outline" onClick={handleBack}>
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 Back
               </Button>
@@ -552,9 +681,18 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ open, onOpenChange, field, onSu
                 <Button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={createQuoteMutation.isPending || selectedSuppliers.length === 0}
+                  disabled={
+                    createQuoteMutation.isPending ||
+                    selectedSuppliers.length === 0
+                  }
                 >
-                  {createQuoteMutation.isPending ? 'Sending...' : `Send Quote to ${selectedSuppliers.length} Supplier(s)`}
+                  {createQuoteMutation.isPending
+                    ? existingQuote
+                      ? "Updating..."
+                      : "Sending..."
+                    : `${existingQuote ? "Update" : "Send"} Quote to ${
+                        selectedSuppliers.length
+                      } Supplier(s)`}
                 </Button>
               </div>
             </div>

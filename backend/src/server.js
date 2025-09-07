@@ -1,7 +1,8 @@
-
+const http = require('http');
 const app = require('./app');
 const connectDB = require('./config/db');
 const { startQueueConsumer } = require('./controllers/sqs.controller');
+const { initializeSocket } = require('./controllers/socket.controller');
 require('./config/env');
 
 const PORT = process.env.PORT || 5000;
@@ -9,14 +10,22 @@ const PORT = process.env.PORT || 5000;
 // Connect to MongoDB
 connectDB();
 
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize Socket.io with the server
+initializeSocket(server);
+
 // Start SQS queue consumer
 startQueueConsumer();
 
 // Start server
-const server = app.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV}`);
   console.log(`🔗 Database: ${process.env.MONGODB_URI ? 'Connected' : 'Not configured'}`);
+  console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:8080'}`);
+  console.log(`🔌 Socket.io server initialized and available at http://localhost:${PORT}`);
 });
 
 // Handle unhandled promise rejections

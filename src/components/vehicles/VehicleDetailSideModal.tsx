@@ -10,7 +10,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, X } from "lucide-react";
+import { Car, X, Wrench, ClipboardList, Calculator } from "lucide-react";
+import { vehicleServices } from "@/api/services";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 // Import section components
 import VehicleOverviewSection from "./sections/VehicleOverviewSection";
@@ -38,7 +41,29 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
   onClose,
   onUpdate,
 }) => {
+  const navigate = useNavigate();
+
   if (!vehicle) return null;
+
+  const handlePushToWorkshop = async () => {
+    try {
+      await vehicleServices.updateVehicleWorkshopStatus(vehicle._id, {
+        is_workshop: true,
+        workshop_progress: 'in_progress'
+      });
+      toast.success('Vehicle pushed to workshop successfully');
+      onUpdate();
+    } catch (error) {
+      toast.error('Failed to push vehicle to workshop');
+    }
+  };
+
+  const handleOpenMasterInspection = () => {
+    // Navigate to master inspection/tradein page
+    const mode = 'edit'; // Can be 'view' or 'edit'
+    navigate(`/vehicle/master/${vehicle.company_id}/${vehicle.vehicle_stock_id}/${vehicle.vehicle_type}/${mode}`);
+    onClose();
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -68,6 +93,42 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between border-t pt-4">
+            <div className="flex space-x-2">
+              <Button
+                variant={vehicle.is_workshop ? "default" : "outline"}
+                size="sm"
+                onClick={handlePushToWorkshop}
+                disabled={vehicle.workshop_progress === 'completed'}
+                className={vehicle.is_workshop ? "bg-orange-500 hover:bg-orange-600 text-white" : ""}
+              >
+                <Wrench className="h-4 w-4 mr-2" />
+                {vehicle.is_workshop ? (
+                  vehicle.workshop_progress === 'completed' ? 'Workshop Complete' : 'In Workshop'
+                ) : 'Push to Workshop'}
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenMasterInspection}
+              >
+                {vehicle.vehicle_type === 'inspection' ? (
+                  <>
+                    <ClipboardList className="h-4 w-4 mr-2" />
+                    Inspection
+                  </>
+                ) : (
+                  <>
+                    <Calculator className="h-4 w-4 mr-2" />
+                    Trade-in
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </SheetHeader>
 

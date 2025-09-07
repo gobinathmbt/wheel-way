@@ -31,7 +31,7 @@ const getPricingConfig = async (req, res) => {
 // Calculate subscription price
 const calculatePrice = async (req, res) => {
   try {
-    const { number_of_days, number_of_users, selected_modules } = req.body;
+    const { number_of_days, number_of_users, selected_modules, is_upgrade, is_renewal } = req.body;
 
     const plan = await Plan.findOne({ is_active: true });
     if (!plan) {
@@ -66,9 +66,34 @@ const calculatePrice = async (req, res) => {
       }
     }
 
+    // For upgrades, calculate based on remaining days
+    let effectiveDays = number_of_days;
+    let discountAmount = 0;
+    
+    if (is_upgrade) {
+      const companyId = req.user.company_id;
+      const company = await Company.findById(companyId);
+      
+      if (company && company.subscription_end_date) {
+        const now = new Date();
+        const endDate = new Date(company.subscription_end_date);
+        const remainingDays = Math.max(0, Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)));
+        effectiveDays = remainingDays;
+        
+        // Calculate discount for existing subscription
+        const currentDailyRate = (company.number_of_users * plan.per_user_cost) + 
+                                (company.module_access.length * (plan.modules.find(m => company.module_access.includes(m.module_name))?.cost_per_module || 0));
+        discountAmount = currentDailyRate * remainingDays;
+      }
+    }
+
     // Calculate total for the period
     const dailyRate = userCost + moduleCost;
-    const totalAmount = dailyRate * number_of_days;
+    let totalAmount = dailyRate * effectiveDays;
+    
+    if (is_upgrade && discountAmount > 0) {
+      totalAmount = Math.max(0, totalAmount - discountAmount);
+    }
 
     res.status(200).json({
       success: true,
@@ -78,10 +103,15 @@ const calculatePrice = async (req, res) => {
         module_cost: moduleCost,
         daily_rate: dailyRate,
         total_amount: totalAmount,
+        effective_days: effectiveDays,
+        discount_amount: discountAmount,
         module_details: moduleDetails,
+        is_upgrade,
+        is_renewal,
         breakdown: {
-          users: `${number_of_users} users × $${plan.per_user_cost} × ${number_of_days} days = $${userCost * number_of_days}`,
-          modules: `Modules × ${number_of_days} days = $${moduleCost * number_of_days}`,
+          users: `${number_of_users} users × $${plan.per_user_cost} × ${effectiveDays} days = $${userCost * effectiveDays}`,
+          modules: `Modules × ${effectiveDays} days = $${moduleCost * effectiveDays}`,
+          discount: discountAmount > 0 ? `Discount: -$${discountAmount}` : '',
           total: `Total = $${totalAmount}`
         }
       }
@@ -103,20 +133,37 @@ const createSubscription = async (req, res) => {
       number_of_users,
       selected_modules,
       total_amount,
-      payment_method
+      payment_method,
+      is_upgrade,
+      is_renewal
     } = req.body;
 
     const companyId = req.user.company_id;
+    const company = await Company.findById(companyId);
 
-    // Calculate dates
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(startDate.getDate() + number_of_days);
+    let startDate, endDate;
+    
+    if (is_upgrade) {
+      // For upgrades, use current dates
+      startDate = company.subscription_start_date || new Date();
+      endDate = company.subscription_end_date || new Date();
+    } else if (is_renewal) {
+      // For renewals, start from current end date or now
+      startDate = company.subscription_end_date && company.subscription_end_date > new Date() 
+        ? company.subscription_end_date 
+        : new Date();
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + number_of_days);
+    } else {
+      // New subscription
+      startDate = new Date();
+      endDate = new Date();
+      endDate.setDate(startDate.getDate() + number_of_days);
+    }
 
     const gracePeriodEnd = new Date(endDate);
-    gracePeriodEnd.setDate(gracePeriodEnd.getDate() + 2); // 2 days grace period
+    gracePeriodEnd.setDate(gracePeriodEnd.getDate() + 2);
 
-    // Get module details with costs
     const plan = await Plan.findOne({ is_active: true });
     const moduleDetails = [];
 
@@ -147,6 +194,20 @@ const createSubscription = async (req, res) => {
 
     await subscription.save();
 
+    // 🔥 Update Company with module access
+ const moduleNames = moduleDetails.map(m => m.module_name);
+
+await Company.findByIdAndUpdate(companyId, {
+  module_access: moduleNames, // store only module names
+  subscription_status: 'active',
+  subscription_start_date: startDate,
+  subscription_end_date: endDate,
+  grace_period_end: gracePeriodEnd,
+  number_of_days,
+  number_of_users,
+  user_limit: number_of_users
+});
+
     await logEvent({
       event_type: 'system_operation',
       event_action: 'subscription_created',
@@ -172,6 +233,7 @@ const createSubscription = async (req, res) => {
     });
   }
 };
+
 
 // Update payment status
 const updatePaymentStatus = async (req, res) => {
@@ -329,6 +391,88 @@ const getSubscriptionHistory = async (req, res) => {
   }
 };
 
+// CRON job to check expired subscriptions
+const checkExpiredSubscriptions = async () => {
+  try {
+    const now = new Date();
+    
+    // Find companies whose grace period has ended
+    const expiredCompanies = await Company.find({
+      subscription_status: { $in: ['active', 'grace_period'] },
+      grace_period_end: { $lt: now }
+    });
+
+    for (const company of expiredCompanies) {
+      await Company.findByIdAndUpdate(company._id, {
+        subscription_status: 'inactive'
+      });
+      
+      console.log(`Company ${company.company_name} subscription set to inactive`);
+    }
+
+    // Update companies entering grace period
+    const gracePeriodCompanies = await Company.find({
+      subscription_status: 'active',
+      subscription_end_date: { $lt: now },
+      grace_period_end: { $gt: now }
+    });
+
+    for (const company of gracePeriodCompanies) {
+      await Company.findByIdAndUpdate(company._id, {
+        subscription_status: 'grace_period'
+      });
+      
+      console.log(`Company ${company.company_name} entered grace period`);
+    }
+
+  } catch (error) {
+    console.error('CRON job error:', error);
+  }
+};
+
+// Get company subscription info for current user
+const getCompanySubscriptionInfo = async (req, res) => {
+  try {
+    const companyId = req.user.company_id;
+    const company = await Company.findById(companyId);
+    
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found'
+      });
+    }
+
+    const now = new Date();
+    let daysRemaining = 0;
+    
+    if (company.subscription_end_date) {
+      daysRemaining = Math.max(0, Math.ceil((company.subscription_end_date - now) / (1000 * 60 * 60 * 24)));
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        subscription_status: company.subscription_status,
+        subscription_start_date: company.subscription_start_date,
+        subscription_end_date: company.subscription_end_date,
+        grace_period_end: company.grace_period_end,
+        number_of_days: company.number_of_days,
+        number_of_users: company.number_of_users,
+        module_access: company.module_access,
+        days_remaining: daysRemaining,
+        can_renew: daysRemaining <= 0 || company.subscription_status === 'grace_period'
+      }
+    });
+  } catch (error) {
+    console.error('Get company subscription info error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching subscription info'
+    });
+  }
+};
+
 module.exports = {
   getPricingConfig,
   calculatePrice,
@@ -336,5 +480,7 @@ module.exports = {
   updatePaymentStatus,
   getCompanySubscription,
   getSubscriptionHistory,
-  getSubscriptionStatus
+  getSubscriptionStatus,
+  checkExpiredSubscriptions,
+  getCompanySubscriptionInfo
 };

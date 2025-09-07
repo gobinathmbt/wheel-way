@@ -138,7 +138,6 @@ const Workshop = () => {
                     <TableHead>Stock ID</TableHead>
                     <TableHead>Plate No</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Inspection Results</TableHead>
                     <TableHead>Created At</TableHead>
                     <TableHead>Action</TableHead>
                   </TableRow>
@@ -171,13 +170,6 @@ const Workshop = () => {
                           }
                         >
                           {vehicle.vehicle_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {vehicle.inspection_result?.length
-                            ? `${vehicle.inspection_result.length} Sections`
-                            : "0 Sections"}
                         </Badge>
                       </TableCell>
                       <TableCell>

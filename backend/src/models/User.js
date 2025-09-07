@@ -53,6 +53,10 @@ const UserSchema = new mongoose.Schema({
     type: String,
     trim: true
   }],
+  dealership_ids: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Dealership'
+  }],
   is_active: {
     type: Boolean,
     default: true
@@ -60,6 +64,10 @@ const UserSchema = new mongoose.Schema({
   is_first_login: {
     type: Boolean,
     default: true
+  },
+    is_primary_admin: {
+    type: Boolean,
+    default: false
   },
   last_login: {
     type: Date

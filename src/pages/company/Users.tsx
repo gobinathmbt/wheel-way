@@ -12,8 +12,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Plus, Search, UserPlus, Mail, Trash2, Edit, Users, UserCheck, UserX, Shield, UserCog, X , Filter } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
+import { dealershipServices } from '@/api/services';
 import apiClient from '@/api/axios';
 import UserDeleteDialog from '../../components/dialogs/UserDeleteDialog';
 import UserEditDialog from '../../components/dialogs/UserEditDialog';
@@ -38,7 +41,17 @@ const CompanyUsers = () => {
     email: '',
     first_name: '',
     last_name: '',
-    role: 'company_admin'
+    role: 'company_admin',
+    dealership_ids: [] as string[]
+  });
+
+  // Fetch available dealerships
+  const { data: dealerships } = useQuery({
+    queryKey: ['dealerships-dropdown'],
+    queryFn: async () => {
+      const response = await dealershipServices.getDealershipsDropdown();
+      return response.data.data;
+    }
   });
 
   const { data: usersResponse, isLoading, refetch } = useQuery({
@@ -70,7 +83,8 @@ const CompanyUsers = () => {
         email: '',
         first_name: '',
         last_name: '',
-        role: 'company_admin'
+        role: 'company_admin',
+        dealership_ids: []
       });
       refetch();
     } catch (error) {
@@ -131,6 +145,15 @@ const CompanyUsers = () => {
   const handleStatusFilterChange = (value) => {
     setStatusFilter(value);
     setCurrentPage(1);
+  };
+
+  const handleDealershipToggle = (dealershipId: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      dealership_ids: checked 
+        ? [...prev.dealership_ids, dealershipId]
+        : prev.dealership_ids.filter(id => id !== dealershipId)
+    }));
   };
 
   const openDeleteDialog = (userId, userName) => {
@@ -235,10 +258,52 @@ const CompanyUsers = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="company_super_admin">Company Super Admin</SelectItem>
                       <SelectItem value="company_admin">Company Admin</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {/* Dealership Assignment */}
+                <div>
+                  <Label>Assign Dealerships</Label>
+                  <div className="mt-2 border rounded-lg p-3 max-h-48">
+                    <ScrollArea className="h-full">
+                      {dealerships && dealerships.length > 0 ? (
+                        <div className="space-y-2">
+                          {dealerships.map((dealership: any) => (
+                            <div key={dealership._id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`dealership-${dealership._id}`}
+                                checked={formData.dealership_ids.includes(dealership._id)}
+                                onCheckedChange={(checked) => 
+                                  handleDealershipToggle(dealership._id, checked as boolean)
+                                }
+                              />
+                              <Label 
+                                htmlFor={`dealership-${dealership._id}`}
+                                className="flex-1 cursor-pointer text-sm"
+                              >
+                                <div>
+                                  <div className="font-medium">{dealership.dealership_name}</div>
+                                  <div className="text-xs text-muted-foreground">{dealership.dealership_id}</div>
+                                </div>
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-muted-foreground text-sm">
+                          No dealerships available. Create dealerships first.
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Select dealerships this user can access
+                  </p>
+                </div>
+                
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
@@ -365,6 +430,7 @@ const CompanyUsers = () => {
                       <TableHead>User</TableHead>
                       <TableHead>Username</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Dealerships</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Last Login</TableHead>
                       <TableHead>Actions</TableHead>
@@ -387,6 +453,26 @@ const CompanyUsers = () => {
                           <Badge variant="outline">
                             {user.role.replace('_', ' ').replace('company', 'Company')}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {user.dealership_ids && user.dealership_ids.length > 0 ? (
+                              <>
+                                {user.dealership_ids.slice(0, 2).map((dealership: any, index: number) => (
+                                  <Badge key={index} variant="secondary" className="text-xs">
+                                    {dealership.dealership_name || dealership.dealership_id}
+                                  </Badge>
+                                ))}
+                                {user.dealership_ids.length > 2 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{user.dealership_ids.length - 2} more
+                                  </Badge>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">No dealerships</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">

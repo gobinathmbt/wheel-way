@@ -912,6 +912,39 @@ const deleteVehicleAttachment = async (req, res) => {
   }
 };
 
+// @desc    Update vehicle workshop status
+// @route   PUT /api/vehicle/:id/workshop-status
+// @access  Private (Company Admin/Super Admin)
+const updateVehicleWorkshopStatus = async (req, res) => {
+  try {
+    const { is_workshop, workshop_progress } = req.body;
+    
+    const vehicle = await Vehicle.findOneAndUpdate(
+      { _id: req.params.id, company_id: req.user.company_id },
+      { is_workshop, workshop_progress },
+      { new: true, runValidators: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Update vehicle workshop status error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating vehicle workshop status",
+    });
+  }
+};
+
 module.exports = {
   getVehicleStock,
   getVehicleDetail,
@@ -936,4 +969,5 @@ module.exports = {
   getVehicleAttachments,
   uploadVehicleAttachment,
   deleteVehicleAttachment,
+  updateVehicleWorkshopStatus,
 };

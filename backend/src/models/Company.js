@@ -42,8 +42,21 @@ const CompanySchema = new mongoose.Schema({
     enum: ['active', 'inactive', 'suspended', 'trial', 'grace_period'],
     default: 'inactive'
   },
+    module_access: {
+    type: [String],   // <--- This stores module names
+    default: []
+  },
   subscription_start_date: Date,
   subscription_end_date: Date,
+  grace_period_end: Date,
+  number_of_days: {
+    type: Number,
+    default: 0
+  },
+  number_of_users: {
+    type: Number,
+    default: 1
+  },
   user_limit: {
     type: Number,
     default: 1
