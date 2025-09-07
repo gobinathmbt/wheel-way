@@ -292,7 +292,10 @@ const registerCompany = async (req, res) => {
     await company.save();
 
     // Create company super admin user with provided password
-    const username = email.split("@")[0] + "_admin";
+const now = new Date();
+const timestamp = now.toISOString().replace(/[-:.TZ]/g, ""); 
+const username = `${email.split("@")[0]}_admin_${timestamp}`;
+
 
     const superAdmin = new User({
       username,

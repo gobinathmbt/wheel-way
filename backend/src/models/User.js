@@ -5,10 +5,7 @@ const UserSchema = new mongoose.Schema({
   username: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
-    minlength: 3,
-    maxlength: 30
   },
   email: {
     type: String,
@@ -16,7 +13,6 @@ const UserSchema = new mongoose.Schema({
     unique: true,
     trim: true,
     lowercase: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
   },
   password: {
     type: String,
@@ -31,13 +27,12 @@ const UserSchema = new mongoose.Schema({
   },
   last_name: {
     type: String,
-    required: true,
     trim: true,
     maxlength: 50
   },
   role: {
     type: String,
-    enum: ['company_super_admin', 'company_admin', 'company_user'],
+    enum: ['company_super_admin', 'company_admin'],
     required: true
   },
   company_id: {
