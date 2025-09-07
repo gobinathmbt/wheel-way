@@ -36,11 +36,7 @@ const Login = () => {
       const userData = JSON.parse(sessionStorage.getItem('user') || '{}');
       console.log('User data after login:', userData);
 
-      if (userData.subscription_modal_required) {
-        // Redirect to subscription page/modal
-        navigate("/subscription");
-        return; // Stop further navigation
-      }
+      // Subscription modal is handled in DashboardLayout, not here
 
       // Navigate based on user role
       if (from) {

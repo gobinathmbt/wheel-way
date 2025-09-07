@@ -80,9 +80,13 @@ const calculatePrice = async (req, res) => {
         const remainingDays = Math.max(0, Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)));
         effectiveDays = remainingDays;
         
-        // Calculate discount for existing subscription
-        const currentDailyRate = (company.number_of_users * plan.per_user_cost) + 
-                                (company.module_access.length * (plan.modules.find(m => company.module_access.includes(m.module_name))?.cost_per_module || 0));
+        // Calculate discount for existing subscription - only for current modules/users
+        const currentModuleCost = company.module_access.reduce((sum, moduleName) => {
+          const moduleConfig = plan.modules.find(m => m.module_name === moduleName);
+          return sum + (moduleConfig?.cost_per_module || 0);
+        }, 0);
+        
+        const currentDailyRate = (company.number_of_users * plan.per_user_cost) + currentModuleCost;
         discountAmount = currentDailyRate * remainingDays;
       }
     }
@@ -445,9 +449,14 @@ const getCompanySubscriptionInfo = async (req, res) => {
 
     const now = new Date();
     let daysRemaining = 0;
+    let canRenew = false;
     
     if (company.subscription_end_date) {
-      daysRemaining = Math.max(0, Math.ceil((company.subscription_end_date - now) / (1000 * 60 * 60 * 24)));
+      const endDate = new Date(company.subscription_end_date);
+      daysRemaining = Math.max(0, Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)));
+      
+      // Can renew if subscription has ended or in grace period
+      canRenew = endDate <= now || company.subscription_status === 'grace_period';
     }
 
     res.status(200).json({
@@ -461,7 +470,7 @@ const getCompanySubscriptionInfo = async (req, res) => {
         number_of_users: company.number_of_users,
         module_access: company.module_access,
         days_remaining: daysRemaining,
-        can_renew: daysRemaining <= 0 || company.subscription_status === 'grace_period'
+        can_renew: canRenew
       }
     });
   } catch (error) {

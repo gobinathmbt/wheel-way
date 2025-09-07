@@ -12,7 +12,8 @@ interface User {
   company_name?: string;
   first_name?: string;
   last_name?: string;
-  subscription_modal_required: boolean;
+  subscription_modal_required?: boolean;
+  subscription_modal_force?: boolean;
   subscription_status?: string;
   subscription_days_remaining?: number;
 }

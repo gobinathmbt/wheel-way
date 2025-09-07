@@ -204,23 +204,31 @@ refetchSubscription()
           <TabsContent value="subscription">
             <div className="space-y-6">
               {/* Current Subscription Status */}
-              {companySubscription?.subscription_status !== 'inactive' ? (
+              {companySubscription && companySubscription.subscription_status !== 'inactive' ? (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Package className="h-5 w-5" />
                       Current Subscription
-                      <Badge variant={getSubscriptionStatusColor(companySubscription.subscription_status)}>
-                        {companySubscription.subscription_status}
+                      <Badge variant={getSubscriptionStatusColor(companySubscription?.subscription_status || 'inactive')}>
+                        {companySubscription?.subscription_status || 'inactive'}
                       </Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {companySubscription.subscription_status === 'grace_period' && (
+                    {companySubscription?.subscription_status === 'grace_period' && (
                       <Alert variant="destructive" className="mb-4">
                         <AlertTriangle className="h-4 w-4" />
                         <AlertDescription>
-                          Your subscription has expired. You have {companySubscription.days_remaining || 0} days remaining in the grace period.
+                          Your subscription has expired. You have {companySubscription?.days_remaining || 0} days remaining in the grace period.
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="ml-4" 
+                            onClick={handleRenewClick}
+                          >
+                            Renew Now
+                          </Button>
                         </AlertDescription>
                       </Alert>
                     )}
@@ -228,22 +236,22 @@ refetchSubscription()
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div className="text-center p-4 bg-muted/50 rounded-lg">
                         <Users className="h-8 w-8 mx-auto mb-2 text-primary" />
-                        <div className="text-2xl font-bold">{companySubscription.number_of_users || 1}</div>
+                        <div className="text-2xl font-bold">{companySubscription?.number_of_users || 1}</div>
                         <p className="text-sm text-muted-foreground">Users</p>
                       </div>
                       <div className="text-center p-4 bg-muted/50 rounded-lg">
                         <Calendar className="h-8 w-8 mx-auto mb-2 text-primary" />
-                        <div className="text-2xl font-bold">{companySubscription.days_remaining || 0}</div>
+                        <div className="text-2xl font-bold">{companySubscription?.days_remaining || 0}</div>
                         <p className="text-sm text-muted-foreground">Days Left</p>
                       </div>
                       <div className="text-center p-4 bg-muted/50 rounded-lg">
                         <Package className="h-8 w-8 mx-auto mb-2 text-primary" />
-                        <div className="text-2xl font-bold">{companySubscription.module_access?.length || 0}</div>
+                        <div className="text-2xl font-bold">{companySubscription?.module_access?.length || 0}</div>
                         <p className="text-sm text-muted-foreground">Modules</p>
                       </div>
                       <div className="text-center p-4 bg-muted/50 rounded-lg">
                         <Calendar className="h-8 w-8 mx-auto mb-2 text-primary" />
-                        <div className="text-2xl font-bold">{companySubscription.number_of_days || 0}</div>
+                        <div className="text-2xl font-bold">{companySubscription?.number_of_days || 0}</div>
                         <p className="text-sm text-muted-foreground">Total Days</p>
                       </div>
                     </div>
@@ -252,7 +260,7 @@ refetchSubscription()
                       <div>
                         <Label className="text-sm font-medium">Start Date</Label>
                         <p className="text-lg">
-                          {companySubscription.subscription_start_date 
+                          {companySubscription?.subscription_start_date 
                             ? new Date(companySubscription.subscription_start_date).toLocaleDateString()
                             : 'N/A'
                           }
@@ -261,7 +269,7 @@ refetchSubscription()
                       <div>
                         <Label className="text-sm font-medium">End Date</Label>
                         <p className="text-lg">
-                          {companySubscription.subscription_end_date 
+                          {companySubscription?.subscription_end_date 
                             ? new Date(companySubscription.subscription_end_date).toLocaleDateString()
                             : 'N/A'
                           }
@@ -272,7 +280,7 @@ refetchSubscription()
                     <div className="mt-4">
                       <Label className="text-sm font-medium">Active Modules</Label>
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {companySubscription.module_access?.map((module, index) => (
+                        {companySubscription?.module_access?.map((module, index) => (
                           <Badge key={index} variant="outline" className="capitalize">
                             {module.replace('_', ' ')}
                           </Badge>
@@ -285,7 +293,7 @@ refetchSubscription()
                         <TrendingUp className="mr-2 h-4 w-4" />
                         Upgrade Plan
                       </Button>
-                      {companySubscription.can_renew && (
+                      {companySubscription?.can_renew && (
                         <Button onClick={handleRenewClick}>
                           Renew Subscription
                         </Button>
@@ -530,6 +538,10 @@ refetchSubscription()
           canClose={true}
           refetchSubscription={refetchSubscription}
           currentSubscription={companySubscription}
+          onSuccess={() => {
+            setShowSubscriptionModal(false);
+            refetchSubscription();
+          }}
         />
       </div>
     </DashboardLayout>

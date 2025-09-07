@@ -7,28 +7,28 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar, Users, CreditCard, Package, Calculator, Loader2, X, AlertTriangle } from 'lucide-react';
+import { Calendar, Users, CreditCard, Package, Calculator, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
-import { subscriptionServices } from '@/api/services';
 import apiClient from '@/api/axios';
 
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose?: () => void;
-   refetchSubscription?: () => void;
-  mode: 'new' | 'upgrade' | 'renewal';
+  mode?: 'new' | 'upgrade' | 'renewal';
+  onSuccess?: () => void;
   canClose?: boolean;
+  refetchSubscription?: () => void;
   currentSubscription?: any;
 }
 
 const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ 
   isOpen, 
   onClose, 
-  refetchSubscription,
-  mode, 
+  mode = 'new', 
+  onSuccess,
   canClose = true,
+  refetchSubscription,
   currentSubscription 
 }) => {
   const [subscriptionData, setSubscriptionData] = useState({
@@ -45,17 +45,18 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const { data: pricingConfig } = useQuery({
     queryKey: ['pricing-config'],
     queryFn: async () => {
-      const response = await subscriptionServices.getPricingConfig();
+      const response = await apiClient.get('/api/subscription/pricing-config');
       return response.data.data;
-    }
+    },
+    enabled: isOpen
   });
 
-  // Pre-populate data for renewal/upgrade
+  // Set default values based on mode and current subscription
   useEffect(() => {
-    if (currentSubscription && (mode === 'renewal' || mode === 'upgrade')) {
+    if (currentSubscription && (mode === 'upgrade' || mode === 'renewal')) {
       setSubscriptionData({
-        number_of_days: mode === 'renewal' ? currentSubscription.number_of_days || 30 : currentSubscription.number_of_days,
-        number_of_users: currentSubscription.number_of_users || 1,
+        number_of_days: mode === 'renewal' ? 30 : currentSubscription.number_of_days,
+        number_of_users: currentSubscription.number_of_users,
         selected_modules: currentSubscription.module_access || []
       });
     }
@@ -71,11 +72,12 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const calculatePricing = async () => {
     setIsCalculating(true);
     try {
-      const response = await subscriptionServices.calculatePrice({
+      const payload = {
         ...subscriptionData,
         is_upgrade: mode === 'upgrade',
         is_renewal: mode === 'renewal'
-      });
+      };
+      const response = await apiClient.post('/api/subscription/calculate-price', payload);
       setPricing(response.data.data);
     } catch (error) {
       console.error('Pricing calculation error:', error);
@@ -86,8 +88,8 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   };
 
   const handleModuleToggle = (moduleValue, checked) => {
-    // For upgrade mode, don't allow deselecting already active modules
-    if (mode === 'upgrade' && currentSubscription?.module_access?.includes(moduleValue) && !checked) {
+    if (mode === 'upgrade' && currentSubscription?.module_access?.includes(moduleValue)) {
+      // Don't allow disabling already purchased modules in upgrade mode
       return;
     }
 
@@ -101,7 +103,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
   const createSubscription = async (paymentMethod) => {
     try {
-      const response = await subscriptionServices.createSubscription({
+      const response = await apiClient.post('/api/subscription/create', {
         ...subscriptionData,
         total_amount: pricing.total_amount,
         payment_method: paymentMethod,
@@ -114,30 +116,32 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     }
   };
 
-  const handlePayment = async (method) => {
+  const handlePayment = async (paymentMethod) => {
     setIsProcessing(true);
     try {
-      const subscription = await createSubscription(method);
+      const subscription = await createSubscription(paymentMethod);
 
-      // Simulate payment processing
       setTimeout(async () => {
         try {
           await apiClient.patch(`/api/subscription/${subscription._id}/payment-status`, {
             payment_status: 'completed',
-            payment_transaction_id: `${method}_${Date.now()}`
+            payment_transaction_id: `${paymentMethod}_${Date.now()}`
           });
-          
-          const actionText = mode === 'upgrade' ? 'upgraded' : mode === 'renewal' ? 'renewed' : 'activated';
-          toast.success(`Payment successful! Your subscription has been ${actionText}.`);
-          
- refetchSubscription()
+          toast.success('Payment successful! Your subscription is now active.');
+          refetchSubscription?.();
+          onSuccess?.();
+          if (canClose && onClose) {
+            onClose();
+          } else {
+            window.location.reload();
+          }
         } catch (error) {
           toast.error('Payment verification failed');
         }
         setIsProcessing(false);
       }, 2000);
     } catch (error) {
-      toast.error('Failed to process payment');
+      toast.error(error.response?.data?.message || 'Failed to process payment');
       setIsProcessing(false);
     }
   };
@@ -150,29 +154,13 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     }
   };
 
-  const getModalDescription = () => {
-    switch (mode) {
-      case 'upgrade': return 'Add more users or modules to your current subscription';
-      case 'renewal': return 'Renew your subscription to continue accessing all features';
-      default: return 'Configure your subscription plan and payment';
-    }
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={canClose ? onClose : undefined}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        {!canClose && (
-          <div className="absolute top-2 right-2 text-xs text-muted-foreground">
-            Complete subscription to continue
-          </div>
-        )}
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-2xl">{getModalTitle()}</DialogTitle>
-              <p className="text-muted-foreground mt-1">{getModalDescription()}</p>
-            </div>
-            {canClose && (
+            <DialogTitle>{getModalTitle()}</DialogTitle>
+            {canClose && onClose && (
               <Button variant="ghost" size="sm" onClick={onClose}>
                 <X className="h-4 w-4" />
               </Button>
@@ -180,21 +168,16 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           </div>
         </DialogHeader>
 
-        {mode === 'renewal' && currentSubscription?.subscription_status === 'grace_period' && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              Your subscription has expired. You have {currentSubscription.days_remaining || 0} days remaining in the grace period.
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Configuration Panel */}
           <Card>
             <CardHeader>
               <CardTitle>Subscription Configuration</CardTitle>
-              <CardDescription>Configure your subscription requirements</CardDescription>
+              <CardDescription>
+                {mode === 'upgrade' ? 'Upgrade your current plan' : 
+                 mode === 'renewal' ? 'Renew your subscription' : 
+                 'Configure your subscription requirements'}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
@@ -225,7 +208,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     <Input
                       id="users"
                       type="number"
-                      min={mode === 'upgrade' ? currentSubscription?.number_of_users || 1 : 1}
+                      min="1"
                       max="1000"
                       value={subscriptionData.number_of_users}
                       onChange={(e) => setSubscriptionData(prev => ({
@@ -243,19 +226,16 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 <div className="space-y-3">
                   {pricingConfig?.modules?.map((module) => {
                     const isSelected = subscriptionData.selected_modules.includes(module.module_name);
-                    const isCurrentlyActive = currentSubscription?.module_access?.includes(module.module_name);
-                    const isDisabled = mode === 'upgrade' && isCurrentlyActive;
+                    const isAlreadyPurchased = mode === 'upgrade' && currentSubscription?.module_access?.includes(module.module_name);
 
                     return (
-                      <div key={module.module_name} className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${
-                        isDisabled ? 'bg-muted/50 opacity-60' : 'hover:bg-muted/20'
-                      }`}>
+                      <div key={module.module_name} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/20 transition-colors">
                         <div className="flex items-center space-x-3">
                           <Package className="h-4 w-4 text-muted-foreground" />
                           <div>
                             <Label className="font-medium">{module.display_value}</Label>
-                            {isCurrentlyActive && (
-                              <Badge variant="outline" className="ml-2 text-xs">Current</Badge>
+                            {isAlreadyPurchased && (
+                              <Badge variant="outline" className="ml-2">Already Purchased</Badge>
                             )}
                           </div>
                         </div>
@@ -264,7 +244,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                           <Switch
                             checked={isSelected}
                             onCheckedChange={(checked) => handleModuleToggle(module.module_name, checked)}
-                            disabled={isDisabled}
+                            disabled={isAlreadyPurchased}
                           />
                         </div>
                       </div>
@@ -276,151 +256,147 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           </Card>
 
           {/* Pricing Panel */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5" />
-                Pricing Breakdown
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isCalculating ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
-              ) : pricing ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Per User Cost:</span>
-                      <span>${pricing.per_user_cost}/day</span>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5" />
+                  Pricing Breakdown
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isCalculating ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  </div>
+                ) : pricing ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      {mode !== 'upgrade' && (
+                        <>
+                          <div className="flex justify-between">
+                            <span>Per User Cost:</span>
+                            <span>${pricing.per_user_cost}/day</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Users ({subscriptionData.number_of_users}):</span>
+                            <span>${pricing.user_cost}/day</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Modules:</span>
+                            <span>${pricing.module_cost}/day</span>
+                          </div>
+                        </>
+                      )}
+                      {pricing.discount_amount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Discount:</span>
+                          <span>-${pricing.discount_amount}</span>
+                        </div>
+                      )}
+                      <div className="border-t pt-2">
+                        <div className="flex justify-between text-lg font-bold">
+                          <span>Total{mode === 'upgrade' ? ' (Remaining Days)' : ` (${subscriptionData.number_of_days} days)`}:</span>
+                          <span>${pricing.total_amount}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Users ({subscriptionData.number_of_users}):</span>
-                      <span>${pricing.user_cost}/day</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Modules:</span>
-                      <span>${pricing.module_cost}/day</span>
-                    </div>
-                    <div className="flex justify-between font-medium">
-                      <span>Daily Rate:</span>
-                      <span>${pricing.daily_rate}</span>
-                    </div>
-                    {pricing.discount_amount > 0 && (
-                      <div className="flex justify-between text-green-600">
-                        <span>Credit (Remaining Days):</span>
-                        <span>-${pricing.discount_amount}</span>
+
+                    {pricing.module_details?.length > 0 && (
+                      <div className="bg-muted p-4 rounded-lg">
+                        <h4 className="font-semibold mb-2">Selected Modules:</h4>
+                        <div className="space-y-1">
+                          {pricing.module_details.map((module, index) => (
+                            <div key={index} className="flex justify-between text-sm">
+                              <span>{module.display_value}</span>
+                              <span>${module.cost}/day</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
-                    <div className="border-t pt-2">
-                      <div className="flex justify-between text-lg font-bold">
-                        <span>Total ({pricing.effective_days || subscriptionData.number_of_days} days):</span>
-                        <span>${pricing.total_amount}</span>
-                      </div>
-                    </div>
                   </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    Configure your subscription to see pricing
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                  {pricing.module_details && pricing.module_details.length > 0 && (
-                    <div className="bg-muted p-4 rounded-lg">
-                      <h4 className="font-semibold mb-2">Selected Modules:</h4>
-                      <div className="space-y-1">
-                        {pricing.module_details.map((module, index) => (
-                          <div key={index} className="flex justify-between text-sm">
-                            <span>{module.display_value}</span>
-                            <span>${module.cost}/day</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  Configure your subscription to see pricing
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            {/* Payment Section */}
+            {pricing && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Payment Method
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Tabs value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="stripe">Stripe</TabsTrigger>
+                      <TabsTrigger value="paypal">PayPal</TabsTrigger>
+                      <TabsTrigger value="razorpay">Razorpay</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="stripe" className="space-y-4">
+                      <Button
+                        onClick={() => handlePayment('stripe')}
+                        disabled={isProcessing}
+                        className="w-full"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          `Pay $${pricing.total_amount} with Stripe`
+                        )}
+                      </Button>
+                    </TabsContent>
+
+                    <TabsContent value="paypal" className="space-y-4">
+                      <Button
+                        onClick={() => handlePayment('paypal')}
+                        disabled={isProcessing}
+                        className="w-full bg-blue-600 hover:bg-blue-700"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          `Pay $${pricing.total_amount} with PayPal`
+                        )}
+                      </Button>
+                    </TabsContent>
+
+                    <TabsContent value="razorpay" className="space-y-4">
+                      <Button
+                        onClick={() => handlePayment('razorpay')}
+                        disabled={isProcessing}
+                        className="w-full bg-green-600 hover:bg-green-700"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          `Pay $${pricing.total_amount} with Razorpay`
+                        )}
+                      </Button>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
-
-        {/* Payment Section */}
-        {pricing && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Payment Method
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="stripe">Stripe</TabsTrigger>
-                  <TabsTrigger value="paypal">PayPal</TabsTrigger>
-                  <TabsTrigger value="razorpay">Razorpay</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="stripe" className="space-y-4">
-                  <div className="text-center space-y-4">
-                    <Button
-                      onClick={() => handlePayment('stripe')}
-                      disabled={isProcessing}
-                      className="w-full"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        `Pay $${pricing.total_amount} with Stripe`
-                      )}
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="paypal" className="space-y-4">
-                  <div className="text-center space-y-4">
-                    <Button
-                      onClick={() => handlePayment('paypal')}
-                      disabled={isProcessing}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        `Pay $${pricing.total_amount} with PayPal`
-                      )}
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="razorpay" className="space-y-4">
-                  <div className="text-center space-y-4">
-                    <Button
-                      onClick={() => handlePayment('razorpay')}
-                      disabled={isProcessing}
-                      className="w-full bg-green-600 hover:bg-green-700"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        `Pay $${pricing.total_amount} with Razorpay`
-                      )}
-                    </Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        )}
       </DialogContent>
     </Dialog>
   );

@@ -3,6 +3,7 @@ const app = require('./app');
 const connectDB = require('./config/db');
 const { startQueueConsumer } = require('./controllers/sqs.controller');
 const { initializeSocket } = require('./controllers/socket.controller');
+const { startSubscriptionCronJob } = require('./jobs/subscriptionCron');
 require('./config/env');
 
 const PORT = process.env.PORT || 5000;
@@ -18,6 +19,9 @@ initializeSocket(server);
 
 // Start SQS queue consumer
 startQueueConsumer();
+
+// Start subscription CRON job
+startSubscriptionCronJob();
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {

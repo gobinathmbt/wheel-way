@@ -104,6 +104,12 @@ const login = async (req, res) => {
           ...userData,
           subscription_modal_required: true
         };
+      } else {
+        // Active subscription
+        userData = {
+          ...userData,
+          subscription_modal_required: false
+        };
       }
     }
 

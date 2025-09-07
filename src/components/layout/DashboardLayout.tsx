@@ -156,7 +156,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
   // Show subscription modal for force cases
   useEffect(() => {
-    if (user?.subscription_modal_required && user?.role === 'company_super_admin') {
+    if (user?.subscription_modal_force && user?.role === 'company_super_admin') {
       setShowSubscriptionModal(true);
     }
   }, [user]);
@@ -661,6 +661,15 @@ const renderCollapsedMenuItem = (item: NavigationItem, index: number) => {
           {hasNoModuleAccess ? <NoAccessContent /> : children}
         </main>
       </div>
+      
+      {/* Subscription Modal */}
+      <SubscriptionModal 
+        isOpen={showSubscriptionModal} 
+        onClose={user?.subscription_modal_force ? undefined : () => setShowSubscriptionModal(false)}
+        canClose={!user?.subscription_modal_force}
+        mode="new"
+        onSuccess={() => setShowSubscriptionModal(false)}
+      />
     </div>
   );
 };
