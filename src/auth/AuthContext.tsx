@@ -62,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await axios.get('/api/auth/me');
       const userData = response.data.user;
       setUser(userData);
+          setCompleteUser(userData);
       sessionStorage.setItem('user', JSON.stringify(userData));
     } catch (error) {
       console.error('Failed to fetch user info:', error);
