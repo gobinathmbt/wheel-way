@@ -782,13 +782,28 @@ const getUsers = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const {  email,   role, dealership_ids } = req.body;
+    const { email, role, dealership_ids, is_primary_admin } = req.body;
+
+    let creatingUser = req.user;
+    
+    if (creatingUser.is_primary_admin === undefined) {
+      const fullUser = await User.findById(creatingUser.id);
+      if (fullUser) {
+        creatingUser = fullUser;
+      }
+    }
+
+    // Check if user is trying to create a super admin without being primary admin
+    if (role === 'company_super_admin' && !creatingUser.is_primary_admin) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary admins can create super admin users",
+      });
+    }
 
     const existingUser = await User.findOne({
-      company_id: req.user.company_id,
-      $or: [
-        { email: email },
-      ],
+      company_id: creatingUser.company_id,
+      $or: [{ email: email }],
     });
 
     if (existingUser) {
@@ -798,31 +813,35 @@ const createUser = async (req, res) => {
       });
     }
 
-    const defaultPassword = "Welcome@123";
+    const defaultPassword = "Welcome@123";    
+    const finalIsPrimaryAdmin = is_primary_admin !== undefined && creatingUser.is_primary_admin 
+      ? Boolean(is_primary_admin) 
+      : false;
 
     const user = new User({
       ...req.body,
       password: defaultPassword,
       role: role || 'company_admin',
       dealership_ids: dealership_ids || [],
-      company_id: req.user.company_id,
+      company_id: creatingUser.company_id,
       is_first_login: true,
-      created_by: req.user.id,
+      created_by: creatingUser.id,
+      is_primary_admin: finalIsPrimaryAdmin
     });
 
     await user.save();
 
-    await Company.findByIdAndUpdate(req.user.company_id, {
+    await Company.findByIdAndUpdate(creatingUser.company_id, {
       $inc: { current_user_count: 1 },
     });
 
     await logEvent({
       event_type: "user_management",
       event_action: "user_created",
-      event_description: `User ${user.email} created`,
-      user_id: req.user.id,
-      company_id: req.user.company_id,
-      user_role: req.user.role,
+      event_description: `User ${user.email} created with is_primary_admin: ${user.is_primary_admin}`,
+      user_id: creatingUser.id,
+      company_id: creatingUser.company_id,
+      user_role: creatingUser.role,
     });
 
     res.status(201).json({
@@ -831,7 +850,6 @@ const createUser = async (req, res) => {
       message: "User created successfully. Welcome email sent.",
     });
   } catch (error) {
-    console.error("Create user error:", error);
     res.status(500).json({
       success: false,
       message: "Error creating user",
@@ -841,16 +859,47 @@ const createUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    const { password, dealership_ids, ...updateData } = req.body;
+    const { password, dealership_ids, is_primary_admin, ...updateData } = req.body;
 
-    // Include dealership_ids in update if provided
+    let updatingUser = req.user;
+    
+    // Check if is_primary_admin is missing from req.user and fetch from database if needed
+    if (updatingUser.is_primary_admin === undefined) {
+      const fullUser = await User.findById(updatingUser.id);
+      if (fullUser) {
+        updatingUser = fullUser;
+      }
+    }
+
+    // Check if user is trying to update role to super admin without being primary admin
+    if (updateData.role === 'company_super_admin' && !updatingUser.is_primary_admin) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary admins can update users to super admin role",
+      });
+    }
+
+    // Handle is_primary_admin field - only allow primary admins to set this
+    let finalIsPrimaryAdmin;
+    if (is_primary_admin !== undefined) {
+      if (!updatingUser.is_primary_admin) {
+        return res.status(403).json({
+          success: false,
+          message: "Only primary admins can update the primary admin status",
+        });
+      }
+      finalIsPrimaryAdmin = Boolean(is_primary_admin);
+    }
+
+    // Prepare update data
     const finalUpdateData = {
       ...updateData,
-      ...(dealership_ids !== undefined && { dealership_ids })
+      ...(dealership_ids !== undefined && { dealership_ids }),
+      ...(is_primary_admin !== undefined && { is_primary_admin: finalIsPrimaryAdmin })
     };
 
     const user = await User.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
+      { _id: req.params.id, company_id: updatingUser.company_id },
       finalUpdateData,
       { new: true, runValidators: true }
     ).select("-password").populate('dealership_ids', 'dealership_id dealership_name');
@@ -865,10 +914,10 @@ const updateUser = async (req, res) => {
     await logEvent({
       event_type: "user_management",
       event_action: "user_updated",
-      event_description: `User ${user.email} updated`,
-      user_id: req.user.id,
-      company_id: req.user.company_id,
-      user_role: req.user.role,
+      event_description: `User ${user.email} updated with is_primary_admin: ${user.is_primary_admin}`,
+      user_id: updatingUser.id,
+      company_id: updatingUser.company_id,
+      user_role: updatingUser.role,
     });
 
     res.status(200).json({

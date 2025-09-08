@@ -1,97 +1,169 @@
+import React, { useState } from "react";
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select as ShadcnSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Plus,
+  Search,
+  UserPlus,
+  Mail,
+  Trash2,
+  Edit,
+  Users,
+  UserCheck,
+  UserX,
+  Shield,
+  UserCog,
+  X,
+  Filter,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { dealershipServices } from "@/api/services";
+import apiClient from "@/api/axios";
+import UserDeleteDialog from "../../components/dialogs/UserDeleteDialog";
+import UserEditDialog from "../../components/dialogs/UserEditDialog";
 
-import React, { useState } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Plus, Search, UserPlus, Mail, Trash2, Edit, Users, UserCheck, UserX, Shield, UserCog, X , Filter } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
-import { dealershipServices } from '@/api/services';
-import apiClient from '@/api/axios';
-import UserDeleteDialog from '../../components/dialogs/UserDeleteDialog';
-import UserEditDialog from '../../components/dialogs/UserEditDialog';
+// ✅ Added import for react-select
+import Select from "react-select";
 
 const CompanyUsers = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteDialog, setDeleteDialog] = useState({
     isOpen: false,
-    userId: '',
-    userName: ''
+    userId: "",
+    userName: "",
   });
   const [editDialog, setEditDialog] = useState({
     isOpen: false,
-    user: null
+    user: null,
   });
   const [isDeleting, setIsDeleting] = useState(false);
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    first_name: '',
-    last_name: '',
-    role: 'company_admin',
-    dealership_ids: [] as string[]
+    username: "",
+    email: "",
+    first_name: "",
+    last_name: "",
+    role: "company_admin",
+    dealership_ids: [] as string[],
   });
 
   // Fetch available dealerships
   const { data: dealerships } = useQuery({
-    queryKey: ['dealerships-dropdown'],
+    queryKey: ["dealerships-dropdown"],
     queryFn: async () => {
       const response = await dealershipServices.getDealershipsDropdown();
       return response.data.data;
-    }
+    },
   });
 
-  const { data: usersResponse, isLoading, refetch } = useQuery({
-    queryKey: ['company-users', currentPage, searchTerm, statusFilter],
+  const { data: userInfo } = useQuery({
+    queryKey: ["user-info"],
+    queryFn: async () => {
+      const response = await apiClient.get("/api/auth/me");
+      return response.data.user;
+    },
+  });
+
+  const isPrimaryAdmin = userInfo?.is_primary_admin || false;
+
+  const {
+    data: usersResponse,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["company-users", currentPage, searchTerm, statusFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: currentPage.toString(),
-        limit: '10',
+        limit: "10",
         ...(searchTerm && { search: searchTerm }),
-        ...(statusFilter !== 'all' && { status: statusFilter })
+        ...(statusFilter !== "all" && { status: statusFilter }),
       });
       const response = await apiClient.get(`/api/company/users?${params}`);
       return response.data;
-    }
+    },
   });
 
   const users = usersResponse?.data || [];
   const pagination = usersResponse?.pagination || {};
   const stats = usersResponse?.stats || {};
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (formData.role === "company_super_admin" && !isPrimaryAdmin) {
+      toast.error("Only primary admins can create super admin users");
+      return;
+    }
+
     try {
-      await apiClient.post('/api/company/users', formData);
-      toast.success('User created successfully. Welcome email sent.');
+      await apiClient.post("/api/company/users", formData);
+      toast.success("User created successfully. Welcome email sent.");
       setIsDialogOpen(false);
       setFormData({
-        username: '',
-        email: '',
-        first_name: '',
-        last_name: '',
-        role: 'company_admin',
-        dealership_ids: []
+        username: "",
+        email: "",
+        first_name: "",
+        last_name: "",
+        role: "company_admin",
+        dealership_ids: [],
       });
       refetch();
-    } catch (error) {
-      if (error.response?.data?.message === 'User already exists') {
-        toast.error('User already exists');
+    } catch (error: any) {
+      if (error.response?.data?.message === "User already exists") {
+        toast.error("User already exists");
+      } else if (
+        error.response?.data?.message ===
+        "Only primary admins can create super admin users"
+      ) {
+        toast.error("Only primary admins can create super admin users");
       } else {
-        toast.error('Failed to create user');
+        toast.error("Failed to create user");
       }
     }
   };
@@ -100,34 +172,34 @@ const CompanyUsers = () => {
     setIsDeleting(true);
     try {
       await apiClient.delete(`/api/company/users/${deleteDialog.userId}`);
-      toast.success('User deleted successfully');
-      setDeleteDialog({ isOpen: false, userId: '', userName: '' });
+      toast.success("User deleted successfully");
+      setDeleteDialog({ isOpen: false, userId: "", userName: "" });
       refetch();
     } catch (error) {
-      toast.error('Failed to delete user');
+      toast.error("Failed to delete user");
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const handleToggleStatus = async (userId, currentStatus) => {
+  const handleToggleStatus = async (userId: string, currentStatus: boolean) => {
     try {
       await apiClient.patch(`/api/company/users/${userId}/status`, {
-        is_active: !currentStatus
+        is_active: !currentStatus,
       });
-      toast.success('User status updated successfully');
+      toast.success("User status updated successfully");
       refetch();
     } catch (error) {
-      toast.error('Failed to update user status');
+      toast.error("Failed to update user status");
     }
   };
 
-  const sendWelcomeEmail = async (userId) => {
+  const sendWelcomeEmail = async (userId: string) => {
     try {
       await apiClient.post(`/api/company/users/${userId}/send-welcome`);
-      toast.success('Welcome email sent successfully');
+      toast.success("Welcome email sent successfully");
     } catch (error) {
-      toast.error('Failed to send welcome email');
+      toast.error("Failed to send welcome email");
     }
   };
 
@@ -137,52 +209,43 @@ const CompanyUsers = () => {
   };
 
   const handleClear = () => {
-    setSearchTerm('');
+    setSearchTerm("");
     setCurrentPage(1);
     refetch();
   };
 
-  const handleStatusFilterChange = (value) => {
+  const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
     setCurrentPage(1);
   };
 
-  const handleDealershipToggle = (dealershipId: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      dealership_ids: checked 
-        ? [...prev.dealership_ids, dealershipId]
-        : prev.dealership_ids.filter(id => id !== dealershipId)
-    }));
-  };
-
-  const openDeleteDialog = (userId, userName) => {
+  const openDeleteDialog = (userId: string, userName: string) => {
     setDeleteDialog({
       isOpen: true,
       userId,
-      userName
+      userName,
     });
   };
 
   const closeDeleteDialog = () => {
     setDeleteDialog({
       isOpen: false,
-      userId: '',
-      userName: ''
+      userId: "",
+      userName: "",
     });
   };
 
-  const openEditDialog = (user) => {
+  const openEditDialog = (user: any) => {
     setEditDialog({
       isOpen: true,
-      user
+      user,
     });
   };
 
   const closeEditDialog = () => {
     setEditDialog({
       isOpen: false,
-      user: null
+      user: null,
     });
   };
 
@@ -195,7 +258,9 @@ const CompanyUsers = () => {
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Team Members</h2>
-            <p className="text-muted-foreground">Manage company users and their permissions</p>
+            <p className="text-muted-foreground">
+              Manage company users and their permissions
+            </p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -208,7 +273,8 @@ const CompanyUsers = () => {
               <DialogHeader>
                 <DialogTitle>Create New User</DialogTitle>
                 <DialogDescription>
-                  Add a new team member to your company. They will receive a welcome email with login credentials.
+                  Add a new team member to your company. They will receive a
+                  welcome email with login credentials.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -218,7 +284,9 @@ const CompanyUsers = () => {
                     <Input
                       id="first_name"
                       value={formData.first_name}
-                      onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, first_name: e.target.value })
+                      }
                       required
                     />
                   </div>
@@ -227,7 +295,9 @@ const CompanyUsers = () => {
                     <Input
                       id="last_name"
                       value={formData.last_name}
-                      onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, last_name: e.target.value })
+                      }
                       required
                     />
                   </div>
@@ -237,7 +307,9 @@ const CompanyUsers = () => {
                   <Input
                     id="username"
                     value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, username: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -247,65 +319,82 @@ const CompanyUsers = () => {
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
                     required
                   />
                 </div>
                 <div>
                   <Label htmlFor="role">Role</Label>
-                  <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                  <ShadcnSelect
+                    value={formData.role}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, role: value })
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="company_super_admin">Company Super Admin</SelectItem>
-                      <SelectItem value="company_admin">Company Admin</SelectItem>
+                      {isPrimaryAdmin && (
+                        <SelectItem value="company_super_admin">
+                          Company Super Admin
+                        </SelectItem>
+                      )}
+                      <SelectItem value="company_admin">
+                        Company Admin
+                      </SelectItem>
                     </SelectContent>
-                  </Select>
+                  </ShadcnSelect>
                 </div>
-                
-                {/* Dealership Assignment */}
+
+                {/* ✅ Dealership Assignment - Multi Select Dropdown */}
                 <div>
                   <Label>Assign Dealerships</Label>
-                  <div className="mt-2 border rounded-lg p-3 max-h-48">
-                    <ScrollArea className="h-full">
-                      {dealerships && dealerships.length > 0 ? (
-                        <div className="space-y-2">
-                          {dealerships.map((dealership: any) => (
-                            <div key={dealership._id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`dealership-${dealership._id}`}
-                                checked={formData.dealership_ids.includes(dealership._id)}
-                                onCheckedChange={(checked) => 
-                                  handleDealershipToggle(dealership._id, checked as boolean)
-                                }
-                              />
-                              <Label 
-                                htmlFor={`dealership-${dealership._id}`}
-                                className="flex-1 cursor-pointer text-sm"
-                              >
-                                <div>
-                                  <div className="font-medium">{dealership.dealership_name}</div>
-                                  <div className="text-xs text-muted-foreground">{dealership.dealership_id}</div>
-                                </div>
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-4 text-muted-foreground text-sm">
-                          No dealerships available. Create dealerships first.
-                        </div>
-                      )}
-                    </ScrollArea>
-                  </div>
+                  <Select
+                    isMulti
+                    isSearchable
+                    name="dealerships"
+                    options={
+                      dealerships?.map((d: any) => ({
+                        value: d._id,
+                        label: `${d.dealership_name}`,
+                      })) || []
+                    }
+                    className="mt-2"
+                    classNamePrefix="select"
+                    value={formData.dealership_ids
+                      .map((id) => {
+                        const found = dealerships?.find(
+                          (d: any) => d._id === id
+                        );
+                        return found
+                          ? {
+                              value: found._id,
+                              label: `${found.dealership_name}`,
+                            }
+                          : null;
+                      })
+                      .filter(Boolean)}
+                    onChange={(selected) =>
+                      setFormData({
+                        ...formData,
+                        dealership_ids: selected.map((s: any) => s.value),
+                      })
+                    }
+                  />
                   <p className="text-xs text-muted-foreground mt-1">
                     Select dealerships this user can access
                   </p>
                 </div>
-                
+
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
                   <Button type="submit">Create User</Button>
@@ -328,7 +417,9 @@ const CompanyUsers = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Active Users
+              </CardTitle>
               <UserCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -337,16 +428,22 @@ const CompanyUsers = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Inactive Users</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Inactive Users
+              </CardTitle>
               <UserX className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.inactiveUsers || 0}</div>
+              <div className="text-2xl font-bold">
+                {stats.inactiveUsers || 0}
+              </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Super Admins</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Super Admins
+              </CardTitle>
               <Shield className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -383,17 +480,20 @@ const CompanyUsers = () => {
                   />
                 </div>
               </div>
-             <Button
-  onClick={handleClear}
-  disabled={!searchTerm}
-  className="bg-blue-600 text-white hover:bg-gray-700"
->
-  <X className="h-4 w-4 mr-2 text-white" />
-  Clear
-</Button>
-              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+              <Button
+                onClick={handleClear}
+                disabled={!searchTerm}
+                className="bg-blue-600 text-white hover:bg-gray-700"
+              >
+                <X className="h-4 w-4 mr-2 text-white" />
+                Clear
+              </Button>
+              <ShadcnSelect
+                value={statusFilter}
+                onValueChange={handleStatusFilterChange}
+              >
                 <SelectTrigger className="w-48">
-                   <Filter className="h-4 w-4 mr-2" />
+                  <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -401,7 +501,7 @@ const CompanyUsers = () => {
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
-              </Select>
+              </ShadcnSelect>
               {/* <Button onClick={handleSearch} disabled={isLoading}>
                 <Search className="h-4 w-4 mr-2" />
                 Search
@@ -414,7 +514,9 @@ const CompanyUsers = () => {
         <Card>
           <CardHeader>
             <CardTitle>Team Members</CardTitle>
-            <CardDescription>Manage your company's users and their access levels</CardDescription>
+            <CardDescription>
+              Manage your company's users and their access levels
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -444,25 +546,39 @@ const CompanyUsers = () => {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{user.first_name} {user.last_name}</p>
-                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                            <p className="font-medium">
+                              {user.first_name} {user.last_name}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {user.email}
+                            </p>
                           </div>
                         </TableCell>
                         <TableCell>{user.username}</TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {user.role.replace('_', ' ').replace('company', 'Company')}
+                            {user.role
+                              .replace("_", " ")
+                              .replace("company", "Company")}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {user.dealership_ids && user.dealership_ids.length > 0 ? (
+                            {user.dealership_ids &&
+                            user.dealership_ids.length > 0 ? (
                               <>
-                                {user.dealership_ids.slice(0, 2).map((dealership: any, index: number) => (
-                                  <Badge key={index} variant="secondary" className="text-xs">
-                                    {dealership.dealership_name || dealership.dealership_id}
-                                  </Badge>
-                                ))}
+                                {user.dealership_ids
+                                  .slice(0, 2)
+                                  .map((dealership: any, index: number) => (
+                                    <Badge
+                                      key={index}
+                                      variant="secondary"
+                                      className="text-xs"
+                                    >
+                                      {dealership.dealership_name ||
+                                        dealership.dealership_id}
+                                    </Badge>
+                                  ))}
                                 {user.dealership_ids.length > 2 && (
                                   <Badge variant="outline" className="text-xs">
                                     +{user.dealership_ids.length - 2} more
@@ -470,7 +586,9 @@ const CompanyUsers = () => {
                                 )}
                               </>
                             ) : (
-                              <span className="text-muted-foreground text-sm">No dealerships</span>
+                              <span className="text-muted-foreground text-sm">
+                                No dealerships
+                              </span>
                             )}
                           </div>
                         </TableCell>
@@ -478,38 +596,47 @@ const CompanyUsers = () => {
                           <div className="flex items-center space-x-2">
                             <Switch
                               checked={user.is_active}
-                              onCheckedChange={() => handleToggleStatus(user._id, user.is_active)}
+                              onCheckedChange={() =>
+                                handleToggleStatus(user._id, user.is_active)
+                              }
                             />
                             <span className="text-sm">
-                              {user.is_active ? 'Active' : 'Inactive'}
+                              {user.is_active ? "Active" : "Inactive"}
                             </span>
                           </div>
                         </TableCell>
                         <TableCell>
-                          {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
+                          {user.last_login
+                            ? new Date(user.last_login).toLocaleDateString()
+                            : "Never"}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => openEditDialog(user)}
                               title="Edit User"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => sendWelcomeEmail(user._id)}
                               title="Send Welcome Email"
                             >
                               <Mail className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
-                              onClick={() => openDeleteDialog(user._id, `${user.first_name} ${user.last_name}`)}
+                              onClick={() =>
+                                openDeleteDialog(
+                                  user._id,
+                                  `${user.first_name} ${user.last_name}`
+                                )
+                              }
                               title="Delete User"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -527,13 +654,22 @@ const CompanyUsers = () => {
                     <Pagination>
                       <PaginationContent>
                         <PaginationItem>
-                          <PaginationPrevious 
-                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          <PaginationPrevious
+                            onClick={() =>
+                              setCurrentPage((prev) => Math.max(1, prev - 1))
+                            }
+                            className={
+                              currentPage === 1
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
                           />
                         </PaginationItem>
-                        
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+
+                        {Array.from(
+                          { length: totalPages },
+                          (_, i) => i + 1
+                        ).map((page) => (
                           <PaginationItem key={page}>
                             <PaginationLink
                               onClick={() => setCurrentPage(page)}
@@ -544,11 +680,19 @@ const CompanyUsers = () => {
                             </PaginationLink>
                           </PaginationItem>
                         ))}
-                        
+
                         <PaginationItem>
-                          <PaginationNext 
-                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          <PaginationNext
+                            onClick={() =>
+                              setCurrentPage((prev) =>
+                                Math.min(totalPages, prev + 1)
+                              )
+                            }
+                            className={
+                              currentPage === totalPages
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
                           />
                         </PaginationItem>
                       </PaginationContent>
