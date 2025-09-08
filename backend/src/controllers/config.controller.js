@@ -96,46 +96,27 @@ const createInspectionConfig = async (req, res) => {
       });
     }
 
-    // If this is set as default, deactivate other defaults
-    if (req.body.is_default) {
-      await InspectionConfig.updateMany(
-        { company_id: req.user.company_id, is_default: true },
-        { is_default: false }
-      );
-    }
+    // // If this is set as default, deactivate other defaults
+    // if (req.body.is_default) {
+    //   await InspectionConfig.updateMany(
+    //     { company_id: req.user.company_id, is_default: true },
+    //     { is_default: false }
+    //   );
+    // }
 
-    // If this is set as active, deactivate other active configs
-    if (req.body.is_active) {
-      await InspectionConfig.updateMany(
-        { company_id: req.user.company_id, is_active: true },
-        { is_active: false }
-      );
-    }
+    // // If this is set as active, deactivate other active configs
+    // if (req.body.is_active) {
+    //   await InspectionConfig.updateMany(
+    //     { company_id: req.user.company_id, is_active: true },
+    //     { is_active: false }
+    //   );
+    // }
 
     const config = new InspectionConfig({
       ...req.body,
       company_id: req.user.company_id,
       created_by: req.user.id,
-      categories: [
-        // {
-        //   category_id: "at_arrival",
-        //   category_name: "At Arrival",
-        //   description: "Initial vehicle inspection upon arrival",
-        //   sections: [],
-        // },
-        // {
-        //   category_id: "after_reconditioning",
-        //   category_name: "After Reconditioning",
-        //   description: "Inspection after vehicle reconditioning",
-        //   sections: [],
-        // },
-        // {
-        //   category_id: "after_grooming",
-        //   category_name: "After Grooming",
-        //   description: "Final inspection after grooming",
-        //   sections: [],
-        // },
-      ],
+      categories: [],
     });
 
     await config.save();
@@ -238,17 +219,17 @@ const updateInspectionConfig = async (req, res) => {
       }
     }
 
-    // If this is set as active, deactivate other active configs
-    if (req.body.is_active) {
-      await InspectionConfig.updateMany(
-        {
-          company_id: req.user.company_id,
-          is_active: true,
-          _id: { $ne: req.params.id },
-        },
-        { is_active: false }
-      );
-    }
+    // // If this is set as active, deactivate other active configs
+    // if (req.body.is_active) {
+    //   await InspectionConfig.updateMany(
+    //     {
+    //       company_id: req.user.company_id,
+    //       is_active: true,
+    //       _id: { $ne: req.params.id },
+    //     },
+    //     { is_active: false }
+    //   );
+    // }
 
     const config = await InspectionConfig.findOneAndUpdate(
       { _id: req.params.id, company_id: req.user.company_id },
@@ -890,13 +871,13 @@ const createTradeinConfig = async (req, res) => {
       });
     }
 
-    // If this is set as active, deactivate other active configs
-    if (req.body.is_active) {
-      await TradeinConfig.updateMany(
-        { company_id: req.user.company_id, is_active: true },
-        { is_active: false }
-      );
-    }
+    // // If this is set as active, deactivate other active configs
+    // if (req.body.is_active) {
+    //   await TradeinConfig.updateMany(
+    //     { company_id: req.user.company_id, is_active: true },
+    //     { is_active: false }
+    //   );
+    // }
 
     const config = new TradeinConfig({
       ...req.body,
@@ -939,16 +920,16 @@ const updateTradeinConfig = async (req, res) => {
     }
 
     // If this is set as active, deactivate other active configs
-    if (req.body.is_active) {
-      await TradeinConfig.updateMany(
-        {
-          company_id: req.user.company_id,
-          is_active: true,
-          _id: { $ne: req.params.id },
-        },
-        { is_active: false }
-      );
-    }
+    // if (req.body.is_active) {
+    //   await TradeinConfig.updateMany(
+    //     {
+    //       company_id: req.user.company_id,
+    //       is_active: true,
+    //       _id: { $ne: req.params.id },
+    //     },
+    //     { is_active: false }
+    //   );
+    // }
 
     const config = await TradeinConfig.findOneAndUpdate(
       { _id: req.params.id, company_id: req.user.company_id },

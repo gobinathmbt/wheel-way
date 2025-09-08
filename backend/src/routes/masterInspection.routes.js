@@ -3,13 +3,15 @@ const { protect, authorize, companyScopeCheck } = require('../middleware/auth');
 const {
   getMasterConfiguration,
   getVehicleInspectionData,
-  saveInspectionData
+  saveInspectionData,
+  getActiveConfigurations
 } = require('../controllers/masterInspection.controller');
 
 const router = express.Router();
 
 // Public routes (no authentication required for viewing)
 router.get('/config/:company_id/:vehicle_type', getMasterConfiguration);
+router.get('/active-configs/:company_id/:vehicle_type', getActiveConfigurations);
 router.get('/view/:company_id/:vehicle_stock_id/:vehicle_type', getVehicleInspectionData);
 
 // Private routes (authentication required for saving/editing)

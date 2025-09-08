@@ -311,6 +311,10 @@ export const configServices = {
   // Inspection Config
   getInspectionConfigs: (params?: any) =>
     apiClient.get('/api/config/inspection', { params }),
+
+  // Get active configurations
+getActiveConfigurations: (companyId: string, vehicleType: string) =>
+  apiClient.get(`/api/master-inspection/active-configs/${companyId}/${vehicleType}`),
   
   getInspectionConfigDetails: (id: string) =>
     apiClient.get(`/api/config/inspection/${id}`),

@@ -10,6 +10,7 @@ const DropdownMaster = require("../models/DropdownMaster");
 const getMasterConfiguration = async (req, res) => {
   try {
     const { company_id, vehicle_type } = req.params;
+    const { configId } = req.query; // Add this line
 
     // Validate company exists
     const company = await Company.findById(company_id);
@@ -21,16 +22,25 @@ const getMasterConfiguration = async (req, res) => {
     }
 
     let config;
+    let query = {
+      company_id,
+      is_active: true,
+    };
+    
+    // If configId is provided, use it instead of is_active
+    if (configId) {
+      query = {
+        company_id,
+        _id: configId,
+      };
+    }
+
     if (vehicle_type === "inspection") {
-      config = await InspectionConfig.findOne({
-        company_id,
-        is_active: true,
-      }).populate("categories.sections.fields.dropdown_config.dropdown_id");
+      config = await InspectionConfig.findOne(query)
+        .populate("categories.sections.fields.dropdown_config.dropdown_id");
     } else if (vehicle_type === "tradein") {
-      config = await TradeinConfig.findOne({
-        company_id,
-        is_active: true,
-      }).populate("sections.fields.dropdown_config.dropdown_id");
+      config = await TradeinConfig.findOne(query)
+        .populate("sections.fields.dropdown_config.dropdown_id");
     } else {
       return res.status(400).json({
         success: false,
@@ -41,7 +51,7 @@ const getMasterConfiguration = async (req, res) => {
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: `No active ${vehicle_type} configuration found. Please set up configuration or make one active.`,
+        message: `Configuration not found.`,
       });
     }
 
@@ -202,8 +212,57 @@ const saveInspectionData = async (req, res) => {
   }
 };
 
+
+// @desc    Get all active configurations for inspection/tradein
+// @route   GET /api/master-inspection/active-configs/:company_id/:vehicle_type
+// @access  Public
+const getActiveConfigurations = async (req, res) => {
+  try {
+    const { company_id, vehicle_type } = req.params;
+
+    // Validate company exists
+    const company = await Company.findById(company_id);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: "Company not found",
+      });
+    }
+
+    let configs;
+    if (vehicle_type === "inspection") {
+      configs = await InspectionConfig.find({
+        company_id,
+        is_active: true,
+      }).select("config_name description version created_at");
+    } else if (vehicle_type === "tradein") {
+      configs = await TradeinConfig.find({
+        company_id,
+        is_active: true,
+      }).select("config_name description version created_at");
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid vehicle type. Must be "inspection" or "tradein"',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: configs,
+    });
+  } catch (error) {
+    console.error("Get active configurations error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving active configurations",
+    });
+  }
+};
+
 module.exports = {
   getMasterConfiguration,
   getVehicleInspectionData,
   saveInspectionData,
+    getActiveConfigurations, // Add this
 };

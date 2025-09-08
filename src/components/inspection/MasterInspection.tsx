@@ -27,7 +27,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+  DialogDescription,
+} from "@/components/ui/dialog"; // Added DialogDescription
 import { S3Uploader, S3Config } from "@/lib/s3-client";
 import { toast } from "sonner";
 import axios from "axios";
@@ -51,10 +52,20 @@ import {
   Check,
   Maximize,
   Play,
+  Settings,
 } from "lucide-react";
 import PdfReportGenerator from "./PdfReportGenerator";
+import { configServices } from '@/api/services';
 
 interface MasterInspectionProps {}
+
+interface Configuration {
+  _id: string;
+  config_name: string;
+  description: string;
+  version: string;
+  created_at: string;
+}
 
 const MasterInspection: React.FC<MasterInspectionProps> = () => {
   const { company_id, vehicle_stock_id, vehicle_type, mode } = useParams();
