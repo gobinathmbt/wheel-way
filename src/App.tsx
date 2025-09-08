@@ -21,6 +21,7 @@ import MasterPlans from "./pages/master_admin/Plans";
 import MasterSettings from "./pages/master_admin/Settings";
 import Permissions from './pages/master_admin/Permissions';
 import MasterDropdownMaster from "./pages/master_admin/DropdownMaster";
+import WebsiteMaintenance from "./pages/master_admin/WebsiteMaintenance";
 
 // Company Pages  
 import CompanyDashboard from "./pages/company/Dashboard";
@@ -101,6 +102,11 @@ const App = () => (
             <Route path="/master/dropdowns" element={
               <ProtectedRoute allowedRoles={['master_admin']}>
                 <MasterDropdownMaster />
+              </ProtectedRoute>
+            } />
+            <Route path="/master/maintenance" element={
+              <ProtectedRoute allowedRoles={['master_admin']}>
+                <WebsiteMaintenance />
               </ProtectedRoute>
             } />
             

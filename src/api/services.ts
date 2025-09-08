@@ -103,6 +103,15 @@ export const masterServices = {
     apiClient.put("/api/master/payment-settings", data),
 
   getPaymentSettings: () => apiClient.get("/api/master/payment-settings"),
+
+  // Maintenance Settings
+  getMaintenanceSettings: () => apiClient.get("/api/master/maintenance"),
+
+  updateMaintenanceSettings: (data: any) =>
+    apiClient.put("/api/master/maintenance", data),
+
+  // Public maintenance settings (no auth required)
+  getPublicMaintenanceSettings: () => apiClient.get("/api/master/maintenance/public"),
 };
 
 export const masterDropdownServices = {

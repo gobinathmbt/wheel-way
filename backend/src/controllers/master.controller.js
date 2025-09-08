@@ -619,6 +619,76 @@ const getAwsSettings = async (req, res) => {
   }
 };
 
+// Get maintenance settings
+const getMaintenanceSettings = async (req, res) => {
+  try {
+    const masterAdmin = await MasterAdmin.findById(req.user.id);
+    
+    if (!masterAdmin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Master admin not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: masterAdmin.website_maintenance || {
+        is_enabled: false,
+        message: 'We are currently performing maintenance on our website. Please check back later.',
+        end_time: null,
+        modules: []
+      }
+    });
+  } catch (error) {
+    console.error('Get maintenance settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch maintenance settings'
+    });
+  }
+};
+
+// Update maintenance settings
+const updateMaintenanceSettings = async (req, res) => {
+  try {
+    const masterAdmin = await MasterAdmin.findById(req.user.id);
+    
+    if (!masterAdmin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Master admin not found'
+      });
+    }
+
+    masterAdmin.website_maintenance = req.body;
+    await masterAdmin.save();
+
+    // Log the event
+    await logEvent({
+      event_type: 'system_operation',
+      event_action: 'maintenance_settings_updated',
+      event_description: 'Website maintenance settings updated by master admin',
+      user_id: req.user.id,
+      user_role: req.user.role,
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
+    });
+
+    res.json({
+      success: true,
+      data: masterAdmin.website_maintenance,
+      message: 'Maintenance settings updated successfully'
+    });
+  } catch (error) {
+    console.error('Update maintenance settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update maintenance settings'
+    });
+  }
+};
+
 module.exports = {
   getDashboard,
   getCompanies,
@@ -635,5 +705,7 @@ module.exports = {
   testSmtp,
   updateAwsSettings,
   testAwsConnection,
-  getAwsSettings
+  getAwsSettings,
+  getMaintenanceSettings,
+  updateMaintenanceSettings
 };

@@ -214,6 +214,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         { icon: CreditCard, label: "Plans", path: "/master/plans" },
         { icon: Settings, label: "Settings", path: "/master/settings" },
         { icon: Globe, label: "Master Dropdown", path: "/master/dropdowns" },
+        { icon: Wrench, label: "Website Maintenance", path: "/master/maintenance" },
       ];
     }
 

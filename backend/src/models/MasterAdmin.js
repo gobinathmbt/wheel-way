@@ -57,7 +57,7 @@ const MasterAdminSchema = new mongoose.Schema({
     from_email: String,
     from_name: String
   },
-    aws_settings: {
+  aws_settings: {
     access_key_id: String,
     secret_access_key: String,
     region: {
@@ -65,6 +65,29 @@ const MasterAdminSchema = new mongoose.Schema({
       default: 'us-east-1'
     },
     sqs_queue_url: String
+  },
+  website_maintenance: {
+    is_enabled: {
+      type: Boolean,
+      default: false
+    },
+    message: {
+      type: String,
+      default: 'We are currently performing maintenance on our website. Please check back later.'
+    },
+    end_time: Date,
+    modules: [{
+      module_name: {
+        type: String,
+        required: true
+      },
+      is_enabled: {
+        type: Boolean,
+        default: false
+      },
+      message: String,
+      end_time: Date
+    }]
   },
   is_active: {
     type: Boolean,

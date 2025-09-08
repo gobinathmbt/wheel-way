@@ -4,6 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { authServices } from '@/api/services';
+import MaintenanceWrapper from '@/components/maintenance/MaintenanceWrapper';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -60,7 +61,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
   }
 
-  return <>{children}</>;
+  return (
+    <MaintenanceWrapper requiredModule={requiredModule}>
+      {children}
+    </MaintenanceWrapper>
+  );
 };
 
 export default ProtectedRoute;

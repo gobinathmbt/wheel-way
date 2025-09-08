@@ -17,12 +17,42 @@ const {
   testSmtp,
   updateAwsSettings,
   testAwsConnection,
-  getAwsSettings
+  getAwsSettings,
+  getMaintenanceSettings,
+  updateMaintenanceSettings
 } = require('../controllers/master.controller');
 
 const router = express.Router();
 
-// Apply auth middleware to all routes
+// Public maintenance check route (no auth required)
+router.get('/maintenance/public', async (req, res) => {
+  try {
+    const MasterAdmin = require('../models/MasterAdmin');
+    const masterAdmin = await MasterAdmin.findOne({}).select('website_maintenance');
+    
+    res.json({
+      success: true,
+      data: masterAdmin?.website_maintenance || {
+        is_enabled: false,
+        message: 'We are currently performing maintenance on our website. Please check back later.',
+        end_time: null,
+        modules: []
+      }
+    });
+  } catch (error) {
+    res.json({
+      success: true,
+      data: {
+        is_enabled: false,
+        message: 'We are currently performing maintenance on our website. Please check back later.',
+        end_time: null,
+        modules: []
+      }
+    });
+  }
+});
+
+// Apply auth middleware to all other routes
 router.use(protect);
 router.use(authorize('master_admin'));
 
@@ -52,6 +82,10 @@ router.post('/test-smtp', testSmtp);
 router.put('/aws-settings', updateAwsSettings);
 router.post('/test-aws', testAwsConnection);
 router.get('/aws-settings', getAwsSettings);
+
+// Website maintenance routes
+router.get('/maintenance', getMaintenanceSettings);
+router.put('/maintenance', updateMaintenanceSettings);
 
 // Master admin dropdown routes
 router.use('/dropdowns', require('./master.dropdown.routes'));
