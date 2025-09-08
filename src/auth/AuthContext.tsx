@@ -1,11 +1,10 @@
-
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import axios from "axios";
 
 interface User {
   id: string;
   email: string;
-  role: 'master_admin' | 'company_super_admin' | 'company_admin';
+  role: "master_admin" | "company_super_admin" | "company_admin";
   company_id?: string;
   is_first_login?: boolean;
   username?: string;
@@ -27,29 +26,32 @@ interface AuthContextType {
   isLoading: boolean;
 }
 
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
 
 // Set default axios base URL
-axios.defaults.baseURL = 'http://localhost:5000';
+axios.defaults.baseURL = "http://localhost:5000";
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [completeUser, setCompleteUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(sessionStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(
+    sessionStorage.getItem("token")
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       // Verify token and get user info
       fetchUserInfo();
     } else {
@@ -59,13 +61,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserInfo = async () => {
     try {
-      const response = await axios.get('/api/auth/me');
+      const response = await axios.get("/api/auth/me");
       const userData = response.data.user;
       setUser(userData);
-          setCompleteUser(userData);
-      sessionStorage.setItem('user', JSON.stringify(userData));
+      setCompleteUser(userData);
+      sessionStorage.setItem("user", JSON.stringify(userData));
     } catch (error) {
-      console.error('Failed to fetch user info:', error);
+      console.error("Failed to fetch user info:", error);
       logout();
     } finally {
       setIsLoading(false);
@@ -74,19 +76,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post('/api/auth/login', { email, password });
+      const response = await axios.post("/api/auth/login", { email, password });
       const { token: newToken, user: userData } = response.data;
-      
-      console.log('Login response:', response.data);
-      
+
+      console.log("Login response:", response.data);
+
       setToken(newToken);
       setUser(userData);
       setCompleteUser(userData);
-      sessionStorage.setItem('token', newToken);
-      sessionStorage.setItem('user', JSON.stringify(userData));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      sessionStorage.setItem("token", newToken);
+      sessionStorage.setItem("user", JSON.stringify(userData));
+      axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
       throw error;
     }
   };
@@ -94,13 +96,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     setToken(null);
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('user');
-    delete axios.defaults.headers.common['Authorization'];
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
+    delete axios.defaults.headers.common["Authorization"];
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isLoading,completeUser }}>
+    <AuthContext.Provider
+      value={{ user, token, login, logout, isLoading, completeUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
