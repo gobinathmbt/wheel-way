@@ -544,7 +544,6 @@ const getRecentActivity = async (req, res) => {
         { "trade_in_result.0": { $exists: true } },
       ],
     })
-      .populate("created_by", "first_name last_name")
       .sort({ updated_at: -1 })
       .limit(parseInt(limit));
 
