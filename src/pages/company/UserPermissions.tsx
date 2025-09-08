@@ -43,6 +43,7 @@ import { companyServices } from "@/api/services";
 import ManageModuleDialog from "@/components/permissions/ManageModuleDialog";
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { CompleteUser, useAuth } from "@/auth/AuthContext";
 
 interface Permission {
   _id: string;
@@ -79,6 +80,8 @@ const UserPermissions = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isModuleDialogOpen, setIsModuleDialogOpen] = useState(false);
+  const { completeUser } = useAuth();
+  console.log(completeUser)
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
 
   // ... keep existing code (data fetching and mutations)
@@ -159,8 +162,8 @@ const UserPermissions = () => {
   };
 
   // Check if user can manage modules (only for company_admin role)
-  const canManageModules = (user: User) => {
-    return user.role === "company_admin";
+  const canManageModules = (completeUser: CompleteUser) => {
+    return completeUser.role === "company_super_admin";
   };
 
   const handlePermissionToggle = (internalName: string, enabled: boolean) => {
@@ -345,7 +348,7 @@ const UserPermissions = () => {
                               <Settings className="h-4 w-4 mr-2" />
                               Permissions
                             </Button>
-                            {canManageModules(user) && (
+                            {canManageModules(completeUser) && (
                               <Button
                                 variant="outline"
                                 size="sm"

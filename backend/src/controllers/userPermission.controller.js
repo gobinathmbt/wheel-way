@@ -224,7 +224,14 @@ const getUsersWithPermissions = async (req, res) => {
     const { page = 1, limit = 10, search, status } = req.query;
     const skip = (page - 1) * limit;
 
-    let filter = { company_id: req.user.company_id , is_primary_admin: { $ne: true }};
+    // Start with base filter for company
+    let filter = { company_id: req.user.company_id };
+    
+    // If user is NOT primary admin, exclude primary admins and only show company admins
+    if (!req.user.is_primary_admin) {
+      filter.is_primary_admin = { $ne: true };
+      filter.role = 'company_admin'; // or whatever your company admin role is called
+    }
     
     // Add search functionality
     if (search) {
@@ -246,7 +253,7 @@ const getUsersWithPermissions = async (req, res) => {
     }
 
     const users = await User.find(filter)
-      .select('_id username email first_name last_name role is_active permissions module_access')
+      .select('_id username email first_name last_name role is_active permissions module_access is_primary_admin dealership_ids')
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit));

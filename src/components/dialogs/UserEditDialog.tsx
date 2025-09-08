@@ -59,6 +59,7 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({
   });
   const [isLoading, setIsLoading] = useState(false);
   const { completeUser } = useAuth();
+  
 
   useEffect(() => {
     if (user) {

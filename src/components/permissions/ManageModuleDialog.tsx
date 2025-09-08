@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { companyServices } from "@/api/services";
+import { useAuth } from "@/auth/AuthContext";
 
 interface ModuleAccess {
   module_name: string;
@@ -44,6 +45,8 @@ const ManageModuleDialog: React.FC<ManageModuleDialogProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const [moduleAccess, setModuleAccess] = useState<ModuleAccess[]>([]);
+  const { completeUser } = useAuth();
+  console.log(completeUser)
 
   // Move the dropdownsData query inside the component
   const { data: dropdownsData } = useQuery({
@@ -51,7 +54,7 @@ const ManageModuleDialog: React.FC<ManageModuleDialogProps> = ({
     queryFn: () =>
       companyServices
         .getMasterdropdownvalues({
-          dropdown_name: ["company_superadmin_modules"],
+          dropdown_name: ["company_admin"],
         })
         .then((res) => res.data),
     enabled: open, // Only fetch when dialog is open
@@ -80,7 +83,7 @@ const ManageModuleDialog: React.FC<ManageModuleDialogProps> = ({
   // Get available modules from dropdown data
   const availableModules =
     dropdownsData?.data?.find(
-      (dropdown) => dropdown.dropdown_name === "company_superadmin_modules"
+      (dropdown) => dropdown.dropdown_name === "company_admin"
     )?.values || [];
 
   // Initialize module access when data is loaded
