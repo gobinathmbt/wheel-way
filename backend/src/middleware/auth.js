@@ -29,7 +29,7 @@ const protect = async (req, res, next) => {
     if (decoded.role === 'master_admin') {
       user = await MasterAdmin.findById(decoded.id);
     } else {
-      user = await User.findById(decoded.id).populate('company_id');
+      user = await User.findById(decoded.id).populate('company_id').populate('dealership_ids');
     }
 
     if (!user) {
@@ -45,13 +45,14 @@ const protect = async (req, res, next) => {
         message: 'Account is deactivated'
       });
     }
-
     // Add user to request
     req.user = {
       id: user._id,
       email: user.email,
       role: user.role,
-      company_id: user.company_id?._id || user.company_id
+      is_primary_admin:user.is_primary_admin,
+      company_id: user.company_id?._id || user.company_id,
+      dealership_ids: user.dealership_ids
     };
 
     next();
