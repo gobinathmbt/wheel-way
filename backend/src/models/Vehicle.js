@@ -64,6 +64,15 @@ const VehicleSchema = new mongoose.Schema({
   trade_in_result: [mongoose.Schema.Types.Mixed],
   inspection_report_pdf: String, // URL to the generated PDF report
   tradein_report_pdf: String, // URL to the generated PDF report
+
+   last_inspection_config_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'InspectionConfig'
+  },
+  last_tradein_config_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TradeinConfig'
+  },
   
   // Vehicle Other Details
   vehicle_other_details: [{

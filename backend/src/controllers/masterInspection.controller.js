@@ -10,7 +10,7 @@ const DropdownMaster = require("../models/DropdownMaster");
 const getMasterConfiguration = async (req, res) => {
   try {
     const { company_id, vehicle_type } = req.params;
-    const { configId } = req.query; // Add this line
+    const { configId, vehicle_stock_id } = req.query;
 
     // Validate company exists
     const company = await Company.findById(company_id);
@@ -26,13 +26,33 @@ const getMasterConfiguration = async (req, res) => {
       company_id,
       is_active: true,
     };
-    
+    let lastConfigId
     // If configId is provided, use it instead of is_active
     if (configId) {
       query = {
         company_id,
         _id: configId,
       };
+    } else if (vehicle_stock_id) {
+      // Check if vehicle has last used configuration
+      const vehicle = await Vehicle.findOne({
+        company_id,
+        vehicle_stock_id: parseInt(vehicle_stock_id),
+        vehicle_type,
+      });
+      
+      if (vehicle) {
+         lastConfigId = vehicle_type === "inspection" 
+          ? vehicle.last_inspection_config_id 
+          : vehicle.last_tradein_config_id;
+          
+        if (lastConfigId) {
+          query = {
+            company_id,
+            _id: lastConfigId,
+          };
+        }
+      }
     }
 
     if (vehicle_type === "inspection") {
@@ -103,6 +123,7 @@ const getMasterConfiguration = async (req, res) => {
         company: {
           _id: company._id,
           name: company.company_name,
+          last_config_id:lastConfigId,
         },
       },
     });
@@ -111,6 +132,56 @@ const getMasterConfiguration = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error retrieving configuration",
+    });
+  }
+};
+
+// Update the saveInspectionData function to save the configuration ID
+const saveInspectionData = async (req, res) => {
+  try {
+    const { company_id, vehicle_stock_id, vehicle_type } = req.params;
+    const { inspection_result, reportPdfUrl, config_id } = req.body;
+
+    const vehicle = await Vehicle.findOne({
+      company_id,
+      vehicle_stock_id: parseInt(vehicle_stock_id),
+      vehicle_type,
+    });
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    // Update the relevant result field
+    if (vehicle_type === "inspection") {
+      vehicle.inspection_result = inspection_result || [];
+      vehicle.inspection_report_pdf = reportPdfUrl || [];
+      if (config_id) {
+        vehicle.last_inspection_config_id = config_id;
+      }
+    } else {
+      vehicle.trade_in_result = inspection_result || [];
+      vehicle.tradein_report_pdf = reportPdfUrl || [];
+      if (config_id) {
+        vehicle.last_tradein_config_id = config_id;
+      }
+    }
+
+    await vehicle.save();
+
+    res.status(200).json({
+      success: true,
+      message: `${vehicle_type} data saved successfully`,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Save inspection data error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error saving inspection data",
     });
   }
 };
@@ -166,51 +237,51 @@ const getVehicleInspectionData = async (req, res) => {
   }
 };
 
-// @desc    Save inspection/tradein data (Private - Auth required)
-// @route   POST /api/master-inspection/save/:company_id/:vehicle_stock_id/:vehicle_type
-// @access  Private
-const saveInspectionData = async (req, res) => {
-  try {
-    const { company_id, vehicle_stock_id, vehicle_type } = req.params;
-    const { inspection_result, reportPdfUrl } = req.body;
+// // @desc    Save inspection/tradein data (Private - Auth required)
+// // @route   POST /api/master-inspection/save/:company_id/:vehicle_stock_id/:vehicle_type
+// // @access  Private
+// const saveInspectionData = async (req, res) => {
+//   try {
+//     const { company_id, vehicle_stock_id, vehicle_type } = req.params;
+//     const { inspection_result, reportPdfUrl } = req.body;
 
-    const vehicle = await Vehicle.findOne({
-      company_id,
-      vehicle_stock_id: parseInt(vehicle_stock_id),
-      vehicle_type,
-    });
+//     const vehicle = await Vehicle.findOne({
+//       company_id,
+//       vehicle_stock_id: parseInt(vehicle_stock_id),
+//       vehicle_type,
+//     });
 
-    if (!vehicle) {
-      return res.status(404).json({
-        success: false,
-        message: "Vehicle not found",
-      });
-    }
+//     if (!vehicle) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Vehicle not found",
+//       });
+//     }
 
-    // Update the relevant result field
-    if (vehicle_type === "inspection") {
-      vehicle.inspection_result = inspection_result || [];
-      vehicle.inspection_report_pdf = reportPdfUrl || [];
-    } else {
-      vehicle.trade_in_result = inspection_result || [];
-      vehicle.tradein_report_pdf = reportPdfUrl || [];
-    }
+//     // Update the relevant result field
+//     if (vehicle_type === "inspection") {
+//       vehicle.inspection_result = inspection_result || [];
+//       vehicle.inspection_report_pdf = reportPdfUrl || [];
+//     } else {
+//       vehicle.trade_in_result = inspection_result || [];
+//       vehicle.tradein_report_pdf = reportPdfUrl || [];
+//     }
 
-    await vehicle.save();
+//     await vehicle.save();
 
-    res.status(200).json({
-      success: true,
-      message: `${vehicle_type} data saved successfully`,
-      data: vehicle,
-    });
-  } catch (error) {
-    console.error("Save inspection data error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error saving inspection data",
-    });
-  }
-};
+//     res.status(200).json({
+//       success: true,
+//       message: `${vehicle_type} data saved successfully`,
+//       data: vehicle,
+//     });
+//   } catch (error) {
+//     console.error("Save inspection data error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Error saving inspection data",
+//     });
+//   }
+// };
 
 
 // @desc    Get all active configurations for inspection/tradein

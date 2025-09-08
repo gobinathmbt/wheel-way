@@ -651,6 +651,29 @@ export const supplierDashboardServices = {
     apiClient.put('/api/supplier-dashboard/profile', data)
 };
 
+export const masterInspectionServices = {
+  // Get configuration with optional vehicle stock id for last used config
+  getMasterConfiguration: (companyId: string, vehicleType: string, vehicleStockId?: string, configId?: string) => {
+    const params = new URLSearchParams();
+    if (vehicleStockId) params.append('vehicle_stock_id', vehicleStockId);
+    if (configId) params.append('configId', configId);
+    
+    const queryString = params.toString();
+    const url = `/api/master-inspection/config/${companyId}/${vehicleType}${queryString ? `?${queryString}` : ''}`;
+    
+    return apiClient.get(url);
+  },
+
+  getActiveConfigurations: (companyId: string, vehicleType: string) =>
+    apiClient.get(`/api/master-inspection/active-configs/${companyId}/${vehicleType}`),
+
+  getVehicleInspectionData: (companyId: string, vehicleStockId: string, vehicleType: string) =>
+    apiClient.get(`/api/master-inspection/view/${companyId}/${vehicleStockId}/${vehicleType}`),
+
+  saveInspectionData: (companyId: string, vehicleStockId: string, vehicleType: string, data: any) =>
+    apiClient.post(`/api/master-inspection/save/${companyId}/${vehicleStockId}/${vehicleType}`, data)
+};
+
 
 export default {
   auth: authServices,
@@ -669,4 +692,5 @@ export default {
   workshop: workshopServices,
   supplierAuth: supplierAuthServices,
   supplierDashboard: supplierDashboardServices,
+  masterInspectionServices:masterInspectionServices,
 };

@@ -55,7 +55,8 @@ import {
   Settings,
 } from "lucide-react";
 import PdfReportGenerator from "./PdfReportGenerator";
-import { configServices } from '@/api/services';
+import ConfigurationSelectionDialog from "./ConfigurationSelectionDialog";
+import { masterInspectionServices } from "@/api/services";
 
 interface MasterInspectionProps {}
 
@@ -86,6 +87,9 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [calculations, setCalculations] = useState<any>({});
   const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
+  const [showConfigDialog, setShowConfigDialog] = useState(true);
+  const [selectedConfigId, setSelectedConfigId] = useState<string>("");
+  const [configurationLoaded, setConfigurationLoaded] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{
     [key: string]: boolean;
   }>({});
@@ -123,10 +127,13 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     }
   }, [company_id, vehicle_type]);
 
-  const loadConfiguration = async () => {
+  const loadConfiguration = async (configId?: string) => {
     try {
-      const response = await axios.get(
-        `/api/master-inspection/config/${company_id}/${vehicle_type}`
+      const response = await masterInspectionServices.getMasterConfiguration(
+        company_id!,
+        vehicle_type!,
+        vehicle_stock_id,
+        configId
       );
       const data = response.data.data;
       setConfig(data.config);
@@ -144,7 +151,10 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         );
         setSelectedCategory(sortedCategories[0].category_id);
       }
-
+      if (data.company.last_config_id) {
+        setShowConfigDialog(false);
+      }
+      setConfigurationLoaded(true);
       setLoading(false);
     } catch (error: any) {
       console.error("Load configuration error:", error);
@@ -153,6 +163,35 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
       );
       setLoading(false);
     }
+  };
+
+  // Replace the existing useEffect
+  useEffect(() => {
+    // Only show config dialog for edit mode and when we have the required params
+    if (mode === "edit" && company_id && vehicle_type) {
+      // Check if we have vehicle_stock_id to look for last used config
+      if (vehicle_stock_id) {
+        // Try to load with last used configuration
+        loadConfiguration();
+      } else {
+        // No vehicle_stock_id, show config selection dialog
+        setShowConfigDialog(true);
+      }
+    } else {
+      // For view mode, load directly
+      setShowConfigDialog(false);
+      loadConfiguration();
+    }
+
+    if (vehicle_stock_id) {
+      loadVehicleData();
+    }
+  }, [company_id, vehicle_type, vehicle_stock_id, mode]);
+
+  const handleConfigurationSelected = (configId: string) => {
+    setSelectedConfigId(configId);
+    setShowConfigDialog(false);
+    loadConfiguration(configId);
   };
 
   const loadVehicleData = async () => {
@@ -503,7 +542,6 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     setValidationErrors(errors);
     return isValid;
   };
-
   const saveData = async () => {
     if (isViewMode) return;
 
@@ -588,11 +626,14 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         ];
       }
 
-      await axios.post(
-        `/api/master-inspection/save/${company_id}/${vehicle_stock_id}/${vehicle_type}`,
+      await masterInspectionServices.saveInspectionData(
+        company_id!,
+        vehicle_stock_id!,
+        vehicle_type!,
         {
           inspection_result: inspectionResult,
           reportPdfUrl,
+          config_id: selectedConfigId || config._id, // Use selectedConfigId or current config id
         }
       );
 
@@ -1212,7 +1253,10 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     );
   };
 
-  if (loading) {
+  if (
+    loading ||
+    (mode === "edit" && !configurationLoaded && !showConfigDialog)
+  ) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -1261,6 +1305,14 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+      {showConfigDialog && company_id && vehicle_type && (
+        <ConfigurationSelectionDialog
+          isOpen={showConfigDialog}
+          companyId={company_id}
+          vehicleType={vehicle_type}
+          onConfigurationSelected={handleConfigurationSelected}
+        />
+      )}
       {/* Header - Fixed */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b shadow-sm">
         <div className="container mx-auto px-4 py-3">
