@@ -76,14 +76,15 @@ const login = async (req, res) => {
       type: "company",
       company_id: user.company_id,
       is_first_login: user.is_first_login || false,
+      is_primary_admin: user.is_primary_admin,
     };
 
     // For company users, check subscription status
     if (userType === "user" && user.company_id) {
       const company = user.company_id;
-      
+
       // Check company subscription status
-      if (company.subscription_status === 'inactive') {
+      if (company.subscription_status === "inactive") {
         if (user.role === "company_admin") {
           return res.status(403).json({
             success: false,
@@ -95,20 +96,20 @@ const login = async (req, res) => {
           userData = {
             ...userData,
             subscription_modal_required: true,
-            subscription_modal_force: true
+            subscription_modal_force: true,
           };
         }
-      } else if (company.subscription_status === 'grace_period') {
+      } else if (company.subscription_status === "grace_period") {
         // During grace period, both roles can login but show warning
         userData = {
           ...userData,
-          subscription_modal_required: true
+          subscription_modal_required: true,
         };
       } else {
         // Active subscription
         userData = {
           ...userData,
-          subscription_modal_required: false
+          subscription_modal_required: false,
         };
       }
     }
@@ -292,10 +293,9 @@ const registerCompany = async (req, res) => {
     await company.save();
 
     // Create company super admin user with provided password
-const now = new Date();
-const timestamp = now.toISOString().replace(/[-:.TZ]/g, ""); 
-const username = `${email.split("@")[0]}_admin_${timestamp}`;
-
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[-:.TZ]/g, "");
+    const username = `${email.split("@")[0]}_admin_${timestamp}`;
 
     const superAdmin = new User({
       username,
@@ -371,6 +371,7 @@ const getMe = async (req, res) => {
       role: user.role,
       company_id: user.company_id?._id,
       is_first_login: user.is_first_login || false,
+      is_primary_admin: user.is_primary_admin,
       type: "company",
     };
 
