@@ -1,6 +1,72 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
 
+interface S3Config {
+  bucket: string;
+  access_key: string;
+  secret_key: string;
+  region: string;
+  url: string;
+}
+
+interface Company {
+  _id: string;
+  company_name: string;
+  contact_person: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  plan_id: string;
+  subscription_status: string;
+  user_limit: number;
+  current_user_count: number;
+  is_active: boolean;
+  subscription_start_date: string;
+  created_at: string;
+  updated_at: string;
+  subscription_end_date: string;
+  module_access: string[];
+  grace_period_end: string;
+  number_of_days: number;
+  number_of_users: number;
+  s3_config: S3Config;
+}
+
+interface Dealership {
+  _id: string;
+  dealership_name: string;
+  dealership_address: string;
+  dealership_email: string;
+  company_id: string;
+  is_active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  dealership_id: string;
+  __v: number;
+}
+
+export interface CompleteUser {
+  id: string;
+  email: string;
+  role: "master_admin" | "company_super_admin" | "company_admin";
+  type?: string;
+  company_id: Company;
+  dealership_ids: Dealership[];
+  is_first_login?: boolean;
+  is_primary_admin?: boolean;
+  subscription_modal_required?: boolean;
+  subscription_modal_force?: boolean;
+  subscription_status?: string;
+  subscription_days_remaining?: number;
+  username?: string;
+  company_name?: string;
+}
+
+
 interface User {
   id: string;
   email: string;
@@ -19,7 +85,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  completeUser: unknown; // safer than 'any'
+  completeUser: CompleteUser | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -43,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [completeUser, setCompleteUser] = useState<User | null>(null);
+const [completeUser, setCompleteUser] = useState<CompleteUser | null>(null);
   const [token, setToken] = useState<string | null>(
     sessionStorage.getItem("token")
   );
@@ -65,7 +131,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const userData = response.data.user;
       setUser(userData);
       setCompleteUser(userData);
-      sessionStorage.setItem("user", JSON.stringify(userData));
+      sessionStorage.setItem(
+        "user",
+        JSON.stringify(
+          (({ company_id, dealership_ids, ...rest }) => rest)(userData)
+        )
+      );
     } catch (error) {
       console.error("Failed to fetch user info:", error);
       logout();

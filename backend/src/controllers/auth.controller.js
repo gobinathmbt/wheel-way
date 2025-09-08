@@ -351,11 +351,13 @@ const registerCompany = async (req, res) => {
 const getMe = async (req, res) => {
   try {
     let user;
+    let userType = "master_admin";
 
     if (req.user.role === "master_admin") {
       user = await MasterAdmin.findById(req.user.id);
     } else {
-      user = await User.findById(req.user.id).populate("company_id");
+      user = await User.findById(req.user.id).populate("company_id").populate("dealership_ids");
+      userType = "user";
     }
 
     if (!user) {
@@ -364,35 +366,85 @@ const getMe = async (req, res) => {
         message: "User not found",
       });
     }
+   
 
-    const userData = {
+    // Base userData
+    let userData = {
       id: user._id,
       email: user.email,
       role: user.role,
-      company_id: user.company_id?._id,
+      type: "company",
+      company_id: user.company_id,
+      dealership_ids: user.dealership_ids,
       is_first_login: user.is_first_login || false,
       is_primary_admin: user.is_primary_admin,
-      type: "company",
     };
 
-    // Check subscription status for company users
-    if (user.role !== "master_admin" && user.company_id) {
+    // For company users → check subscription
+    if (userType === "user" && user.company_id) {
+      const company = user.company_id;
+
+      // Check company subscription status
+      if (company.subscription_status === "inactive") {
+        if (user.role === "company_admin") {
+          return res.status(403).json({
+            success: false,
+            message: "Subscription ended. Contact your administrator.",
+          });
+        }
+        if (user.role === "company_super_admin") {
+          userData = {
+            ...userData,
+            subscription_modal_required: true,
+            subscription_modal_force: true,
+          };
+        }
+      } else if (company.subscription_status === "grace_period") {
+        userData = {
+          ...userData,
+          subscription_modal_required: true,
+        };
+      } else {
+        userData = {
+          ...userData,
+          subscription_modal_required: false,
+        };
+      }
+    }
+
+    // Active subscription details
+    if (userType === "user" && user.company_id) {
       const subscription = await Subscription.findOne({
         company_id: user.company_id._id,
         is_active: true,
       }).sort({ created_at: -1 });
 
       if (subscription) {
+        const now = new Date();
+        const endDate = subscription.subscription_end_date;
+
+        if (
+          !endDate ||
+          endDate < now ||
+          subscription.subscription_status === "inactive"
+        ) {
+          userData.subscription_modal_required = true;
+        } else {
+          userData.subscription_modal_required = false;
+        }
+
         userData.subscription_status = subscription.subscription_status;
         userData.subscription_days_remaining = subscription.days_remaining;
         userData.subscription_in_grace_period =
           subscription.subscription_status === "grace_period";
       } else {
+        userData.subscription_modal_required = true;
         userData.subscription_status = "none";
       }
     }
 
-    if (user.role !== "master_admin") {
+    // Extra details depending on type
+    if (userType === "user") {
       userData.username = user.username;
       userData.company_name = user.company_id?.company_name;
     } else {

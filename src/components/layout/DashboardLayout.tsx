@@ -34,6 +34,7 @@ import {
   Archive,
 } from "lucide-react";
 import { authServices, subscriptionServices } from "@/api/services";
+import { Badge } from "../ui/badge";
 import { Link, useLocation } from "react-router-dom";
 import SubscriptionModal from "@/components/subscription/SubscriptionModal";
 import {
@@ -98,7 +99,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
   title,
 }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, completeUser } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -790,12 +791,30 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <Button variant="ghost" size="icon">
               <Bell className="h-5 w-5" />
             </Button>
+
             <Link to="/docs">
               <Button variant="ghost" size="sm">
                 <FileText className="h-4 w-4 mr-2" />
                 Docs
               </Button>
             </Link>
+
+            {/* Company ID Chip */}
+            {completeUser?.company_id?._id && (
+              <Badge variant="outline" className="ml-2">
+                Company ID: {completeUser.company_id._id}
+              </Badge>
+            )}
+
+            {/* Dealership Chips */}
+            {completeUser?.dealership_ids?.length > 0 && (
+              <Badge className="ml-2 bg-orange-500 text-white hover:bg-orange-600">
+                Dealerships:{" "}
+                {completeUser.dealership_ids
+                  .map((d) => d.dealership_name)
+                  .join(", ")}
+              </Badge>
+            )}
           </div>
         </header>
 

@@ -49,8 +49,11 @@ import ConfigurationList from "@/components/inspection/ConfigurationList";
 import AddCategoryDialog from "@/components/inspection/AddCategoryDialog";
 import { Calculator } from "lucide-react";
 import CalculationSettingsDialog from "@/components/inspection/CalculationSettingsDialog";
+import { useAuth } from "@/auth/AuthContext";
 
 const InspectionConfig = () => {
+  const {completeUser } = useAuth();
+  console.log(completeUser)
   const queryClient = useQueryClient();
   const [selectedConfig, setSelectedConfig] = useState(null);
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
