@@ -20,11 +20,13 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  completeUser: unknown; // safer than 'any'
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -41,6 +43,7 @@ axios.defaults.baseURL = 'http://localhost:5000';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [completeUser, setCompleteUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(sessionStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
 
@@ -77,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setToken(newToken);
       setUser(userData);
+      setCompleteUser(userData);
       sessionStorage.setItem('token', newToken);
       sessionStorage.setItem('user', JSON.stringify(userData));
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
@@ -95,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isLoading,completeUser }}>
       {children}
     </AuthContext.Provider>
   );
