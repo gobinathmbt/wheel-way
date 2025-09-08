@@ -703,10 +703,18 @@ const getUsers = async (req, res) => {
     const { page = 1, limit = 10, search, status } = req.query;
     const skip = (page - 1) * limit;
 
+    // Check if the requesting user is a non-primary company_super_admin
+    const isNonPrimarySuperAdmin = req.user.role === "company_super_admin" && !req.user.is_primary_admin;
+
     let filter = {
       company_id: req.user.company_id,
       is_primary_admin: { $ne: true },
     };
+
+    // If user is non-primary company_super_admin, only show company_admin users
+    if (isNonPrimarySuperAdmin) {
+      filter.role = "company_admin";
+    }
 
     if (search) {
       filter.$or = [
@@ -732,36 +740,40 @@ const getUsers = async (req, res) => {
     const totalRecords = await User.countDocuments(filter);
     const totalPages = Math.ceil(totalRecords / limit);
 
-    const totalUsers = await User.countDocuments({
-      company_id: req.user.company_id,
-    });
+    // Update stats calculation based on the same filter
+    const totalUsers = await User.countDocuments(filter);
     const activeUsers = await User.countDocuments({
-      company_id: req.user.company_id,
+      ...filter,
       is_active: true,
     });
     const inactiveUsers = await User.countDocuments({
-      company_id: req.user.company_id,
+      ...filter,
       is_active: false,
     });
-    const superAdmins = await User.countDocuments({
-      company_id: req.user.company_id,
-      role: "company_super_admin",
-    });
-    const admins = await User.countDocuments({
-      company_id: req.user.company_id,
-      role: "company_admin",
-    });
+    
+    // Only include superAdmins and admins stats if not a non-primary super admin
+    let stats = {
+      totalUsers,
+      activeUsers,
+      inactiveUsers,
+    };
+
+    if (!isNonPrimarySuperAdmin) {
+      stats.superAdmins = await User.countDocuments({
+        company_id: req.user.company_id,
+        role: "company_super_admin",
+        is_primary_admin: { $ne: true },
+      });
+      stats.admins = await User.countDocuments({
+        company_id: req.user.company_id,
+        role: "company_admin",
+      });
+    }
 
     res.status(200).json({
       success: true,
       data: users,
-      stats: {
-        totalUsers,
-        activeUsers,
-        inactiveUsers,
-        superAdmins,
-        admins,
-      },
+      stats,
       pagination: {
         current_page: parseInt(page),
         total_pages: totalPages,

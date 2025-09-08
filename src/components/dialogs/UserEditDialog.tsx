@@ -23,6 +23,7 @@ import { useQuery } from "@tanstack/react-query";
 import { dealershipServices } from "@/api/services";
 import apiClient from "@/api/axios";
 import Select from "react-select";
+import { useAuth } from "@/auth/AuthContext";
 
 interface User {
   _id: string;
@@ -57,15 +58,7 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({
     dealership_ids: [] as string[],
   });
   const [isLoading, setIsLoading] = useState(false);
-
-  // Fetch available dealerships
-  const { data: dealerships } = useQuery({
-    queryKey: ["dealerships-dropdown"],
-    queryFn: async () => {
-      const response = await dealershipServices.getDealershipsDropdown();
-      return response.data.data;
-    },
-  });
+  const { completeUser } = useAuth();
 
   useEffect(() => {
     if (user) {
@@ -91,7 +84,42 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({
   });
 
   const isPrimaryAdmin = userInfo?.is_primary_admin || false;
-  console.log("Is primary admin:", isPrimaryAdmin, userInfo);
+
+  // Fetch available dealerships
+  const { data: dealerships } = useQuery({
+    queryKey: ["dealerships-dropdown", isPrimaryAdmin],
+    queryFn: async () => {
+      const response = await dealershipServices.getDealershipsDropdown();
+
+      // If user is not primary admin, filter dealerships to only show assigned ones
+      if (!isPrimaryAdmin && completeUser?.dealership_ids) {
+        const userDealershipIds = completeUser.dealership_ids.map((d: any) =>
+          typeof d === "object" ? d._id : d
+        );
+        return response.data.data.filter((dealership: any) =>
+          userDealershipIds.includes(dealership._id)
+        );
+      }
+
+      return response.data.data;
+    },
+    enabled: !!completeUser,
+  });
+
+  // Set default dealerships for non-primary admins
+  useEffect(() => {
+    if (dealerships && dealerships.length > 0) {
+      // For non-primary admins with exactly 1 dealership, auto-select it
+      if (!isPrimaryAdmin && dealerships.length === 1) {
+        setFormData((prev) => ({
+          ...prev,
+          dealership_ids: [dealerships[0]._id],
+        }));
+      }
+      // For primary admins or non-primary admins with multiple dealerships, don't auto-select
+      // (user should make the selection)
+    }
+  }, [dealerships, isPrimaryAdmin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -248,8 +276,15 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({
               }
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Select dealerships this user can access
+              {isPrimaryAdmin
+                ? "Select dealerships this user can access"
+                : "You can only assign dealerships that you have access to"}
             </p>
+            {!isPrimaryAdmin && completeUser?.dealership_ids?.length === 0 && (
+              <p className="text-xs text-red-500 mt-1">
+                You don't have access to any dealerships
+              </p>
+            )}
           </div>
 
           <div className="flex justify-end space-x-2">

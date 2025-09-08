@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState , useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
   Card,
@@ -64,15 +64,15 @@ import { dealershipServices } from "@/api/services";
 import apiClient from "@/api/axios";
 import UserDeleteDialog from "../../components/dialogs/UserDeleteDialog";
 import UserEditDialog from "../../components/dialogs/UserEditDialog";
-
-// ✅ Added import for react-select
 import Select from "react-select";
+import { useAuth } from "@/auth/AuthContext";
 
 const CompanyUsers = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const {completeUser } = useAuth();
   const [deleteDialog, setDeleteDialog] = useState({
     isOpen: false,
     userId: "",
@@ -92,14 +92,6 @@ const CompanyUsers = () => {
     dealership_ids: [] as string[],
   });
 
-  // Fetch available dealerships
-  const { data: dealerships } = useQuery({
-    queryKey: ["dealerships-dropdown"],
-    queryFn: async () => {
-      const response = await dealershipServices.getDealershipsDropdown();
-      return response.data.data;
-    },
-  });
 
   const { data: userInfo } = useQuery({
     queryKey: ["user-info"],
@@ -110,6 +102,42 @@ const CompanyUsers = () => {
   });
 
   const isPrimaryAdmin = userInfo?.is_primary_admin || false;
+
+  // Fetch available dealerships
+  const { data: dealerships } = useQuery({
+    queryKey: ["dealerships-dropdown", isPrimaryAdmin],
+    queryFn: async () => {
+      const response = await dealershipServices.getDealershipsDropdown();
+      
+      // If user is not primary admin, filter dealerships to only show assigned ones
+      if (!isPrimaryAdmin && completeUser?.dealership_ids) {
+        const userDealershipIds = completeUser.dealership_ids.map((d: any) => 
+          typeof d === 'object' ? d._id : d
+        );
+        return response.data.data.filter((dealership: any) => 
+          userDealershipIds.includes(dealership._id)
+        );
+      }
+      
+      return response.data.data;
+    },
+    enabled: !!completeUser,
+  });
+
+  // Set default dealerships for non-primary admins
+  useEffect(() => {
+    if (dealerships && dealerships.length > 0) {
+      // For non-primary admins with exactly 1 dealership, auto-select it
+      if (!isPrimaryAdmin && dealerships.length === 1) {
+        setFormData(prev => ({
+          ...prev,
+          dealership_ids: [dealerships[0]._id]
+        }));
+      }
+      // For primary admins or non-primary admins with multiple dealerships, don't auto-select
+      // (user should make the selection)
+    }
+  }, [dealerships, isPrimaryAdmin]);
 
   const {
     data: usersResponse,
@@ -385,8 +413,16 @@ const CompanyUsers = () => {
                     }
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Select dealerships this user can access
+                  {isPrimaryAdmin 
+                    ? "Select dealerships this user can access"
+                    : "You can only assign dealerships that you have access to"
+                  }
+                </p>
+                {!isPrimaryAdmin && completeUser?.dealership_ids?.length === 0 && (
+                  <p className="text-xs text-red-500 mt-1">
+                    You don't have access to any dealerships
                   </p>
+                )}
                 </div>
 
                 <div className="flex justify-end space-x-2">
@@ -573,7 +609,7 @@ const CompanyUsers = () => {
                                     <Badge
                                       key={index}
                                       variant="secondary"
-                                      className="text-xs"
+                                      className="text-xs bg-orange-500 text-white hover:bg-orange-600"
                                     >
                                       {dealership.dealership_name ||
                                         dealership.dealership_id}
