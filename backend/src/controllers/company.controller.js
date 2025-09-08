@@ -782,15 +782,12 @@ const getUsers = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { username, email, first_name, last_name, role, dealership_ids } = req.body;
+    const {  email,   role, dealership_ids } = req.body;
 
     const existingUser = await User.findOne({
       company_id: req.user.company_id,
       $or: [
-        { username: username },
         { email: email },
-        { first_name: first_name },
-        { last_name: last_name },
       ],
     });
 
@@ -1095,7 +1092,6 @@ const testWebhook = async (req, res) => {
 const getCompanyMasterdropdownvalues = async (req, res) => {
   try {
     const { dropdown_name } = req.body; // this will be an array
-
     if (!dropdown_name || !Array.isArray(dropdown_name)) {
       return res.status(400).json({
         success: false,
@@ -1106,6 +1102,7 @@ const getCompanyMasterdropdownvalues = async (req, res) => {
     // Fetch only matching dropdowns
     const dropdowns = await DropdownMaster.find({
       dropdown_name: { $in: dropdown_name },
+      company_id:req.user.company_id,
       is_active: true,
     }).lean();
 
