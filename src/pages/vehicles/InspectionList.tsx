@@ -88,16 +88,9 @@ const InspectionList = () => {
   const vehicles = vehiclesData?.data || [];
   const totalPages = Math.ceil((vehiclesData?.total || 0) / limit);
 
-  // Check if user has specific permission
-  const hasPermission = (permission: string) => {
-    return userPermissions?.data?.permissions?.includes(permission) || false;
-  };
-
   const handleStartInspection = async (vehicleId: string) => {
-    if (!hasPermission("start_inspection")) {
-      toast.error("You do not have permission to start inspections");
-      return;
-    }
+    toast.error("You do not have permission to start inspections");
+    return;
 
     try {
       await inspectionServices.startInspection(vehicleId);
@@ -109,11 +102,6 @@ const InspectionList = () => {
   };
 
   const handleViewDetails = async (vehicleId: string) => {
-    if (!hasPermission("view_vehicle_details")) {
-      toast.error("You do not have permission to view vehicle details");
-      return;
-    }
-
     try {
       const response = await vehicleServices.getVehicleDetail(vehicleId);
       setSelectedVehicle(response.data.data);
@@ -170,38 +158,32 @@ const InspectionList = () => {
             </p>
           </div>
           <div className="flex space-x-2">
-            {hasPermission("create_vehicle_stock") && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsCreateModalOpen(true)}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Vehicle Stock
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Create Vehicle Stock</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsCreateModalOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Vehicle Stock
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Create Vehicle Stock</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-            {hasPermission("import_vehicles") && (
-              <Button variant="outline">
-                <Upload className="h-4 w-4 mr-2" />
-                Import Vehicles
-              </Button>
-            )}
+            <Button variant="outline">
+              <Upload className="h-4 w-4 mr-2" />
+              Import Vehicles
+            </Button>
 
-            {hasPermission("export_reports") && (
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export Report
-              </Button>
-            )}
+            <Button variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Export Report
+            </Button>
           </div>
         </div>
 
@@ -349,7 +331,7 @@ const InspectionList = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            {hasPermission("view_vehicle_details") && (
+                          
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -359,9 +341,9 @@ const InspectionList = () => {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                            )}
+                           
                             {vehicle.inspection_status === "pending" &&
-                              hasPermission("start_inspection") && (
+                          (
                                 <Button
                                   size="sm"
                                   onClick={() =>

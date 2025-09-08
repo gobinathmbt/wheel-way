@@ -102,16 +102,10 @@ const TradeinList = () => {
   const vehicles = vehiclesData?.data || [];
   const totalPages = Math.ceil((vehiclesData?.total || 0) / limit);
 
-  // Check if user has specific permission
-  const hasPermission = (permission: string) => {
-    return userPermissions?.data?.permissions?.includes(permission) || false;
-  };
+
 
   const handleStartAppraisal = async (vehicleId: string) => {
-    if (!hasPermission("start_appraisal")) {
-      toast.error("You do not have permission to start appraisals");
-      return;
-    }
+
 
     try {
       await tradeinServices.startAppraisal(vehicleId);
@@ -123,10 +117,7 @@ const TradeinList = () => {
   };
 
   const handleViewDetails = async (vehicleId: string) => {
-    if (!hasPermission("view_vehicle_details")) {
-      toast.error("You do not have permission to view vehicle details");
-      return;
-    }
+
 
     try {
       const response = await vehicleServices.getVehicleDetail(vehicleId);
@@ -182,7 +173,7 @@ const TradeinList = () => {
           </div>
 
           <div className="flex space-x-2">
-            {hasPermission("create_vehicle_stock") && (
+        
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -199,21 +190,21 @@ const TradeinList = () => {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-            )}
+         
             
-            {hasPermission("import_vehicles") && (
+          
               <Button variant="outline">
                 <Upload className="h-4 w-4 mr-2" />
                 Import Vehicles
               </Button>
-            )}
+        
             
-            {hasPermission("export_reports") && (
+         
               <Button variant="outline">
                 <Download className="h-4 w-4 mr-2" />
                 Export Report
               </Button>
-            )}
+        
           </div>
         </div>
 
@@ -373,7 +364,7 @@ const TradeinList = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            {hasPermission("view_vehicle_details") && (
+                    
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -383,9 +374,9 @@ const TradeinList = () => {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                            )}
+                 
                             {vehicle.tradein_status === "pending" &&
-                              hasPermission("start_appraisal") && (
+                           (
                                 <Button
                                   size="sm"
                                   onClick={() =>
