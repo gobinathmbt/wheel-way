@@ -94,11 +94,7 @@ const App = () => (
                 <Permissions />
               </ProtectedRoute>
             } />
-            <Route path="/master/settings" element={
-              <ProtectedRoute allowedRoles={['master_admin']}>
-                <MasterSettings />
-              </ProtectedRoute>
-            } />
+        
             <Route path="/master/dropdowns" element={
               <ProtectedRoute allowedRoles={['master_admin']}>
                 <MasterDropdownMaster />
@@ -107,6 +103,11 @@ const App = () => (
             <Route path="/master/maintenance" element={
               <ProtectedRoute allowedRoles={['master_admin']}>
                 <WebsiteMaintenance />
+              </ProtectedRoute>
+            } />
+                <Route path="/master/settings" element={
+              <ProtectedRoute allowedRoles={['master_admin']}>
+                <MasterSettings />
               </ProtectedRoute>
             } />
             
