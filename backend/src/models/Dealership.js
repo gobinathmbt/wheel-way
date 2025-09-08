@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const DealershipSchema = new mongoose.Schema({
   dealership_id: {
     type: String,
-    unique: true,
   },
   dealership_name: {
     type: String,
@@ -46,17 +45,32 @@ const DealershipSchema = new mongoose.Schema({
 });
 
 // Generate dealership_id from dealership_name
+// Generate dealership_id from dealership_name + current datetime
 DealershipSchema.pre('save', async function(next) {
   if (this.isNew) {
-    // Create dealership_id from name
+    const now = new Date();
+    const formattedDateTime = `${now.getFullYear()}${(now.getMonth() + 1)
+      .toString()
+      .padStart(2, '0')}${now.getDate()
+      .toString()
+      .padStart(2, '0')}${now.getHours()
+      .toString()
+      .padStart(2, '0')}${now.getMinutes()
+      .toString()
+      .padStart(2, '0')}${now.getSeconds()
+      .toString()
+      .padStart(2, '0')}`;
+
     this.dealership_id = this.dealership_name
       .toLowerCase()
       .trim()
-      .replace(/\s+/g, '_'); // replace spaces with underscores
+      .replace(/\s+/g, '_') + '_' + formattedDateTime; // append date-time
   }
+
   this.updated_at = new Date();
   next();
 });
+
 
 // Indexes
 DealershipSchema.index({ company_id: 1 });
