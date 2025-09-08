@@ -26,7 +26,8 @@ const getMasterConfiguration = async (req, res) => {
       company_id,
       is_active: true,
     };
-    let lastConfigId
+    let lastConfigId;
+    
     // If configId is provided, use it instead of is_active
     if (configId) {
       query = {
@@ -42,7 +43,7 @@ const getMasterConfiguration = async (req, res) => {
       });
       
       if (vehicle) {
-         lastConfigId = vehicle_type === "inspection" 
+        lastConfigId = vehicle_type === "inspection" 
           ? vehicle.last_inspection_config_id 
           : vehicle.last_tradein_config_id;
           
@@ -75,6 +76,100 @@ const getMasterConfiguration = async (req, res) => {
       });
     }
 
+    // Get workshop sections from vehicle data if vehicle_stock_id is provided
+    let workshopSections = [];
+    if (vehicle_stock_id) {
+      const vehicle = await Vehicle.findOne({
+        company_id,
+        vehicle_stock_id: parseInt(vehicle_stock_id),
+        vehicle_type,
+      });
+
+      if (vehicle) {
+        // Extract workshop sections from vehicle data
+        const resultData = vehicle_type === "inspection" 
+          ? vehicle.inspection_result 
+          : vehicle.trade_in_result;
+
+        if (resultData && resultData.length > 0) {
+          if (vehicle_type === "inspection") {
+            // For inspection: look for workshop sections in categories
+            resultData.forEach(category => {
+              if (category.sections) {
+                category.sections.forEach(section => {
+                  if (section.section_display_name === "at_workshop_onstaging" || 
+                      section.section_name?.includes("Workshop")) {
+                    workshopSections.push({
+                      ...section,
+                      category_id: category.category_id,
+                      category_name: category.category_name
+                    });
+                  }
+                });
+              }
+            });
+          } else {
+            // For tradein: look for workshop sections directly
+            resultData.forEach(section => {
+              if (section.section_display_name === "at_workshop_onstaging" || 
+                  section.section_name?.includes("Workshop") ||
+                  section.section_id?.includes("workshop_section")) {
+                workshopSections.push(section);
+              }
+            });
+          }
+        }
+      }
+    }
+
+    // Merge workshop sections into the configuration
+    if (workshopSections.length > 0) {
+      if (vehicle_type === "inspection") {
+        // Add workshop sections to their respective categories
+        workshopSections.forEach(workshopSection => {
+          const categoryIndex = config.categories.findIndex(
+            cat => cat.category_id === workshopSection.category_id
+          );
+          
+          if (categoryIndex !== -1) {
+            // Check if section already exists in this category
+            const existingSectionIndex = config.categories[categoryIndex].sections.findIndex(
+              sec => sec.section_id === workshopSection.section_id
+            );
+            
+            if (existingSectionIndex === -1) {
+              // Add new workshop section to the category
+              config.categories[categoryIndex].sections.push(workshopSection);
+            }
+          } else {
+            // Create a new category for workshop sections if category not found
+            // (This handles edge cases where workshop sections might not have a proper category)
+            const workshopCategory = {
+              category_id: `workshop_category_${Date.now()}`,
+              category_name: "Workshop Additions",
+              description: "Dynamically added workshop fields",
+              display_order: config.categories.length,
+              is_active: true,
+              sections: [workshopSection]
+            };
+            config.categories.push(workshopCategory);
+          }
+        });
+      } else {
+        // For tradein, add workshop sections directly to config
+        workshopSections.forEach(workshopSection => {
+          // Check if section already exists
+          const existingSectionIndex = config.sections.findIndex(
+            sec => sec.section_id === workshopSection.section_id
+          );
+          
+          if (existingSectionIndex === -1) {
+            config.sections.push(workshopSection);
+          }
+        });
+      }
+    }
+
     // Get company S3 configuration
     const s3Config =
       company.s3_config && company.s3_config.bucket
@@ -87,8 +182,9 @@ const getMasterConfiguration = async (req, res) => {
           }
         : null;
 
-    // Get all dropdown dependencies
+    // Get all dropdown dependencies (including workshop fields)
     const dropdownIds = [];
+    
     if (vehicle_type === "inspection") {
       config.categories.forEach((category) => {
         category.sections.forEach((section) => {
@@ -123,8 +219,9 @@ const getMasterConfiguration = async (req, res) => {
         company: {
           _id: company._id,
           name: company.company_name,
-          last_config_id:lastConfigId,
+          last_config_id: lastConfigId,
         },
+        workshopSections: workshopSections.length > 0 ? workshopSections : undefined,
       },
     });
   } catch (error) {
@@ -158,13 +255,13 @@ const saveInspectionData = async (req, res) => {
     // Update the relevant result field
     if (vehicle_type === "inspection") {
       vehicle.inspection_result = inspection_result || [];
-      vehicle.inspection_report_pdf = reportPdfUrl || [];
+      vehicle.inspection_report_pdf = reportPdfUrl || "";
       if (config_id) {
         vehicle.last_inspection_config_id = config_id;
       }
     } else {
       vehicle.trade_in_result = inspection_result || [];
-      vehicle.tradein_report_pdf = reportPdfUrl || [];
+      vehicle.tradein_report_pdf = reportPdfUrl || "";
       if (config_id) {
         vehicle.last_tradein_config_id = config_id;
       }

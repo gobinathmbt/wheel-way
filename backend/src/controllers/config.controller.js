@@ -1898,6 +1898,11 @@ module.exports = {
   deleteInspectionConfig,
   addInspectionSection,
   addInspectionField,
+  updateInspectionField,
+  deleteInspectionField,
+  deleteInspectionSection,
+  updateSectionsOrder,
+  updateFieldsOrder,
   getTradeinConfigs,
   getTradeinConfigDetails,
   createTradeinConfig,
@@ -1905,11 +1910,6 @@ module.exports = {
   deleteTradeinConfig,
   addTradeinSection,
   addTradeinField,
-  updateInspectionField,
-  deleteInspectionField,
-  deleteInspectionSection,
-  updateSectionsOrder,
-  updateFieldsOrder,
   updateTradeinField,
   deleteTradeinField,
   deleteTradeinSection,
@@ -1927,3 +1927,4 @@ module.exports = {
   deleteTradeinCalculation,
   toggleTradeinCalculationStatus,
 };
+ 

@@ -57,6 +57,7 @@ import {
 import PdfReportGenerator from "./PdfReportGenerator";
 import ConfigurationSelectionDialog from "./ConfigurationSelectionDialog";
 import { masterInspectionServices } from "@/api/services";
+import InsertWorkshopFieldModal from "../workshop/InsertWorkshopFieldModal";
 
 interface MasterInspectionProps {}
 
@@ -89,6 +90,10 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
   const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
   const [showConfigDialog, setShowConfigDialog] = useState(true);
   const [selectedConfigId, setSelectedConfigId] = useState<string>("");
+  const [editFieldModalOpen, setEditFieldModalOpen] = useState(false);
+  const [selectedEditField, setSelectedEditField] = useState<any>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [fieldToDelete, setFieldToDelete] = useState<any>(null);
   const [configurationLoaded, setConfigurationLoaded] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{
     [key: string]: boolean;
@@ -356,6 +361,37 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         [fieldId]: newData,
       };
     });
+  };
+
+  const isWorkshopField = (field: any, section: any, category: any = null) => {
+    // Check for workshop section display name
+    if (section?.section_display_name === "at_workshop_onstaging") {
+      return true;
+    }
+
+    // Check for workshop section ID pattern
+    if (section?.section_id?.includes("workshop_section")) {
+      return true;
+    }
+
+    // Check for workshop section name pattern
+    if (
+      section?.section_name?.includes("At Workshop") ||
+      section?.section_name?.includes("Workshop")
+    ) {
+      return true;
+    }
+
+    // For trade-in, check if it's a direct workshop section
+    if (
+      vehicle_type === "tradein" &&
+      (section?.section_name?.includes("At Workshop") ||
+        section?.section_name?.includes("Workshop"))
+    ) {
+      return true;
+    }
+
+    return false;
   };
 
   const handleFileUpload = async (
@@ -657,7 +693,139 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     return dropdowns.find((d: any) => d._id === id);
   };
 
-  const renderField = (field: any) => {
+  const handleEditWorkshopField = (
+    field: any,
+    categoryIndex?: number,
+    sectionIndex?: number
+  ) => {
+    setSelectedEditField({
+      ...field,
+      categoryIndex,
+      sectionIndex,
+    });
+    setEditFieldModalOpen(true);
+  };
+
+  const handleDeleteWorkshopField = (
+    field: any,
+    categoryIndex?: number,
+    sectionIndex?: number
+  ) => {
+    setFieldToDelete({
+      ...field,
+      categoryIndex,
+      sectionIndex,
+    });
+    setDeleteConfirmOpen(true);
+  };
+
+  const deleteWorkshopField = async (fieldData: any) => {
+    try {
+      let updatedConfig = { ...config };
+
+      if (vehicle_type === "inspection") {
+        // Handle inspection structure
+        if (
+          typeof fieldData.categoryIndex === "number" &&
+          typeof fieldData.sectionIndex === "number"
+        ) {
+          updatedConfig.categories[fieldData.categoryIndex].sections[
+            fieldData.sectionIndex
+          ].fields = updatedConfig.categories[fieldData.categoryIndex].sections[
+            fieldData.sectionIndex
+          ].fields.filter((f: any) => f.field_id !== fieldData.field_id);
+        }
+      } else {
+        // Handle other vehicle types
+        if (typeof fieldData.sectionIndex === "number") {
+          updatedConfig.sections[fieldData.sectionIndex].fields =
+            updatedConfig.sections[fieldData.sectionIndex].fields.filter(
+              (f: any) => f.field_id !== fieldData.field_id
+            );
+        }
+      }
+
+      // Update local state
+      setConfig(updatedConfig);
+
+      // Remove field data from form states
+      const newFormData = { ...formData };
+      const newFormNotes = { ...formNotes };
+      const newFormImages = { ...formImages };
+      const newFormVideos = { ...formVideos };
+
+      delete newFormData[fieldData.field_id];
+      delete newFormNotes[fieldData.field_id];
+      delete newFormImages[fieldData.field_id];
+      delete newFormVideos[fieldData.field_id];
+
+      setFormData(newFormData);
+      setFormNotes(newFormNotes);
+      setFormImages(newFormImages);
+      setFormVideos(newFormVideos);
+
+      toast.success("Workshop field deleted successfully");
+      setDeleteConfirmOpen(false);
+      setFieldToDelete(null);
+    } catch (error) {
+      console.error("Delete field error:", error);
+      toast.error("Failed to delete workshop field");
+    }
+  };
+
+  // Update workshop field function
+  const updateWorkshopField = async (fieldData: any) => {
+    try {
+      let updatedConfig = { ...config };
+
+      if (vehicle_type === "inspection") {
+        // Handle inspection structure
+        if (
+          typeof fieldData.categoryIndex === "number" &&
+          typeof fieldData.sectionIndex === "number"
+        ) {
+          const fieldIndex = updatedConfig.categories[
+            fieldData.categoryIndex
+          ].sections[fieldData.sectionIndex].fields.findIndex(
+            (f: any) => f.field_id === fieldData.field_id
+          );
+          if (fieldIndex !== -1) {
+            updatedConfig.categories[fieldData.categoryIndex].sections[
+              fieldData.sectionIndex
+            ].fields[fieldIndex] = fieldData;
+          }
+        }
+      } else {
+        // Handle other vehicle types
+        if (typeof fieldData.sectionIndex === "number") {
+          const fieldIndex = updatedConfig.sections[
+            fieldData.sectionIndex
+          ].fields.findIndex((f: any) => f.field_id === fieldData.field_id);
+          if (fieldIndex !== -1) {
+            updatedConfig.sections[fieldData.sectionIndex].fields[fieldIndex] =
+              fieldData;
+          }
+        }
+      }
+
+      // Update local state
+      setConfig(updatedConfig);
+
+      toast.success("Workshop field updated successfully");
+      setEditFieldModalOpen(false);
+      setSelectedEditField(null);
+    } catch (error) {
+      console.error("Update field error:", error);
+      toast.error("Failed to update workshop field");
+    }
+  };
+  const renderField = (
+    field: any,
+    categoryIndex?: number,
+    sectionIndex?: number,
+    section?: any,
+    category?: any
+  ) => {
     const fieldId = field.field_id;
     const value = formData[fieldId] || "";
     const notes = formNotes[fieldId] || "";
@@ -666,13 +834,16 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     const disabled = isViewMode;
     const hasError = validationErrors[fieldId];
 
+    // Check if this is a workshop field using the updated detection
+    const workshopField = isWorkshopField(field, section, category);
+
     return (
       <div
         className={`space-y-4 p-4 md:p-6 border rounded-lg bg-card shadow-sm hover:shadow-md transition-shadow ${
           hasError ? "border-red-500" : "border-border"
-        }`}
+        } ${workshopField ? "border-2 border-yellow-400 bg-yellow-50" : ""}`}
       >
-        {/* Field Header */}
+        {/* Field Header with Workshop Badge */}
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center space-x-2">
@@ -682,6 +853,15 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
                   <span className="text-red-500 ml-1">*</span>
                 )}
               </Label>
+              {workshopField && (
+                <Badge
+                  variant="outline"
+                  className="bg-yellow-100 text-yellow-800 border-yellow-300"
+                >
+                  <Settings className="h-3 w-3 mr-1" />
+                  Workshop Field
+                </Badge>
+              )}{" "}
               {field.help_text && (
                 <div className="group relative">
                   <Info className="h-4 w-4 text-muted-foreground cursor-help" />
@@ -700,10 +880,40 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
             )}
           </div>
 
-          {/* Field Type Badge */}
-          <Badge variant="secondary" className="text-xs hidden sm:flex">
-            {field.field_type}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {/* Field Type Badge */}
+            <Badge variant="secondary" className="text-xs hidden sm:flex">
+              {field.field_type}
+            </Badge>
+
+            {workshopField && !disabled && isEditMode && (
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    handleEditWorkshopField(field, categoryIndex, sectionIndex)
+                  }
+                >
+                  <Settings className="h-3 w-3 mr-1" />
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() =>
+                    handleDeleteWorkshopField(
+                      field,
+                      categoryIndex,
+                      sectionIndex
+                    )
+                  }
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Main Field Input */}
@@ -1425,28 +1635,33 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
               </div>
             </TabsList>
 
-            {sortedCategories.map((category: any) => (
+            {sortedCategories.map((category: any, categoryIndex: number) => (
               <TabsContent
                 key={category.category_id}
                 value={category.category_id}
                 className="space-y-6 mt-0"
               >
-                {/* Category Sections */}
                 <Accordion type="multiple" className="space-y-4">
                   {category.sections
-                    // ?.filter((section: any) => section.is_active)
                     .sort(
                       (a: any, b: any) =>
                         (a.display_order || 0) - (b.display_order || 0)
                     )
-                    .map((section: any) => (
+                    .map((section: any, sectionIndex: number) => (
                       <AccordionItem
                         key={section.section_id}
                         value={section.section_id}
-                        className="border rounded-lg overflow-hidden"
+                        className={`border rounded-lg overflow-hidden ${
+                          isWorkshopField(null, section, category)
+                            ? "border-2 border-yellow-400"
+                            : ""
+                        }`}
                       >
                         <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
                           <div className="flex items-center space-x-3">
+                            {isWorkshopField(null, section, category) && (
+                              <Settings className="h-4 w-4 text-yellow-600" />
+                            )}
                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                               <span className="text-sm font-medium text-primary">
                                 {section.display_order + 1 || "?"}
@@ -1455,19 +1670,21 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
                             <div className="text-left">
                               <h3 className="font-semibold">
                                 {section.section_name}
+                                {isWorkshopField(null, section, category) && (
+                                  <Badge
+                                    variant="outline"
+                                    className="ml-2 bg-yellow-100 text-yellow-800"
+                                  >
+                                    Workshop
+                                  </Badge>
+                                )}
                               </h3>
-                              {section.help_text && (
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  {section.help_text}
-                                </p>
-                              )}
                             </div>
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="px-0">
                           <div className="space-y-4 px-4 pb-4">
                             {section.fields
-                              // ?.filter((field: any) => field.is_active)
                               .sort(
                                 (a: any, b: any) =>
                                   (a.display_order || 0) -
@@ -1475,7 +1692,13 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
                               )
                               .map((field: any) => (
                                 <div key={field.field_id}>
-                                  {renderField(field)}
+                                  {renderField(
+                                    field,
+                                    categoryIndex,
+                                    sectionIndex,
+                                    section,
+                                    category
+                                  )}
                                 </div>
                               ))}
                           </div>
@@ -1483,40 +1706,6 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
                       </AccordionItem>
                     ))}
                 </Accordion>
-
-                {/* Category Calculations */}
-                {category.calculations &&
-                  category.calculations.filter((calc: any) => calc.is_active)
-                    .length > 0 && (
-                    <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-blue-50 shadow-sm">
-                      <CardHeader className="pb-4">
-                        <CardTitle className="text-lg flex items-center space-x-2">
-                          <Calculator className="h-5 w-5 text-primary" />
-                          <span>Calculations</span>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        {category.calculations
-                          .filter((calc: any) => calc.is_active)
-                          .map((calc: any) => (
-                            <div
-                              key={calc.calculation_id}
-                              className="flex items-center justify-between p-3 bg-background rounded-lg border"
-                            >
-                              <span className="font-medium">
-                                {calc.display_name}
-                              </span>
-                              <span className="text-lg font-bold text-primary">
-                                {typeof calculations[calc.calculation_id] ===
-                                "number"
-                                  ? calculations[calc.calculation_id].toFixed(2)
-                                  : "0.00"}
-                              </span>
-                            </div>
-                          ))}
-                      </CardContent>
-                    </Card>
-                  )}
               </TabsContent>
             ))}
           </Tabs>
@@ -1559,48 +1748,62 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
 
             {/* Sections */}
             <Accordion type="multiple" className="space-y-4">
-              {sortedSections
-                // .filter((section: any) => section.is_active)
-                .map((section: any) => (
-                  <AccordionItem
-                    key={section.section_id}
-                    value={section.section_id}
-                    className="border rounded-lg overflow-hidden"
-                  >
-                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-sm font-medium text-primary">
-                            {section.display_order + 1 || "?"}
-                          </span>
-                        </div>
-                        <div className="text-left">
-                          <h3 className="font-semibold">
-                            {section.section_name}
-                          </h3>
-                          {section.help_text && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {section.help_text}
-                            </p>
+              {sortedSections.map((section: any, sectionIndex: number) => (
+                <AccordionItem
+                  key={section.section_id}
+                  value={section.section_id}
+                  className={`border rounded-lg overflow-hidden ${
+                    isWorkshopField(null, section)
+                      ? "border-2 border-yellow-400"
+                      : ""
+                  }`}
+                >
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center space-x-3">
+                      {isWorkshopField(null, section) && (
+                        <Settings className="h-4 w-4 text-yellow-600" />
+                      )}
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-sm font-medium text-primary">
+                          {section.display_order + 1 || "?"}
+                        </span>
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-semibold">
+                          {section.section_name}
+                          {isWorkshopField(null, section) && (
+                            <Badge
+                              variant="outline"
+                              className="ml-2 bg-yellow-100 text-yellow-800"
+                            >
+                              Workshop
+                            </Badge>
                           )}
-                        </div>
+                        </h3>
                       </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-0">
-                      <div className="space-y-4 px-4 pb-4">
-                        {section.fields
-                          // ?.filter((field: any) => field.is_active)
-                          .sort(
-                            (a: any, b: any) =>
-                              (a.display_order || 0) - (b.display_order || 0)
-                          )
-                          .map((field: any) => (
-                            <div key={field.field_id}>{renderField(field)}</div>
-                          ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-0">
+                    <div className="space-y-4 px-4 pb-4">
+                      {section.fields
+                        .sort(
+                          (a: any, b: any) =>
+                            (a.display_order || 0) - (b.display_order || 0)
+                        )
+                        .map((field: any) => (
+                          <div key={field.field_id}>
+                            {renderField(
+                              field,
+                              undefined,
+                              sectionIndex,
+                              section
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
             </Accordion>
           </div>
         )}
@@ -1672,6 +1875,49 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         onPdfUploaded={handlePdfUploaded}
         inspectorId={inspectorId}
       />
+
+      {selectedEditField && (
+        <InsertWorkshopFieldModal
+          open={editFieldModalOpen}
+          onOpenChange={setEditFieldModalOpen}
+          onFieldCreated={updateWorkshopField}
+          vehicleType={vehicle_type!}
+          categoryId={selectedEditField.categoryId}
+          dropdowns={dropdowns}
+          s3Config={s3Config}
+          editMode={true}
+          existingField={selectedEditField}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Workshop Field</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{fieldToDelete?.field_name}"?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                deleteWorkshopField(fieldToDelete);
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

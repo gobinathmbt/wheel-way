@@ -90,4 +90,6 @@ router.post('/tradein/:id/calculations', authorize('company_super_admin'), addTr
 router.put('/tradein/:id/calculations/:calculationId/formula', authorize('company_super_admin'), updateTradeinCalculationFormula);
 router.delete('/tradein/:id/calculations/:calculationId', authorize('company_super_admin'), deleteTradeinCalculation);
 router.patch('/tradein/:id/calculations/:calculationId/toggle', authorize('company_super_admin'), toggleTradeinCalculationStatus);
+
+
 module.exports = router;

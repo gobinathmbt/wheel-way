@@ -316,6 +316,7 @@ const TradeinList = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>S.No</TableHead>
+                      <TableHead>Stock No</TableHead>
                       <TableHead>Vehicle</TableHead>
                       <TableHead>Registration</TableHead>
                       <TableHead>Year</TableHead>
@@ -328,6 +329,13 @@ const TradeinList = () => {
                     {vehicles.map((vehicle: any, index: number) => (
                       <TableRow key={vehicle._id}>
                         <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
+                         <TableCell>
+                          <div>
+                            <p className="font-medium">
+                              {vehicle.vehicle_stock_id}
+                            </p>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">

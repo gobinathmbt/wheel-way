@@ -10,7 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, X, Wrench, ClipboardList, Calculator } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import { Car, X, Wrench, ClipboardList, Calculator, FileText } from "lucide-react";
 import { vehicleServices } from "@/api/services";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -42,6 +43,8 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
   onUpdate,
 }) => {
   const navigate = useNavigate();
+  const [workshopReportModalOpen, setWorkshopReportModalOpen] = useState(false);
+  const [selectedStage, setSelectedStage] = useState<string>("");
 
   if (!vehicle) return null;
 
@@ -63,6 +66,32 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
     const mode = 'edit'; // Can be 'view' or 'edit'
     navigate(`/vehicle/master/${vehicle.company_id}/${vehicle.vehicle_stock_id}/${vehicle.vehicle_type}/${mode}`);
     onClose();
+  };
+
+  const handleWorkshopReport = () => {
+    if (vehicle.vehicle_type === 'inspection') {
+      // Show stage selection for inspection
+      setWorkshopReportModalOpen(true);
+    } else {
+      // Direct navigation for tradein
+      navigate(`/workshop-report/${vehicle._id}/${vehicle.vehicle_type}`);
+    }
+  };
+
+  const handleStageSelection = (stageName: string) => {
+    navigate(`/workshop-report/${vehicle._id}/${vehicle.vehicle_type}/${stageName}`);
+    setWorkshopReportModalOpen(false);
+  };
+
+  const getReportStatus = () => {
+    if (vehicle.workshop_report_preparing) return 'Preparing...';
+    
+    if (vehicle.vehicle_type === 'inspection') {
+      const readyStages = Array.isArray(vehicle.workshop_report_ready) ? vehicle.workshop_report_ready : [];
+      return readyStages.length > 0 ? `${readyStages.length} stages ready` : 'No reports ready';
+    } else {
+      return vehicle.workshop_report_ready ? 'Report ready' : 'No report ready';
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -128,6 +157,19 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
                   </>
                 )}
               </Button>
+
+              {/* Workshop Report Button */}
+              {vehicle.workshop_progress === 'completed' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleWorkshopReport()}
+                  disabled={vehicle.workshop_report_preparing}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  {vehicle.workshop_report_preparing ? 'Preparing Report...' : 'Workshop Report'}
+                </Button>
+              )}
             </div>
           </div>
         </SheetHeader>
@@ -182,6 +224,39 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Workshop Report Stage Selection Modal */}
+        <Dialog open={workshopReportModalOpen} onOpenChange={setWorkshopReportModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <SheetTitle>Select Inspection Stage</SheetTitle>
+              <SheetDescription>
+                Choose which inspection stage report you want to view
+              </SheetDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {Array.isArray(vehicle.workshop_report_ready) && vehicle.workshop_report_ready.map((stage: any) => (
+                <Button
+                  key={stage.stage_name}
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => handleStageSelection(stage.stage_name)}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  {stage.stage_name}
+                  <Badge className="ml-auto" variant={stage.ready ? "default" : "secondary"}>
+                    {stage.ready ? "Ready" : "Preparing"}
+                  </Badge>
+                </Button>
+              ))}
+              {(!vehicle.workshop_report_ready || vehicle.workshop_report_ready.length === 0) && (
+                <p className="text-center text-muted-foreground py-4">
+                  No inspection stage reports available yet
+                </p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </SheetContent>
     </Sheet>
   );

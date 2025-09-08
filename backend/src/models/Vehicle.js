@@ -214,6 +214,19 @@ const VehicleSchema = new mongoose.Schema({
     enum: ['in_progress', 'completed','not_processed_yet'],
     default: 'not_processed_yet'
   },
+
+  // Workshop Report Status
+  workshop_report_ready: {
+    // For inspection: array of stages, for tradein: single boolean
+    type: mongoose.Schema.Types.Mixed,
+    default: function() {
+      return this.vehicle_type === 'inspection' ? [] : false;
+    }
+  },
+  workshop_report_preparing: {
+    type: Boolean,
+    default: false
+  },
   
   // Processing Status
   status: {

@@ -514,7 +514,18 @@ const processQueueMessages = async () => {
       try {
         console.log(`🏗️ Processing message: ${message.MessageId}`);
         
-        const processResult = await processVehicleFromQueue(message.Body);
+        // Check message type for workshop reports
+        const messageType = message.MessageAttributes?.message_type?.StringValue;
+        let processResult;
+        
+        if (messageType === 'workshop_report_generation') {
+          // Process workshop report message
+          const { processWorkshopReportFromQueue } = require('./workshopReportSqs.controller');
+          processResult = await processWorkshopReportFromQueue(message.Body);
+        } else {
+          // Process regular vehicle message
+          processResult = await processVehicleFromQueue(message.Body);
+        }
         
         if (processResult.success) {
           // Delete message from queue after successful processing
@@ -522,33 +533,49 @@ const processQueueMessages = async () => {
           
           if (deleteResult.success) {
             processedCount++;
-            console.log(`✅ Successfully processed vehicle: ${processResult.vehicle_stock_id} - ${processResult.vehicle_type} (${processResult.action})`);
-            results.push({
-              message_id: message.MessageId,
-              vehicle_stock_id: processResult.vehicle_stock_id,
-              vehicle_type: processResult.vehicle_type,
-              action: processResult.action,
-              status: 'success'
-            });
+            const resultData = messageType === 'workshop_report_generation' 
+              ? {
+                  message_id: message.MessageId,
+                  vehicle_stock_id: processResult.vehicle_stock_id,
+                  vehicle_type: processResult.vehicle_type,
+                  action: 'workshop_report_generated',
+                  status: 'success'
+                }
+              : {
+                  message_id: message.MessageId,
+                  vehicle_stock_id: processResult.vehicle_stock_id,
+                  vehicle_type: processResult.vehicle_type,
+                  action: processResult.action,
+                  status: 'success'
+                };
+            
+            console.log(`✅ Successfully processed message: ${message.MessageId}`);
+            results.push(resultData);
           } else {
             console.error(`❌ Failed to delete message ${message.MessageId} from queue`);
             failedCount++;
             results.push({
               message_id: message.MessageId,
-              vehicle_info: processResult.vehicle_info,
               error: 'Failed to delete from queue',
               status: 'failed'
             });
           }
         } else {
-          failedCount++;
-          console.error(`❌ Failed to process message ${message.MessageId}:`, processResult.error);
-          results.push({
-            message_id: message.MessageId,
-            vehicle_info: processResult.vehicle_info,
-            error: processResult.error,
-            status: 'failed'
-          });
+          if (processResult.skipped) {
+            // Message was skipped (not an error)
+            const deleteResult = await deleteMessageFromQueue(message.ReceiptHandle);
+            if (deleteResult.success) {
+              console.log(`⚠️ Skipped message ${message.MessageId}`);
+            }
+          } else {
+            failedCount++;
+            console.error(`❌ Failed to process message ${message.MessageId}:`, processResult.error);
+            results.push({
+              message_id: message.MessageId,
+              error: processResult.error,
+              status: 'failed'
+            });
+          }
         }
       } catch (error) {
         failedCount++;
