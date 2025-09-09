@@ -19,6 +19,8 @@ const vehicleRoutes = require("./routes/vehicle.routes");
 const configRoutes = require("./routes/config.routes");
 const inspectionRoutes = require("./routes/inspection.routes");
 const tradeinRoutes = require("./routes/tradein.routes");
+const mastervehicleRoutes = require("./routes/mastervehicle.routes");
+const adpublishingRoutes = require("./routes/adpublishing.routes");
 const docsRoutes = require("./routes/docs.routes");
 const workshopRoutes = require("./routes/workshop.routes");
 const workshopReportRoutes = require("./routes/workshopReport.routes");
@@ -29,6 +31,7 @@ const dealershipRoutes = require("./routes/dealership.routes");
 const masterInspectionRoutes = require("./routes/masterInspection.routes");
 const logsRoutes = require("./routes/logs.routes");
 const subscriptionRoutes = require("./routes/subscription.routes");
+const customModuleRoutes = require("./routes/customModule.routes");
 
 const errorHandler = require("./middleware/error");
 const { logRequest } = require("./controllers/logs.controller");
@@ -107,6 +110,8 @@ app.use("/api/vehicle", vehicleRoutes);
 app.use("/api/config", configRoutes);
 app.use("/api/inspection", inspectionRoutes);
 app.use("/api/tradein", tradeinRoutes);
+app.use("/api/mastervehicle", mastervehicleRoutes);
+app.use("/api/adpublishing", adpublishingRoutes);
 app.use("/api/docs", docsRoutes);
 app.use("/api/logs", logsRoutes);
 app.use("/api/subscription", subscriptionRoutes);
@@ -117,6 +122,7 @@ app.use("/api/supplier-auth", supplierAuthRoutes);
 app.use("/api/supplier-dashboard", supplierDashboardRoutes);
 app.use("/api/dealership", dealershipRoutes);
 app.use("/api/master-inspection", masterInspectionRoutes);
+app.use("/api/master/custom-modules", customModuleRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {

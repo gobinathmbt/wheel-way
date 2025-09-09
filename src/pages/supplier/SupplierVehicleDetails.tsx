@@ -139,22 +139,7 @@ const SupplierVehicleDetails = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/supplier/dashboard')}
-              className="mr-4"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            <h1 className="text-xl font-semibold">Vehicle Details</h1>
-          </div>
-        </div>
-      </header>
+
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

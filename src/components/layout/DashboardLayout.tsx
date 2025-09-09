@@ -212,10 +212,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         { icon: Building2, label: "Companies", path: "/master/companies" },
         { icon: Shield, label: "Permission", path: "/master/permissions" },
         { icon: CreditCard, label: "Plans", path: "/master/plans" },
-     
+
         { icon: Globe, label: "Master Dropdown", path: "/master/dropdowns" },
-        { icon: Wrench, label: "Website Maintenance", path: "/master/maintenance" },   
-          { icon: FileText, label: "Global Logs", path: "/master/global-logs" },
+        { icon: Cog, label: "Custom Module Config", path: "/master/custom-modules" },
+        {
+          icon: Wrench,
+          label: "Website Maintenance",
+          path: "/master/maintenance",
+        },
+        { icon: FileText, label: "Global Logs", path: "/master/global-logs" },
         { icon: Settings, label: "Settings", path: "/master/settings" },
       ];
     }
@@ -253,6 +258,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           module: "dropdown_master",
         },
         {
+          icon: Car,
+          label: "Master Vehicle",
+          module: "master_vehicle",
+          children: [
+            {
+              icon: Car,
+              label: "Master Vehicles",
+              path: "/vehicles/mastervehicle",
+            },
+          ],
+        },
+        {
           icon: Search,
           label: "Inspection",
           module: "vehicle_inspection",
@@ -279,6 +296,19 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               icon: Settings,
               label: "Tradein Config",
               path: "/company/tradein-config",
+            },
+          ],
+        },
+
+        {
+          icon: Globe,
+          label: "Ad Publishing",
+          module: "ad_publishing",
+          children: [
+            {
+              icon: Globe,
+              label: "Advertisements",
+              path: "/vehicles/adpublishing",
             },
           ],
         },

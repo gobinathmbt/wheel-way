@@ -18,7 +18,6 @@ import {
   Save,
   ArrowLeft
 } from 'lucide-react';
-import SupplierSidebar from '@/components/supplier/SupplierSidebar';
 
 const SupplierProfile = () => {
   const navigate = useNavigate();
@@ -146,25 +145,10 @@ const SupplierProfile = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <SupplierSidebar />
+
       
       <div className="flex-1">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b">
-          <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center h-16">
-              <Button
-                variant="ghost"
-                onClick={() => navigate('/supplier/dashboard')}
-                className="mr-4"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-              <h1 className="text-xl font-semibold">Supplier Profile</h1>
-            </div>
-          </div>
-        </header>
+
 
         {/* Main Content */}
         <main className="p-6">

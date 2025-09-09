@@ -34,7 +34,7 @@ interface CreateVehicleStockModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  vehicleType: "inspection" | "tradein";
+  vehicleType: "inspection" | "tradein" | "advertisement" | "master";
 }
 
 const CreateVehicleStockModal = ({

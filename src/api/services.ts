@@ -114,6 +114,33 @@ export const masterServices = {
   getPublicMaintenanceSettings: () => apiClient.get("/api/master/maintenance/public"),
 };
 
+// Custom Module Services
+export const customModuleServices = {
+  getCustomModuleConfigs: (params?: any) =>
+    apiClient.get("/api/master/custom-modules", { params }),
+
+  getCustomModuleConfig: (id: string) =>
+    apiClient.get(`/api/master/custom-modules/${id}`),
+
+  getCustomModuleConfigByCompany: (companyId: string) =>
+    apiClient.get(`/api/master/custom-modules/company/${companyId}`),
+
+  createCustomModuleConfig: (data: any) =>
+    apiClient.post("/api/master/custom-modules", data),
+
+  updateCustomModuleConfig: (id: string, data: any) =>
+    apiClient.put(`/api/master/custom-modules/${id}`, data),
+
+  deleteCustomModuleConfig: (id: string) =>
+    apiClient.delete(`/api/master/custom-modules/${id}`),
+
+  toggleCustomModuleConfigStatus: (id: string, data: any) =>
+    apiClient.patch(`/api/master/custom-modules/${id}/status`, data),
+
+  getCompaniesWithoutConfig: () =>
+    apiClient.get("/api/master/custom-modules/companies-without-config"),
+};
+
 export const masterDropdownServices = {
   getMasterDropdowns: (params?: any) =>
     apiClient.get("/api/master/dropdowns", { params }),
@@ -833,6 +860,45 @@ export const logServices = {
     }),
 };
 
+// Master Vehicle Services
+export const masterVehicleServices = {
+  getMasterVehicles: (params?: any) =>
+    apiClient.get("/api/mastervehicle", { params }),
+
+  getMasterVehicle: (id: string) =>
+    apiClient.get(`/api/mastervehicle/${id}`),
+
+  createMasterVehicle: (data: any) =>
+    apiClient.post("/api/mastervehicle", data),
+
+  updateMasterVehicle: (id: string, data: any) =>
+    apiClient.put(`/api/mastervehicle/${id}`, data),
+
+  deleteMasterVehicle: (id: string) =>
+    apiClient.delete(`/api/mastervehicle/${id}`)
+};
+
+// Ad Publishing Services
+export const adPublishingServices = {
+  getAdVehicles: (params?: any) =>
+    apiClient.get("/api/adpublishing", { params }),
+
+  getAdVehicle: (id: string) =>
+    apiClient.get(`/api/adpublishing/${id}`),
+
+  createAdVehicle: (data: any) =>
+    apiClient.post("/api/adpublishing", data),
+
+  updateAdVehicle: (id: string, data: any) =>
+    apiClient.put(`/api/adpublishing/${id}`, data),
+
+  deleteAdVehicle: (id: string) =>
+    apiClient.delete(`/api/adpublishing/${id}`),
+
+  publishAdVehicle: (id: string) =>
+    apiClient.post(`/api/adpublishing/${id}/publish`)
+};
+
 export default {
   auth: authServices,
   subscription: subscriptionServices,
@@ -851,4 +917,6 @@ export default {
   supplierAuth: supplierAuthServices,
   supplierDashboard: supplierDashboardServices,
   masterInspectionServices: masterInspectionServices,
+  masterVehicle: masterVehicleServices,
+  adPublishing: adPublishingServices,
 };

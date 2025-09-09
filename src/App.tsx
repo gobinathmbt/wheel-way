@@ -21,6 +21,7 @@ import MasterPlans from "./pages/master_admin/Plans";
 import MasterSettings from "./pages/master_admin/Settings";
 import Permissions from './pages/master_admin/Permissions';
 import MasterDropdownMaster from "./pages/master_admin/DropdownMaster";
+import CustomModuleConfig from "./pages/master_admin/CustomModuleConfig";
 import WebsiteMaintenance from "./pages/master_admin/WebsiteMaintenance";
 import GlobalLogs from "./pages/master_admin/GlobalLogs";
 
@@ -37,6 +38,8 @@ import UserPermissions from './pages/company/UserPermissions';
 // Vehicle Pages
 import InspectionList from "./pages/vehicles/InspectionList";
 import TradeinList from "./pages/vehicles/TradeinList";
+import MasterVehicleList from "./pages/vehicles/MasterVehicleList";
+import AdPublishingList from "./pages/vehicles/AdPublishingList";
 
 // Workshop Pages
 import Workshop from "./pages/company/Workshop";
@@ -50,6 +53,9 @@ import SupplierDashboard from "./pages/supplier/SupplierDashboard";
 import SupplierVehicleDetails from "./pages/supplier/SupplierVehicleDetails";
 import QuotesByStatus from "./pages/supplier/QuotesByStatus";
 import SupplierProfile from "./pages/supplier/SupplierProfile";
+
+// Supplier Layout
+import SupplierLayout from "./components/layout/SupplierLayout";
 
 // Master Inspection Component
 import MasterInspection from "./components/inspection/MasterInspection";
@@ -105,6 +111,11 @@ const App = () => (
             <Route path="/master/dropdowns" element={
               <ProtectedRoute allowedRoles={['master_admin']}>
                 <MasterDropdownMaster />
+              </ProtectedRoute>
+            } />
+            <Route path="/master/custom-modules" element={
+              <ProtectedRoute allowedRoles={['master_admin']}>
+                <CustomModuleConfig />
               </ProtectedRoute>
             } />
             <Route path="/master/maintenance" element={
@@ -172,6 +183,20 @@ const App = () => (
               </ProtectedRoute>
             } />
 
+            {/* Master Vehicle Routes */}
+            <Route path="/vehicles/mastervehicle" element={
+              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']} requiredModule="master_vehicle">
+                <MasterVehicleList />
+              </ProtectedRoute>
+            } />
+            
+            {/* Ad Publishing Routes */}
+            <Route path="/vehicles/adpublishing" element={
+              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']} requiredModule="ad_publishing">
+                <AdPublishingList />
+              </ProtectedRoute>
+            } />
+
             {/* Workshop Routes */}
             <Route path="/company/workshop" element={
               <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']} requiredModule="work_shop">
@@ -191,10 +216,26 @@ const App = () => (
 
             {/* Supplier Routes (Public) */}
             <Route path="/supplier/login" element={<SupplierLogin />} />
-            <Route path="/supplier/dashboard" element={<SupplierDashboard />} />
-            <Route path="/supplier/vehicle/:vehicleStockId/:vehicleType" element={<SupplierVehicleDetails />} />
-            <Route path="/supplier/quotes/:status" element={<QuotesByStatus />} />
-            <Route path="/supplier/profile" element={<SupplierProfile />} />
+            <Route path="/supplier/dashboard" element={
+              <SupplierLayout title="Dashboard">
+                <SupplierDashboard />
+              </SupplierLayout>
+            } />
+            <Route path="/supplier/vehicle/:vehicleStockId/:vehicleType" element={
+              <SupplierLayout title="Vehicle Details">
+                <SupplierVehicleDetails />
+              </SupplierLayout>
+            } />
+            <Route path="/supplier/quotes/:status" element={
+              <SupplierLayout title="Quotes">
+                <QuotesByStatus />
+              </SupplierLayout>
+            } />
+            <Route path="/supplier/profile" element={
+              <SupplierLayout title="Profile">
+                <SupplierProfile />
+              </SupplierLayout>
+            } />
             
             {/* Master Inspection Routes */}
             <Route path="/vehicle/master/:company_id/:vehicle_stock_id/:vehicle_type/:mode" element={<MasterInspection />} />

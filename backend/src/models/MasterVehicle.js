@@ -1,8 +1,6 @@
-
 const mongoose = require('mongoose');
-const { report } = require('process');
 
-const VehicleSchema = new mongoose.Schema({
+const MasterVehicleSchema = new mongoose.Schema({
   vehicle_stock_id: {
     type: Number,
     required: true
@@ -16,7 +14,7 @@ const VehicleSchema = new mongoose.Schema({
   // Vehicle Type & Status
   vehicle_type: {
     type: String,
-    enum: ['inspection', 'tradein','advertisement'],
+    enum: ['inspection', 'tradein', 'advertisement'],
     required: true
   },
   
@@ -263,17 +261,17 @@ const VehicleSchema = new mongoose.Schema({
 });
 
 // Compound index for vehicle_stock_id, company_id, and vehicle_type (unique combination)
-VehicleSchema.index({ vehicle_stock_id: 1, company_id: 1, vehicle_type: 1 }, { unique: true });
+MasterVehicleSchema.index({ vehicle_stock_id: 1, company_id: 1, vehicle_type: 1 }, { unique: true });
 
 // Other indexes for efficient queries
-VehicleSchema.index({ company_id: 1, vehicle_type: 1, status: 1 });
-VehicleSchema.index({ queue_status: 1 });
-VehicleSchema.index({ created_at: -1 });
-VehicleSchema.index({ vin: 1 });
-VehicleSchema.index({ plate_no: 1 });
+MasterVehicleSchema.index({ company_id: 1, vehicle_type: 1, status: 1 });
+MasterVehicleSchema.index({ queue_status: 1 });
+MasterVehicleSchema.index({ created_at: -1 });
+MasterVehicleSchema.index({ vin: 1 });
+MasterVehicleSchema.index({ plate_no: 1 });
 
 // Auto-generate name if not provided
-VehicleSchema.pre('save', function(next) {
+MasterVehicleSchema.pre('save', function(next) {
   this.updated_at = new Date();
   
   // Generate name if not provided
@@ -287,4 +285,4 @@ VehicleSchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.model('Vehicle', VehicleSchema);
+module.exports = mongoose.model('MasterVehicle', MasterVehicleSchema);

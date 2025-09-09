@@ -15,7 +15,6 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import SupplierSidebar from "@/components/supplier/SupplierSidebar";
 
 const SupplierDashboard = () => {
   const [supplierUser, setSupplierUser] = useState<any>(null);
@@ -58,8 +57,7 @@ const SupplierDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <SupplierSidebar />
+   
 
       {/* Main Content */}
       <div className="flex-1">
