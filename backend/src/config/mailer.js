@@ -33,7 +33,7 @@ class MailService {
       }
 
       const mailOptions = {
-        from: `VehiclePro Platform <${config.GMAIL_USER}>`,
+        from: `Vehcile Erp Platform <${config.GMAIL_USER}>`,
         to,
         subject,
         html,
@@ -55,7 +55,7 @@ class MailService {
     
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #3b82f6;">Welcome to VehiclePro!</h1>
+        <h1 style="color: #3b82f6;">Welcome to Vehcile Erp!</h1>
         <p>Dear ${company_name} team,</p>
         <p>Your company has been successfully registered on our platform. Here are your login credentials:</p>
         
@@ -68,13 +68,13 @@ class MailService {
         <p>Please log in and change your password immediately for security purposes.</p>
         <p>You can access your dashboard at: <a href="${config.FRONTEND_URL}/login">Login Here</a></p>
         
-        <p>Best regards,<br>VehiclePro Team</p>
+        <p>Best regards,<br>Vehcile Erp Team</p>
       </div>
     `;
 
     return this.sendEmail({
       to: email,
-      subject: 'Welcome to VehiclePro - Your Account is Ready!',
+      subject: 'Welcome to Vehcile Erp - Your Account is Ready!',
       html
     });
   }
@@ -84,7 +84,7 @@ class MailService {
     
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #3b82f6;">Your VehiclePro Account</h1>
+        <h1 style="color: #3b82f6;">Your Vehcile Erp Account</h1>
         <p>Hello,</p>
         <p>An account has been created for you by ${created_by_company}. Here are your login credentials:</p>
         
@@ -96,13 +96,13 @@ class MailService {
         <p>Please log in and change your password on first login.</p>
         <p>You can access the platform at: <a href="${config.FRONTEND_URL}/login">Login Here</a></p>
         
-        <p>Best regards,<br>VehiclePro Team</p>
+        <p>Best regards,<br>Vehcile Erp Team</p>
       </div>
     `;
 
     return this.sendEmail({
       to: email,
-      subject: 'Your VehiclePro Account Credentials',
+      subject: 'Your Vehcile Erp Account Credentials',
       html
     });
   }

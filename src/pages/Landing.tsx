@@ -141,7 +141,7 @@ const Landing = () => {
       role: "Fleet Manager",
       company: "AutoCorp Solutions",
       content:
-        "VehiclePro has revolutionized our inspection process. We've reduced processing time by 75% and increased accuracy significantly.",
+        "Vehcile Erp has revolutionized our inspection process. We've reduced processing time by 75% and increased accuracy significantly.",
       rating: 5,
       image:
         "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face",
@@ -323,7 +323,7 @@ const Landing = () => {
           >
             <Car className="h-7 w-7 sm:h-8 sm:w-8 text-primary animate-pulse" />
             <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              VehiclePro
+              Vehcile Erp
             </span>
           </div>
 
@@ -470,7 +470,7 @@ const Landing = () => {
         <div className="container mx-auto">
           <div className="text-center mb-10 sm:mb-12 animate-fade-in">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Why Choose VehiclePro?
+              Why Choose Vehcile Erp?
             </h2>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto">
               Built for the modern automotive industry with cutting-edge
@@ -692,7 +692,7 @@ const Landing = () => {
               Trusted Across Industries
             </h2>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto">
-              From automotive dealers to fleet management companies, VehiclePro
+              From automotive dealers to fleet management companies, Vehcile Erp
               adapts to your industry needs
             </p>
           </div>
@@ -740,7 +740,7 @@ const Landing = () => {
               What Our Clients Say
             </h2>
             <p className="text-lg sm:text-xl text-muted-foreground">
-              Hear from industry leaders who trust VehiclePro
+              Hear from industry leaders who trust Vehcile Erp
             </p>
           </div>
 
@@ -858,7 +858,7 @@ const Landing = () => {
             Ready to Transform Your Business?
           </h2>
           <p className="text-lg sm:text-xl mb-6 sm:mb-8 text-white/80 max-w-2xl mx-auto animate-fade-in">
-            Join thousands of automotive professionals who trust VehiclePro for
+            Join thousands of automotive professionals who trust Vehcile Erp for
             their operations. Start your free trial today and experience the
             difference.
           </p>
@@ -893,7 +893,7 @@ const Landing = () => {
             <div className="md:col-span-2">
               <div className="flex items-center space-x-2 mb-4">
                 <Car className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                <span className="text-lg sm:text-xl font-bold">VehiclePro</span>
+                <span className="text-lg sm:text-xl font-bold">Vehcile Erp</span>
               </div>
               <p className="text-sm sm:text-base text-muted-foreground mb-4">
                 Enterprise vehicle management platform for the modern automotive
@@ -979,7 +979,7 @@ const Landing = () => {
             </div>
           </div>
           <div className="border-t mt-8 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-muted-foreground">
-            <p>&copy; 2024 VehiclePro. All rights reserved.</p>
+            <p>&copy; 2024 Vehcile Erp. All rights reserved.</p>
             <div className="flex flex-wrap gap-3 sm:gap-4 mt-4 md:mt-0">
               <span className="hover:text-primary cursor-pointer transition-colors">
                 Privacy Policy

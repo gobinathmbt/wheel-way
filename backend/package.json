@@ -14,7 +14,7 @@
     "tradein",
     "enterprise"
   ],
-  "author": "VehiclePro Team",
+  "author": "Vehcile Erp Team",
   "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.884.0",
