@@ -44,14 +44,14 @@ const app = express();
 
 // Security middleware
 app.use(helmet());
-app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:8080',
-    'http://localhost:8080',
-    'http://127.0.0.1:8080'
-  ],
-  credentials: true
-}));
+// app.use(cors({
+//   origin: [
+//     process.env.FRONTEND_URL || 'http://localhost:8080',
+//     'http://localhost:8080',
+//     'http://127.0.0.1:8080'
+//   ],
+//   credentials: true
+// }));
 
 // // Rate limiting
 // const limiter = rateLimit({
@@ -61,7 +61,7 @@ app.use(cors({
 // app.use(limiter);
 
 // Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Data sanitization
