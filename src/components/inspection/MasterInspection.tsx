@@ -1529,14 +1529,15 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center space-x-2 sm:space-x-4">
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => window.history.back()}
-                className="hover:bg-muted"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline ml-2">Back</span>
-              </Button>
+  variant="ghost"
+  size="sm"
+  onClick={() => window.history.back()}
+  className="hover:bg-blue-500 hover:text-white"
+>
+  <ArrowLeft className="h-4 w-4" />
+  <span className="hidden sm:inline ml-2">Back</span>
+</Button>
+
 
               <div className="flex items-center space-x-2 sm:space-x-4">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -1570,42 +1571,47 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
 
             {!isViewMode && (
               <>
-                <Button
-                  onClick={() => setReportDialogOpen(true)}
-                  variant="outline"
-                  className="shadow-sm"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Generate Report
-                </Button>
-                <a
-                  href={reportPdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Button variant="outline" className="shadow-sm">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Pdf
-                  </Button>
-                </a>
-                <Button
-                  onClick={saveData}
-                  disabled={saving}
-                  size="lg"
-                  className="shadow-sm w-full sm:w-auto"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      Save
-                    </>
-                  )}
-                </Button>
+             <div className="flex space-x-2">
+  <Button
+    onClick={() => setReportDialogOpen(true)}
+    variant="outline"
+    className="shadow-sm"
+  >
+    <FileText className="h-4 w-4 mr-2" />
+    Generate Report
+  </Button>
+
+  <a
+    href={reportPdfUrl}
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    <Button variant="outline" className="shadow-sm">
+      <FileText className="h-4 w-4 mr-2" />
+      Pdf
+    </Button>
+  </a>
+
+  <Button
+    onClick={saveData}
+    disabled={saving}
+    size="lg"
+    className="shadow-sm w-full sm:w-auto"
+  >
+    {saving ? (
+      <>
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        Saving...
+      </>
+    ) : (
+      <>
+        <Save className="h-4 w-4 mr-2" />
+        Save
+      </>
+    )}
+  </Button>
+</div>
+
               </>
             )}
           </div>
