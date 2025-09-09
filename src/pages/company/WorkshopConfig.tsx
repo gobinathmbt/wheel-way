@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -72,7 +72,8 @@ const WorkshopConfig = () => {
   const [selectedCategoryForField, setSelectedCategoryForField] = useState<
     string | null
   >(null);
-  const [completeWorkshopModalOpen, setCompleteWorkshopModalOpen] = useState(false);
+  const [completeWorkshopModalOpen, setCompleteWorkshopModalOpen] =
+    useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [canCompleteWorkshop, setCanCompleteWorkshop] = useState(false);
 
@@ -109,6 +110,82 @@ const WorkshopConfig = () => {
     },
   });
 
+  // Add this useEffect to check if all fields are completed
+  useEffect(() => {
+    if (vehicleData) {
+      const resultData =
+        vehicleType === "inspection"
+          ? vehicle?.inspection_result
+          : vehicle?.trade_in_result;
+
+      if (!resultData || resultData.length === 0) {
+        setCanCompleteWorkshop(false);
+        return;
+      }
+
+      // Flatten all fields from the result data
+      const allFields: any[] = [];
+
+      resultData.forEach((item: any) => {
+        // Handle both category structure and direct section structure
+        if (item.sections) {
+          // Category with sections
+          item.sections.forEach((section: any) => {
+            if (section.fields) {
+              allFields.push(...section.fields);
+            }
+          });
+        } else if (item.fields) {
+          // Direct section
+          allFields.push(...item.fields);
+        }
+      });
+
+      // Check if all fields have status "completed_jobs"
+      const allCompleted = allFields.every((field: any) => {
+        const fieldStatus = getStatus(field.field_id);
+        return fieldStatus === "completed_jobs";
+      });
+
+      setCanCompleteWorkshop(allCompleted);
+    }
+  }, [vehicleData, vehicleType, vehicle, vehicle_quotes]);
+
+  // Also add this check when the component first loads
+  useEffect(() => {
+    if (vehicleData && vehicle_quotes) {
+      const resultData =
+        vehicleType === "inspection"
+          ? vehicle?.inspection_result
+          : vehicle?.trade_in_result;
+
+      if (!resultData || resultData.length === 0) {
+        setCanCompleteWorkshop(false);
+        return;
+      }
+
+      const allFields: any[] = [];
+
+      resultData.forEach((item: any) => {
+        if (item.sections) {
+          item.sections.forEach((section: any) => {
+            if (section.fields) {
+              allFields.push(...section.fields);
+            }
+          });
+        } else if (item.fields) {
+          allFields.push(...item.fields);
+        }
+      });
+
+      const allCompleted = allFields.every((field: any) => {
+        const fieldStatus = getStatus(field.field_id);
+        return fieldStatus === "completed_jobs";
+      });
+
+      setCanCompleteWorkshop(allCompleted);
+    }
+  }, [vehicleData, vehicle_quotes, vehicleType, vehicle]);
 
   const deleteWorkshopFieldMutation = useMutation({
     mutationFn: async (fieldData: any) => {
@@ -325,7 +402,9 @@ const WorkshopConfig = () => {
   // Complete workshop mutation
   const completeWorkshopMutation = useMutation({
     mutationFn: async (confirmation: string) => {
-      return await workshopServices.completeWorkshop(vehicleId!, vehicleType!, { confirmation });
+      return await workshopServices.completeWorkshop(vehicleId!, vehicleType!, {
+        confirmation,
+      });
     },
     onSuccess: (response) => {
       toast.success(response.data.message);
@@ -337,7 +416,9 @@ const WorkshopConfig = () => {
       setTimeout(() => navigate("/company/workshop"), 2000);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to complete workshop');
+      toast.error(
+        error.response?.data?.message || "Failed to complete workshop"
+      );
     },
   });
 
@@ -655,7 +736,9 @@ const WorkshopConfig = () => {
     if (canCompleteWorkshop) {
       setCompleteWorkshopModalOpen(true);
     } else {
-      toast.error("All workshop jobs must be completed before finishing workshop");
+      toast.error(
+        "All workshop jobs must be completed before finishing workshop"
+      );
     }
   };
 
@@ -770,7 +853,9 @@ const WorkshopConfig = () => {
               <Button
                 variant="default"
                 onClick={() => handleCompleteWorkshop()}
-                disabled={!canCompleteWorkshop || completeWorkshopMutation.isPending}
+                disabled={
+                  !canCompleteWorkshop || completeWorkshopMutation.isPending
+                }
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 {completeWorkshopMutation.isPending ? (
@@ -1425,13 +1510,17 @@ const WorkshopConfig = () => {
             </div>
           </DialogContent>
         </Dialog>
-  <Dialog open={completeWorkshopModalOpen} onOpenChange={setCompleteWorkshopModalOpen}>
+        <Dialog
+          open={completeWorkshopModalOpen}
+          onOpenChange={setCompleteWorkshopModalOpen}
+        >
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Complete Workshop</DialogTitle>
               <DialogDescription>
-                Are you sure you want to complete the workshop for this vehicle? 
-                This action will generate the final workshop report and cannot be undone.
+                Are you sure you want to complete the workshop for this vehicle?
+                This action will generate the final workshop report and cannot
+                be undone.
                 <br />
                 <br />
                 Type <strong>CONFIRM</strong> to proceed.
@@ -1456,10 +1545,15 @@ const WorkshopConfig = () => {
                 </Button>
                 <Button
                   onClick={handleConfirmCompleteWorkshop}
-                  disabled={confirmText !== "CONFIRM" || completeWorkshopMutation.isPending}
+                  disabled={
+                    confirmText !== "CONFIRM" ||
+                    completeWorkshopMutation.isPending
+                  }
                   className="bg-green-600 hover:bg-green-700"
                 >
-                  {completeWorkshopMutation.isPending ? "Processing..." : "Complete Workshop"}
+                  {completeWorkshopMutation.isPending
+                    ? "Processing..."
+                    : "Complete Workshop"}
                 </Button>
               </div>
             </div>
@@ -1550,10 +1644,14 @@ const WorkshopConfig = () => {
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => deleteWorkshopFieldMutation.mutate(fieldToDelete)}
+                onClick={() =>
+                  deleteWorkshopFieldMutation.mutate(fieldToDelete)
+                }
                 disabled={deleteWorkshopFieldMutation.isPending}
               >
-                {deleteWorkshopFieldMutation.isPending ? "Deleting..." : "Delete"}
+                {deleteWorkshopFieldMutation.isPending
+                  ? "Deleting..."
+                  : "Delete"}
               </Button>
             </div>
           </DialogContent>
