@@ -1327,120 +1327,128 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
           })()}
 
           {/* Image Capture Section */}
-          {field.has_image && (
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-sm font-medium">Images</Label>
-              </div>
+   {field.has_image && (
+  <div className="space-y-3">
+    {/* Label */}
+    <div className="flex items-center space-x-2">
+      <ImageIcon className="h-4 w-4 text-muted-foreground" />
+      <Label className="text-sm font-medium">Images</Label>
+    </div>
 
-              {images.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {images.slice(0, 6).map((imageUrl: string, index: number) => (
-                    <div
-                      key={index}
-                      className="relative group aspect-square rounded-lg overflow-hidden border"
-                    >
-                      <img
-                        src={imageUrl}
-                        alt={`${field.field_name} ${index + 1}`}
-                        className="w-full h-full object-cover cursor-pointer"
-                        onClick={() =>
-                          setImageModal({
-                            open: true,
-                            images,
-                            title: `${field.field_name} Images`,
-                          })
-                        }
-                      />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          className="rounded-full h-8 w-8"
-                          onClick={() =>
-                            setImageModal({
-                              open: true,
-                              images,
-                              title: `${field.field_name} Images`,
-                            })
-                          }
-                        >
-                          <Maximize className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      {!disabled && (
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => removeImage(fieldId, imageUrl)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  {images.length > 6 && (
-                    <div
-                      className="border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center cursor-pointer hover:border-muted-foreground/50 hover:bg-muted/30 transition-colors aspect-square"
-                      onClick={() =>
-                        setImageModal({
-                          open: true,
-                          images,
-                          title: `${field.field_name} Images`,
-                        })
-                      }
-                    >
-                      <div className="text-center p-4">
-                        <Plus className="h-6 w-6 mx-auto text-muted-foreground mb-1" />
-                        <p className="text-xs text-muted-foreground">
-                          +{images.length - 6} more
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+    {/* Image Grid */}
+    {images.length > 0 && (
+      <div className="grid grid-cols-5 gap-4">
+        {images.slice(0, 10).map((imageUrl: string, index: number) => (
+          <div
+            key={index}
+            className="relative group w-[200px] h-[200px] rounded-lg overflow-hidden border"
+          >
+            <img
+              src={imageUrl}
+              alt={`${field.field_name} ${index + 1}`}
+              className="w-full h-full object-cover cursor-pointer"
+              onClick={() =>
+                setImageModal({
+                  open: true,
+                  images,
+                  title: `${field.field_name} Images`,
+                })
+              }
+            />
 
-              {!disabled && (
-                <div
-                  className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center cursor-pointer hover:border-muted-foreground/50 hover:bg-muted/30 transition-colors"
-                  onClick={() =>
-                    document.getElementById(`image-${fieldId}`)?.click()
-                  }
-                >
-                  {uploading[fieldId] ? (
-                    <div className="flex items-center justify-center space-x-2">
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      <span className="text-sm">Uploading...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <Camera className="h-6 w-6 mx-auto text-muted-foreground mb-1" />
-                      <p className="text-sm text-muted-foreground">
-                        Click to upload images
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <input
-                id={`image-${fieldId}`}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => {
-                  const files = Array.from(e.target.files || []);
-                  files.forEach((file) =>
-                    handleFileUpload(fieldId, file, true)
-                  );
-                }}
-                className="hidden"
-              />
+            {/* Hover Zoom Button */}
+            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Button
+                variant="secondary"
+                size="icon"
+                className="rounded-full h-8 w-8"
+                onClick={() =>
+                  setImageModal({
+                    open: true,
+                    images,
+                    title: `${field.field_name} Images`,
+                  })
+                }
+              >
+                <Maximize className="h-4 w-4" />
+              </Button>
             </div>
-          )}
+
+            {/* Delete Button */}
+            {!disabled && (
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => removeImage(fieldId, imageUrl)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        ))}
+
+        {/* +More Images */}
+        {images.length > 10 && (
+          <div
+            className="border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center cursor-pointer hover:border-muted-foreground/50 hover:bg-muted/30 transition-colors w-[120px] h-[120px]"
+            onClick={() =>
+              setImageModal({
+                open: true,
+                images,
+                title: `${field.field_name} Images`,
+              })
+            }
+          >
+            <div className="text-center p-4">
+              <Plus className="h-6 w-6 mx-auto text-muted-foreground mb-1" />
+              <p className="text-xs text-muted-foreground">
+                +{images.length - 10} more
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* Upload Box */}
+    {!disabled && (
+      <div
+        className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center cursor-pointer hover:border-muted-foreground/50 hover:bg-muted/30 transition-colors"
+        onClick={() => document.getElementById(`image-${fieldId}`)?.click()}
+      >
+        {uploading[fieldId] ? (
+          <div className="flex items-center justify-center space-x-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Uploading...</span>
+          </div>
+        ) : (
+          <>
+            <Camera className="h-6 w-6 mx-auto text-muted-foreground mb-1" />
+            <p className="text-sm text-muted-foreground">
+              Click to upload images
+            </p>
+          </>
+        )}
+      </div>
+    )}
+
+    {/* Hidden File Input */}
+    <input
+      id={`image-${fieldId}`}
+      type="file"
+      accept="image/*"
+      multiple
+      onChange={(e) => {
+        const files = Array.from(e.target.files || []);
+        files.forEach((file) => handleFileUpload(fieldId, file, true));
+      }}
+      className="hidden"
+    />
+  </div>
+)}
+
+
 
           {/* Notes Section */}
           {field.has_notes && (
@@ -1815,36 +1823,39 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         )}
       </div>
 
-      {/* Image Modal */}
-      <Dialog
-        open={imageModal.open}
-        onOpenChange={(open) => setImageModal((prev) => ({ ...prev, open }))}
-      >
-        <DialogContent className="max-w-4xl w-full h-full sm:h-auto sm:max-h-[90vh] p-0 overflow-hidden">
-          <DialogHeader className="px-6 py-4 border-b">
-            <DialogTitle className="flex items-center space-x-2">
-              <ImageIcon className="h-5 w-5" />
-              <span>{imageModal.title}</span>
-            </DialogTitle>
-          </DialogHeader>
-          <div className="h-full overflow-auto p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {imageModal.images.map((image: string, index: number) => (
-                <div
-                  key={index}
-                  className="relative group aspect-square rounded-lg overflow-hidden border"
-                >
-                  <img
-                    src={image}
-                    alt={`Image ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
+    {/* Image Modal */}
+<Dialog
+  open={imageModal.open}
+  onOpenChange={(open) => setImageModal((prev) => ({ ...prev, open }))}
+>
+  <DialogContent className="max-w-4xl w-full sm:max-h-[90vh] p-0">
+    <DialogHeader className="px-6 py-4 border-b">
+      <DialogTitle className="flex items-center space-x-2">
+        <ImageIcon className="h-5 w-5" />
+        <span>{imageModal.title}</span>
+      </DialogTitle>
+    </DialogHeader>
+
+    {/* Scrollable Section */}
+    <div className="p-6 max-h-[70vh] overflow-y-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {imageModal.images.map((image: string, index: number) => (
+          <div
+            key={index}
+            className="relative group aspect-square rounded-lg overflow-hidden border"
+          >
+            <img
+              src={image}
+              alt={`Image ${index + 1}`}
+              className="w-full h-full object-cover"
+            />
           </div>
-        </DialogContent>
-      </Dialog>
+        ))}
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
 
       {/* Video Modal */}
       <Dialog
