@@ -1532,7 +1532,7 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => window.history.back()}
-                className="hover:bg-muted"
+                className="hover:bg-blue-500 hover:text-white"
               >
                 <ArrowLeft className="h-4 w-4" />
                 <span className="hidden sm:inline ml-2">Back</span>
@@ -1570,42 +1570,46 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
 
             {!isViewMode && (
               <>
-                <Button
-                  onClick={() => setReportDialogOpen(true)}
-                  variant="outline"
-                  className="shadow-sm"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Generate Report
-                </Button>
-                <a
-                  href={reportPdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Button variant="outline" className="shadow-sm">
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={() => setReportDialogOpen(true)}
+                    variant="outline"
+                    className="shadow-sm"
+                  >
                     <FileText className="h-4 w-4 mr-2" />
-                    Pdf
+                    Generate Report
                   </Button>
-                </a>
-                <Button
-                  onClick={saveData}
-                  disabled={saving}
-                  size="lg"
-                  className="shadow-sm w-full sm:w-auto"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      Save
-                    </>
-                  )}
-                </Button>
+
+                  <a
+                    href={reportPdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="outline" className="shadow-sm">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Pdf
+                    </Button>
+                  </a>
+
+                  <Button
+                    onClick={saveData}
+                    disabled={saving}
+                    size="lg"
+                    className="shadow-sm w-full sm:w-auto"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save
+                      </>
+                    )}
+                  </Button>
+                </div>
               </>
             )}
           </div>
