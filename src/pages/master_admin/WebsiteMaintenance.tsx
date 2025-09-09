@@ -34,28 +34,62 @@ interface MaintenanceSettings {
   modules: MaintenanceModule[];
 }
 
-const COMPANY_MODULES = [
-  { value: "vehicle_dashboard", label: "Vehicle Dashboard" },
-  { value: "multi_dealsership", label: "Multi Dealership" },
-  { value: "vehicle_user", label: "Vehicle User" },
-  { value: "vehicle_permission", label: "Vehicle Permission" },
-  { value: "dropdown_master", label: "Dropdown Master" },
-  { value: "vehicle_inspection", label: "Vehicle Inspection" },
-  { value: "vehicle_tradein", label: "Vehicle Trade-in" },
-  { value: "work_shop", label: "Workshop" },
-  { value: "company_settings", label: "Company Settings" },
-];
+interface ModuleOption {
+  option_value: string;
+  display_value: string;
+  is_default: boolean;
+  is_active: boolean;
+  display_order: number;
+  created_by: string;
+  _id: string;
+  created_at: string;
+  updated_at: string;
+}
 
 const WebsiteMaintenance = () => {
   const { toast } = useToast();
+  const [availableModules, setAvailableModules] = useState<ModuleOption[]>([]);
+  const [modulesList, setModulesList] = useState<{value: string, label: string}[]>([]);
+
   const queryClient = useQueryClient();
 
   const [settings, setSettings] = useState<MaintenanceSettings>({
     is_enabled: false,
-    message: "We are currently performing maintenance on our website. Please check back later.",
+    message:
+      "We are currently performing maintenance on our website. Please check back later.",
     end_time: "",
     modules: [],
   });
+
+  useEffect(() => {
+    const loadModules = async () => {
+      try {
+        const response = await masterServices.getMasterdropdownvalues({
+          dropdown_name: ["company_superadmin_modules"],
+        });
+        if (response.data.success) {
+          const modules = response.data.data[0].values || [];
+          setAvailableModules(modules);
+          
+          // Transform the modules data into the format needed for the UI
+          const formattedModules = modules.map((module: ModuleOption) => ({
+            value: module.option_value,
+            label: module.display_value
+          }));
+          
+          setModulesList(formattedModules);
+        }
+      } catch (error) {
+        console.error("Failed to load modules:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load available modules",
+          variant: "destructive",
+        });
+      }
+    };
+    loadModules();
+  }, []);
 
   const { data: maintenanceData, isLoading } = useQuery({
     queryKey: ["maintenance-settings"],
@@ -78,7 +112,9 @@ const WebsiteMaintenance = () => {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.response?.data?.message || "Failed to update maintenance settings",
+        description:
+          error.response?.data?.message ||
+          "Failed to update maintenance settings",
         variant: "destructive",
       });
     },
@@ -97,26 +133,31 @@ const WebsiteMaintenance = () => {
   }, [maintenanceData]);
 
   const handleGlobalMaintenanceToggle = (enabled: boolean) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       is_enabled: enabled,
     }));
   };
 
-  const handleModuleMaintenanceToggle = (moduleName: string, enabled: boolean) => {
-    setSettings(prev => ({
+  const handleModuleMaintenanceToggle = (
+    moduleName: string,
+    enabled: boolean
+  ) => {
+    setSettings((prev) => ({
       ...prev,
       modules: enabled
         ? [
-            ...prev.modules.filter(m => m.module_name !== moduleName),
+            ...prev.modules.filter((m) => m.module_name !== moduleName),
             {
               module_name: moduleName,
               is_enabled: true,
-              message: `The ${COMPANY_MODULES.find(m => m.value === moduleName)?.label} module is currently under maintenance.`,
+              message: `The ${
+                modulesList.find((m) => m.value === moduleName)?.label
+              } module is currently under maintenance.`,
               end_time: "",
             },
           ]
-        : prev.modules.filter(m => m.module_name !== moduleName),
+        : prev.modules.filter((m) => m.module_name !== moduleName),
     }));
   };
 
@@ -125,9 +166,9 @@ const WebsiteMaintenance = () => {
     field: "message" | "end_time",
     value: string
   ) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
-      modules: prev.modules.map(module =>
+      modules: prev.modules.map((module) =>
         module.module_name === moduleName
           ? { ...module, [field]: value }
           : module
@@ -138,10 +179,14 @@ const WebsiteMaintenance = () => {
   const handleSave = () => {
     const formattedSettings = {
       ...settings,
-      end_time: settings.end_time ? new Date(settings.end_time).toISOString() : undefined,
-      modules: settings.modules.map(module => ({
+      end_time: settings.end_time
+        ? new Date(settings.end_time).toISOString()
+        : undefined,
+      modules: settings.modules.map((module) => ({
         ...module,
-        end_time: module.end_time ? new Date(module.end_time).toISOString() : undefined,
+        end_time: module.end_time
+          ? new Date(module.end_time).toISOString()
+          : undefined,
       })),
     };
     updateMaintenanceMutation.mutate(formattedSettings);
@@ -150,7 +195,7 @@ const WebsiteMaintenance = () => {
   const getActiveMaintenanceCount = () => {
     let count = 0;
     if (settings.is_enabled) count++;
-    count += settings.modules.filter(m => m.is_enabled).length;
+    count += settings.modules.filter((m) => m.is_enabled).length;
     return count;
   };
 
@@ -164,17 +209,17 @@ const WebsiteMaintenance = () => {
     const now = new Date();
     const end = new Date(endTime);
     const diff = end.getTime() - now.getTime();
-    
+
     if (diff <= 0) return "Expired";
-    
+
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     if (hours > 24) {
       const days = Math.floor(hours / 24);
       return `${days}d ${hours % 24}h remaining`;
     }
-    
+
     return `${hours}h ${minutes}m remaining`;
   };
 
@@ -200,11 +245,20 @@ const WebsiteMaintenance = () => {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <Badge variant={getActiveMaintenanceCount() > 0 ? "destructive" : "secondary"}>
+            <Badge
+              variant={
+                getActiveMaintenanceCount() > 0 ? "destructive" : "secondary"
+              }
+            >
               {getActiveMaintenanceCount()} Active
             </Badge>
-            <Button onClick={handleSave} disabled={updateMaintenanceMutation.isPending}>
-              {updateMaintenanceMutation.isPending ? "Saving..." : "Save Changes"}
+            <Button
+              onClick={handleSave}
+              disabled={updateMaintenanceMutation.isPending}
+            >
+              {updateMaintenanceMutation.isPending
+                ? "Saving..."
+                : "Save Changes"}
             </Button>
           </div>
         </div>
@@ -220,7 +274,9 @@ const WebsiteMaintenance = () => {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <Label htmlFor="global-maintenance">Enable Global Maintenance</Label>
+                <Label htmlFor="global-maintenance">
+                  Enable Global Maintenance
+                </Label>
                 <p className="text-sm text-muted-foreground">
                   This will put the entire website under maintenance
                 </p>
@@ -236,15 +292,22 @@ const WebsiteMaintenance = () => {
               <div className="space-y-4 p-4 bg-destructive/10 rounded-lg border border-destructive/20">
                 <div className="flex items-center gap-2 text-destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <span className="font-medium">Global maintenance is active</span>
+                  <span className="font-medium">
+                    Global maintenance is active
+                  </span>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="global-message">Maintenance Message</Label>
                   <Textarea
                     id="global-message"
                     value={settings.message}
-                    onChange={(e) => setSettings(prev => ({ ...prev, message: e.target.value }))}
+                    onChange={(e) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        message: e.target.value,
+                      }))
+                    }
                     placeholder="Enter maintenance message..."
                     rows={3}
                   />
@@ -256,7 +319,12 @@ const WebsiteMaintenance = () => {
                     id="global-end-time"
                     type="datetime-local"
                     value={settings.end_time}
-                    onChange={(e) => setSettings(prev => ({ ...prev, end_time: e.target.value }))}
+                    onChange={(e) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        end_time: e.target.value,
+                      }))
+                    }
                   />
                   {settings.end_time && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -280,8 +348,10 @@ const WebsiteMaintenance = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {COMPANY_MODULES.map((module, index) => {
-                const moduleSettings = settings.modules.find(m => m.module_name === module.value);
+              {modulesList.map((module, index) => {
+                const moduleSettings = settings.modules.find(
+                  (m) => m.module_name === module.value
+                );
                 const isEnabled = !!moduleSettings?.is_enabled;
 
                 return (
@@ -294,9 +364,7 @@ const WebsiteMaintenance = () => {
                             <span className="font-medium">{module.label}</span>
                           </div>
                           {isEnabled && (
-                            <Badge variant="destructive">
-                              Maintenance
-                            </Badge>
+                            <Badge variant="destructive">Maintenance</Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
@@ -305,7 +373,7 @@ const WebsiteMaintenance = () => {
                       </div>
                       <Switch
                         checked={isEnabled}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           handleModuleMaintenanceToggle(module.value, checked)
                         }
                       />
@@ -317,8 +385,12 @@ const WebsiteMaintenance = () => {
                           <Label>Module Maintenance Message</Label>
                           <Textarea
                             value={moduleSettings.message || ""}
-                            onChange={(e) => 
-                              handleModuleSettingChange(module.value, "message", e.target.value)
+                            onChange={(e) =>
+                              handleModuleSettingChange(
+                                module.value,
+                                "message",
+                                e.target.value
+                              )
                             }
                             placeholder="Enter module-specific maintenance message..."
                             rows={2}
@@ -329,24 +401,36 @@ const WebsiteMaintenance = () => {
                           <Label>End Time (Optional)</Label>
                           <Input
                             type="datetime-local"
-                            value={moduleSettings.end_time ? 
-                              new Date(moduleSettings.end_time).toISOString().slice(0, 16) : ""
+                            value={
+                              moduleSettings.end_time
+                                ? new Date(moduleSettings.end_time)
+                                    .toISOString()
+                                    .slice(0, 16)
+                                : ""
                             }
-                            onChange={(e) => 
-                              handleModuleSettingChange(module.value, "end_time", e.target.value)
+                            onChange={(e) =>
+                              handleModuleSettingChange(
+                                module.value,
+                                "end_time",
+                                e.target.value
+                              )
                             }
                           />
                           {moduleSettings.end_time && (
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Clock className="h-3 w-3" />
-                              <span>{getTimeRemaining(moduleSettings.end_time)}</span>
+                              <span>
+                                {getTimeRemaining(moduleSettings.end_time)}
+                              </span>
                             </div>
                           )}
                         </div>
                       </div>
                     )}
 
-                    {index < COMPANY_MODULES.length - 1 && <Separator className="mt-4" />}
+                    {index < modulesList.length - 1 && (
+                      <Separator className="mt-4" />
+                    )}
                   </div>
                 );
               })}
@@ -372,11 +456,18 @@ const WebsiteMaintenance = () => {
                   </div>
                 )}
                 {settings.modules
-                  .filter(m => m.is_enabled)
-                  .map(module => (
-                    <div key={module.module_name} className="flex items-center justify-between">
+                  .filter((m) => m.is_enabled)
+                  .map((module) => (
+                    <div
+                      key={module.module_name}
+                      className="flex items-center justify-between"
+                    >
                       <span>
-                        {COMPANY_MODULES.find(m => m.value === module.module_name)?.label}
+                        {
+                          modulesList.find(
+                            (m) => m.value === module.module_name
+                          )?.label
+                        }
                       </span>
                       <Badge variant="destructive">Active</Badge>
                     </div>
