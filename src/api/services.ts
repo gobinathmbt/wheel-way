@@ -626,13 +626,6 @@ export const tradeinServices = {
   getTradeinReport: (id: string) => apiClient.get(`/api/tradein/${id}/report`),
 };
 
-// Logs Services
-export const logServices = {
-  getLogs: (params?: any) => apiClient.get("/api/logs", { params }),
-
-  getLogAnalytics: (params?: any) =>
-    apiClient.get("/api/logs/analytics", { params }),
-};
 
 // Supplier Services
 export const supplierServices = {
@@ -794,6 +787,50 @@ export const masterInspectionServices = {
       `/api/master-inspection/save/${companyId}/${vehicleStockId}/${vehicleType}`,
       data
     ),
+};
+
+// Add these to your services.ts file in the logServices section
+export const logServices = {
+  // Get logs with optimized parameters and caching
+  getLogs: (queryString: string) => 
+    apiClient.get(`/api/logs?${queryString}`, {
+      timeout: 30000, // 30 second timeout
+    }),
+
+  // Get analytics with caching and timeout
+  getLogAnalytics: (queryString: string) => 
+    apiClient.get(`/api/logs/analytics?${queryString}`, {
+      timeout: 45000, // 45 second timeout for analytics
+    }),
+
+  // Cached user and company lookups
+  getLogUsers: (params?: any) => 
+    apiClient.get("/api/logs/users", { 
+      params,
+      timeout: 10000,
+    }),
+
+  getLogCompanies: (params?: any) => 
+    apiClient.get("/api/logs/companies", { 
+      params,
+      timeout: 10000,
+    }),
+
+  // Export with longer timeout and blob response
+  exportLogs: (queryString: string) => 
+    apiClient.get(`/api/logs/export?${queryString}`, {
+      responseType: 'blob',
+      timeout: 300000, // 5 minute timeout for exports
+      headers: {
+        'Accept': 'text/csv',
+      },
+    }),
+
+  // Get single log by ID
+  getLogById: (id: string) => 
+    apiClient.get(`/api/logs/${id}`, {
+      timeout: 10000,
+    }),
 };
 
 export default {

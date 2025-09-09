@@ -22,6 +22,7 @@ import MasterSettings from "./pages/master_admin/Settings";
 import Permissions from './pages/master_admin/Permissions';
 import MasterDropdownMaster from "./pages/master_admin/DropdownMaster";
 import WebsiteMaintenance from "./pages/master_admin/WebsiteMaintenance";
+import GlobalLogs from "./pages/master_admin/GlobalLogs";
 
 // Company Pages  
 import CompanyDashboard from "./pages/company/Dashboard";
@@ -92,6 +93,12 @@ const App = () => (
             <Route path="/master/permissions" element={
               <ProtectedRoute allowedRoles={['master_admin']}>
                 <Permissions />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/master/global-logs" element={
+              <ProtectedRoute allowedRoles={['master_admin']}>
+                <GlobalLogs />
               </ProtectedRoute>
             } />
         
