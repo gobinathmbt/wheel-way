@@ -79,7 +79,7 @@ const EnterpriseSection = () => {
       content: 'Automated CI/CD pipelines for continuous integration and deployment.',
       image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&h=400&fit=crop'
     },
-    {
+    { 
       title: 'Monitoring & Alerting',
       content: 'Comprehensive monitoring with proactive alerting and incident management.',
       image: 'https://images.unsplash.com/photo-1508780709619-79562169bc64?w=800&h=400&fit=crop'

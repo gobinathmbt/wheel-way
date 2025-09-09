@@ -654,7 +654,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {!isSidebarCollapsed && (
             <>
               <Car className="h-6 w-6 text-primary" />
-              <span className="text-lg font-bold">VehiclePro</span>
+              <span className="text-lg font-bold">Vehcile Erp</span>
             </>
           )}
           {isSidebarCollapsed && (
@@ -665,7 +665,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right">
-                <p>VehiclePro</p>
+                <p>Vehcile Erp</p>
               </TooltipContent>
             </Tooltip>
           )}

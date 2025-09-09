@@ -100,9 +100,9 @@ const Documentation = () => {
     <DashboardLayout title="Documentation">
       <div className="space-y-8">
         <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4">VehiclePro Documentation</h1>
+          <h1 className="text-4xl font-bold mb-4">Vehcile Erp Documentation</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Comprehensive guide to using the VehiclePro platform APIs and features
+            Comprehensive guide to using the Vehcile Erp platform APIs and features
           </p>
         </div>
 
