@@ -3,7 +3,7 @@ const WorkshopQuote = require("../models/WorkshopQuote");
 const Vehicle = require("../models/Vehicle");
 const { logEvent } = require("./logs.controller");
 const jwt = require("jsonwebtoken");
-const config = require('../config/env');
+const Env_Configuration = require("../config/env");
 const { type } = require("os");
 
 // @desc    Supplier login
@@ -48,7 +48,7 @@ const supplierLogin = async (req, res) => {
         email: supplier.email,
         company_id: supplier.company_id,
       },
-      config.JWT_SECRET || "your-secret-key",
+      Env_Configuration.JWT_SECRET || "your-secret-key",
       { expiresIn: "30d" }
     );
 

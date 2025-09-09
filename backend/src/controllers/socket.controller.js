@@ -6,7 +6,7 @@ const Supplier = require("../models/Supplier");
 const Company = require("../models/Company");
 const Conversation = require("../models/Conversation");
 const WorkshopQuote = require("../models/WorkshopQuote");
-const config = require("../config/env");
+const Env_Configuration = require("../config/env");
 const {
   S3Client,
   PutObjectCommand,
@@ -107,7 +107,7 @@ const initializeSocket = (server) => {
         return next(new Error("Authentication error: No token provided"));
       }
 
-      const decoded = jwt.verify(token, config.JWT_SECRET);
+      const decoded = jwt.verify(token, Env_Configuration.JWT_SECRET);
 
       console.log(
         `🔑 Socket authentication attempt for user ID: ${decoded.id}, role: ${decoded.role}`

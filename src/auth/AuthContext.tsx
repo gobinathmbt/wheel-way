@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
+import { BASE_URL } from '@/lib/config';
 
 interface S3Config {
   bucket: string;
@@ -103,7 +104,7 @@ export const useAuth = () => {
 };
 
 // Set default axios base URL
-axios.defaults.baseURL = "http://localhost:5000";
+axios.defaults.baseURL = BASE_URL;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,

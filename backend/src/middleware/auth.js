@@ -2,7 +2,7 @@
 const jwt = require('jsonwebtoken');
 const MasterAdmin = require('../models/MasterAdmin');
 const User = require('../models/User');
-const config = require('../config/env');
+const Env_Configuration = require('../config/env');
 
 // Protect routes - authenticate user
 const protect = async (req, res, next) => {
@@ -22,7 +22,7 @@ const protect = async (req, res, next) => {
     }
 
     // Verify token
-    const decoded = jwt.verify(token, config.JWT_SECRET);
+    const decoded = jwt.verify(token, Env_Configuration.JWT_SECRET);
 
     // Find user based on role
     let user;

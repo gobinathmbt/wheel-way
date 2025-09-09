@@ -7,7 +7,7 @@ const {
   submitSupplierResponse,
   getSupplierProfile
 } = require('../controllers/supplierAuth.controller');
-const config = require('../config/env');
+const Env_Configuration = require('../config/env');
 
 const router = express.Router();
 
@@ -27,7 +27,7 @@ const protectSupplier = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, config.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, Env_Configuration.JWT_SECRET || 'your-secret-key');
     req.supplier = decoded;
     next();
   } catch (error) {

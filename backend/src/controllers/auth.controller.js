@@ -6,7 +6,7 @@ const Company = require("../models/Company");
 const Subscription = require("../models/Subscriptions");
 const mailService = require("../config/mailer");
 const { logEvent } = require("./logs.controller");
-const config = require("../config/env");
+const Env_Configuration = require("../config/env");
 const { type } = require("os");
 
 // Generate JWT Token
@@ -18,8 +18,8 @@ const generateToken = (user) => {
       role: user.role,
       company_id: user.company_id,
     },
-    config.JWT_SECRET,
-    { expiresIn: config.JWT_EXPIRE }
+    Env_Configuration.JWT_SECRET,
+    { expiresIn: Env_Configuration.JWT_EXPIRE }
   );
 };
 

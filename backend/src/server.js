@@ -4,9 +4,10 @@ const connectDB = require('./config/db');
 const { startQueueConsumer } = require('./controllers/sqs.controller');
 const { initializeSocket } = require('./controllers/socket.controller');
 const { startSubscriptionCronJob } = require('./jobs/subscriptionCron');
-require('./config/env');
+const Env_Configuration =require('./config/env');
 
-const PORT = process.env.PORT || 5000;
+
+const PORT = Env_Configuration.PORT;
 
 // Connect to MongoDB
 connectDB();
@@ -26,9 +27,9 @@ startSubscriptionCronJob();
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV}`);
-  console.log(`🔗 Database: ${process.env.MONGODB_URI ? 'Connected' : 'Not configured'}`);
-  console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:8080'}`);
+  console.log(`📊 Environment: ${Env_Configuration.NODE_ENV}`);
+  console.log(`🔗 Database: ${Env_Configuration.MONGODB_URI ? 'Connected' : 'Not configured'}`);
+  console.log(`🌐 Frontend URL: ${Env_Configuration.FRONTEND_URL || 'http://localhost:8080'}`);
   console.log(`🔌 Socket.io server initialized and available at http://localhost:${PORT}`);
 });
 

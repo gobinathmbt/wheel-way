@@ -9,6 +9,8 @@ import { Car, Building, Mail, Phone, MapPin, Eye, EyeOff, Loader2 } from 'lucide
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import axios from 'axios';
+import { BASE_URL } from '@/lib/config';
+
 
 const RegisterCompany = () => {
   const [formData, setFormData] = useState({
@@ -50,7 +52,7 @@ const RegisterCompany = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/register-company', {
+      const response = await axios.post(`${BASE_URL}/api/auth/register-company`, {
         company_name: formData.company_name,
         contact_person: formData.contact_person,
         email: formData.email,

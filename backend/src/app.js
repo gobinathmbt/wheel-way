@@ -8,6 +8,8 @@ const xss = require('xss-clean');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 const { startSubscriptionCronJob } = require('./jobs/subscriptionCron');
+const mongoose = require('mongoose');
+
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -115,6 +117,108 @@ app.use('/api/supplier-auth', supplierAuthRoutes);
 app.use('/api/supplier-dashboard', supplierDashboardRoutes);
 app.use('/api/dealership', dealershipRoutes);
 app.use('/api/master-inspection', masterInspectionRoutes);
+
+app.get('/api/health', async (req, res) => {
+  try {
+    const healthCheck = {
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      services: {}
+    };
+
+    // Check MongoDB connection
+    try {
+      const dbState = mongoose.connection.readyState;
+      healthCheck.services.database = {
+        status: dbState === 1 ? 'connected' : 'disconnected',
+        state: dbState,
+        stateName: getMongoDBStateName(dbState)
+      };
+
+      // Test a simple query if connected
+      if (dbState === 1) {
+        const User = require('./models/User');
+        const GlobalLog = require('./models/GlobalLog');
+        
+        const userCount = await User.countDocuments();
+        const logCount = await GlobalLog.countDocuments();
+        healthCheck.services.database.userCount = userCount;
+        healthCheck.services.database.logCount = logCount;
+      }
+    } catch (dbError) {
+      healthCheck.services.database = {
+        status: 'error',
+        error: dbError.message
+      };
+    }
+
+    // Add other service checks
+    healthCheck.services.redis = { status: 'not_implemented' };
+    healthCheck.services.sqs = { status: 'not_implemented' };
+
+    // Overall status
+    const allServicesHealthy = Object.values(healthCheck.services).every(
+      service => service.status === 'connected' || service.status === 'not_implemented'
+    );
+
+    if (!allServicesHealthy) {
+      healthCheck.status = 'degraded';
+      return res.status(503).json(healthCheck);
+    }
+
+    res.status(200).json(healthCheck);
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: 'Internal server error during health check'
+    });
+  }
+});
+
+// Simple health check
+app.get('/api/health/simple', (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const isDbConnected = dbState === 1;
+
+  res.status(isDbConnected ? 200 : 503).json({
+    status: isDbConnected ? 'OK' : 'degraded',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    database: {
+      connected: isDbConnected,
+      state: dbState,
+      stateName: getMongoDBStateName(dbState)
+    }
+  });
+});
+
+// Basic health check for load balancers
+app.get('/api/health/basic', (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const isDbConnected = dbState === 1;
+  
+  if (isDbConnected) {
+    res.status(200).send('OK');
+  } else {
+    res.status(503).send('Service Unavailable');
+  }
+});
+
+// Helper function to get MongoDB connection state name
+function getMongoDBStateName(state) {
+  const states = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting',
+    99: 'uninitialized'
+  };
+  return states[state] || 'unknown';
+}
 
 // 404 handler
 app.use('*', (req, res) => {

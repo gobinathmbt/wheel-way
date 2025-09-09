@@ -1,20 +1,20 @@
 
 const mongoose = require('mongoose');
-const config = require('./env');
+const Env_Configuration = require('./env');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(config.MONGODB_URI, {
+    const conn = await mongoose.connect(Env_Configuration.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
 
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    console.log(`✅ MongoDB Connected: ${Env_Configuration.DB_PORT}`);
   } catch (error) {
     console.error(`❌ Database connection error: ${error.message}`);
     
     // Exit process with failure
-    if (config.NODE_ENV === 'production') {
+    if (Env_Configuration.NODE_ENV === 'production') {
       process.exit(1);
     }
   }

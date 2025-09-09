@@ -1,5 +1,6 @@
 // socket.ts - Enhanced with proper connection handling
 import { io, Socket } from "socket.io-client";
+import { BASE_URL } from '@/lib/config';
 
 interface UserStatus {
   user_id: string;
@@ -41,8 +42,7 @@ class SocketService {
     if (process.env.NODE_ENV === 'production') {
       return window.location.origin;
     } else {
-      // In development, explicitly use localhost:5000
-      return 'http://localhost:5000';
+      return BASE_URL;
     }
   }
 
