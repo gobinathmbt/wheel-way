@@ -297,9 +297,11 @@ const InspectionList = () => {
                     {vehicles.map((vehicle: any, index: number) => (
                       <TableRow key={vehicle._id}>
                         <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                            <TableCell>
+                        <TableCell>
                           <div>
-                            <p className="font-medium">{vehicle.vehicle_stock_id}</p>
+                            <p className="font-medium">
+                              {vehicle.vehicle_stock_id}
+                            </p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -337,30 +339,28 @@ const InspectionList = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                          
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleViewDetails(vehicle.vehicle_stock_id)
+                              }
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+
+                            {vehicle.inspection_status === "pending" && (
                               <Button
-                                variant="ghost"
                                 size="sm"
                                 onClick={() =>
-                                  handleViewDetails(vehicle.vehicle_stock_id)
+                                  handleStartInspection(
+                                    vehicle.vehicle_stock_id
+                                  )
                                 }
                               >
-                                <Eye className="h-4 w-4" />
+                                Start Inspection
                               </Button>
-                           
-                            {vehicle.inspection_status === "pending" &&
-                          (
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    handleStartInspection(
-                                      vehicle.vehicle_stock_id
-                                    )
-                                  }
-                                >
-                                  Start Inspection
-                                </Button>
-                              )}
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -424,6 +424,7 @@ const InspectionList = () => {
         isOpen={!!selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
         onUpdate={refetch}
+        vehicleType="inspection"
       />
 
       {/* Create Vehicle Stock Modal */}

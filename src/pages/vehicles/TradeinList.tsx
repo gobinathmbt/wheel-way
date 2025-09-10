@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
@@ -94,7 +93,9 @@ const TradeinList = () => {
       if (searchTerm) params.append("search", searchTerm);
       if (statusFilter !== "all") params.append("status", statusFilter);
 
-      const response = await vehicleServices.getVehicleStock({ ...Object.fromEntries(params) });
+      const response = await vehicleServices.getVehicleStock({
+        ...Object.fromEntries(params),
+      });
       return response.data;
     },
   });
@@ -102,11 +103,7 @@ const TradeinList = () => {
   const vehicles = vehiclesData?.data || [];
   const totalPages = Math.ceil((vehiclesData?.total || 0) / limit);
 
-
-
   const handleStartAppraisal = async (vehicleId: string) => {
-
-
     try {
       await tradeinServices.startAppraisal(vehicleId);
       toast.success("Trade-in appraisal started successfully");
@@ -117,8 +114,6 @@ const TradeinList = () => {
   };
 
   const handleViewDetails = async (vehicleId: string) => {
-
-
     try {
       const response = await vehicleServices.getVehicleDetail(vehicleId);
       setSelectedVehicle(response.data.data);
@@ -173,38 +168,32 @@ const TradeinList = () => {
           </div>
 
           <div className="flex space-x-2">
-        
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline"
-                      onClick={() => setShowCreateModal(true)}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Vehicle Stock
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Create Vehicle Stock (same for Import and Export)</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-         
-            
-          
-              <Button variant="outline">
-                <Upload className="h-4 w-4 mr-2" />
-                Import Vehicles
-              </Button>
-        
-            
-         
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export Report
-              </Button>
-        
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowCreateModal(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Vehicle Stock
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Create Vehicle Stock (same for Import and Export)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <Button variant="outline">
+              <Upload className="h-4 w-4 mr-2" />
+              Import Vehicles
+            </Button>
+
+            <Button variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Export Report
+            </Button>
           </div>
         </div>
 
@@ -233,7 +222,10 @@ const TradeinList = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {vehicles.filter((v: any) => v.tradein_status === "pending").length}
+                {
+                  vehicles.filter((v: any) => v.tradein_status === "pending")
+                    .length
+                }
               </div>
               <p className="text-xs text-muted-foreground">
                 Awaiting appraisal
@@ -248,8 +240,9 @@ const TradeinList = () => {
             <CardContent>
               <div className="text-2xl font-bold">
                 {
-                  vehicles.filter((v: any) => v.tradein_status === "in_progress")
-                    .length
+                  vehicles.filter(
+                    (v: any) => v.tradein_status === "in_progress"
+                  ).length
                 }
               </div>
               <p className="text-xs text-muted-foreground">Being evaluated</p>
@@ -329,7 +322,7 @@ const TradeinList = () => {
                     {vehicles.map((vehicle: any, index: number) => (
                       <TableRow key={vehicle._id}>
                         <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                         <TableCell>
+                        <TableCell>
                           <div>
                             <p className="font-medium">
                               {vehicle.vehicle_stock_id}
@@ -353,14 +346,13 @@ const TradeinList = () => {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium">
-                              {vehicle.plate_no}
-                            </p>
+                            <p className="font-medium">{vehicle.plate_no}</p>
                           </div>
                         </TableCell>
                         <TableCell>{vehicle.year}</TableCell>
                         <TableCell>
-                          {vehicle.vehicle_odometer?.[0]?.reading?.toLocaleString()} km
+                          {vehicle.vehicle_odometer?.[0]?.reading?.toLocaleString()}{" "}
+                          km
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -372,28 +364,26 @@ const TradeinList = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                    
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleViewDetails(vehicle.vehicle_stock_id)
+                              }
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+
+                            {vehicle.tradein_status === "pending" && (
                               <Button
-                                variant="ghost"
                                 size="sm"
                                 onClick={() =>
-                                  handleViewDetails(vehicle.vehicle_stock_id)
+                                  handleStartAppraisal(vehicle.vehicle_stock_id)
                                 }
                               >
-                                <Eye className="h-4 w-4" />
+                                Start Appraisal
                               </Button>
-                 
-                            {vehicle.tradein_status === "pending" &&
-                           (
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    handleStartAppraisal(vehicle.vehicle_stock_id)
-                                  }
-                                >
-                                  Start Appraisal
-                                </Button>
-                              )}
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -408,27 +398,38 @@ const TradeinList = () => {
                       <PaginationItem>
                         <PaginationPrevious
                           onClick={() => page > 1 && setPage(page - 1)}
-                          className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          className={
+                            page <= 1
+                              ? "pointer-events-none opacity-50"
+                              : "cursor-pointer"
+                          }
                         />
                       </PaginationItem>
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        const pageNumber = i + 1;
-                        return (
-                          <PaginationItem key={pageNumber}>
-                            <PaginationLink
-                              onClick={() => setPage(pageNumber)}
-                              isActive={page === pageNumber}
-                              className="cursor-pointer"
-                            >
-                              {pageNumber}
-                            </PaginationLink>
-                          </PaginationItem>
-                        );
-                      })}
+                      {Array.from(
+                        { length: Math.min(5, totalPages) },
+                        (_, i) => {
+                          const pageNumber = i + 1;
+                          return (
+                            <PaginationItem key={pageNumber}>
+                              <PaginationLink
+                                onClick={() => setPage(pageNumber)}
+                                isActive={page === pageNumber}
+                                className="cursor-pointer"
+                              >
+                                {pageNumber}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        }
+                      )}
                       <PaginationItem>
                         <PaginationNext
                           onClick={() => page < totalPages && setPage(page + 1)}
-                          className={page >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          className={
+                            page >= totalPages
+                              ? "pointer-events-none opacity-50"
+                              : "cursor-pointer"
+                          }
                         />
                       </PaginationItem>
                     </PaginationContent>
@@ -446,10 +447,11 @@ const TradeinList = () => {
         isOpen={!!selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
         onUpdate={refetch}
+        vehicleType="tradein"
       />
 
       {/* Create Vehicle Stock Modal */}
-       <CreateVehicleStockModal
+      <CreateVehicleStockModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}

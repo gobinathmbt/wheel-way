@@ -34,10 +34,7 @@ import {
 import { Eye, Download, Upload, Calendar, Car, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import {
-  masterVehicleServices,
-  authServices,
-} from "@/api/services";
+import { masterVehicleServices, authServices } from "@/api/services";
 import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
 import VehicleDetailSideModal from "@/components/vehicles/VehicleDetailSideModal";
 import CreateVehicleStockModal from "@/components/vehicles/CreateVehicleStockModal";
@@ -193,10 +190,7 @@ const MasterVehicleList = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {
-                  vehicles.filter((v: any) => v.status === "pending")
-                    .length
-                }
+                {vehicles.filter((v: any) => v.status === "pending").length}
               </div>
               <p className="text-xs text-muted-foreground">
                 Awaiting processing
@@ -210,11 +204,7 @@ const MasterVehicleList = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {
-                  vehicles.filter(
-                    (v: any) => v.status === "processing"
-                  ).length
-                }
+                {vehicles.filter((v: any) => v.status === "processing").length}
               </div>
               <p className="text-xs text-muted-foreground">Being processed</p>
             </CardContent>
@@ -226,11 +216,7 @@ const MasterVehicleList = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {
-                  vehicles.filter(
-                    (v: any) => v.status === "completed"
-                  ).length
-                }
+                {vehicles.filter((v: any) => v.status === "completed").length}
               </div>
               <p className="text-xs text-muted-foreground">This month</p>
             </CardContent>
@@ -278,9 +264,11 @@ const MasterVehicleList = () => {
                     {vehicles.map((vehicle: any, index: number) => (
                       <TableRow key={vehicle._id}>
                         <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                            <TableCell>
+                        <TableCell>
                           <div>
-                            <p className="font-medium">{vehicle.vehicle_stock_id}</p>
+                            <p className="font-medium">
+                              {vehicle.vehicle_stock_id}
+                            </p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -309,24 +297,21 @@ const MasterVehicleList = () => {
                           km
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={getStatusColor(vehicle.status)}
-                          >
-                            {vehicle.status?.replace("_", " ") ||
-                              "Pending"}
+                          <Badge variant={getStatusColor(vehicle.status)}>
+                            {vehicle.status?.replace("_", " ") || "Pending"}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  handleViewDetails(vehicle.vehicle_stock_id)
-                                }
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleViewDetails(vehicle.vehicle_stock_id)
+                              }
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -390,6 +375,7 @@ const MasterVehicleList = () => {
         isOpen={!!selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
         onUpdate={refetch}
+        vehicleType="master"
       />
 
       {/* Create Vehicle Stock Modal */}
