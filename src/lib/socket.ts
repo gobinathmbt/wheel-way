@@ -1,6 +1,6 @@
 // socket.ts - Enhanced with proper connection handling
 import { io, Socket } from "socket.io-client";
-import { BASE_URL } from '@/lib/config';
+import { BASE_URL } from "@/lib/config";
 
 interface UserStatus {
   user_id: string;
@@ -38,12 +38,7 @@ class SocketService {
   }
 
   private getSocketUrl(): string {
-    // Always use the same host but ensure correct protocol and port
-    if (process.env.NODE_ENV === 'production') {
-      return window.location.origin;
-    } else {
-      return BASE_URL;
-    }
+    return BASE_URL;
   }
 
   public connect(): Promise<void> {
@@ -69,8 +64,10 @@ class SocketService {
       }
 
       this.isConnecting = true;
-      const token = sessionStorage.getItem("token") || sessionStorage.getItem("supplier_token");
-      
+      const token =
+        sessionStorage.getItem("token") ||
+        sessionStorage.getItem("supplier_token");
+
       if (!token) {
         this.isConnecting = false;
         reject(new Error("No auth token found"));
@@ -82,25 +79,30 @@ class SocketService {
 
       // First, let's test if the server is responding
       fetch(`${socketUrl}/socket/health`)
-        .then(response => {
+        .then((response) => {
           if (!response.ok) {
             throw new Error(`Server health check failed: ${response.status}`);
           }
           return response.json();
         })
         .then(() => {
-          console.log('✅ Server health check passed, initializing socket...');
+          console.log("✅ Server health check passed, initializing socket...");
           this.initializeSocket(socketUrl, token, resolve, reject);
         })
-        .catch(error => {
-          console.error('❌ Server health check failed:', error);
+        .catch((error) => {
+          console.error("❌ Server health check failed:", error);
           // Try to connect anyway
           this.initializeSocket(socketUrl, token, resolve, reject);
         });
     });
   }
 
-  private initializeSocket(socketUrl: string, token: string, resolve: () => void, reject: (error: Error) => void): void {
+  private initializeSocket(
+    socketUrl: string,
+    token: string,
+    resolve: () => void,
+    reject: (error: Error) => void
+  ): void {
     this.socket = io(socketUrl, {
       auth: {
         token,
@@ -113,7 +115,7 @@ class SocketService {
       timeout: 20000, // Increased timeout
       forceNew: true,
       upgrade: true,
-      autoConnect: true
+      autoConnect: true,
     });
 
     // Set up event handlers
@@ -121,7 +123,7 @@ class SocketService {
       console.log("✅ Connected to socket server");
       console.log(`📡 Socket ID: ${this.socket?.id}`);
       console.log(`🚀 Transport: ${this.socket?.io.engine?.transport?.name}`);
-      
+
       this.reconnectAttempts = 0;
       this.isConnecting = false;
       resolve();
@@ -342,12 +344,12 @@ class SocketService {
     if (this.socket && this.socket.connected) {
       console.log("🧪 Testing socket connection...");
       this.socket.emit("ping", { timestamp: Date.now() });
-      
+
       // Listen for pong response
       this.socket.once("pong", (data) => {
         console.log("🏓 Socket connection test successful:", data);
       });
-      
+
       // Timeout for test
       setTimeout(() => {
         console.warn("⏰ Socket connection test timeout");
