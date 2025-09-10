@@ -34,7 +34,7 @@ const PdfReportGenerator: React.FC<PdfReportGeneratorProps> = ({
   const [uploading, setUploading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
-  const generatePdf = async () => {
+const generatePdf = async () => {
     setGenerating(true);
     
     try {
@@ -188,28 +188,34 @@ if (vehicle) {
           
           currentY += 10;
           
-          // Field value
-          const formattedValue = formatValue(field, value);
-          pdf.setFontSize(9);
-          pdf.setFont('helvetica', 'normal');
-          pdf.setTextColor(71, 85, 105);
-          currentY = addWrappedText(`Value: ${formattedValue}`, margin + 5, currentY, contentWidth - 10, 9);
-          
-          // Special handling for multiplier fields
+          // Field value - Special handling for multiplier fields
           if (field.field_type === 'multiplier' && typeof value === 'object' && value !== null) {
-            pdf.setFontSize(8);
+            // For multiplier fields, show "Value:" label and then details on separate lines
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(71, 85, 105);
+            pdf.text('Value:', margin + 5, currentY);
+            currentY += 5;
+            
+            // Show multiplier details with proper formatting
+            pdf.setFontSize(9);
             pdf.setTextColor(71, 85, 105);
             
-            const multiplierDetails = [
-              `Quantity: ${value.quantity || 0}`,
-              `Price: $${value.price || 0}`,
-              `Total: $${value.total || 0}`
-            ];
+            pdf.text(`Quantity: ${value.quantity || 0}`, margin + 10, currentY);
+            currentY += 5;
             
-            multiplierDetails.forEach((detail, idx) => {
-              pdf.text(detail, margin + 10, currentY);
-              currentY += 4;
-            });
+            pdf.text(`Price: $${value.price || 0}`, margin + 10, currentY);
+            currentY += 5;
+            
+            pdf.text(`Total: $${value.total || 0}`, margin + 10, currentY);
+            currentY += 5;
+          } else {
+            // For other field types, use the regular formatting
+            const formattedValue = formatValue(field, value);
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(71, 85, 105);
+            currentY = addWrappedText(`Value: ${formattedValue}`, margin + 5, currentY, contentWidth - 10, 9);
           }
           
         // Notes
@@ -454,6 +460,8 @@ if (notes) {
         return value;
       
       case 'multiplier':
+        // This case is now handled separately in the processFields function
+        // But keeping this for fallback
         if (typeof value === 'object' && value !== null) {
           return `Quantity: ${value.quantity || 0}, Price: $${value.price || 0}, Total: $${value.total || 0}`;
         }
@@ -466,7 +474,6 @@ if (notes) {
         return typeof value === 'object' ? JSON.stringify(value) : value;
     }
   };
-
   const getDropdownById = (dropdownId: any) => {
     if (!config?.dropdowns) return null;
     const id = typeof dropdownId === 'object' ? dropdownId._id || dropdownId.$oid : dropdownId;
