@@ -221,6 +221,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           path: "/master/maintenance",
         },
         { icon: FileText, label: "Global Logs", path: "/master/global-logs" },
+        { icon: Database, label: "Vehicle MetaData", path: "/master/vehicle-metadata" },
         { icon: Settings, label: "Settings", path: "/master/settings" },
       ];
     }

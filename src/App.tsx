@@ -24,6 +24,7 @@ import MasterDropdownMaster from "./pages/master_admin/DropdownMaster";
 import CustomModuleConfig from "./pages/master_admin/CustomModuleConfig";
 import WebsiteMaintenance from "./pages/master_admin/WebsiteMaintenance";
 import GlobalLogs from "./pages/master_admin/GlobalLogs";
+import VehicleMetadata from "./pages/master_admin/VehicleMetadata";
 
 // Company Pages  
 import CompanyDashboard from "./pages/company/Dashboard";
@@ -123,7 +124,12 @@ const App = () => (
                 <WebsiteMaintenance />
               </ProtectedRoute>
             } />
-                <Route path="/master/settings" element={
+            <Route path="/master/vehicle-metadata" element={
+              <ProtectedRoute allowedRoles={['master_admin']}>
+                <VehicleMetadata />
+              </ProtectedRoute>
+            } />
+            <Route path="/master/settings" element={
               <ProtectedRoute allowedRoles={['master_admin']}>
                 <MasterSettings />
               </ProtectedRoute>

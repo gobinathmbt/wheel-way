@@ -32,6 +32,7 @@ const masterInspectionRoutes = require("./routes/masterInspection.routes");
 const logsRoutes = require("./routes/logs.routes");
 const subscriptionRoutes = require("./routes/subscription.routes");
 const customModuleRoutes = require("./routes/customModule.routes");
+const vehicleMetadataRoutes = require("./routes/vehicleMetadata.routes");
 
 const errorHandler = require("./middleware/error");
 const { logRequest } = require("./controllers/logs.controller");
@@ -64,7 +65,7 @@ app.use(cors());
 // app.use(limiter);
 
 // Body parsing middleware
-app.use(express.json({ limit: "50mb" }));
+app.use(express.json({ limit: "500mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // Data sanitization
@@ -123,6 +124,7 @@ app.use("/api/supplier-dashboard", supplierDashboardRoutes);
 app.use("/api/dealership", dealershipRoutes);
 app.use("/api/master-inspection", masterInspectionRoutes);
 app.use("/api/master/custom-modules", customModuleRoutes);
+app.use("/api/master/vehicle-metadata", vehicleMetadataRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {

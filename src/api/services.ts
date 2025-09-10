@@ -114,6 +114,98 @@ export const masterServices = {
   getPublicMaintenanceSettings: () => apiClient.get("/api/master/maintenance/public"),
 };
 
+// Vehicle Metadata Services
+export const vehicleMetadataServices = {
+  // Makes
+  getMakes: (params?: any) => 
+    apiClient.get("/api/master/vehicle-metadata/makes", { params }),
+  
+  addMake: (data: any) => 
+    apiClient.post("/api/master/vehicle-metadata/makes", data),
+  
+  updateMake: (id: string, data: any) => 
+    apiClient.put(`/api/master/vehicle-metadata/makes/${id}`, data),
+  
+  deleteMake: (id: string) => 
+    apiClient.delete(`/api/master/vehicle-metadata/makes/${id}`),
+
+  // Models
+  getModelsByMake: (makeId: string, params?: any) => 
+    apiClient.get(`/api/master/vehicle-metadata/makes/${makeId}/models`, { params }),
+  
+  addModel: (data: any) => 
+    apiClient.post("/api/master/vehicle-metadata/models", data),
+  
+  updateModel: (id: string, data: any) => 
+    apiClient.put(`/api/master/vehicle-metadata/models/${id}`, data),
+  
+  deleteModel: (id: string) => 
+    apiClient.delete(`/api/master/vehicle-metadata/models/${id}`),
+
+  // Bodies
+  getBodies: (params?: any) => 
+    apiClient.get("/api/master/vehicle-metadata/bodies", { params }),
+  
+  addBody: (data: any) => 
+    apiClient.post("/api/master/vehicle-metadata/bodies", data),
+  
+  updateBody: (id: string, data: any) => 
+    apiClient.put(`/api/master/vehicle-metadata/bodies/${id}`, data),
+  
+  deleteBody: (id: string) => 
+    apiClient.delete(`/api/master/vehicle-metadata/bodies/${id}`),
+
+  // Variant Years
+  getVariantYears: (params?: any) => 
+    apiClient.get("/api/master/vehicle-metadata/variant-years", { params }),
+  
+  addVariantYear: (data: any) => 
+    apiClient.post("/api/master/vehicle-metadata/variant-years", data),
+  
+  updateVariantYear: (id: string, data: any) => 
+    apiClient.put(`/api/master/vehicle-metadata/variant-years/${id}`, data),
+  
+  deleteVariantYear: (id: string) => 
+    apiClient.delete(`/api/master/vehicle-metadata/variant-years/${id}`),
+
+  // Vehicle Metadata
+  getVehicleMetadata: (params?: any) => 
+    apiClient.get("/api/master/vehicle-metadata/metadata", { params }),
+  
+  addVehicleMetadata: (data: any) => 
+    apiClient.post("/api/master/vehicle-metadata/metadata", data),
+  
+  updateVehicleMetadata: (id: string, data: any) => 
+    apiClient.put(`/api/master/vehicle-metadata/metadata/${id}`, data),
+  
+  deleteVehicleMetadata: (id: string) => 
+    apiClient.delete(`/api/master/vehicle-metadata/metadata/${id}`),
+
+  // Dropdown data
+  getDropdownData: (type: string, params?: any) => 
+    apiClient.get("/api/master/vehicle-metadata/dropdown-data", { params: { type, ...params } }),
+
+  // Upload JSON (Legacy)
+  uploadJsonMetadata: (data: any) => 
+    apiClient.post("/api/master/vehicle-metadata/upload-json", data),
+
+  // Optimized bulk operations
+  bulkUploadMetadata: (data: any) => 
+    apiClient.post("/api/master/vehicle-metadata/bulk-upload", data),
+  
+  parseUploadedFile: (data: any) => 
+    apiClient.post("/api/master/vehicle-metadata/parse-file", data),
+  
+  getSchemaFields: () => 
+    apiClient.get("/api/master/vehicle-metadata/schema-fields"),
+  
+  searchAdvanced: (params?: any) => 
+    apiClient.get("/api/master/vehicle-metadata/search-advanced", { params }),
+  
+  getUploadBatches: () => 
+    apiClient.get("/api/master/vehicle-metadata/upload-batches")
+};
+
 // Custom Module Services
 export const customModuleServices = {
   getCustomModuleConfigs: (params?: any) =>
