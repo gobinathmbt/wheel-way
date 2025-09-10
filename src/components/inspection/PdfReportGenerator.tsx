@@ -53,7 +53,7 @@ const PdfReportGenerator: React.FC<PdfReportGeneratorProps> = ({
         pdf.setFontSize(18);
         pdf.setFont('helvetica', 'bold');
         pdf.setTextColor(30, 41, 59);
-        pdf.text('Vehicle Inspection Report', pageWidth / 2, 15, { align: 'center' });
+        pdf.text('Vehicle ERP', pageWidth / 2, 15, { align: 'center' });
         
         pdf.setFontSize(10);
         pdf.setFont('helvetica', 'normal');
@@ -124,35 +124,42 @@ const PdfReportGenerator: React.FC<PdfReportGeneratorProps> = ({
       addHeader(1);
       currentY = 35;
 
-      // Vehicle Information Header
-      if (vehicle) {
-        pdf.setFillColor(239, 246, 255);
-        pdf.rect(margin, currentY - 5, contentWidth, 30, 'F');
-        
-        pdf.setFontSize(14);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(30, 64, 175);
-        pdf.text('Vehicle Information', margin + 5, currentY + 5);
-        
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(51, 65, 85);
-        
-        const vehicleInfo = [
-          `Stock ID: ${vehicle.vehicle_stock_id}`,
-          `Make/Model: ${vehicle.make} ${vehicle.model}`,
-          `Year: ${vehicle.year}`,
-          `VIN: ${vehicle.vin || 'N/A'}`
-        ];
-        
-        vehicleInfo.forEach((info, index) => {
-          const xPos = margin + 5 + (index % 2) * (contentWidth / 2);
-          const yPos = currentY + 10 + Math.floor(index / 2) * 5;
-          pdf.text(info, xPos, yPos);
-        });
-        
-        currentY += 35;
-      }
+     // Vehicle Information Header
+if (vehicle) {
+  pdf.setFillColor(239, 246, 255);
+  pdf.rect(margin, currentY - 5, contentWidth, 30, 'F');
+
+  pdf.setFontSize(14);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(30, 64, 175);
+  pdf.text('Vehicle Information', margin + 5, currentY + 5);
+
+  pdf.setFontSize(10);
+  pdf.setTextColor(51, 65, 85);
+
+  const vehicleInfo = [
+    { label: 'Stock ID:', value: vehicle.vehicle_stock_id },
+    { label: 'Make/Model:', value: `${vehicle.make} ${vehicle.model}` },
+    { label: 'Year:', value: vehicle.year },
+    { label: 'VIN:', value: vehicle.vin || 'N/A' }
+  ];
+
+  vehicleInfo.forEach((info, index) => {
+    const xPos = margin + 5 + (index % 2) * (contentWidth / 2);
+    const yPos = currentY + 15 + Math.floor(index / 2) * 6;
+
+    // Label in bold
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(info.label, xPos, yPos);
+
+    // Value in normal font (right after label)
+    const labelWidth = pdf.getTextWidth(info.label) + 2;
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(String(info.value), xPos + labelWidth, yPos);
+  });
+
+  currentY += 35;
+}
 
       // Process data based on vehicle type
       const processFields = async (fields: any[], formData: any, formNotes: any, formImages: any, formVideos: any) => {
@@ -207,24 +214,28 @@ const PdfReportGenerator: React.FC<PdfReportGeneratorProps> = ({
             });
           }
           
-          // Notes
-          if (notes) {
-            checkPageBreak(10);
-            pdf.setFillColor(254, 252, 232);
-            pdf.setDrawColor(234, 179, 8);
-            pdf.rect(margin + 5, currentY - 2, contentWidth - 10, 8, 'FD');
-            pdf.setFontSize(8);
-            pdf.setFont('helvetica', 'bold');
-            pdf.setTextColor(161, 98, 7);
-            pdf.text('Notes:', margin + 8, currentY + 4);
-            
-            // Add notes content with proper alignment
-            pdf.setFont('helvetica', 'normal');
-            pdf.setTextColor(71, 85, 105);
-            currentY = addWrappedText(notes, margin + 8, currentY + 8, contentWidth - 16, 8, 'normal', 0.35);
-            currentY += 2;
-          }
-          
+        // Notes
+if (notes) {
+  checkPageBreak(10);
+
+  pdf.setFontSize(8);
+
+  // Label
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(161, 98, 7);
+  const label = "Notes:";
+  pdf.text(label, margin + 8, currentY + 4);
+
+  // Measure width of label
+  const labelWidth = pdf.getTextWidth(label + " ");
+
+  // Value (right after colon)
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(71, 85, 105);
+  pdf.text(notes, margin + 8 + labelWidth, currentY + 4);
+
+  currentY += 10;
+}
           // Images
           if (images.length > 0) {
             checkPageBreak(10);
@@ -478,7 +489,7 @@ const PdfReportGenerator: React.FC<PdfReportGeneratorProps> = ({
         <DialogHeader className="px-6 py-4 border-b flex flex-row items-center justify-between bg-gradient-to-r from-primary/5 to-blue-50">
           <DialogTitle className="flex items-center space-x-2">
             <FileText className="h-5 w-5 text-primary" />
-            <span className="text-primary">Generate Inspection Report</span>
+            <span className="text-primary">Generate Vehicle ERP Report</span>
           </DialogTitle>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -526,7 +537,7 @@ const PdfReportGenerator: React.FC<PdfReportGeneratorProps> = ({
                     <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center">
                       <Car className="h-8 w-8 text-primary" />
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-900">Vehicle Inspection Report</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">Vehicle ERP</h1>
                     <h2 className="text-xl text-primary mt-2">{config?.config_name}</h2>
                     
                     {vehicle && (
