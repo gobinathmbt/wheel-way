@@ -18,7 +18,10 @@ const getVehicleStock = async (req, res) => {
     const { page = 1, limit = 20, search, vehicle_type, status } = req.query;
 
     const skip = (page - 1) * limit;
+    const numericLimit = parseInt(limit);
+    const numericPage = parseInt(page);
 
+    // Build filter with company_id first for index usage
     let filter = { company_id: req.user.company_id };
 
     if (vehicle_type) {
@@ -29,32 +32,47 @@ const getVehicleStock = async (req, res) => {
       filter.status = status;
     }
 
+    // Use text search if available, otherwise use regex fallback
     if (search) {
-      filter.$or = [
-        { make: { $regex: search, $options: "i" } },
-        { model: { $regex: search, $options: "i" } },
-        { plate_no: { $regex: search, $options: "i" } },
-        { vin: { $regex: search, $options: "i" } },
-        { name: { $regex: search, $options: "i" } },
-      ];
+      if (search.trim().length > 0) {
+        filter.$text = { $search: search };
+      }
     }
 
-    const vehicles = await Vehicle.find(filter)
-      .sort({ created_at: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    // Define the fields to exclude (from vehicle_category to vehicle_odometer)
+    const excludedFields = {
+      inspection_result: 0,
+      trade_in_result: 0,
+      vehicle_other_details: 0,
+      vehicle_source: 0,
+      vehicle_registration: 0,
+      vehicle_import_details: 0,
+      vehicle_attachments: 0,
+      vehicle_eng_transmission: 0,
+      vehicle_specifications: 0,
+      vehicle_safety_features: 0,
+      vehicle_odometer: 0
+    };
 
-    const total = await Vehicle.countDocuments(filter);
+    // Use parallel execution for count and data retrieval
+    const [vehicles, total] = await Promise.all([
+      Vehicle.find(filter, excludedFields)
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(numericLimit)
+        .lean(), // Use lean for faster queries
+      Vehicle.countDocuments(filter)
+    ]);
 
     res.status(200).json({
       success: true,
       data: vehicles,
       total,
       pagination: {
-        current_page: parseInt(page),
-        total_pages: Math.ceil(total / limit),
+        current_page: numericPage,
+        total_pages: Math.ceil(total / numericLimit),
         total_records: total,
-        per_page: parseInt(limit),
+        per_page: numericLimit,
       },
     });
   } catch (error) {
@@ -132,7 +150,7 @@ const createVehicleStock = async (req, res) => {
     const lastVehicle = await Vehicle.findOne({ company_id: req.user.company_id })
       .sort({ vehicle_stock_id: -1 })
       .limit(1);
-    
+
     const nextStockId = lastVehicle ? lastVehicle.vehicle_stock_id + 1 : 1;
 
     // Check if VIN or plate number already exists for this company
@@ -144,8 +162,8 @@ const createVehicleStock = async (req, res) => {
     if (existingVehicle) {
       return res.status(400).json({
         success: false,
-        message: existingVehicle.vin === vin 
-          ? "A vehicle with this VIN already exists" 
+        message: existingVehicle.vin === vin
+          ? "A vehicle with this VIN already exists"
           : "A vehicle with this registration number already exists",
       });
     }
@@ -918,7 +936,7 @@ const deleteVehicleAttachment = async (req, res) => {
 const updateVehicleWorkshopStatus = async (req, res) => {
   try {
     const { is_workshop, workshop_progress } = req.body;
-    
+
     const vehicle = await Vehicle.findOneAndUpdate(
       { _id: req.params.id, company_id: req.user.company_id },
       { is_workshop, workshop_progress },
@@ -954,7 +972,7 @@ module.exports = {
   deleteVehicle,
   receiveVehicleData,
   processQueueManually,
-  
+
   // New section update exports
   updateVehicleOverview,
   updateVehicleGeneralInfo,

@@ -1,6 +1,4 @@
-
 const mongoose = require('mongoose');
-const { report } = require('process');
 
 const VehicleSchema = new mongoose.Schema({
   vehicle_stock_id: {
@@ -75,7 +73,7 @@ const VehicleSchema = new mongoose.Schema({
   },
   
   // Vehicle Other Details
-  vehicle_other_details: [{
+  vehicle_other_details: {
     status: String,
     trader_acquisition: String,
     odometer_certified: Boolean,
@@ -87,18 +85,18 @@ const VehicleSchema = new mongoose.Schema({
     retail_price: Number,
     sold_price: { type: Number, default: 0 },
     included_in_exports: { type: Boolean, default: true }
-  }],
+  },
     
   // Vehicle Source
-  vehicle_source: [{
+  vehicle_source: {
     supplier: String,
     purchase_date: Date,
     purchase_type: String,
     purchase_notes: String
-  }],
+  },
   
   // Vehicle Registration
-  vehicle_registration: [{
+  vehicle_registration: {
     registered_in_local: Boolean,
     year_first_registered_local: Number,
     re_registered: Boolean,
@@ -109,10 +107,10 @@ const VehicleSchema = new mongoose.Schema({
     road_user_charges_apply: Boolean,
     outstanding_road_user_charges: Boolean,
     ruc_end_distance: Number
-  }],
+  },
   
   // Vehicle Import Details
-  vehicle_import_details: [{
+  vehicle_import_details: {
     delivery_port: String,
     vessel_name: String,
     voyage: String,
@@ -120,7 +118,7 @@ const VehicleSchema = new mongoose.Schema({
     eta: Date,
     date_on_yard: Date,
     imported_as_damaged: Boolean
-  }],
+  },
   
   // Vehicle Attachments - Enhanced with S3 metadata
   vehicle_attachments: [{
@@ -156,7 +154,7 @@ const VehicleSchema = new mongoose.Schema({
   }],
 
   // Vehicle Engine & Transmission
-  vehicle_eng_transmission: [{
+  vehicle_eng_transmission: {
     engine_no: String,
     engine_type: String,
     transmission_type: String,
@@ -166,10 +164,10 @@ const VehicleSchema = new mongoose.Schema({
     engine_size: Number,
     engine_size_unit: String,
     engine_features: [String]
-  }],
+  },
   
   // Vehicle Specifications
-  vehicle_specifications: [{
+  vehicle_specifications: {
     number_of_seats: Number,
     number_of_doors: Number,
     interior_color: String,
@@ -183,12 +181,12 @@ const VehicleSchema = new mongoose.Schema({
     tyre_size: String,
     interior_features: [String],
     exterior_features: [String]
-  }],
+  },
   
   // Vehicle Safety Features
-  vehicle_safety_features: [{
+  vehicle_safety_features: {
     features: [String]
-  }],
+  },
   
   // Vehicle Odometer
   vehicle_odometer: [{
@@ -265,12 +263,32 @@ const VehicleSchema = new mongoose.Schema({
 // Compound index for vehicle_stock_id, company_id, and vehicle_type (unique combination)
 VehicleSchema.index({ vehicle_stock_id: 1, company_id: 1, vehicle_type: 1 }, { unique: true });
 
-// Other indexes for efficient queries
+// Indexes for efficient queries
 VehicleSchema.index({ company_id: 1, vehicle_type: 1, status: 1 });
+VehicleSchema.index({ company_id: 1, created_at: -1 });
+VehicleSchema.index({ company_id: 1, make: 1, model: 1 });
+VehicleSchema.index({ company_id: 1, plate_no: 1 });
+VehicleSchema.index({ company_id: 1, vin: 1 });
 VehicleSchema.index({ queue_status: 1 });
 VehicleSchema.index({ created_at: -1 });
-VehicleSchema.index({ vin: 1 });
-VehicleSchema.index({ plate_no: 1 });
+
+// Text index for search functionality
+VehicleSchema.index({
+  make: 'text',
+  model: 'text', 
+  plate_no: 'text',
+  vin: 'text',
+  name: 'text'
+}, {
+  weights: {
+    make: 5,
+    model: 5,
+    plate_no: 4,
+    vin: 4,
+    name: 3
+  },
+  name: 'vehicle_search_index'
+});
 
 // Auto-generate name if not provided
 VehicleSchema.pre('save', function(next) {
