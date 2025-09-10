@@ -210,7 +210,7 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
 
     try {
       // Split data into chunks for batch processing
-      const FRONTEND_BATCH_SIZE = 1000;
+      const FRONTEND_BATCH_SIZE = 100;
       const totalRecords = parsedData?.records.length || 0;
       let allResults = {
         processed: 0,
@@ -452,7 +452,7 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
               </span>
             </div>
             <p className="text-sm text-blue-800 dark:text-blue-200">
-              Large datasets are automatically processed in batches of 1,000 records to ensure optimal performance and prevent timeouts.
+              Large datasets are automatically processed in batches of 100 records to ensure optimal performance and prevent timeouts.
             </p>
           </div>
 
