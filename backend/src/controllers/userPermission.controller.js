@@ -140,7 +140,7 @@ const getUserModules = async (req, res) => {
     }
 
     // Only allow module management for company_admin users
-    if (user.role !== 'company_admin') {
+    if (user.role !== 'company_admin' && user.role !== 'company_super_admin') {
       return res.status(403).json({
         success: false,
         message: 'Module management is only available for company admin users'
@@ -182,7 +182,7 @@ const updateUserModules = async (req, res) => {
     }
 
     // Only allow module management for company_admin users
-    if (user.role !== 'company_admin') {
+    if (user.role !== 'company_admin' && user.role !== 'company_super_admin') {
       return res.status(403).json({
         success: false,
         message: 'Module management is only available for company admin users'
