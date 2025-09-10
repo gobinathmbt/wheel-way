@@ -41,7 +41,7 @@ const generatePdf = async () => {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 0;
+      const margin = 5;
       const contentWidth = pageWidth - (2 * margin);
       let currentY = 25;
 
