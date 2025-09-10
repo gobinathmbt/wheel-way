@@ -6,6 +6,7 @@ const {
   processSingleVehicle,
   processBulkVehicles,
   validateRequiredFields,
+  separateSchemaAndCustomFields,
   validateCompany,
   performBasicValidation,
   processQueueMessages,
@@ -373,40 +374,23 @@ const receiveVehicleData = async (req, res) => {
         });
       }
 
-      // Handle dealership_id for bulk processing
-      const dealershipResult = await handleDealershipId(requestData[0], companyId);
-      if (!dealershipResult.success) {
+      // Validate company
+      const companyValidation = await validateCompany(companyId);
+      if (!companyValidation.valid) {
         return res.status(400).json({
           success: false,
-          message: dealershipResult.message,
+          message: companyValidation.error,
         });
       }
 
-      // Apply the dealership_id to all vehicles in bulk if it was determined
-      if (dealershipResult.dealership_id && !requestData[0].dealership_id) {
-        requestData.forEach(vehicle => {
-          if (!vehicle.dealership_id) {
-            vehicle.dealership_id = dealershipResult.dealership_id;
-          }
-        });
-      }
-
-      // Perform basic validation on first vehicle to check company
-      const firstVehicleValidation = await performBasicValidation(
-        requestData[0]
-      );
-      if (
-        !firstVehicleValidation.valid &&
-        firstVehicleValidation.error.includes("Company")
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: firstVehicleValidation.error,
-        });
-      }
+      // Process each vehicle to ensure schema compliance
+      const processedVehicles = requestData.map(vehicle => {
+        const { schemaFields } = separateSchemaAndCustomFields(vehicle);
+        return schemaFields;
+      });
 
       console.log(`🔄 Processing bulk vehicles for company: ${companyId}`);
-      const results = await processBulkVehicles(requestData, companyId);
+      const results = await processBulkVehicles(processedVehicles, companyId);
 
       res.status(200).json({
         success: true,
@@ -443,6 +427,15 @@ const receiveVehicleData = async (req, res) => {
         });
       }
 
+      // Validate company
+      const companyValidation = await validateCompany(requestData.company_id);
+      if (!companyValidation.valid) {
+        return res.status(400).json({
+          success: false,
+          message: companyValidation.error,
+        });
+      }
+
       // Handle dealership_id logic
       const dealershipResult = await handleDealershipId(requestData, requestData.company_id);
       if (!dealershipResult.success) {
@@ -461,8 +454,11 @@ const receiveVehicleData = async (req, res) => {
         `🔍 Processing single vehicle: ${requestData.vehicle_stock_id} - ${requestData.vehicle_type} for company: ${requestData.company_id}`
       );
 
+      // Ensure schema compliance before processing
+      const { schemaFields } = separateSchemaAndCustomFields(requestData);
+
       // Perform basic validation first
-      const validation = await performBasicValidation(requestData);
+      const validation = await performBasicValidation(schemaFields);
       if (!validation.valid) {
         return res.status(400).json({
           success: false,
@@ -473,7 +469,7 @@ const receiveVehicleData = async (req, res) => {
         });
       }
 
-      const result = await processSingleVehicle(requestData);
+      const result = await processSingleVehicle(schemaFields);
 
       if (result.success) {
         res.status(200).json({
