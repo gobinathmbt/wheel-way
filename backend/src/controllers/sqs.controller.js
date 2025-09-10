@@ -361,7 +361,7 @@ const processVehicleFromQueue = async (messageBody) => {
     
     // Define all standard fields that exist in schema
     const schemaFields = [
-      'vehicle_stock_id', 'company_id', 'vehicle_type', 'vehicle_hero_image',
+      'vehicle_stock_id', 'company_id' , 'dealership_id', 'vehicle_type', 'vehicle_hero_image',
       'vin', 'plate_no', 'make', 'model', 'year', 'chassis_no', 'variant',
       'model_no', 'body_style', 'name', 'vehicle_category', 'inspection_result',
       'trade_in_result', 'vehicle_other_details', 'vehicle_source', 

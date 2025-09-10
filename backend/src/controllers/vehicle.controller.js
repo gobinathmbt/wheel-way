@@ -1,5 +1,6 @@
 
 const Vehicle = require("../models/Vehicle");
+const Dealership = require("../models/Dealership");
 const { logEvent } = require("./logs.controller");
 const {
   processSingleVehicle,
@@ -372,6 +373,24 @@ const receiveVehicleData = async (req, res) => {
         });
       }
 
+      // Handle dealership_id for bulk processing
+      const dealershipResult = await handleDealershipId(requestData[0], companyId);
+      if (!dealershipResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: dealershipResult.message,
+        });
+      }
+
+      // Apply the dealership_id to all vehicles in bulk if it was determined
+      if (dealershipResult.dealership_id && !requestData[0].dealership_id) {
+        requestData.forEach(vehicle => {
+          if (!vehicle.dealership_id) {
+            vehicle.dealership_id = dealershipResult.dealership_id;
+          }
+        });
+      }
+
       // Perform basic validation on first vehicle to check company
       const firstVehicleValidation = await performBasicValidation(
         requestData[0]
@@ -424,6 +443,20 @@ const receiveVehicleData = async (req, res) => {
         });
       }
 
+      // Handle dealership_id logic
+      const dealershipResult = await handleDealershipId(requestData, requestData.company_id);
+      if (!dealershipResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: dealershipResult.message,
+        });
+      }
+
+      // Set the dealership_id if it was determined
+      if (dealershipResult.dealership_id && !requestData.dealership_id) {
+        requestData.dealership_id = dealershipResult.dealership_id;
+      }
+
       console.log(
         `🔍 Processing single vehicle: ${requestData.vehicle_stock_id} - ${requestData.vehicle_type} for company: ${requestData.company_id}`
       );
@@ -471,6 +504,77 @@ const receiveVehicleData = async (req, res) => {
       message: "Error processing vehicle data",
       error: error.message,
     });
+  }
+};
+
+// Helper function to handle dealership_id logic
+const handleDealershipId = async (vehicleData, companyId) => {
+  try {
+    // If dealership_id is already provided, return success
+    if (vehicleData.dealership_id) {
+      const existingDealerships = await Dealership.find({
+        company_id: companyId,
+        is_active: true
+      }).select('dealership_id dealership_name');
+
+      // Check if the provided dealership_id exists and is valid
+      const isValidDealership = existingDealerships.some(
+        dealership => dealership.dealership_id === vehicleData.dealership_id
+      );
+
+      if (isValidDealership) {
+        return {
+          success: true,
+          dealership_id: vehicleData.dealership_id,
+          message: "Dealership is valid"
+        };
+      } else {
+        return {
+          success: false,
+          dealership_id: vehicleData.dealership_id,
+          message: "Dealership is invalid - provided dealership_id does not exist or is not active for this company",
+          available_dealerships: existingDealerships
+        };
+      }
+    }
+
+    // Check existing dealerships for the company
+    const existingDealerships = await Dealership.find({
+      company_id: companyId,
+      is_active: true
+    }).select('dealership_id dealership_name');
+
+    const dealershipCount = existingDealerships.length;
+
+    if (dealershipCount === 0) {
+      // No dealerships found, leave it empty
+      return {
+        success: true,
+        dealership_id: null
+      };
+    } else if (dealershipCount === 1) {
+      // Exactly one dealership found, use it
+      return {
+        success: true,
+        dealership_id: existingDealerships[0].dealership_id
+      };
+    } else {
+      // Multiple dealerships found, require explicit dealership_id
+      const dealershipList = existingDealerships.map(d =>
+        `${d.dealership_id} (${d.dealership_name})`
+      ).join(', ');
+
+      return {
+        success: false,
+        message: `Multiple dealerships found for this company. Please provide dealership_id. Available dealerships: ${dealershipList}`
+      };
+    }
+  } catch (error) {
+    console.error('Error handling dealership_id:', error);
+    return {
+      success: false,
+      message: 'Error checking dealership information'
+    };
   }
 };
 

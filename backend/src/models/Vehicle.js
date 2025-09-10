@@ -10,6 +10,10 @@ const VehicleSchema = new mongoose.Schema({
     ref: 'Company',
     required: true
   },
+    dealership_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Dealership'
+  },
   
   // Vehicle Type & Status
   vehicle_type: {
@@ -23,6 +27,7 @@ const VehicleSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  
   
   // Basic Vehicle Information (Required)
   vin: {
