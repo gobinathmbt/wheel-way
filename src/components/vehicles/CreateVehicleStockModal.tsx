@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import {
   Sheet,
@@ -63,9 +62,9 @@ const CreateVehicleStockModal = ({
   });
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
@@ -75,7 +74,13 @@ const CreateVehicleStockModal = ({
 
     try {
       // Validate required fields
-      if (!formData.make || !formData.model || !formData.year || !formData.vin || !formData.plate_no) {
+      if (
+        !formData.make ||
+        !formData.model ||
+        !formData.year ||
+        !formData.vin ||
+        !formData.plate_no
+      ) {
         toast.error("Please fill in all required fields");
         return;
       }
@@ -93,7 +98,7 @@ const CreateVehicleStockModal = ({
       toast.success(`Vehicle stock created successfully for ${vehicleType}`);
       onSuccess();
       onClose();
-      
+
       // Reset form
       setFormData({
         dealership: "",
@@ -121,12 +126,23 @@ const CreateVehicleStockModal = ({
   };
 
   const getModalTitle = () => {
-    return vehicleType === "inspection" ? "Create Inspection Vehicle Stock" : "Create Trade-in Vehicle Stock";
+    switch (vehicleType) {
+      case "inspection":
+        return "Create Inspection Vehicle Stock";
+      case "tradein":
+        return "Create Trade-in Vehicle Stock";
+      case "advertisement":
+        return "Create Advertisement Vehicle Stock";
+      case "master":
+        return "Create Master Vehicle Stock";
+      default:
+        return "Create Vehicle Stock";
+    }
   };
 
   const getModalDescription = () => {
-    return vehicleType === "inspection" 
-      ? "Add a new vehicle to the inspection inventory" 
+    return vehicleType === "inspection"
+      ? "Add a new vehicle to the inspection inventory"
       : "Add a new vehicle to the trade-in inventory";
   };
 
@@ -135,9 +151,7 @@ const CreateVehicleStockModal = ({
       <SheetContent className="sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{getModalTitle()}</SheetTitle>
-          <SheetDescription>
-            {getModalDescription()}
-          </SheetDescription>
+          <SheetDescription>{getModalDescription()}</SheetDescription>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-6">
@@ -173,7 +187,9 @@ const CreateVehicleStockModal = ({
             <Label htmlFor="purchase_type">Purchase Type</Label>
             <Select
               value={formData.purchase_type}
-              onValueChange={(value) => handleInputChange("purchase_type", value)}
+              onValueChange={(value) =>
+                handleInputChange("purchase_type", value)
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select purchase type" />
@@ -276,10 +292,7 @@ const CreateVehicleStockModal = ({
 
           <div className="space-y-2">
             <Label htmlFor="vehicle_type">Vehicle Type</Label>
-            <Select
-              value={vehicleType}
-              disabled
-            >
+            <Select value={vehicleType} disabled>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -342,7 +355,9 @@ const CreateVehicleStockModal = ({
             <Textarea
               id="purchase_notes"
               value={formData.purchase_notes}
-              onChange={(e) => handleInputChange("purchase_notes", e.target.value)}
+              onChange={(e) =>
+                handleInputChange("purchase_notes", e.target.value)
+              }
               placeholder="Enter any additional notes"
               rows={3}
             />
@@ -357,11 +372,7 @@ const CreateVehicleStockModal = ({
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="flex-1"
-            >
+            <Button type="submit" disabled={isLoading} className="flex-1">
               {isLoading ? "Creating..." : "Create Vehicle Stock"}
             </Button>
           </div>
