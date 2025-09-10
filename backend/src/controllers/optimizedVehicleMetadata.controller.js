@@ -8,8 +8,8 @@ const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid');
 
 // Batch processing configuration
-const BATCH_SIZE = 2000;
-const MAX_CONCURRENT_OPERATIONS = 5;
+const BATCH_SIZE = 1000; // Process 1000 records at a time
+const MAX_CONCURRENT_OPERATIONS = 3;
 
 // Data type conversion helpers
 const convertToType = (value, targetType, fieldName) => {
@@ -40,12 +40,11 @@ const convertToType = (value, targetType, fieldName) => {
   }
 };
 
-// Enhanced create/update helper with better duplicate handling
+// Enhanced create/update helper
 const createOrUpdateEntry = async (Model, findCriteria, data, options = {}) => {
   try {
     const session = options.session;
     
-    // Try to find existing entry
     const existing = await Model.findOne(findCriteria).session(session);
     if (existing) {
       if (options.updateExisting !== false) {
@@ -55,13 +54,11 @@ const createOrUpdateEntry = async (Model, findCriteria, data, options = {}) => {
       return existing;
     }
     
-    // Create new entry
     const newEntry = new Model(data);
     await newEntry.save({ session });
     return newEntry;
   } catch (error) {
     if (error.code === 11000) {
-      // Handle duplicate key error by trying to find the existing record
       const existing = await Model.findOne(findCriteria).session(options.session);
       if (existing) return existing;
     }
@@ -69,7 +66,7 @@ const createOrUpdateEntry = async (Model, findCriteria, data, options = {}) => {
   }
 };
 
-// Optimized bulk upload with batch processing
+// Optimized bulk upload with proper batch processing
 exports.bulkUploadMetadata = async (req, res) => {
   const session = await VehicleMetadata.startSession();
   
@@ -88,17 +85,25 @@ exports.bulkUploadMetadata = async (req, res) => {
         updated: 0,
         skipped: 0,
         errors: [],
-        batchId
+        batchId,
+        totalBatches: Math.ceil(data.length / BATCH_SIZE),
+        currentBatch: 0
       };
 
-      // Process in batches to handle large datasets
+      // Process data in batches
       for (let i = 0; i < data.length; i += BATCH_SIZE) {
         const batch = data.slice(i, i + BATCH_SIZE);
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+        
+        console.log(`Processing batch ${batchNumber}/${results.totalBatches} (${batch.length} records)`);
+        
         const batchResults = await processBatch(batch, fieldMapping, dataTypes, customFieldTypes, {
           ...options,
           batchId,
           session,
-          user: req.user
+          user: req.user,
+          batchNumber,
+          totalBatches: results.totalBatches
         });
 
         // Accumulate results
@@ -107,9 +112,10 @@ exports.bulkUploadMetadata = async (req, res) => {
         results.updated += batchResults.updated;
         results.skipped += batchResults.skipped;
         results.errors.push(...batchResults.errors);
+        results.currentBatch = batchNumber;
 
-        // Send progress update (in real implementation, use WebSocket)
-        console.log(`Processed batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(data.length / BATCH_SIZE)}`);
+        // Send progress update (you can implement WebSocket here)
+        console.log(`Completed batch ${batchNumber}/${results.totalBatches} - Progress: ${((batchNumber / results.totalBatches) * 100).toFixed(1)}%`);
       }
 
       // Log the bulk upload activity
@@ -118,11 +124,15 @@ exports.bulkUploadMetadata = async (req, res) => {
         user_email: req.user.email,
         user_role: req.user.role,
         action: 'BULK_VEHICLE_METADATA_UPLOAD',
-        details: `Bulk uploaded ${results.processed} vehicle metadata entries`,
+        details: `Bulk uploaded ${results.processed} vehicle metadata entries in ${results.totalBatches} batches`,
         ip_address: req.ip,
         user_agent: req.get('User-Agent'),
         company_id: req.user.company_id,
-        metadata: { ...results, totalRecords: data.length }
+        metadata: { 
+          ...results, 
+          totalRecords: data.length,
+          batchSize: BATCH_SIZE
+        }
       }], { session });
 
       res.json({
@@ -132,6 +142,7 @@ exports.bulkUploadMetadata = async (req, res) => {
       });
     });
   } catch (error) {
+    console.error('Bulk upload error:', error);
     res.status(500).json({
       success: false,
       message: 'Error during bulk upload',
@@ -142,163 +153,185 @@ exports.bulkUploadMetadata = async (req, res) => {
   }
 };
 
-// Process a single batch of records
+// Process a single batch with progress tracking
 const processBatch = async (batch, fieldMapping, dataTypes, customFieldTypes, options) => {
-  const { batchId, session, user } = options;
+  const { batchId, session, user, batchNumber, totalBatches } = options;
   const results = { processed: 0, created: 0, updated: 0, skipped: 0, errors: [] };
 
-  const concurrencyLimit = Math.min(MAX_CONCURRENT_OPERATIONS, batch.length);
-  const semaphore = Array(concurrencyLimit).fill().map(() => Promise.resolve());
+  for (let index = 0; index < batch.length; index++) {
+    const item = batch[index];
+    
+    try {
+      // Validate required fields
+      const makeName = item[fieldMapping.make];
+      const modelName = item[fieldMapping.model];
+      
+      if (!makeName || !modelName) {
+        results.skipped++;
+        results.processed++;
+        continue;
+      }
 
-  const processRecord = async (item, index) => {
-    await semaphore[index % concurrencyLimit];
-    semaphore[index % concurrencyLimit] = (async () => {
-      try {
-        // Validate required fields
-        const makeName = item[fieldMapping.make];
-        const modelName = item[fieldMapping.model];
-        
-        if (!makeName || !modelName) {
-          results.skipped++;
-          return;
-        }
+      // Process make
+      const make = await createOrUpdateEntry(
+        Make,
+        { displayValue: makeName.toLowerCase().trim().replace(/\s+/g, '_') },
+        { 
+          displayName: makeName,
+          displayValue: makeName.toLowerCase().trim().replace(/\s+/g, '_')
+        },
+        { session, updateExisting: options.updateExisting }
+      );
 
-        // Process make
-        const make = await createOrUpdateEntry(
-          Make,
-          { displayValue: makeName.toLowerCase().trim().replace(/\s+/g, '_') },
-          { displayName: makeName },
-          { session }
-        );
+      // Process model
+      const model = await createOrUpdateEntry(
+        Model,
+        { 
+          make: make._id, 
+          displayValue: modelName.toLowerCase().trim().replace(/\s+/g, '_') 
+        },
+        { 
+          displayName: modelName, 
+          displayValue: modelName.toLowerCase().trim().replace(/\s+/g, '_'),
+          make: make._id 
+        },
+        { session, updateExisting: options.updateExisting }
+      );
 
-        // Process model
-        const model = await createOrUpdateEntry(
-          Model,
+      // Process optional body
+      let body = null;
+      if (fieldMapping.body && item[fieldMapping.body]) {
+        const bodyName = item[fieldMapping.body];
+        body = await createOrUpdateEntry(
+          Body,
+          { displayValue: bodyName.toLowerCase().trim().replace(/\s+/g, '_') },
           { 
-            make: make._id, 
-            displayValue: modelName.toLowerCase().trim().replace(/\s+/g, '_') 
+            displayName: bodyName,
+            displayValue: bodyName.toLowerCase().trim().replace(/\s+/g, '_')
           },
-          { displayName: modelName, make: make._id },
-          { session }
+          { session, updateExisting: options.updateExisting }
         );
+      }
 
-        // Process optional body
-        let body = null;
-        if (fieldMapping.body && item[fieldMapping.body]) {
-          const bodyName = item[fieldMapping.body];
-          body = await createOrUpdateEntry(
-            Body,
-            { displayValue: bodyName.toLowerCase().trim().replace(/\s+/g, '_') },
-            { displayName: bodyName },
-            { session }
+      // Process optional variant year
+      let variantYear = null;
+      if (fieldMapping.year && item[fieldMapping.year]) {
+        const yearValue = convertToType(item[fieldMapping.year], 'Integer', 'year');
+        if (yearValue && yearValue >= 1900 && yearValue <= new Date().getFullYear() + 2) {
+          variantYear = await createOrUpdateEntry(
+            VariantYear,
+            { year: yearValue },
+            { 
+              year: yearValue, 
+              displayName: yearValue.toString(),
+              displayValue: yearValue.toString()
+            },
+            { session, updateExisting: options.updateExisting }
           );
         }
+      }
 
-        // Process optional variant year
-        let variantYear = null;
-        if (fieldMapping.year && item[fieldMapping.year]) {
-          const yearValue = convertToType(item[fieldMapping.year], 'Integer', 'year');
-          if (yearValue && yearValue >= 1900 && yearValue <= new Date().getFullYear() + 1) {
-            variantYear = await createOrUpdateEntry(
-              VariantYear,
-              { year: yearValue },
-              { 
-                year: yearValue, 
-                displayName: yearValue.toString(),
-                displayValue: yearValue.toString()
-              },
-              { session }
-            );
-          }
+      // Process standard fields with type conversion
+      const standardFields = {};
+      const standardFieldMap = {
+        fuelType: dataTypes?.fuelType || 'String',
+        transmission: dataTypes?.transmission || 'String',
+        engineCapacity: dataTypes?.engineCapacity || 'String',
+        power: dataTypes?.power || 'String',
+        torque: dataTypes?.torque || 'String',
+        seatingCapacity: 'Integer'
+      };
+
+      Object.keys(standardFieldMap).forEach(field => {
+        if (fieldMapping[field] && item[fieldMapping[field]]) {
+          standardFields[field] = convertToType(
+            item[fieldMapping[field]], 
+            standardFieldMap[field], 
+            field
+          );
         }
+      });
 
-        // Process standard fields with type conversion
-        const standardFields = {
-          fuelType: convertToType(item[fieldMapping.fuelType], dataTypes?.fuelType || 'String', 'fuelType'),
-          transmission: convertToType(item[fieldMapping.transmission], dataTypes?.transmission || 'String', 'transmission'),
-          engineCapacity: convertToType(item[fieldMapping.engineCapacity], dataTypes?.engineCapacity || 'String', 'engineCapacity'),
-          power: convertToType(item[fieldMapping.power], dataTypes?.power || 'String', 'power'),
-          torque: convertToType(item[fieldMapping.torque], dataTypes?.torque || 'String', 'torque'),
-          seatingCapacity: convertToType(item[fieldMapping.seatingCapacity], 'Integer', 'seatingCapacity')
-        };
-
-        // Process custom fields
-        const customFields = new Map();
-        if (fieldMapping.customFields) {
-          Object.keys(fieldMapping.customFields).forEach(customField => {
-            const jsonField = fieldMapping.customFields[customField];
+      // Process custom fields
+      const customFields = {};
+      if (fieldMapping.customFields) {
+        Object.keys(fieldMapping.customFields).forEach(customField => {
+          const sourceField = fieldMapping.customFields[customField];
+          if (item[sourceField] !== undefined && item[sourceField] !== null && item[sourceField] !== '') {
             const targetType = customFieldTypes?.[customField] || 'String';
-            const value = convertToType(item[jsonField], targetType, customField);
+            const value = convertToType(item[sourceField], targetType, customField);
             if (value !== null) {
-              customFields.set(customField, value);
+              customFields[customField] = value;
             }
-          });
-        }
-
-        // Generate tags for better searchability
-        const tags = [
-          make.displayName.toLowerCase(),
-          model.displayName.toLowerCase(),
-          body?.displayName?.toLowerCase(),
-          variantYear?.year?.toString(),
-          standardFields.fuelType?.toLowerCase(),
-          standardFields.transmission?.toLowerCase()
-        ].filter(Boolean);
-
-        // Create metadata object
-        const metadataObj = {
-          make: make._id,
-          model: model._id,
-          body: body?._id,
-          variantYear: variantYear?._id,
-          ...standardFields,
-          customFields,
-          tags,
-          source: 'bulk_upload',
-          batchId
-        };
-
-        // Check for existing metadata
-        const filter = {
-          make: make._id,
-          model: model._id,
-          body: body?._id || null,
-          variantYear: variantYear?._id || null
-        };
-
-        const existingMetadata = await VehicleMetadata.findOne(filter).session(session);
-        if (existingMetadata) {
-          if (options.updateExisting !== false) {
-            Object.assign(existingMetadata, metadataObj);
-            await existingMetadata.save({ session });
-            results.updated++;
-          } else {
-            results.skipped++;
           }
-        } else {
-          await VehicleMetadata.create([metadataObj], { session });
-          results.created++;
-        }
-
-        results.processed++;
-
-      } catch (error) {
-        results.errors.push({
-          row: index,
-          item: item,
-          error: error.message
         });
       }
-    })();
-  };
 
-  // Process all records with controlled concurrency
-  await Promise.all(batch.map(processRecord));
+      // Generate tags for better searchability
+      const tags = [
+        make.displayName.toLowerCase(),
+        model.displayName.toLowerCase(),
+        body?.displayName?.toLowerCase(),
+        variantYear?.year?.toString(),
+        standardFields.fuelType?.toLowerCase(),
+        standardFields.transmission?.toLowerCase()
+      ].filter(Boolean);
+
+      // Create metadata object
+      const metadataObj = {
+        make: make._id,
+        model: model._id,
+        body: body?._id,
+        variantYear: variantYear?._id,
+        ...standardFields,
+        customFields,
+        tags,
+        source: 'bulk_upload',
+        batchId,
+        batchNumber
+      };
+
+      // Check for existing metadata
+      const filter = {
+        make: make._id,
+        model: model._id,
+        body: body?._id || null,
+        variantYear: variantYear?._id || null
+      };
+
+      const existingMetadata = await VehicleMetadata.findOne(filter).session(session);
+      if (existingMetadata) {
+        if (options.updateExisting !== false) {
+          Object.assign(existingMetadata, metadataObj);
+          await existingMetadata.save({ session });
+          results.updated++;
+        } else {
+          results.skipped++;
+        }
+      } else {
+        await VehicleMetadata.create([metadataObj], { session });
+        results.created++;
+      }
+
+      results.processed++;
+
+    } catch (error) {
+      console.error(`Error processing item ${index} in batch ${batchNumber}:`, error);
+      results.errors.push({
+        batchNumber,
+        row: index,
+        item: item,
+        error: error.message
+      });
+    }
+  }
+
+  console.log(`Batch ${batchNumber}/${totalBatches} completed: ${results.processed} processed, ${results.created} created, ${results.updated} updated, ${results.skipped} skipped`);
   
   return results;
 };
 
-// Parse uploaded file (JSON or Excel)
+// Parse uploaded file with batch processing for large files
 exports.parseUploadedFile = async (req, res) => {
   try {
     const { fileType, fileContent } = req.body;
@@ -316,10 +349,9 @@ exports.parseUploadedFile = async (req, res) => {
         } else if (jsonData.data && Array.isArray(jsonData.data)) {
           parsedData = jsonData.data;
         } else if (typeof jsonData === 'object') {
-          // If it's a single object, wrap it in an array
           parsedData = [jsonData];
         } else {
-          throw new Error('Invalid JSON structure');
+          throw new Error('Invalid JSON structure - expected array of objects');
         }
         
         if (parsedData.length > 0) {
@@ -336,19 +368,29 @@ exports.parseUploadedFile = async (req, res) => {
       
     } else if (fileType === 'excel') {
       try {
-        // Parse Excel file
-        const workbook = XLSX.read(fileContent, { type: 'buffer' });
+        // Handle both buffer and array input
+        let buffer;
+        if (Array.isArray(fileContent)) {
+          buffer = Buffer.from(fileContent);
+        } else if (Buffer.isBuffer(fileContent)) {
+          buffer = fileContent;
+        } else {
+          buffer = Buffer.from(fileContent, 'base64');
+        }
+        
+        const workbook = XLSX.read(buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
         // Convert to JSON with header detection
-        parsedData = XLSX.utils.sheet_to_json(worksheet);
+        parsedData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
         
         if (parsedData.length > 0) {
           detectedFields = Object.keys(parsedData[0]);
         }
         
       } catch (excelError) {
+        console.error('Excel parsing error:', excelError);
         return res.status(400).json({
           success: false,
           message: 'Invalid Excel format',
@@ -358,12 +400,24 @@ exports.parseUploadedFile = async (req, res) => {
     } else {
       return res.status(400).json({
         success: false,
-        message: 'Unsupported file type'
+        message: 'Unsupported file type. Please use JSON or Excel files.'
       });
     }
 
-    // Analyze data types
-    const dataTypeAnalysis = analyzeDataTypes(parsedData.slice(0, 100)); // Analyze first 100 rows
+    if (parsedData.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No data found in the uploaded file'
+      });
+    }
+
+    // For large files, process analysis in batches
+    const analysisLimit = Math.min(500, parsedData.length);
+    const dataTypeAnalysis = analyzeDataTypes(parsedData.slice(0, analysisLimit));
+
+    // Calculate estimated processing time and batches
+    const estimatedBatches = Math.ceil(parsedData.length / BATCH_SIZE);
+    const estimatedTime = Math.ceil((parsedData.length / BATCH_SIZE) * 2); // ~2 minutes per batch
 
     res.json({
       success: true,
@@ -372,11 +426,18 @@ exports.parseUploadedFile = async (req, res) => {
         detectedFields,
         recordCount: parsedData.length,
         dataTypeAnalysis,
-        sampleData: parsedData.slice(0, 5) // Return first 5 rows as sample
+        sampleData: parsedData.slice(0, 10), // Return first 10 rows as sample
+        processingInfo: {
+          estimatedBatches,
+          estimatedTime: `${estimatedTime} minutes`,
+          batchSize: BATCH_SIZE,
+          isLargeDataset: parsedData.length > 5000
+        }
       }
     });
 
   } catch (error) {
+    console.error('File parsing error:', error);
     res.status(500).json({
       success: false,
       message: 'Error parsing file',
@@ -394,10 +455,12 @@ const analyzeDataTypes = (sampleData) => {
   const fields = Object.keys(sampleData[0]);
   
   fields.forEach(field => {
-    const values = sampleData.map(row => row[field]).filter(val => val !== null && val !== undefined && val !== '');
+    const values = sampleData
+      .map(row => row[field])
+      .filter(val => val !== null && val !== undefined && val !== '');
     
     if (values.length === 0) {
-      analysis[field] = { type: 'String', confidence: 0 };
+      analysis[field] = { type: 'String', confidence: 0, sampleValues: [] };
       return;
     }
     
@@ -407,21 +470,23 @@ const analyzeDataTypes = (sampleData) => {
     let dateCount = 0;
     
     values.forEach(value => {
+      const strValue = String(value).trim();
+      
       // Check for number
-      if (!isNaN(parseFloat(value)) && isFinite(value)) {
+      if (!isNaN(parseFloat(strValue)) && isFinite(strValue)) {
         numberCount++;
-        if (Number.isInteger(parseFloat(value))) {
+        if (Number.isInteger(parseFloat(strValue))) {
           integerCount++;
         }
       }
       
       // Check for boolean
-      if (['true', 'false', '1', '0', 'yes', 'no', 'on', 'off'].includes(String(value).toLowerCase())) {
+      if (['true', 'false', '1', '0', 'yes', 'no', 'on', 'off'].includes(strValue.toLowerCase())) {
         booleanCount++;
       }
       
       // Check for date
-      if (!isNaN(Date.parse(value))) {
+      if (strValue.length > 6 && !isNaN(Date.parse(strValue))) {
         dateCount++;
       }
     });
@@ -432,18 +497,31 @@ const analyzeDataTypes = (sampleData) => {
     const booleanPercentage = booleanCount / total;
     const datePercentage = dateCount / total;
     
-    // Determine most likely type
+    // Determine most likely type with confidence score
+    let detectedType = 'String';
+    let confidence = 0;
+    
     if (integerPercentage > 0.8) {
-      analysis[field] = { type: 'Integer', confidence: integerPercentage };
+      detectedType = 'Integer';
+      confidence = integerPercentage;
     } else if (numberPercentage > 0.8) {
-      analysis[field] = { type: 'Number', confidence: numberPercentage };
+      detectedType = 'Number';
+      confidence = numberPercentage;
     } else if (booleanPercentage > 0.8) {
-      analysis[field] = { type: 'Boolean', confidence: booleanPercentage };
+      detectedType = 'Boolean';
+      confidence = booleanPercentage;
     } else if (datePercentage > 0.8) {
-      analysis[field] = { type: 'Date', confidence: datePercentage };
+      detectedType = 'Date';
+      confidence = datePercentage;
     } else {
-      analysis[field] = { type: 'String', confidence: 1 - Math.max(numberPercentage, booleanPercentage, datePercentage) };
+      confidence = 1 - Math.max(numberPercentage, booleanPercentage, datePercentage);
     }
+    
+    analysis[field] = { 
+      type: detectedType, 
+      confidence: Math.round(confidence * 100) / 100,
+      sampleValues: values.slice(0, 3) // Show first 3 sample values
+    };
   });
   
   return analysis;
@@ -454,20 +532,27 @@ exports.getSchemaFields = async (req, res) => {
   try {
     const schemaFields = {
       required: [
-        { name: 'make', type: 'String', description: 'Vehicle make/manufacturer' },
-        { name: 'model', type: 'String', description: 'Vehicle model' }
+        { name: 'make', type: 'String', description: 'Vehicle make/manufacturer (e.g., Toyota, Honda)' },
+        { name: 'model', type: 'String', description: 'Vehicle model (e.g., Camry, Civic)' }
       ],
       optional: [
-        { name: 'body', type: 'String', description: 'Body type (sedan, suv, hatchback, etc.)' },
-        { name: 'year', type: 'Integer', description: 'Manufacturing year' },
-        { name: 'fuelType', type: 'String', description: 'Fuel type (petrol, diesel, electric, etc.)' },
+        { name: 'body', type: 'String', description: 'Body type (sedan, suv, hatchback, convertible, etc.)' },
+        { name: 'year', type: 'Integer', description: 'Manufacturing year (1900-2026)' },
+        { name: 'fuelType', type: 'String', description: 'Fuel type (petrol, diesel, electric, hybrid, etc.)' },
         { name: 'transmission', type: 'String', description: 'Transmission type (manual, automatic, cvt, etc.)' },
-        { name: 'engineCapacity', type: 'String', description: 'Engine capacity/displacement' },
-        { name: 'power', type: 'String', description: 'Engine power output' },
-        { name: 'torque', type: 'String', description: 'Engine torque' },
-        { name: 'seatingCapacity', type: 'Integer', description: 'Number of seats' }
+        { name: 'engineCapacity', type: 'String', description: 'Engine capacity/displacement (e.g., 2.0L, 1600cc)' },
+        { name: 'power', type: 'String', description: 'Engine power output (e.g., 200hp, 150kW)' },
+        { name: 'torque', type: 'String', description: 'Engine torque (e.g., 300Nm, 250 lb-ft)' },
+        { name: 'seatingCapacity', type: 'Integer', description: 'Number of seats (2-50)' }
       ],
-      dataTypes: ['String', 'Integer', 'Number', 'Boolean', 'Date']
+      dataTypes: ['String', 'Integer', 'Number', 'Boolean', 'Date'],
+      examples: {
+        make: ['Toyota', 'Honda', 'BMW', 'Mercedes-Benz'],
+        model: ['Camry', 'Civic', 'X3', 'C-Class'],
+        body: ['Sedan', 'SUV', 'Hatchback', 'Coupe'],
+        fuelType: ['Petrol', 'Diesel', 'Electric', 'Hybrid'],
+        transmission: ['Manual', 'Automatic', 'CVT', 'AMT']
+      }
     };
     
     res.json({
@@ -484,7 +569,7 @@ exports.getSchemaFields = async (req, res) => {
   }
 };
 
-// Advanced search with full-text search and filtering
+// Advanced search with full-text search and filtering (unchanged)
 exports.searchVehicleMetadata = async (req, res) => {
   try {
     const { 
@@ -585,7 +670,7 @@ exports.searchVehicleMetadata = async (req, res) => {
   }
 };
 
-// Get upload batches for tracking
+// Get upload batches for tracking (unchanged)
 exports.getUploadBatches = async (req, res) => {
   try {
     const batches = await VehicleMetadata.aggregate([
@@ -600,7 +685,8 @@ exports.getUploadBatches = async (req, res) => {
           _id: '$batchId',
           count: { $sum: 1 },
           createdAt: { $first: '$createdAt' },
-          source: { $first: '$source' }
+          source: { $first: '$source' },
+          totalBatches: { $first: '$batchNumber' }
         }
       },
       {
