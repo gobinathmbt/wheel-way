@@ -41,7 +41,7 @@ const PdfReportGenerator: React.FC<PdfReportGeneratorProps> = ({
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 20;
+      const margin = 0;
       const contentWidth = pageWidth - (2 * margin);
       let currentY = 25;
 
@@ -85,14 +85,12 @@ const PdfReportGenerator: React.FC<PdfReportGeneratorProps> = ({
 
       // Check if new page is needed
       const checkPageBreak = (requiredHeight: number) => {
-        if (currentY + requiredHeight > pageHeight - 30) {
-          const currentPageNum = pdf.getNumberOfPages();
-          addFooter(currentPageNum, 1); // Will update total pages later
-          pdf.addPage();
-          addHeader(pdf.getNumberOfPages());
-          currentY = 35;
-        }
-      };
+  if (currentY + requiredHeight > pageHeight - 30) {
+    pdf.addPage();
+    addHeader(pdf.getNumberOfPages());
+    currentY = 35;
+  }
+};
 
       // Add text with word wrap
       const addWrappedText = (text: string, x: number, y: number, maxWidth: number, fontSize: number = 10, fontStyle: string = 'normal', lineHeight: number = 0.4) => {
