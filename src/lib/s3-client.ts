@@ -40,7 +40,7 @@ export class S3Uploader {
 
   private getUserFromSession() {
     try {
-      const userStr = sessionStorage.getItem("user");
+      const userStr = sessionStorage.getItem("user") ||sessionStorage.getItem("supplier_user") ;
       if (userStr) {
         return JSON.parse(userStr);
       }

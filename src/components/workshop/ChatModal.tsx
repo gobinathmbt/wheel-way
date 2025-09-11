@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -148,23 +147,21 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
           // Get other user status
           socketService.getUserStatus("supplier", supplierId);
 
-          // Set up event listeners
-          socketService.onConversationData(handleConversationData);
-          socketService.onNewMessage(handleNewMessage);
-          socketService.onUserTyping(handleTyping);
-          socketService.onUserStatusChange(handleUserStatusChange);
-          socketService.onUserStatus(handleUserStatus);
-          socketService.onError(handleSocketError);
-
-          return () => {
-            socketService.off("conversation_data", handleConversationData);
-            socketService.off("new_message", handleNewMessage);
-            socketService.off("user_typing", handleTyping);
-            socketService.off("user_status_change", handleUserStatusChange);
-            socketService.off("user_status", handleUserStatus);
-            socketService.off("error", handleSocketError);
-            socketService.leaveConversation(quoteId);
-          };
+          // Set up event listeners using refs to latest callbacks
+          socketService.onConversationData((data) =>
+            handleConversationDataRef.current(data)
+          );
+          socketService.onNewMessage((data) =>
+            handleNewMessageRef.current(data)
+          );
+          socketService.onUserTyping((data) => handleTypingRef.current(data));
+          socketService.onUserStatusChange((data) =>
+            handleUserStatusChangeRef.current(data)
+          );
+          socketService.onUserStatus((data) =>
+            handleUserStatusRef.current(data)
+          );
+          socketService.onError((error) => handleSocketErrorRef.current(error));
         } catch (error) {
           console.error("Socket connection error:", error);
           toast.error("Failed to connect to chat");
@@ -173,9 +170,21 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
       };
 
       connectSocket();
+
+      // Cleanup function - properly remove all listeners
+      return () => {
+        if (quoteId) {
+          socketService.off("conversation_data");
+          socketService.off("new_message");
+          socketService.off("user_typing");
+          socketService.off("user_status_change");
+          socketService.off("user_status");
+          socketService.off("error");
+          socketService.leaveConversation(quoteId);
+        }
+      };
     }
   }, [open, quoteId, companyId, supplierId]);
-
   const handleConversationData = useCallback((data: any) => {
     setConversation(data.conversation);
     setLoadingConversation(false);
@@ -340,7 +349,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
         };
       }
 
-      // Send via socket
+      // Send via socket - include the already uploaded file data
       socketService.sendMessage(quoteId, newMessage, messageType, fileData);
 
       // Reset form
@@ -434,6 +443,31 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   };
 
   const messages = conversation?.messages || [];
+
+  // Create refs to store the callback functions
+  const handleConversationDataRef = useRef(handleConversationData);
+  const handleNewMessageRef = useRef(handleNewMessage);
+  const handleTypingRef = useRef(handleTyping);
+  const handleUserStatusChangeRef = useRef(handleUserStatusChange);
+  const handleUserStatusRef = useRef(handleUserStatus);
+  const handleSocketErrorRef = useRef(handleSocketError);
+
+  // Update the refs when callbacks change
+  useEffect(() => {
+    handleConversationDataRef.current = handleConversationData;
+    handleNewMessageRef.current = handleNewMessage;
+    handleTypingRef.current = handleTyping;
+    handleUserStatusChangeRef.current = handleUserStatusChange;
+    handleUserStatusRef.current = handleUserStatus;
+    handleSocketErrorRef.current = handleSocketError;
+  }, [
+    handleConversationData,
+    handleNewMessage,
+    handleTyping,
+    handleUserStatusChange,
+    handleUserStatus,
+    handleSocketError,
+  ]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

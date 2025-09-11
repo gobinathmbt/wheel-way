@@ -99,7 +99,7 @@ const initializeSocket = (server) => {
 
   // Socket authentication middleware
   io.use(async (socket, next) => {
-    console.log("🔌 Socket authentication middleware triggered",socket);
+    console.log("🔌 Socket authentication middleware triggered", socket);
     try {
       const token = socket.handshake.auth.token;
       console.log("🔑 Authenticating socket with token:", token);
@@ -145,9 +145,10 @@ const initializeSocket = (server) => {
 
   io.on("connection", (socket) => {
     console.log(
-      `✅ User connected: ${socket.user.username || socket.user.name} (${socket.user.type}) - Socket ID: ${socket.id}`
+      `✅ User connected: ${socket.user.username || socket.user.name} (${
+        socket.user.type
+      }) - Socket ID: ${socket.id}`
     );
- 
 
     // Add user to connected users map
     const userKey = `${socket.user.type}_${socket.user._id}`;
@@ -271,7 +272,9 @@ const initializeSocket = (server) => {
           });
 
           console.log(
-            `📨 User ${socket.user.username || socket.user.name} joined conversation ${quote_id}`
+            `📨 User ${
+              socket.user.username || socket.user.name
+            } joined conversation ${quote_id}`
           );
         } else {
           socket.emit("error", {
@@ -289,7 +292,7 @@ const initializeSocket = (server) => {
       try {
         const { quote_id, content, message_type = "text", file_data } = data;
 
-        // Validate file size (10MB limit)
+        // Validate file size (10MB limit) - using the size from frontend
         if (file_data && file_data.size > 10 * 1024 * 1024) {
           socket.emit("error", { message: "File size exceeds 10MB limit" });
           return;
@@ -308,31 +311,12 @@ const initializeSocket = (server) => {
           return;
         }
 
-        let fileUrl = null;
-        let fileKey = null;
-        let fileSize = null;
-        let fileType = null;
-        let fileName = null;
-
-        // Handle file upload
-        if (file_data && message_type !== "text") {
-          try {
-            const uploadResult = await uploadFileToS3(
-              file_data,
-              conversation.company_id._id,
-              message_type
-            );
-            fileUrl = uploadResult.url;
-            fileKey = uploadResult.key;
-            fileSize = uploadResult.size;
-            fileType = uploadResult.type;
-            fileName = file_data.name;
-          } catch (uploadError) {
-            console.error("File upload error:", uploadError);
-            socket.emit("error", { message: "Failed to upload file" });
-            return;
-          }
-        }
+        // Use the pre-uploaded file data from frontend - NO NEED TO UPLOAD AGAIN
+        let fileUrl = file_data ? file_data.url : null;
+        let fileKey = file_data ? file_data.key : null;
+        let fileSize = file_data ? file_data.size : null;
+        let fileType = file_data ? file_data.type : null;
+        let fileName = file_data ? file_data.name : null;
 
         // Create new message
         const newMessage = {
@@ -410,7 +394,9 @@ const initializeSocket = (server) => {
         });
 
         console.log(
-          `💬 Message sent in conversation ${quote_id} by ${socket.user.username || socket.user.name}`
+          `💬 Message sent in conversation ${quote_id} by ${
+            socket.user.username || socket.user.name
+          }`
         );
       } catch (error) {
         console.error("Send message error:", error);
@@ -487,7 +473,9 @@ const initializeSocket = (server) => {
     // Handle disconnect
     socket.on("disconnect", (reason) => {
       console.log(
-        `❌ User disconnected: ${socket.user.username || socket.user.name} (${socket.user.type}) - ${reason}`
+        `❌ User disconnected: ${socket.user.username || socket.user.name} (${
+          socket.user.type
+        }) - ${reason}`
       );
 
       // Update user status
