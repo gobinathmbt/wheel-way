@@ -1,4 +1,4 @@
-// src/lib/metaSocket.ts - Dedicated meta operations socket client
+// src/lib/metaSocket.ts - Enhanced meta operations socket client with improved error handling
 import { io, Socket } from "socket.io-client";
 import { BASE_URL } from "@/lib/config";
 
@@ -45,6 +45,15 @@ interface BulkUploadData {
   options?: any;
 }
 
+interface ConnectionStats {
+  isConnected: boolean;
+  socketId: string | null;
+  connectionState: string;
+  lastConnected?: Date;
+  lastError?: string;
+  retryCount: number;
+}
+
 class MetaSocketService {
   private socket: Socket | null = null;
   private static instance: MetaSocketService;
@@ -53,6 +62,15 @@ class MetaSocketService {
   private reconnectDelay = 2000;
   private isConnecting = false;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private connectionRetryTimeout: NodeJS.Timeout | null = null;
+
+  // Connection stats
+  private stats: ConnectionStats = {
+    isConnected: false,
+    socketId: null,
+    connectionState: 'disconnected',
+    retryCount: 0
+  };
 
   // Event callbacks
   private callbacks: { [event: string]: ((...args: any[]) => void)[] } = {};
@@ -67,7 +85,7 @@ class MetaSocketService {
   }
 
   private getSocketUrl(): string {
-    return BASE_URL;
+    return `${BASE_URL}/metadata`;
   }
 
   public connect(): Promise<void> {
@@ -92,33 +110,87 @@ class MetaSocketService {
       }
 
       this.isConnecting = true;
+      this.stats.connectionState = 'connecting';
       const token = sessionStorage.getItem("token");
 
       if (!token) {
         this.isConnecting = false;
+        this.stats.connectionState = 'disconnected';
+        this.stats.lastError = 'No auth token found';
         reject(new Error("No auth token found"));
         return;
       }
 
       const socketUrl = this.getSocketUrl();
-      console.log(`🔌 Connecting to meta socket server at: ${socketUrl}/meta`);
+      console.log(`🔌 Connecting to metadata socket server at: ${socketUrl}`);
 
-      // Connect to /meta namespace
-      this.socket = io(`${socketUrl}/meta`, {
-        auth: { token },
-        transports: ["polling", "websocket"],
-        reconnection: true,
-        reconnectionAttempts: this.maxReconnectAttempts,
-        reconnectionDelay: this.reconnectDelay,
-        reconnectionDelayMax: 10000,
-        timeout: 30000,
-        forceNew: true,
-        upgrade: true,
-        autoConnect: true,
-      });
-
-      this.setupEventHandlers(resolve, reject);
+      // Health check with retry logic
+      this.performHealthCheck()
+        .then(() => {
+          console.log("✅ Metadata server health check passed, initializing socket...");
+          this.createMetaSocket(socketUrl, token, resolve, reject);
+        })
+        .catch((error) => {
+          console.warn("⚠️ Metadata server health check failed, attempting connection anyway:", error);
+          // Try to connect anyway
+          this.createMetaSocket(socketUrl, token, resolve, reject);
+        });
     });
+  }
+
+  private async performHealthCheck(): Promise<void> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const response = await fetch(`${BASE_URL}/api/socket_connection/v1/metadata_connection/health`, {
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`Health check failed: ${response.status} ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Health check timeout');
+      }
+      throw error;
+    }
+  }
+
+  private createMetaSocket(
+    socketUrl: string,
+    token: string,
+    resolve: () => void,
+    reject: (error: Error) => void
+  ): void {
+    // Clean up any existing socket
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+
+    this.socket = io(socketUrl, {
+      auth: { token },
+      transports: ["polling", "websocket"],
+      reconnection: true,
+      reconnectionAttempts: this.maxReconnectAttempts,
+      reconnectionDelay: this.reconnectDelay,
+      reconnectionDelayMax: 10000,
+      timeout: 30000,
+      forceNew: true,
+      upgrade: true,
+      autoConnect: true,
+    });
+
+    this.setupEventHandlers(resolve, reject);
   }
 
   private setupEventHandlers(resolve: () => void, reject: (error: Error) => void): void {
@@ -130,6 +202,13 @@ class MetaSocketService {
       
       this.reconnectAttempts = 0;
       this.isConnecting = false;
+      this.stats = {
+        isConnected: true,
+        socketId: this.socket?.id || null,
+        connectionState: 'connected',
+        lastConnected: new Date(),
+        retryCount: 0
+      };
       this.startHeartbeat();
       resolve();
     });
@@ -142,33 +221,49 @@ class MetaSocketService {
     this.socket.on("disconnect", (reason) => {
       console.log("❌ Disconnected from meta server:", reason);
       this.isConnecting = false;
+      this.stats.isConnected = false;
+      this.stats.connectionState = 'disconnected';
       this.stopHeartbeat();
       this.emit("disconnected", { reason });
+      
+      // Auto-reconnect for certain disconnect reasons
+      if (reason === 'io server disconnect' || reason === 'transport close') {
+        this.scheduleReconnect();
+      }
     });
 
     this.socket.on("connect_error", (error) => {
       console.error("🚫 Meta socket connection error:", error);
       this.isConnecting = false;
+      this.stats.connectionState = 'error';
+      this.stats.lastError = error.message;
+      this.stats.retryCount++;
       reject(error);
     });
 
     this.socket.on("reconnect_attempt", (attempt) => {
       this.reconnectAttempts = attempt;
+      this.stats.retryCount = attempt;
       console.log(`🔄 Meta socket reconnection attempt ${attempt}`);
     });
 
     this.socket.on("reconnect", (attempt) => {
       console.log(`✅ Meta socket reconnected after ${attempt} attempts`);
+      this.stats.isConnected = true;
+      this.stats.connectionState = 'connected';
+      this.stats.lastConnected = new Date();
       this.startHeartbeat();
     });
 
     this.socket.on("reconnect_failed", () => {
       console.error("❌ Failed to reconnect meta socket after maximum attempts");
       this.isConnecting = false;
+      this.stats.connectionState = 'failed';
+      this.scheduleReconnect();
       reject(new Error("Failed to reconnect"));
     });
 
-    // Upload event handlers
+    // Upload event handlers with better error handling
     this.socket.on("upload_started", (data) => {
       console.log("🚀 Bulk upload started:", data);
       this.emit("uploadStarted", data);
@@ -204,7 +299,7 @@ class MetaSocketService {
     });
 
     this.socket.on("upload_cancelled", (data) => {
-      console.log("⏹️ Upload cancelled:", data);
+      console.log("ℹ️ Upload cancelled:", data);
       this.emit("uploadCancelled", data);
     });
 
@@ -223,9 +318,28 @@ class MetaSocketService {
 
     // Generic error handler
     this.socket.on("error", (error) => {
-      console.error("🔐 Meta socket error:", error);
+      console.error("🔥 Meta socket error:", error);
+      this.stats.lastError = error.message || 'Unknown error';
       this.emit("error", error);
     });
+  }
+
+  private scheduleReconnect(): void {
+    if (this.connectionRetryTimeout) {
+      clearTimeout(this.connectionRetryTimeout);
+    }
+
+    const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts), 30000);
+    console.log(`⏰ Scheduling reconnect in ${delay}ms`);
+    
+    this.connectionRetryTimeout = setTimeout(() => {
+      if (!this.socket?.connected && this.reconnectAttempts < this.maxReconnectAttempts) {
+        console.log("🔄 Attempting scheduled reconnect...");
+        this.connect().catch(error => {
+          console.error("❌ Scheduled reconnect failed:", error);
+        });
+      }
+    }, delay);
   }
 
   private startHeartbeat(): void {
@@ -248,48 +362,82 @@ class MetaSocketService {
     if (this.socket) {
       console.log("🔌 Disconnecting from meta socket server");
       this.stopHeartbeat();
+      if (this.connectionRetryTimeout) {
+        clearTimeout(this.connectionRetryTimeout);
+        this.connectionRetryTimeout = null;
+      }
       this.socket.disconnect();
       this.socket = null;
     }
     this.isConnecting = false;
+    this.stats.isConnected = false;
+    this.stats.connectionState = 'disconnected';
     this.callbacks = {};
   }
 
-  // Upload operations
+  // Upload operations with improved validation
   public startBulkUpload(uploadData: BulkUploadData): void {
-    if (this.socket && this.socket.connected) {
-      console.log("🚀 Starting bulk upload with", uploadData.data.length, "records");
-      this.socket.emit("start_bulk_upload", uploadData);
-    } else {
+    if (!this.socket || !this.socket.connected) {
       console.warn("❌ Meta socket not connected. Cannot start bulk upload.");
       this.emit("error", { message: "Meta socket not connected" });
+      return;
     }
+
+    // Validate upload data
+    if (!uploadData.data || !Array.isArray(uploadData.data) || uploadData.data.length === 0) {
+      console.warn("❌ Invalid upload data provided");
+      this.emit("error", { message: "Invalid upload data: data must be a non-empty array" });
+      return;
+    }
+
+    if (!uploadData.fieldMapping || !uploadData.fieldMapping.make || !uploadData.fieldMapping.model) {
+      console.warn("❌ Invalid field mapping: make and model are required");
+      this.emit("error", { message: "Invalid field mapping: make and model fields are required" });
+      return;
+    }
+
+    console.log("🚀 Starting bulk upload with", uploadData.data.length, "records");
+    this.socket.emit("start_bulk_upload", uploadData);
   }
 
   public cancelUpload(batchId: string): void {
-    if (this.socket && this.socket.connected) {
-      console.log("⏹️ Cancelling upload with batchId:", batchId);
-      this.socket.emit("cancel_upload", { batchId });
-    } else {
+    if (!this.socket || !this.socket.connected) {
       console.warn("❌ Meta socket not connected. Cannot cancel upload.");
+      return;
     }
+
+    if (!batchId) {
+      console.warn("❌ No batch ID provided for cancel operation");
+      return;
+    }
+
+    console.log("ℹ️ Cancelling upload with batchId:", batchId);
+    this.socket.emit("cancel_upload", { batchId });
   }
 
   public getUploadStatus(): void {
-    if (this.socket && this.socket.connected) {
-      this.socket.emit("get_upload_status");
-    } else {
+    if (!this.socket || !this.socket.connected) {
       console.warn("❌ Meta socket not connected. Cannot get upload status.");
+      this.emit("uploadStatus", { hasActiveUpload: false, operation: null });
+      return;
     }
+
+    this.socket.emit("get_upload_status");
   }
 
   public testConnection(): void {
-    if (this.socket && this.socket.connected) {
-      console.log("🧪 Testing meta socket connection...");
-      this.socket.emit("test_connection");
-    } else {
+    if (!this.socket || !this.socket.connected) {
       console.warn("❌ Cannot test connection - meta socket not connected");
+      this.emit("connectionTestResult", { 
+        status: "error", 
+        message: "Socket not connected",
+        timestamp: new Date()
+      });
+      return;
     }
+
+    console.log("🧪 Testing meta socket connection...");
+    this.socket.emit("test_connection");
   }
 
   // Event management
@@ -332,10 +480,11 @@ class MetaSocketService {
   }
 
   public getConnectionState(): string {
-    if (!this.socket) return "disconnected";
-    if (this.isConnecting) return "connecting";
-    if (this.socket.connected) return "connected";
-    return "disconnected";
+    return this.stats.connectionState;
+  }
+
+  public getConnectionStats(): ConnectionStats {
+    return { ...this.stats };
   }
 
   public async ensureConnection(): Promise<void> {
@@ -344,17 +493,30 @@ class MetaSocketService {
     }
   }
 
-  // Utility method to get upload statistics
-  public getUploadStats(): {
-    isConnected: boolean;
-    socketId: string | null;
-    connectionState: string;
-  } {
-    return {
-      isConnected: this.isConnected(),
-      socketId: this.getSocketId(),
-      connectionState: this.getConnectionState(),
-    };
+  // Enhanced retry mechanism
+  public async reconnectWithRetry(maxRetries: number = 3): Promise<void> {
+    let attempts = 0;
+    
+    while (attempts < maxRetries && !this.isConnected()) {
+      attempts++;
+      console.log(`🔄 Reconnect attempt ${attempts}/${maxRetries}`);
+      
+      try {
+        await this.connect();
+        console.log("✅ Reconnected successfully");
+        return;
+      } catch (error) {
+        console.error(`❌ Reconnect attempt ${attempts} failed:`, error);
+        
+        if (attempts < maxRetries) {
+          const delay = 1000 * Math.pow(2, attempts); // Exponential backoff
+          console.log(`⏰ Waiting ${delay}ms before next attempt...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    throw new Error(`Failed to reconnect after ${maxRetries} attempts`);
   }
 }
 
@@ -367,4 +529,5 @@ export type {
   BatchProgress,
   UploadResults,
   BulkUploadData,
+  ConnectionStats,
 };

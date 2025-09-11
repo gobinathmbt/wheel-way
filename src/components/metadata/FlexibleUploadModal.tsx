@@ -419,7 +419,7 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
         ),
         options: uploadOptions,
       };
-
+console.log("hi")
       // Start socket-based upload
       metaSocketService.startBulkUpload(uploadData);
       

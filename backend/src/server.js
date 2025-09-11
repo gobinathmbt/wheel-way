@@ -18,16 +18,16 @@ connectDB();
 const server = http.createServer(app);
 
 // Initialize Socket.io with the server
-initializeSocket(server);
+const { mainIO, chatIO, metaIO } = initializeSocket(server);
 
 // Start SQS queue consumers
 console.log('🔄 Starting SQS Queue Consumers...');
 
 // Start main vehicle processing queue consumer
-startQueueConsumer();
+// startQueueConsumer();
 
 // Start workshop report processing queue consumer
-startWorkshopQueueConsumer();
+// startWorkshopQueueConsumer();
 
 // Start subscription CRON job
 startSubscriptionCronJob();
@@ -39,7 +39,9 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`📊 Environment: ${Env_Configuration.NODE_ENV}`);
   console.log(`🔗 Database: ${Env_Configuration.MONGODB_URI ? 'Connected' : 'Not configured'}`);
   console.log(`🌐 Frontend URL: ${Env_Configuration.FRONTEND_URL || 'http://localhost:8080'}`);
-  console.log(`🔌 Socket.io server initialized and available at http://localhost:${PORT}`);
+  console.log(`🔌 Multi-namespace Socket.io server initialized at http://localhost:${PORT}`);
+  console.log(`📞 Chat namespace available at http://localhost:${PORT}/chat`);
+  console.log(`📊 Metadata namespace available at http://localhost:${PORT}/metadata`);
   console.log(`🚛 Vehicle Queue Consumer: Running (every 10 seconds)`);
   console.log(`🏗️ Workshop Queue Consumer: Running (every 15 seconds)`);
 });

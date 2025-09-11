@@ -2,12 +2,13 @@ const express = require('express');
 const { protect, authorize } = require('../middleware/auth');
 const {
   getMakes,
+  getModels,
   getModelsByMake,
   getBodies,
   getVariantYears,
   getVehicleMetadata,
   getDropdownData,
-  uploadJsonMetadata,
+  getCounts,
   addMake,
   addModel,
   addBody,
@@ -42,14 +43,14 @@ router.use(authorize('master_admin'));
 
 // Get routes
 router.get('/makes', getMakes);
+router.get('/models', getModels);
 router.get('/makes/:makeId/models', getModelsByMake);
 router.get('/bodies', getBodies);
 router.get('/variant-years', getVariantYears);
 router.get('/metadata', getVehicleMetadata);
 router.get('/dropdown-data', getDropdownData);
+router.get('/counts', getCounts);
 
-// Upload JSON data (legacy)
-router.post('/upload-json', uploadJsonMetadata);
 
 // Optimized bulk upload routes
 router.post('/bulk-upload', bulkUploadMetadata);

@@ -14,7 +14,6 @@ const variantYearSchema = new mongoose.Schema({
   },
   displayValue: {
     type: String,
-    required: true,
     lowercase: true,
     trim: true
   },

@@ -67,6 +67,49 @@ exports.getMakes = async (req, res) => {
   }
 };
 
+// Get all models
+exports.getModels = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = '', isActive } = req.query;
+    const skip = (page - 1) * limit;
+
+    const filter = {};
+    if (search) {
+      filter.$or = [
+        { displayName: { $regex: search, $options: 'i' } },
+        { displayValue: { $regex: search, $options: 'i' } }
+      ];
+    }
+    if (isActive !== undefined) {
+      filter.isActive = isActive === 'true';
+    }
+
+    const models = await Model.find(filter)
+      .populate('make', 'displayName displayValue')
+      .sort({ displayName: 1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Model.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: models,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching models',
+      error: error.message
+    });
+  }
+};
+
 // Get models by make
 exports.getModelsByMake = async (req, res) => {
   try {
@@ -239,6 +282,36 @@ exports.getVehicleMetadata = async (req, res) => {
   }
 };
 
+// Get counts for dashboard
+exports.getCounts = async (req, res) => {
+  try {
+    const [makesCount, modelsCount, bodiesCount, yearsCount, metadataCount] = await Promise.all([
+      Make.countDocuments({ isActive: true }),
+      Model.countDocuments({ isActive: true }),
+      Body.countDocuments({ isActive: true }),
+      VariantYear.countDocuments({ isActive: true }),
+      VehicleMetadata.countDocuments({ isActive: true })
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        makes: makesCount,
+        models: modelsCount,
+        bodies: bodiesCount,
+        years: yearsCount,
+        metadata: metadataCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching counts',
+      error: error.message
+    });
+  }
+};
+
 // Get optimized dropdown data
 exports.getDropdownData = async (req, res) => {
   try {
@@ -305,162 +378,12 @@ exports.getDropdownData = async (req, res) => {
   }
 };
 
-// Upload and process JSON metadata
-exports.uploadJsonMetadata = async (req, res) => {
-  try {
-    const { jsonData, fieldMapping } = req.body;
 
-    if (!jsonData || !Array.isArray(jsonData)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid JSON data provided'
-      });
-    }
-
-    const results = {
-      processed: 0,
-      created: 0,
-      updated: 0,
-      errors: []
-    };
-
-    for (const item of jsonData) {
-      try {
-        // Extract and process make
-        const makeName = item[fieldMapping.make];
-        if (!makeName) continue;
-
-        const make = await createOrUpdateEntry(
-          Make,
-          { displayValue: makeName.toLowerCase().trim().replace(/\s+/g, '_') },
-          { displayName: makeName }
-        );
-
-        // Extract and process model
-        const modelName = item[fieldMapping.model];
-        if (!modelName) continue;
-
-        const model = await createOrUpdateEntry(
-          Model,
-          { 
-            make: make._id, 
-            displayValue: modelName.toLowerCase().trim().replace(/\s+/g, '_') 
-          },
-          { displayName: modelName, make: make._id }
-        );
-
-        // Extract and process body (optional)
-        let body = null;
-        if (fieldMapping.body && item[fieldMapping.body]) {
-          body = await createOrUpdateEntry(
-            Body,
-            { displayValue: item[fieldMapping.body].toLowerCase().trim().replace(/\s+/g, '_') },
-            { displayName: item[fieldMapping.body] }
-          );
-        }
-
-        // Extract and process variant year (optional)
-        let variantYear = null;
-        if (fieldMapping.year && item[fieldMapping.year]) {
-          const yearValue = parseInt(item[fieldMapping.year]);
-          if (!isNaN(yearValue)) {
-            variantYear = await createOrUpdateEntry(
-              VariantYear,
-              { year: yearValue },
-              { 
-                year: yearValue, 
-                displayName: yearValue.toString(),
-                displayValue: yearValue.toString()
-              }
-            );
-          }
-        }
-
-        // Create metadata object
-        const metadataObj = {};
-        Object.keys(fieldMapping).forEach(key => {
-          if (!['make', 'model', 'body', 'year'].includes(key)) {
-            metadataObj[key] = item[fieldMapping[key]];
-          }
-        });
-
-        // Create or update vehicle metadata
-        const vehicleMetadataData = {
-          make: make._id,
-          model: model._id,
-          body: body?._id,
-          variantYear: variantYear?._id,
-          fuelType: item[fieldMapping.fuelType],
-          transmission: item[fieldMapping.transmission],
-          engineCapacity: item[fieldMapping.engineCapacity],
-          power: item[fieldMapping.power],
-          torque: item[fieldMapping.torque],
-          seatingCapacity: item[fieldMapping.seatingCapacity] ? parseInt(item[fieldMapping.seatingCapacity]) : null,
-          metadata: metadataObj
-        };
-
-        const filter = {
-          make: make._id,
-          model: model._id,
-          body: body?._id || null,
-          variantYear: variantYear?._id || null
-        };
-
-        const existingMetadata = await VehicleMetadata.findOne(filter);
-        if (existingMetadata) {
-          Object.assign(existingMetadata, vehicleMetadataData);
-          await existingMetadata.save();
-          results.updated++;
-        } else {
-          await VehicleMetadata.create(vehicleMetadataData);
-          results.created++;
-        }
-
-        results.processed++;
-
-      } catch (error) {
-        results.errors.push({
-          item: item,
-          error: error.message
-        });
-      }
-    }
-
-    // Log the upload activity
-    try {
-      await GlobalLog.create({
-        user_id: req.user._id,
-        user_email: req.user.email,
-        user_role: req.user.role,
-        action: 'VEHICLE_METADATA_UPLOAD',
-        details: `Uploaded ${results.processed} vehicle metadata entries`,
-        ip_address: req.ip,
-        user_agent: req.get('User-Agent'),
-        company_id: req.user.company_id,
-        metadata: results
-      });
-    } catch (logError) {
-      console.error('Error logging upload activity:', logError);
-    }
-
-    res.json({
-      success: true,
-      message: 'Metadata uploaded successfully',
-      data: results
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error uploading metadata',
-      error: error.message
-    });
-  }
-};
 
 // Add individual entries
 exports.addMake = async (req, res) => {
   try {
+    console.log(req.body)
     const { displayName } = req.body;
     
     if (!displayName) {

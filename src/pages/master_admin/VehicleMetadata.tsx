@@ -71,15 +71,14 @@ interface PaginationState {
 
 const VehicleMetadata = () => {
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper function to transform display names to display values
   const transformToDisplayValue = (text: string) => {
     if (!text) return "";
     return text
       .toLowerCase()
-      .replace(/\s+/g, '_')        // Replace spaces with underscores
-      .replace(/[^a-z0-9_]/g, '')  // Remove special characters
+      .replace(/\s+/g, "_") // Replace spaces with underscores
+      .replace(/[^a-z0-9_]/g, "") // Remove special characters
       .trim();
   };
 
@@ -103,23 +102,18 @@ const VehicleMetadata = () => {
     pages: 0,
   });
 
-  // Upload states
-  const [uploadStep, setUploadStep] = useState(0);
-  const [jsonData, setJsonData] = useState<any[]>([]);
-  const [fieldMapping, setFieldMapping] = useState<FieldMapping>({});
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
-    isUploading: false,
-    progress: 0,
-    currentItem: 0,
-    totalItems: 0,
-    message: "",
-  });
-
   // Dialog states
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showFlexibleUpload, setShowFlexibleUpload] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [addDialogType, setAddDialogType] = useState("make");
+  const [addFormData, setAddFormData] = useState({
+    displayName: "",
+    makeId: "",
+    year: "",
+    bodyType: "",
+    fuelType: "",
+    transmission: "",
+  });
   const [editItem, setEditItem] = useState<any>(null);
   const [editData, setEditData] = useState<any>({});
   const [deleteItem, setDeleteItem] = useState<any>(null);
@@ -133,7 +127,13 @@ const VehicleMetadata = () => {
 
   const { data: allModels, isLoading: allModelsLoading } = useQuery({
     queryKey: ["all-vehicle-models"],
-    queryFn: () => vehicleMetadataServices.getMakes(),
+    queryFn: () => vehicleMetadataServices.getModels(),
+  });
+
+  // Get counts for dashboard
+  const { data: counts, isLoading: countsLoading } = useQuery({
+    queryKey: ["vehicle-metadata-counts"],
+    queryFn: () => vehicleMetadataServices.getCounts(),
   });
 
   const { data: makes, isLoading: makesLoading } = useQuery({
@@ -159,7 +159,13 @@ const VehicleMetadata = () => {
 
   // Metadata query
   const { data: metadata, isLoading: metadataLoading } = useQuery({
-    queryKey: ["vehicle-metadata", filters, pagination.page, pagination.limit, searchTerm],
+    queryKey: [
+      "vehicle-metadata",
+      filters,
+      pagination.page,
+      pagination.limit,
+      searchTerm,
+    ],
     queryFn: () =>
       vehicleMetadataServices.getVehicleMetadata({
         ...filters,
@@ -181,46 +187,79 @@ const VehicleMetadata = () => {
   }, [metadata]);
 
   // Mutations
-  const uploadMutation = useMutation({
-    mutationFn: vehicleMetadataServices.uploadJsonMetadata,
-    onSuccess: (response) => {
-      toast.success(
-        `Upload completed! Processed: ${response.data.processed}, Created: ${response.data.created}, Updated: ${response.data.updated}`
-      );
-      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata"] });
-      setShowUploadDialog(false);
-      setUploadStep(0);
-      setJsonData([]);
-      setFieldMapping({});
-    },
-    onError: (error) => {
-      toast.error("Upload failed");
-      console.error("Upload error:", error);
-    },
-  });
-
   const addMutation = useMutation({
     mutationFn: (data: any) => {
       switch (addDialogType) {
         case "make":
-          return vehicleMetadataServices.addMake(data);
+          return vehicleMetadataServices.addMake({
+            displayName: data.displayName,
+            displayValue: transformToDisplayValue(data.displayName),
+            isActive: data.isActive,
+          });
         case "model":
-          return vehicleMetadataServices.addModel(data);
+          return vehicleMetadataServices.addModel({
+            displayName: data.displayName,
+            displayValue: transformToDisplayValue(data.displayName),
+            make: data.makeId,
+            isActive: data.isActive,
+          });
         case "body":
-          return vehicleMetadataServices.addBody(data);
+          return vehicleMetadataServices.addBody({
+            displayName: data.displayName,
+            displayValue: transformToDisplayValue(data.displayName),
+            isActive: data.isActive,
+          });
         case "year":
-          return vehicleMetadataServices.addVariantYear(data);
+          return vehicleMetadataServices.addVariantYear({
+            year: parseInt(data.year),
+            displayName: data.year.toString(),
+            displayValue: transformToDisplayValue(data.year.toString()),
+            isActive: true,
+          });
+        case "metadata":
+          return vehicleMetadataServices.addVehicleMetadata({
+            make: data.makeId,
+            model: data.displayName,
+            body: data.bodyType,
+            year: data.year ? parseInt(data.year) : undefined,
+            fuelType: data.fuelType,
+            transmission: data.transmission,
+            source: "manual",
+            isActive: true,
+          });
         default:
           throw new Error("Invalid type");
       }
     },
     onSuccess: () => {
-      toast.success(`${addDialogType} added successfully`);
+      toast.success(
+        `${
+          addDialogType.charAt(0).toUpperCase() + addDialogType.slice(1)
+        } added successfully`
+      );
       queryClient.invalidateQueries({ queryKey: ["vehicle-metadata"] });
+      queryClient.invalidateQueries({ queryKey: ["all-vehicle-makes"] });
+      queryClient.invalidateQueries({ queryKey: ["all-vehicle-models"] });
+      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata-makes"] });
+      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata-bodies"] });
+      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata-years"] });
+      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata-counts"] });
       setShowAddDialog(false);
+      setAddFormData({
+        displayName: "",
+        year: "",
+        makeId: "",
+        bodyType: "",
+        fuelType: "",
+        transmission: "",
+      });
     },
-    onError: () => {
-      toast.error(`Failed to add ${addDialogType}`);
+    onError: (error: any) => {
+      toast.error(
+        `Failed to add ${addDialogType}: ${
+          error.response?.data?.message || error.message
+        }`
+      );
     },
   });
 
@@ -244,96 +283,16 @@ const VehicleMetadata = () => {
     mutationFn: (data: any) =>
       vehicleMetadataServices.updateVehicleMetadata(editItem._id, data),
     onSuccess: (response) => {
-      console.log('Update successful:', response);
+      console.log("Update successful:", response);
       toast.success("Item updated successfully");
       queryClient.invalidateQueries({ queryKey: ["vehicle-metadata"] });
       setEditItem(null);
     },
     onError: (error) => {
-      console.error('Update error:', error);
+      console.error("Update error:", error);
       toast.error("Failed to update item");
     },
   });
-
-  // File upload handling
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.name.endsWith(".json")) {
-      toast.error("Please select a JSON file");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target?.result as string);
-        if (!Array.isArray(data)) {
-          toast.error("JSON must contain an array of objects");
-          return;
-        }
-        setJsonData(data);
-        setUploadStep(1);
-      } catch (error) {
-        toast.error("Invalid JSON file");
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleFieldMappingChange = (dbField: string, jsonField: string) => {
-    setFieldMapping((prev) => ({
-      ...prev,
-      [dbField]: jsonField,
-    }));
-  };
-
-  const handleUpload = async () => {
-    if (!jsonData.length || !fieldMapping.make || !fieldMapping.model) {
-      toast.error("Please map at least Make and Model fields");
-      return;
-    }
-
-    setUploadStep(2);
-    setUploadProgress({
-      isUploading: true,
-      progress: 0,
-      currentItem: 0,
-      totalItems: jsonData.length,
-      message: "Starting upload...",
-    });
-
-    try {
-      await uploadMutation.mutateAsync({
-        jsonData,
-        fieldMapping,
-      });
-    } catch (error) {
-      console.error("Upload error:", error);
-    }
-  };
-
-  const resetUpload = () => {
-    setUploadStep(0);
-    setJsonData([]);
-    setFieldMapping({});
-    setUploadProgress({
-      isUploading: false,
-      progress: 0,
-      currentItem: 0,
-      totalItems: 0,
-      message: "",
-    });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  const getJsonFields = () => {
-    if (!jsonData.length) return [];
-    return Object.keys(jsonData[0]);
-  };
 
   const handleDeleteItem = (item: any) => {
     setDeleteItem(item);
@@ -350,25 +309,68 @@ const VehicleMetadata = () => {
     // Transform display names to display values
     const updatedData = {
       ...editData,
-      make: editData.make ? {
-        ...editData.make,
-        displayValue: transformToDisplayValue(editData.make.displayName)
-      } : undefined,
-      model: editData.model ? {
-        ...editData.model,
-        displayValue: transformToDisplayValue(editData.model.displayName)
-      } : undefined,
-      body: editData.body ? {
-        ...editData.body,
-        displayValue: transformToDisplayValue(editData.body.displayName)
-      } : undefined,
-      variantYear: editData.variantYear ? {
-        ...editData.variantYear,
-        displayValue: transformToDisplayValue(editData.variantYear.year?.toString())
-      } : undefined
+      make: editData.make
+        ? {
+            ...editData.make,
+            displayValue: transformToDisplayValue(editData.make.displayName),
+          }
+        : undefined,
+      model: editData.model
+        ? {
+            ...editData.model,
+            displayValue: transformToDisplayValue(editData.model.displayName),
+          }
+        : undefined,
+      body: editData.body
+        ? {
+            ...editData.body,
+            displayValue: transformToDisplayValue(editData.body.displayName),
+          }
+        : undefined,
+      variantYear: editData.variantYear
+        ? {
+            ...editData.variantYear,
+            displayValue: transformToDisplayValue(
+              editData.variantYear.year?.toString()
+            ),
+          }
+        : undefined,
     };
 
     updateMutation.mutate(updatedData);
+  };
+
+  const handleAddEntry = () => {
+    if (addDialogType === "year" && !addFormData.year) {
+      toast.error("Year is required");
+      return;
+    }
+
+    if (!addFormData.displayName && addDialogType !== "year") {
+      toast.error("Display name is required");
+      return;
+    }
+
+    if (addDialogType === "model" && !addFormData.makeId) {
+      toast.error("Make is required for models");
+      return;
+    }
+
+    addMutation.mutate({
+      ...addFormData,
+      isActive: true,
+    });
+  };
+
+  const resetAddForm = () => {
+    setAddFormData({
+      displayName: "",
+      year: "",
+      makeId: "",
+      bodyType: "",
+      fuelType: "",
+      transmission: "",
+    });
   };
 
   const PaginationControls = () => (
@@ -402,220 +404,6 @@ const VehicleMetadata = () => {
       </div>
     </div>
   );
-
-  const renderUploadStep = () => {
-    switch (uploadStep) {
-      case 0:
-        return (
-          <div className="space-y-4">
-            <div className="text-center">
-              <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">
-                Upload Vehicle Metadata
-              </h3>
-              <p className="text-muted-foreground mb-4">
-                Select a JSON file containing vehicle metadata to upload
-              </p>
-            </div>
-            <div className="flex justify-center">
-              <Button onClick={() => fileInputRef.current?.click()}>
-                <Upload className="h-4 w-4 mr-2" />
-                Select JSON File
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </div>
-          </div>
-        );
-
-      case 1:
-        return (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Configure Field Mapping</h3>
-              <Badge variant="secondary">{jsonData.length} records</Badge>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Database Field</Label>
-              </div>
-              <div>
-                <Label>JSON Field</Label>
-              </div>
-
-              <Label className="font-semibold text-red-600">Make *</Label>
-              <Select
-                value={fieldMapping.make || ""}
-                onValueChange={(value) =>
-                  handleFieldMappingChange("make", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select JSON field" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getJsonFields().map((field) => (
-                    <SelectItem key={field} value={field}>
-                      {field}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Label className="font-semibold text-red-600">Model *</Label>
-              <Select
-                value={fieldMapping.model || ""}
-                onValueChange={(value) =>
-                  handleFieldMappingChange("model", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select JSON field" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getJsonFields().map((field) => (
-                    <SelectItem key={field} value={field}>
-                      {field}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Label>Body Type</Label>
-              <Select
-                value={fieldMapping.body || ""}
-                onValueChange={(value) =>
-                  handleFieldMappingChange("body", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select JSON field (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">None</SelectItem>
-                  {getJsonFields().map((field) => (
-                    <SelectItem key={field} value={field}>
-                      {field}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Label>Year</Label>
-              <Select
-                value={fieldMapping.year || ""}
-                onValueChange={(value) =>
-                  handleFieldMappingChange("year", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select JSON field (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">None</SelectItem>
-                  {getJsonFields().map((field) => (
-                    <SelectItem key={field} value={field}>
-                      {field}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Label>Fuel Type</Label>
-              <Select
-                value={fieldMapping.fuelType || ""}
-                onValueChange={(value) =>
-                  handleFieldMappingChange("fuelType", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select JSON field (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">None</SelectItem>
-                  {getJsonFields().map((field) => (
-                    <SelectItem key={field} value={field}>
-                      {field}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Label>Transmission</Label>
-              <Select
-                value={fieldMapping.transmission || ""}
-                onValueChange={(value) =>
-                  handleFieldMappingChange("transmission", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select JSON field (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">None</SelectItem>
-                  {getJsonFields().map((field) => (
-                    <SelectItem key={field} value={field}>
-                      {field}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={resetUpload}>
-                Back
-              </Button>
-              <Button
-                onClick={handleUpload}
-                disabled={!fieldMapping.make || !fieldMapping.model}
-              >
-                Upload Data
-              </Button>
-            </div>
-          </div>
-        );
-
-      case 2:
-        return (
-          <div className="space-y-4">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold mb-2">Uploading Data</h3>
-              <p className="text-muted-foreground mb-4">
-                {uploadProgress.message}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Progress</span>
-                <span>
-                  {uploadProgress.currentItem} / {uploadProgress.totalItems}
-                </span>
-              </div>
-              <Progress value={uploadProgress.progress} className="w-full" />
-            </div>
-
-            {!uploadProgress.isUploading && (
-              <div className="flex justify-center">
-                <Button onClick={() => setShowUploadDialog(false)}>
-                  Close
-                </Button>
-              </div>
-            )}
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
 
   const renderMetadataTable = () => (
     <>
@@ -678,6 +466,7 @@ const VehicleMetadata = () => {
           <TableHead>Display Name</TableHead>
           <TableHead>Display Value</TableHead>
           {type === "year" && <TableHead>Year</TableHead>}
+          {type === "model" && <TableHead>Make</TableHead>}
           <TableHead>Status</TableHead>
           <TableHead className="w-24">Actions</TableHead>
         </TableRow>
@@ -688,6 +477,9 @@ const VehicleMetadata = () => {
             <TableCell>{item.displayName}</TableCell>
             <TableCell>{item.displayValue}</TableCell>
             {type === "year" && <TableCell>{item.year}</TableCell>}
+            {type === "model" && (
+              <TableCell>{item.make?.displayName || "-"}</TableCell>
+            )}
             <TableCell>
               <Badge variant={item.isActive ? "default" : "secondary"}>
                 {item.isActive ? "Active" : "Inactive"}
@@ -732,27 +524,38 @@ const VehicleMetadata = () => {
             <p className="text-muted-foreground">
               Manage vehicle makes, models, body types, and metadata
             </p>
+            {/* Total Counts */}
+            {!countsLoading && counts?.data && (
+              <div className="flex gap-4 mt-2">
+                <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                  Makes: {counts.data?.data?.makes?.toLocaleString()}
+                </Badge>
+                <Badge variant="outline" className="bg-green-50 text-green-700">
+                  Models: {counts.data?.data?.models?.toLocaleString()}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className="bg-purple-50 text-purple-700"
+                >
+                  Bodies: {counts.data?.data?.bodies?.toLocaleString()}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className="bg-orange-50 text-orange-700"
+                >
+                  Years: {counts.data?.data?.years?.toLocaleString()}
+                </Badge>
+                <Badge variant="outline" className="bg-red-50 text-red-700">
+                  Metadata: {counts.data?.data?.metadata?.toLocaleString()}
+                </Badge>
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
             <Button onClick={() => setShowFlexibleUpload(true)}>
               <Upload className="h-4 w-4 mr-2" />
               Bulk Upload
             </Button>
-
-            <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Simple JSON
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Upload Vehicle Metadata (Legacy)</DialogTitle>
-                </DialogHeader>
-                {renderUploadStep()}
-              </DialogContent>
-            </Dialog>
 
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
               <DialogTrigger asChild>
@@ -780,9 +583,202 @@ const VehicleMetadata = () => {
                         <SelectItem value="model">Model</SelectItem>
                         <SelectItem value="body">Body Type</SelectItem>
                         <SelectItem value="year">Variant Year</SelectItem>
+                        <SelectItem value="metadata">
+                          Vehicle Metadata
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Form fields based on selected type */}
+                  {addDialogType === "make" && (
+                    <div>
+                      <Label>Make Name</Label>
+                      <Input
+                        value={addFormData.displayName}
+                        onChange={(e) =>
+                          setAddFormData({
+                            ...addFormData,
+                            displayName: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., Toyota"
+                      />
+                    </div>
+                  )}
+
+                  {addDialogType === "model" && (
+                    <>
+                      <div>
+                        <Label>Make</Label>
+                        <Select
+                          value={addFormData.makeId}
+                          onValueChange={(value) =>
+                            setAddFormData({ ...addFormData, makeId: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Make" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {makes?.data?.data?.map((make: any) => (
+                              <SelectItem key={make._id} value={make._id}>
+                                {make.displayName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Model Name</Label>
+                        <Input
+                          value={addFormData.displayName}
+                          onChange={(e) =>
+                            setAddFormData({
+                              ...addFormData,
+                              displayName: e.target.value,
+                            })
+                          }
+                          placeholder="e.g., Camry"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {addDialogType === "body" && (
+                    <div>
+                      <Label>Body Type Name</Label>
+                      <Input
+                        value={addFormData.displayName}
+                        onChange={(e) =>
+                          setAddFormData({
+                            ...addFormData,
+                            displayName: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., Sedan"
+                      />
+                    </div>
+                  )}
+
+                  {addDialogType === "year" && (
+                    <div>
+                      <Label>Year</Label>
+                      <Input
+                        type="number"
+                        value={addFormData.year}
+                        onChange={(e) =>
+                          setAddFormData({
+                            ...addFormData,
+                            year: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., 2023"
+                        min="1900"
+                        max={new Date().getFullYear() + 1}
+                      />
+                    </div>
+                  )}
+
+                  {addDialogType === "metadata" && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Make</Label>
+                          <Select
+                            value={addFormData.makeId}
+                            onValueChange={(value) =>
+                              setAddFormData({ ...addFormData, makeId: value })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Make" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {makes?.data?.data?.map((make: any) => (
+                                <SelectItem key={make._id} value={make._id}>
+                                  {make.displayName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Model</Label>
+                          <Input
+                            value={addFormData.displayName}
+                            onChange={(e) =>
+                              setAddFormData({
+                                ...addFormData,
+                                displayName: e.target.value,
+                              })
+                            }
+                            placeholder="Model name"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Body Type (Optional)</Label>
+                          <Input
+                            value={addFormData.bodyType || ""}
+                            onChange={(e) =>
+                              setAddFormData({
+                                ...addFormData,
+                                bodyType: e.target.value,
+                              })
+                            }
+                            placeholder="e.g., Sedan"
+                          />
+                        </div>
+                        <div>
+                          <Label>Year (Optional)</Label>
+                          <Input
+                            type="number"
+                            value={addFormData.year}
+                            onChange={(e) =>
+                              setAddFormData({
+                                ...addFormData,
+                                year: e.target.value,
+                              })
+                            }
+                            placeholder="e.g., 2023"
+                            min="1900"
+                            max={new Date().getFullYear() + 1}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Fuel Type (Optional)</Label>
+                          <Input
+                            value={addFormData.fuelType || ""}
+                            onChange={(e) =>
+                              setAddFormData({
+                                ...addFormData,
+                                fuelType: e.target.value,
+                              })
+                            }
+                            placeholder="e.g., Petrol"
+                          />
+                        </div>
+                        <div>
+                          <Label>Transmission (Optional)</Label>
+                          <Input
+                            value={addFormData.transmission || ""}
+                            onChange={(e) =>
+                              setAddFormData({
+                                ...addFormData,
+                                transmission: e.target.value,
+                              })
+                            }
+                            placeholder="e.g., Manual"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex justify-end gap-2">
                     <Button
                       variant="outline"
@@ -790,7 +786,31 @@ const VehicleMetadata = () => {
                     >
                       Cancel
                     </Button>
-                    <Button>Add</Button>
+                    <Button
+                      onClick={() => {
+                        let data: any = {};
+
+                        if (addDialogType === "make") {
+                          data = { displayName: addFormData.displayName };
+                        } else if (addDialogType === "model") {
+                          data = {
+                            displayName: addFormData.displayName,
+                            makeId: addFormData.makeId,
+                          };
+                        } else if (addDialogType === "body") {
+                          data = { displayName: addFormData.displayName };
+                        } else if (addDialogType === "year") {
+                          data = {
+                            year: parseInt(addFormData.year),
+                            displayName: addFormData.year,
+                          };
+                        }
+
+                        addMutation.mutate(data);
+                      }}
+                    >
+                      Add
+                    </Button>
                   </div>
                 </div>
               </DialogContent>
@@ -1026,7 +1046,8 @@ const VehicleMetadata = () => {
             <DialogHeader>
               <DialogTitle>Edit Vehicle Metadata</DialogTitle>
               <DialogDescription>
-                Make changes to the vehicle metadata here. Display values will be automatically generated from display names.
+                Make changes to the vehicle metadata here. Display values will
+                be automatically generated from display names.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -1043,8 +1064,8 @@ const VehicleMetadata = () => {
                         make: {
                           ...editData.make,
                           displayName,
-                          displayValue
-                        }
+                          displayValue,
+                        },
                       });
                     }}
                   />
@@ -1067,8 +1088,8 @@ const VehicleMetadata = () => {
                         model: {
                           ...editData.model,
                           displayName,
-                          displayValue
-                        }
+                          displayValue,
+                        },
                       });
                     }}
                   />
@@ -1091,8 +1112,8 @@ const VehicleMetadata = () => {
                         body: {
                           ...editData.body,
                           displayName,
-                          displayValue
-                        }
+                          displayValue,
+                        },
                       });
                     }}
                   />
@@ -1116,8 +1137,8 @@ const VehicleMetadata = () => {
                         variantYear: {
                           ...editData.variantYear,
                           year,
-                          displayValue
-                        }
+                          displayValue,
+                        },
                       });
                     }}
                   />
@@ -1137,7 +1158,7 @@ const VehicleMetadata = () => {
                     }
                   />
                 </div>
-                
+
                 <div>
                   <Label>Transmission</Label>
                   <Input
@@ -1148,7 +1169,7 @@ const VehicleMetadata = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setEditItem(null)}>
                   Cancel
@@ -1179,7 +1200,8 @@ const VehicleMetadata = () => {
                 <div className="space-y-2">
                   <p className="font-medium">
                     {deleteItem.make?.displayName || deleteItem.displayName}{" "}
-                    {deleteItem.model?.displayName && `- ${deleteItem.model.displayName}`}
+                    {deleteItem.model?.displayName &&
+                      `- ${deleteItem.model.displayName}`}
                   </p>
                   {deleteItem.body?.displayName && (
                     <p>Body: {deleteItem.body.displayName}</p>

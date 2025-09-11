@@ -1,4 +1,4 @@
-// controllers/metaSocket.controller.js - Dedicated meta operations socket
+// controllers/metaSocket.controller.js - Dedicated meta operations socket with proper exports
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
@@ -8,19 +8,20 @@ const Model = require("../models/Model");
 const Body = require("../models/Body");
 const VariantYear = require("../models/VariantYear");
 const VehicleMetadata = require("../models/VehicleMetadata");
+const MasterAdmin = require("../models/MasterAdmin");
 const Env_Configuration = require("../config/env");
 const { logEvent } = require("./logs.controller");
 const { v4: uuidv4 } = require("uuid");
 
 let metaIo;
 const connectedUsers = new Map();
-const activeBulkOperations = new Map(); // Track ongoing operations
+const activeBulkOperations = new Map(); // Track ongoing operations - EXPORTED
 
 // Batch processing configuration
 const BATCH_SIZE = 100; // Process 100 records at a time
 const BATCH_DELAY = 500; // Delay between batches (ms)
 
-// Data type conversion helpers
+// Data type conversion helpers - EXPORTED
 const convertToType = (value, targetType, fieldName) => {
   if (value === null || value === undefined || value === "") return null;
 
@@ -52,7 +53,7 @@ const convertToType = (value, targetType, fieldName) => {
   }
 };
 
-// Enhanced create/update helper
+// Enhanced create/update helper - EXPORTED
 const createOrUpdateEntry = async (Model, findCriteria, data, options = {}) => {
   try {
     const session = options.session;
@@ -80,7 +81,7 @@ const createOrUpdateEntry = async (Model, findCriteria, data, options = {}) => {
   }
 };
 
-// Process a single batch with real-time updates
+// Process a single batch with real-time updates - EXPORTED
 const processBatchWithSocket = async (
   socketId,
   batch,
@@ -99,8 +100,11 @@ const processBatchWithSocket = async (
     errors: [],
   };
 
+  // Get the appropriate IO instance for emitting
+  const ioInstance = metaIo || getMetaIO();
+
   // Send batch start notification
-  metaIo.to(socketId).emit("batch_start", {
+  ioInstance.to(socketId).emit("batch_start", {
     batchId,
     batchNumber,
     totalBatches,
@@ -284,7 +288,7 @@ const processBatchWithSocket = async (
 
       // Send progress update for every 10 records within batch
       if (results.processed % 10 === 0) {
-        metaIo.to(socketId).emit("batch_progress", {
+        ioInstance.to(socketId).emit("batch_progress", {
           batchId,
           batchNumber,
           totalBatches,
@@ -309,7 +313,7 @@ const processBatchWithSocket = async (
   }
 
   // Send batch completion notification
-  metaIo.to(socketId).emit("batch_complete", {
+  ioInstance.to(socketId).emit("batch_complete", {
     batchId,
     batchNumber,
     totalBatches,
@@ -368,19 +372,37 @@ const initializeMetaSocket = (server) => {
       const decoded = jwt.verify(token, Env_Configuration.JWT_SECRET);
 
       console.log(
-        `🔑 Meta Socket authentication attempt for user ID: ${decoded.id}, role: ${decoded.role}`
+        `🔐 Meta Socket authentication attempt for user ID: ${decoded.id}, role: ${decoded.role}`
       );
 
-      const user = await User.findById(decoded.id);
-      if (!user) {
-        return next(new Error("User not found"));
+      // Allow both master admin and company users
+      if (decoded.role === "master_admin") {
+        const user = await MasterAdmin.findById(decoded.id);
+        if (!user) {
+          return next(new Error("Master Admin not found"));
+        }
+        socket.user = {
+          ...user.toObject(),
+          type: "master",
+          _id: user._id.toString(),
+        };
+      } else if (
+        decoded.role === "company_super_admin" ||
+        decoded.role === "company_admin"
+      ) {
+        const user = await User.findById(decoded.id);
+        if (!user) {
+          return next(new Error("Company user not found"));
+        }
+        socket.user = {
+          ...user.toObject(),
+          type: "company",
+          _id: user._id.toString(),
+          company_id: user.company_id.toString(),
+        };
+      } else {
+        return next(new Error("Unauthorized: Access restricted"));
       }
-
-      socket.user = {
-        ...user.toObject(),
-        _id: user._id.toString(),
-        company_id: user.company_id.toString(),
-      };
 
       next();
     } catch (error) {
@@ -408,7 +430,9 @@ const initializeMetaSocket = (server) => {
     socket.join(userRoom);
 
     // Join user to company room for notifications
-    socket.join(`company_${socket.user.company_id}`);
+    if (socket.user.company_id) {
+      socket.join(`company_${socket.user.company_id}`);
+    }
 
     // Emit connection success
     socket.emit("meta_connected", {
@@ -422,6 +446,8 @@ const initializeMetaSocket = (server) => {
 
     // Handle bulk upload with real-time progress
     socket.on("start_bulk_upload", async (data) => {
+            console.log("🚀 Starting integrated bulk upload process...");
+
       const session = await VehicleMetadata.startSession();
       
       try {
@@ -545,7 +571,7 @@ const initializeMetaSocket = (server) => {
             event_action: "bulk_upload_completed",
             event_description: `Bulk uploaded ${overallResults.processed} vehicle metadata entries in ${totalBatches} batches`,
             user_id: socket.user._id,
-            user_role: socket.user.role,
+            user_role: socket.user.role || socket.user.type,
             metadata: {
               batchId,
               totalRecords: uploadData.length,
@@ -680,8 +706,16 @@ const getActiveOperations = () => {
   return operations;
 };
 
+// EXPORTED FUNCTIONS FOR INTEGRATION
 module.exports = {
   initializeMetaSocket,
   getMetaIO,
   getActiveOperations,
+  // Export functions for use by socket.controller.js
+  processBatchWithSocket,
+  createOrUpdateEntry,
+  convertToType,
+  activeBulkOperations, // Export the shared operations map
+  BATCH_SIZE,
+  BATCH_DELAY,
 };

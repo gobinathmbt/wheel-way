@@ -38,7 +38,7 @@ class SocketService {
   }
 
   private getSocketUrl(): string {
-    return BASE_URL;
+    return `${BASE_URL}/chat`;
   }
 
   public connect(): Promise<void> {
@@ -77,20 +77,20 @@ class SocketService {
       const socketUrl = this.getSocketUrl();
       console.log(`🔌 Attempting to connect to socket server at: ${socketUrl}`);
 
-      // First, let's test if the server is responding
-      fetch(`${socketUrl}/socket/health`)
+      // First, let's test if the chat server is responding
+      fetch(`${BASE_URL}/api/socket_connection/v1/chat_connection/health`)
         .then((response) => {
           if (!response.ok) {
-            throw new Error(`Server health check failed: ${response.status}`);
+            throw new Error(`Chat server health check failed: ${response.status}`);
           }
           return response.json();
         })
         .then(() => {
-          console.log("✅ Server health check passed, initializing socket...");
+          console.log("✅ Chat server health check passed, initializing socket...");
           this.initializeSocket(socketUrl, token, resolve, reject);
         })
         .catch((error) => {
-          console.error("❌ Server health check failed:", error);
+          console.error("❌ Chat server health check failed:", error);
           // Try to connect anyway
           this.initializeSocket(socketUrl, token, resolve, reject);
         });
@@ -129,8 +129,8 @@ class SocketService {
       resolve();
     });
 
-    this.socket.on("connected", (data) => {
-      console.log("🎉 Socket connection confirmed by server:", data);
+    this.socket.on("chat_connected", (data) => {
+      console.log("🎉 Chat socket connection confirmed by server:", data);
     });
 
     this.socket.on("disconnect", (reason) => {
@@ -310,7 +310,7 @@ class SocketService {
   }
 
   public onConnected(callback: (data: any) => void): void {
-    this.socket?.on("connected", callback);
+    this.socket?.on("chat_connected", callback);
   }
 
   public off(event: string, callback?: (...args: any[]) => void): void {

@@ -33,6 +33,7 @@ const logsRoutes = require("./routes/logs.routes");
 const subscriptionRoutes = require("./routes/subscription.routes");
 const customModuleRoutes = require("./routes/customModule.routes");
 const vehicleMetadataRoutes = require("./routes/vehicleMetadata.routes");
+const socketRoutes = require("./routes/socketRoutes");
 
 const errorHandler = require("./middleware/error");
 const { logRequest } = require("./controllers/logs.controller");
@@ -125,6 +126,7 @@ app.use("/api/dealership", dealershipRoutes);
 app.use("/api/master-inspection", masterInspectionRoutes);
 app.use("/api/master/custom-modules", customModuleRoutes);
 app.use("/api/master/vehicle-metadata", vehicleMetadataRoutes);
+app.use("/api/socket_connection", socketRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {

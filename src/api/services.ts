@@ -130,6 +130,9 @@ export const vehicleMetadataServices = {
     apiClient.delete(`/api/master/vehicle-metadata/makes/${id}`),
 
   // Models
+  getModels: (params?: any) =>
+    apiClient.get("/api/master/vehicle-metadata/models", { params }),
+
   getModelsByMake: (makeId: string, params?: any) =>
     apiClient.get(`/api/master/vehicle-metadata/makes/${makeId}/models`, { params }),
 
@@ -185,9 +188,10 @@ export const vehicleMetadataServices = {
   getDropdownData: (type: string, params?: any) =>
     apiClient.get("/api/master/vehicle-metadata/dropdown-data", { params: { type, ...params } }),
 
-  // Upload JSON (Legacy)
-  uploadJsonMetadata: (data: any) =>
-    apiClient.post("/api/master/vehicle-metadata/upload-json", data),
+  // Counts
+  getCounts: () =>
+    apiClient.get("/api/master/vehicle-metadata/counts"),
+
 
   // Optimized bulk operations
   bulkUploadMetadata: (data: any) =>

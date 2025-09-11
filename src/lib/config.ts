@@ -21,4 +21,15 @@ const BACKEND_URLS: Record<ServerEnv, string> = {
 const URL: string = FRONTEND_URLS[server];
 const BASE_URL: string = BACKEND_URLS[server];
 
+// Socket configuration
+export const SOCKET_CONFIG = {
+  CHAT_NAMESPACE: '/chat',
+  METADATA_NAMESPACE: '/metadata',
+  HEALTH_CHECK_ENDPOINTS: {
+    CHAT: '/api/socket_connection/v1/chat_connection/health',
+    METADATA: '/api/socket_connection/v1/metadata_connection/health',
+    STATUS: '/api/socket_connection/status'
+  }
+};
+
 export { BASE_URL, URL };
