@@ -20,7 +20,7 @@ const server = http.createServer(app);
 initializeSocket(server);
 
 // Start SQS queue consumer
-startQueueConsumer();
+// startQueueConsumer();
 
 // Start subscription CRON job
 startSubscriptionCronJob();

@@ -56,7 +56,7 @@ export class S3Uploader {
       throw new Error("User session not found");
     }
 
-    const companyId = user.company_id;
+    const companyId = user.company_name;
     const userId = user.id;
 
     return `${companyId}/${userId}/${category}`;
