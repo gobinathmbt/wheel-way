@@ -70,13 +70,13 @@ router.put('/makes/:id', updateMake);
 router.put('/models/:id', updateModel);
 router.put('/bodies/:id', updateBody);
 router.put('/variant-years/:id', updateVariantYear);
-router.put('/metadata/:id', updateVehicleMetadata);
+router.put('/update/:id', updateVehicleMetadata);
 
 // Delete routes
 router.delete('/makes/:id', deleteMake);
 router.delete('/models/:id', deleteModel);
 router.delete('/bodies/:id', deleteBody);
 router.delete('/variant-years/:id', deleteVariantYear);
-router.delete('/metadata/:id', deleteVehicleMetadata);
+router.delete('/delete/:id', deleteVehicleMetadata);
 
 module.exports = router;

@@ -117,92 +117,92 @@ export const masterServices = {
 // Vehicle Metadata Services
 export const vehicleMetadataServices = {
   // Makes
-  getMakes: (params?: any) => 
+  getMakes: (params?: any) =>
     apiClient.get("/api/master/vehicle-metadata/makes", { params }),
-  
-  addMake: (data: any) => 
+
+  addMake: (data: any) =>
     apiClient.post("/api/master/vehicle-metadata/makes", data),
-  
-  updateMake: (id: string, data: any) => 
+
+  updateMake: (id: string, data: any) =>
     apiClient.put(`/api/master/vehicle-metadata/makes/${id}`, data),
-  
-  deleteMake: (id: string) => 
+
+  deleteMake: (id: string) =>
     apiClient.delete(`/api/master/vehicle-metadata/makes/${id}`),
 
   // Models
-  getModelsByMake: (makeId: string, params?: any) => 
+  getModelsByMake: (makeId: string, params?: any) =>
     apiClient.get(`/api/master/vehicle-metadata/makes/${makeId}/models`, { params }),
-  
-  addModel: (data: any) => 
+
+  addModel: (data: any) =>
     apiClient.post("/api/master/vehicle-metadata/models", data),
-  
-  updateModel: (id: string, data: any) => 
+
+  updateModel: (id: string, data: any) =>
     apiClient.put(`/api/master/vehicle-metadata/models/${id}`, data),
-  
-  deleteModel: (id: string) => 
+
+  deleteModel: (id: string) =>
     apiClient.delete(`/api/master/vehicle-metadata/models/${id}`),
 
   // Bodies
-  getBodies: (params?: any) => 
+  getBodies: (params?: any) =>
     apiClient.get("/api/master/vehicle-metadata/bodies", { params }),
-  
-  addBody: (data: any) => 
+
+  addBody: (data: any) =>
     apiClient.post("/api/master/vehicle-metadata/bodies", data),
-  
-  updateBody: (id: string, data: any) => 
+
+  updateBody: (id: string, data: any) =>
     apiClient.put(`/api/master/vehicle-metadata/bodies/${id}`, data),
-  
-  deleteBody: (id: string) => 
+
+  deleteBody: (id: string) =>
     apiClient.delete(`/api/master/vehicle-metadata/bodies/${id}`),
 
   // Variant Years
-  getVariantYears: (params?: any) => 
+  getVariantYears: (params?: any) =>
     apiClient.get("/api/master/vehicle-metadata/variant-years", { params }),
-  
-  addVariantYear: (data: any) => 
+
+  addVariantYear: (data: any) =>
     apiClient.post("/api/master/vehicle-metadata/variant-years", data),
-  
-  updateVariantYear: (id: string, data: any) => 
+
+  updateVariantYear: (id: string, data: any) =>
     apiClient.put(`/api/master/vehicle-metadata/variant-years/${id}`, data),
-  
-  deleteVariantYear: (id: string) => 
+
+  deleteVariantYear: (id: string) =>
     apiClient.delete(`/api/master/vehicle-metadata/variant-years/${id}`),
 
   // Vehicle Metadata
-  getVehicleMetadata: (params?: any) => 
+  getVehicleMetadata: (params?: any) =>
     apiClient.get("/api/master/vehicle-metadata/metadata", { params }),
-  
-  addVehicleMetadata: (data: any) => 
+
+  addVehicleMetadata: (data: any) =>
     apiClient.post("/api/master/vehicle-metadata/metadata", data),
-  
-  updateVehicleMetadata: (id: string, data: any) => 
-    apiClient.put(`/api/master/vehicle-metadata/metadata/${id}`, data),
-  
-  deleteVehicleMetadata: (id: string) => 
-    apiClient.delete(`/api/master/vehicle-metadata/metadata/${id}`),
+
+  updateVehicleMetadata: (id: string, data: any) =>
+    apiClient.put(`/api/master/vehicle-metadata/update/${id}`, data),
+
+  deleteVehicleMetadata: (id: string) =>
+    apiClient.delete(`/api/master/vehicle-metadata/delete/${id}`),
 
   // Dropdown data
-  getDropdownData: (type: string, params?: any) => 
+  getDropdownData: (type: string, params?: any) =>
     apiClient.get("/api/master/vehicle-metadata/dropdown-data", { params: { type, ...params } }),
 
   // Upload JSON (Legacy)
-  uploadJsonMetadata: (data: any) => 
+  uploadJsonMetadata: (data: any) =>
     apiClient.post("/api/master/vehicle-metadata/upload-json", data),
 
   // Optimized bulk operations
-  bulkUploadMetadata: (data: any) => 
+  bulkUploadMetadata: (data: any) =>
     apiClient.post("/api/master/vehicle-metadata/bulk-upload", data),
-  
-  parseUploadedFile: (data: any) => 
+
+  parseUploadedFile: (data: any) =>
     apiClient.post("/api/master/vehicle-metadata/parse-file", data),
-  
-  getSchemaFields: () => 
+
+  getSchemaFields: () =>
     apiClient.get("/api/master/vehicle-metadata/schema-fields"),
-  
-  searchAdvanced: (params?: any) => 
+
+  searchAdvanced: (params?: any) =>
     apiClient.get("/api/master/vehicle-metadata/search-advanced", { params }),
-  
-  getUploadBatches: () => 
+
+  getUploadBatches: () =>
     apiClient.get("/api/master/vehicle-metadata/upload-batches")
 };
 
@@ -745,7 +745,6 @@ export const tradeinServices = {
   getTradeinReport: (id: string) => apiClient.get(`/api/tradein/${id}/report`),
 };
 
-
 // Supplier Services
 export const supplierServices = {
   getSuppliers: (params?: any) => apiClient.get("/api/supplier", { params }),
@@ -911,42 +910,42 @@ export const masterInspectionServices = {
 // Add these to your services.ts file in the logServices section
 export const logServices = {
   // Get logs with optimized parameters and caching
-  getLogs: (queryString: string) => 
+  getLogs: (queryString: string) =>
     apiClient.get(`/api/logs?${queryString}`, {
       timeout: 30000, // 30 second timeout
     }),
 
   // Get analytics with caching and timeout
-  getLogAnalytics: (queryString: string) => 
+  getLogAnalytics: (queryString: string) =>
     apiClient.get(`/api/logs/analytics?${queryString}`, {
       timeout: 45000, // 45 second timeout for analytics
     }),
 
   // Cached user and company lookups
-  getLogUsers: (params?: any) => 
-    apiClient.get("/api/logs/users", { 
+  getLogUsers: (params?: any) =>
+    apiClient.get("/api/logs/users", {
       params,
       timeout: 10000,
     }),
 
-  getLogCompanies: (params?: any) => 
-    apiClient.get("/api/logs/companies", { 
+  getLogCompanies: (params?: any) =>
+    apiClient.get("/api/logs/companies", {
       params,
       timeout: 10000,
     }),
 
   // Export with longer timeout and blob response
-  exportLogs: (queryString: string) => 
+  exportLogs: (queryString: string) =>
     apiClient.get(`/api/logs/export?${queryString}`, {
-      responseType: 'blob',
+      responseType: "blob",
       timeout: 300000, // 5 minute timeout for exports
       headers: {
-        'Accept': 'text/csv',
+        Accept: "text/csv",
       },
     }),
 
   // Get single log by ID
-  getLogById: (id: string) => 
+  getLogById: (id: string) =>
     apiClient.get(`/api/logs/${id}`, {
       timeout: 10000,
     }),
@@ -957,8 +956,7 @@ export const masterVehicleServices = {
   getMasterVehicles: (params?: any) =>
     apiClient.get("/api/mastervehicle", { params }),
 
-  getMasterVehicle: (id: string) =>
-    apiClient.get(`/api/mastervehicle/${id}`),
+  getMasterVehicle: (id: string) => apiClient.get(`/api/mastervehicle/${id}`),
 
   createMasterVehicle: (data: any) =>
     apiClient.post("/api/mastervehicle", data),
@@ -967,7 +965,7 @@ export const masterVehicleServices = {
     apiClient.put(`/api/mastervehicle/${id}`, data),
 
   deleteMasterVehicle: (id: string) =>
-    apiClient.delete(`/api/mastervehicle/${id}`)
+    apiClient.delete(`/api/mastervehicle/${id}`),
 };
 
 // Ad Publishing Services
@@ -975,20 +973,17 @@ export const adPublishingServices = {
   getAdVehicles: (params?: any) =>
     apiClient.get("/api/adpublishing", { params }),
 
-  getAdVehicle: (id: string) =>
-    apiClient.get(`/api/adpublishing/${id}`),
+  getAdVehicle: (id: string) => apiClient.get(`/api/adpublishing/${id}`),
 
-  createAdVehicle: (data: any) =>
-    apiClient.post("/api/adpublishing", data),
+  createAdVehicle: (data: any) => apiClient.post("/api/adpublishing", data),
 
   updateAdVehicle: (id: string, data: any) =>
     apiClient.put(`/api/adpublishing/${id}`, data),
 
-  deleteAdVehicle: (id: string) =>
-    apiClient.delete(`/api/adpublishing/${id}`),
+  deleteAdVehicle: (id: string) => apiClient.delete(`/api/adpublishing/${id}`),
 
   publishAdVehicle: (id: string) =>
-    apiClient.post(`/api/adpublishing/${id}/publish`)
+    apiClient.post(`/api/adpublishing/${id}/publish`),
 };
 
 export default {
