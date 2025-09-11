@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -34,8 +34,14 @@ import {
   Clock,
   Loader2,
   Info,
+  Pause,
+  Play,
+  Square,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { vehicleMetadataServices } from "@/api/services";
+import { metaSocketService, UploadProgress, BatchProgress, UploadResults } from "@/lib/metaSocket";
 
 interface FlexibleUploadModalProps {
   open: boolean;
@@ -79,6 +85,10 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(0); // 0: upload, 1: configure, 2: upload progress
 
+  // Socket connection state
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+
   // File and data states
   const [fileType, setFileType] = useState<"json" | "excel">("json");
   const [parsedData, setParsedData] = useState<ParsedData | null>(null);
@@ -98,7 +108,7 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
     createTags: true,
   });
 
-  // Progress tracking with batch support
+  // Enhanced progress tracking with socket support
   const [uploadProgress, setUploadProgress] = useState({
     isUploading: false,
     progress: 0,
@@ -110,7 +120,177 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
     updated: 0,
     skipped: 0,
     errors: 0,
+    batchId: "",
+    estimatedTimeRemaining: 0,
+    canCancel: false,
   });
+
+  // Batch-level progress
+  const [batchProgress, setBatchProgress] = useState({
+    currentBatchNumber: 0,
+    recordsInBatch: 0,
+    recordsProcessedInBatch: 0,
+    batchProgressPercent: 0,
+  });
+
+  // Initialize socket connection when modal opens
+  useEffect(() => {
+    if (open && !socketConnected && !connecting) {
+      connectToMetaSocket();
+    }
+  }, [open, socketConnected, connecting]);
+
+  // Clean up socket listeners when modal closes
+  useEffect(() => {
+    return () => {
+      cleanupSocketListeners();
+    };
+  }, []);
+
+  const connectToMetaSocket = async () => {
+    setConnecting(true);
+    try {
+      await metaSocketService.ensureConnection();
+      setSocketConnected(true);
+      setupSocketListeners();
+      toast.success("Connected to upload service");
+    } catch (error) {
+      console.error("Failed to connect to meta socket:", error);
+      toast.error("Failed to connect to upload service. Using fallback mode.");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const setupSocketListeners = () => {
+    // Connection events
+    metaSocketService.on("connected", (data) => {
+      console.log("Meta socket connected:", data);
+      setSocketConnected(true);
+    });
+
+    metaSocketService.on("disconnected", (data) => {
+      console.log("Meta socket disconnected:", data);
+      setSocketConnected(false);
+      if (uploadProgress.isUploading) {
+        toast.error("Connection lost during upload. Please check your connection.");
+      }
+    });
+
+    // Upload events
+    metaSocketService.on("uploadStarted", (data) => {
+      setUploadProgress(prev => ({
+        ...prev,
+        isUploading: true,
+        batchId: data.batchId,
+        totalBatches: data.totalBatches,
+        message: `Upload started - Processing ${data.totalRecords.toLocaleString()} records in ${data.totalBatches} batches`,
+        canCancel: true,
+      }));
+    });
+
+    metaSocketService.on("batchStart", (data) => {
+      setBatchProgress({
+        currentBatchNumber: data.batchNumber,
+        recordsInBatch: data.recordsInBatch,
+        recordsProcessedInBatch: 0,
+        batchProgressPercent: 0,
+      });
+      setUploadProgress(prev => ({
+        ...prev,
+        message: `Processing batch ${data.batchNumber} of ${data.totalBatches} (${data.recordsInBatch} records)`,
+      }));
+    });
+
+    metaSocketService.on("batchProgress", (data: BatchProgress) => {
+      setBatchProgress({
+        currentBatchNumber: data.batchNumber,
+        recordsInBatch: data.totalRecordsInBatch,
+        recordsProcessedInBatch: data.recordsProcessed,
+        batchProgressPercent: data.progressInBatch,
+      });
+    });
+
+    metaSocketService.on("batchComplete", (data) => {
+      console.log("Batch completed:", data);
+    });
+
+    metaSocketService.on("uploadProgress", (data: UploadProgress) => {
+      setUploadProgress(prev => ({
+        ...prev,
+        progress: data.progress,
+        currentBatch: data.currentBatch,
+        totalBatches: data.totalBatches,
+        processed: data.results.processed,
+        created: data.results.created,
+        updated: data.results.updated,
+        skipped: data.results.skipped,
+        errors: data.results.errors,
+        estimatedTimeRemaining: data.estimatedTimeRemaining || 0,
+        message: `Batch ${data.currentBatch} of ${data.totalBatches} - ${data.progress}% complete`,
+      }));
+    });
+
+    metaSocketService.on("uploadCompleted", (data: { success: boolean; data: UploadResults; duration?: number }) => {
+      const results = data.data;
+      setUploadProgress(prev => ({
+        ...prev,
+        isUploading: false,
+        progress: 100,
+        message: `Upload completed successfully! (${data.duration ? Math.round(data.duration / 1000) : 'Unknown'} seconds)`,
+        canCancel: false,
+      }));
+
+      toast.success(
+        `Upload completed! Created: ${results.created}, Updated: ${results.updated}, Skipped: ${results.skipped}${
+          results.errors.length > 0 ? `, Errors: ${results.errors.length}` : ''
+        }`
+      );
+      
+      onUploadComplete(results);
+      setTimeout(() => {
+        onClose();
+        resetModal();
+      }, 3000);
+    });
+
+    metaSocketService.on("uploadError", (data) => {
+      setUploadProgress(prev => ({
+        ...prev,
+        isUploading: false,
+        message: `Upload failed: ${data.error}`,
+        canCancel: false,
+      }));
+      toast.error("Upload failed: " + data.error);
+    });
+
+    metaSocketService.on("uploadCancelled", (data) => {
+      setUploadProgress(prev => ({
+        ...prev,
+        isUploading: false,
+        message: "Upload cancelled by user",
+        canCancel: false,
+      }));
+      toast.info("Upload cancelled");
+    });
+
+    metaSocketService.on("error", (error) => {
+      console.error("Meta socket error:", error);
+      toast.error("Upload service error: " + (error.message || "Unknown error"));
+    });
+  };
+
+  const cleanupSocketListeners = () => {
+    const events = [
+      "connected", "disconnected", "uploadStarted", "batchStart", 
+      "batchProgress", "batchComplete", "uploadProgress", 
+      "uploadCompleted", "uploadError", "uploadCancelled", "error"
+    ];
+    
+    events.forEach(event => {
+      metaSocketService.off(event);
+    });
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -132,7 +312,6 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
       try {
         const fileContent = e.target?.result;
         
-        // Show loading state for large files
         toast.loading("Parsing file...", { id: "file-parse" });
 
         const result = await vehicleMetadataServices.parseUploadedFile({
@@ -149,7 +328,6 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
           await loadSchemaFields();
           setStep(1);
           
-          // Show file info
           const data = result.data.data;
           toast.success(
             `File parsed successfully! ${data.recordCount.toLocaleString()} records found. ${
@@ -191,121 +369,80 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
   const handleUpload = async () => {
     if (!validateConfiguration()) return;
 
+    // Check socket connection first
+    if (!socketConnected) {
+      toast.error("Not connected to upload service. Please wait for connection...");
+      try {
+        await connectToMetaSocket();
+      } catch (error) {
+        toast.error("Failed to connect to upload service. Upload aborted.");
+        return;
+      }
+    }
+
     setStep(2);
     
-    // Initialize progress with batch information
-    const totalBatches = parsedData?.processingInfo.estimatedBatches || 1;
+    // Initialize progress
     setUploadProgress({
       isUploading: true,
       progress: 0,
       currentBatch: 0,
-      totalBatches,
-      message: "Starting bulk upload...",
+      totalBatches: parsedData?.processingInfo.estimatedBatches || 1,
+      message: "Initializing upload...",
       processed: 0,
       created: 0,
       updated: 0,
       skipped: 0,
       errors: 0,
+      batchId: "",
+      estimatedTimeRemaining: 0,
+      canCancel: true,
+    });
+
+    setBatchProgress({
+      currentBatchNumber: 0,
+      recordsInBatch: 0,
+      recordsProcessedInBatch: 0,
+      batchProgressPercent: 0,
     });
 
     try {
-      // Split data into chunks for batch processing
-      const FRONTEND_BATCH_SIZE = 100;
-      const totalRecords = parsedData?.records.length || 0;
-      let allResults = {
-        processed: 0,
-        created: 0,
-        updated: 0,
-        skipped: 0,
-        errors: []
+      const uploadData = {
+        data: parsedData?.records || [],
+        fieldMapping: {
+          ...fieldMapping,
+          customFields: customFieldMapping,
+        },
+        dataTypes: dataTypeMapping,
+        customFieldTypes: Object.fromEntries(
+          customFields.map((cf) => [cf.name, cf.type])
+        ),
+        options: uploadOptions,
       };
 
-      // Process data in frontend batches of 1000 records
-      for (let i = 0; i < totalRecords; i += FRONTEND_BATCH_SIZE) {
-        const batch = parsedData?.records.slice(i, i + FRONTEND_BATCH_SIZE) || [];
-        const batchNumber = Math.floor(i / FRONTEND_BATCH_SIZE) + 1;
-        const totalFrontendBatches = Math.ceil(totalRecords / FRONTEND_BATCH_SIZE);
-
-        setUploadProgress(prev => ({
-          ...prev,
-          currentBatch: batchNumber,
-          totalBatches: totalFrontendBatches,
-          message: `Processing batch ${batchNumber} of ${totalFrontendBatches}...`,
-        }));
-
-        const uploadData = {
-          data: batch,
-          fieldMapping: {
-            ...fieldMapping,
-            customFields: customFieldMapping,
-          },
-          dataTypes: dataTypeMapping,
-          customFieldTypes: Object.fromEntries(
-            customFields.map((cf) => [cf.name, cf.type])
-          ),
-          options: uploadOptions,
-        };
-
-        const result = await vehicleMetadataServices.bulkUploadMetadata(uploadData);
-
-        if (result.data.success) {
-          const batchResults = result.data.data;
-          allResults.processed += batchResults.processed;
-          allResults.created += batchResults.created;
-          allResults.updated += batchResults.updated;
-          allResults.skipped += batchResults.skipped;
-          allResults.errors.push(...(batchResults.errors || []));
-
-          // Update progress
-          const progress = Math.round((batchNumber / totalFrontendBatches) * 100);
-          setUploadProgress(prev => ({
-            ...prev,
-            progress,
-            processed: allResults.processed,
-            created: allResults.created,
-            updated: allResults.updated,
-            skipped: allResults.skipped,
-            errors: allResults.errors.length,
-            message: `Completed batch ${batchNumber} of ${totalFrontendBatches}`,
-          }));
-
-          // Small delay to prevent overwhelming the server
-          if (batchNumber < totalFrontendBatches) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        } else {
-          throw new Error(result.data.message);
-        }
-      }
-
-      // Final success state
-      setUploadProgress(prev => ({
-        ...prev,
-        isUploading: false,
-        progress: 100,
-        message: "Upload completed successfully!",
-      }));
-
-      toast.success(
-        `Upload completed! Created: ${allResults.created}, Updated: ${allResults.updated}, Skipped: ${allResults.skipped}${
-          allResults.errors.length > 0 ? `, Errors: ${allResults.errors.length}` : ''
-        }`
-      );
+      // Start socket-based upload
+      metaSocketService.startBulkUpload(uploadData);
       
-      onUploadComplete(allResults);
-      setTimeout(() => {
-        onClose();
-        resetModal();
-      }, 3000);
-
     } catch (error) {
       setUploadProgress(prev => ({
         ...prev,
         isUploading: false,
-        message: "Upload failed",
+        message: "Upload failed to start",
+        canCancel: false,
       }));
-      toast.error("Upload failed: " + (error instanceof Error ? error.message : 'Unknown error'));
+      toast.error("Upload failed to start: " + (error instanceof Error ? error.message : 'Unknown error'));
       console.error("Upload error:", error);
+    }
+  };
+
+  const handleCancelUpload = () => {
+    if (uploadProgress.batchId && uploadProgress.canCancel) {
+      metaSocketService.cancelUpload(uploadProgress.batchId);
+      setUploadProgress(prev => ({
+        ...prev,
+        message: "Cancelling upload...",
+        canCancel: false,
+      }));
     }
   };
 
@@ -337,7 +474,6 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
     const fieldName = customFields[index]?.name;
     setCustomFields((prev) => prev.filter((_, i) => i !== index));
     
-    // Remove from mapping
     if (fieldName) {
       setCustomFieldMapping((prev) => {
         const newMapping = { ...prev };
@@ -360,7 +496,6 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
       return false;
     }
 
-    // Check for valid custom fields
     const invalidCustomFields = customFields.filter(
       (cf) => cf.name.trim() === ""
     );
@@ -369,7 +504,6 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
       return false;
     }
 
-    // Check for duplicate custom field names
     const fieldNames = customFields.map(cf => cf.name.trim().toLowerCase());
     const duplicates = fieldNames.filter((name, index) => fieldNames.indexOf(name) !== index);
     if (duplicates.length > 0) {
@@ -398,6 +532,15 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
       updated: 0,
       skipped: 0,
       errors: 0,
+      batchId: "",
+      estimatedTimeRemaining: 0,
+      canCancel: false,
+    });
+    setBatchProgress({
+      currentBatchNumber: 0,
+      recordsInBatch: 0,
+      recordsProcessedInBatch: 0,
+      batchProgressPercent: 0,
     });
     setIsParsingFile(false);
     if (fileInputRef.current) {
@@ -411,35 +554,55 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
         <Upload className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
         <h3 className="text-xl font-semibold mb-2">Upload Vehicle Metadata</h3>
         <p className="text-muted-foreground mb-6">
-          Upload JSON or Excel files with flexible field mapping and data type conversion
+          Upload JSON or Excel files with real-time progress tracking via WebSocket connection
         </p>
+        
+        {/* Connection Status */}
+        <div className="flex items-center justify-center gap-2 mb-4">
+          {socketConnected ? (
+            <>
+              <Wifi className="h-4 w-4 text-green-500" />
+              <span className="text-sm text-green-600">Connected to upload service</span>
+            </>
+          ) : connecting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />
+              <span className="text-sm text-yellow-600">Connecting to upload service...</span>
+            </>
+          ) : (
+            <>
+              <WifiOff className="h-4 w-4 text-red-500" />
+              <span className="text-sm text-red-600">Disconnected - Will reconnect automatically</span>
+            </>
+          )}
+        </div>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Supported Formats & Features
+            Real-time Upload Features
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 border rounded-lg">
-              <h4 className="font-medium mb-2">JSON Files</h4>
+              <h4 className="font-medium mb-2">Enhanced Processing</h4>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Array of objects format</li>
-                <li>• Nested objects supported</li>
-                <li>• Automatic field detection</li>
-                <li>• Custom field mapping</li>
+                <li>• Real-time batch progress</li>
+                <li>• WebSocket connection</li>
+                <li>• Live status updates</li>
+                <li>• Cancel capability</li>
               </ul>
             </div>
             <div className="p-4 border rounded-lg">
-              <h4 className="font-medium mb-2">Excel Files</h4>
+              <h4 className="font-medium mb-2">Batch Control</h4>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• .xlsx and .xls formats</li>
-                <li>• Header row auto-detection</li>
-                <li>• Data type inference</li>
-                <li>• Large file support</li>
+                <li>• 100 records per batch</li>
+                <li>• Automatic retry logic</li>
+                <li>• Connection monitoring</li>
+                <li>• Progress persistence</li>
               </ul>
             </div>
           </div>
@@ -448,11 +611,11 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
             <div className="flex items-center gap-2 mb-2">
               <Info className="h-4 w-4 text-blue-600" />
               <span className="font-medium text-blue-900 dark:text-blue-100">
-                Batch Processing
+                Real-time Socket Processing
               </span>
             </div>
             <p className="text-sm text-blue-800 dark:text-blue-200">
-              Large datasets are automatically processed in batches of 100 records to ensure optimal performance and prevent timeouts.
+              Your upload will be processed in real-time with live progress updates. Each batch of 100 records is processed individually with detailed feedback on creation, updates, and any errors.
             </p>
           </div>
 
@@ -460,7 +623,7 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
             <Button 
               onClick={() => fileInputRef.current?.click()} 
               size="lg"
-              disabled={isParsingFile}
+              disabled={isParsingFile || connecting}
             >
               {isParsingFile ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -488,7 +651,7 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
         <div>
           <h3 className="text-xl font-semibold">Configure Field Mapping</h3>
           <p className="text-muted-foreground">
-            Map your data fields to database schema and configure processing options
+            Map your data fields to database schema with real-time socket processing
           </p>
         </div>
         <div className="text-right">
@@ -501,6 +664,19 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
               Est. time: {parsedData.processingInfo.estimatedTime}
             </div>
           )}
+          <div className="flex items-center gap-1 text-xs mt-1">
+            {socketConnected ? (
+              <>
+                <Wifi className="h-3 w-3 text-green-500" />
+                <span className="text-green-600">Socket Ready</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-3 w-3 text-red-500" />
+                <span className="text-red-600">Disconnected</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
