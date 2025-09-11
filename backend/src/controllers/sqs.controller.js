@@ -47,6 +47,20 @@ const getQueueUrl = async () => {
     throw error;
   }
 };
+const getWorkshopQueueUrl = async () => {
+  try {
+    const masterAdmin = await MasterAdmin.findOne({ role: 'master_admin' });
+    
+    if (!masterAdmin || !masterAdmin.aws_settings || !masterAdmin.aws_settings.workshop_sqs_queue_url) {
+      throw new Error('SQS Queue URL not configured in master admin');
+    }
+
+    return masterAdmin.aws_settings.workshop_sqs_queue_url;
+  } catch (error) {
+    console.error('Error getting queue URL:', error);
+    throw error;
+  }
+};
 
 // Complete schema fields based on the Vehicle model
 const SCHEMA_FIELDS = [
@@ -843,6 +857,4 @@ module.exports = {
   processQueueMessages,
   startQueueConsumer,
   stopQueueConsumer,
-  SCHEMA_FIELDS,
-  REQUIRED_FIELDS
 };

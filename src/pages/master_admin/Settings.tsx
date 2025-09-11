@@ -43,6 +43,7 @@ const MasterSettings = () => {
     secret_access_key: "",
     region: "us-east-1",
     sqs_queue_url: "",
+    workshop_sqs_queue_url: "",
   });
 
   // Load AWS settings on component mount
@@ -491,6 +492,21 @@ const MasterSettings = () => {
                         setAwsSettings({
                           ...awsSettings,
                           sqs_queue_url: e.target.value,
+                        })
+                      }
+                      placeholder="https://sqs.us-east-1.amazonaws.com/123456789012/queue-name"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="workshop_sqs_queue_url">WORKSHOP SQS Queue URL</Label>
+                    <Input
+                      id="workshop_sqs_queue_url"
+                      value={awsSettings.workshop_sqs_queue_url}
+                      onChange={(e) =>
+                        setAwsSettings({
+                          ...awsSettings,
+                          workshop_sqs_queue_url: e.target.value,
                         })
                       }
                       placeholder="https://sqs.us-east-1.amazonaws.com/123456789012/queue-name"

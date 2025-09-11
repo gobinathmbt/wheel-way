@@ -64,7 +64,8 @@ const MasterAdminSchema = new mongoose.Schema({
       type: String,
       default: 'us-east-1'
     },
-    sqs_queue_url: String
+    sqs_queue_url: String,
+    workshop_sqs_queue_url: String
   },
   website_maintenance: {
     is_enabled: {
