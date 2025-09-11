@@ -205,6 +205,7 @@ const completeWorkshop = async (req, res) => {
 
 // Generate workshop report (called by SQS processor)
 const generateWorkshopReport = async (messageData) => {
+  console.log(messageData)
   try {
     const {
       vehicle_id,
@@ -523,46 +524,76 @@ const generateTradeinReport = async (
 };
 
 // Calculate statistics for stage/report
+// Calculate statistics for stage/report
 const calculateStageStatistics = (quotes) => {
+  // Helper function to safely parse dates
+  const parseDate = (dateValue) => {
+    if (!dateValue) return null;
+    const date = new Date(dateValue);
+    return isNaN(date.getTime()) ? null : date;
+  };
+
+  // Helper function to safely get numeric value
+  const getNumericValue = (value, defaultValue = 0) => {
+    const num = Number(value);
+    return isNaN(num) ? defaultValue : num;
+  };
+
+  // Calculate start and completion dates
+  let startDate = null;
+  let completionDate = null;
+
+  if (quotes.length > 0) {
+    // Get valid start dates
+    const validStartDates = quotes
+      .map(q => parseDate(q.quote_created_at))
+      .filter(date => date !== null);
+    
+    // Get valid completion dates
+    const validCompletionDates = quotes
+      .map(q => parseDate(q.work_completed_at))
+      .filter(date => date !== null);
+
+    startDate = validStartDates.length > 0 
+      ? new Date(Math.min(...validStartDates.map(d => d.getTime()))) 
+      : null;
+    
+    completionDate = validCompletionDates.length > 0 
+      ? new Date(Math.max(...validCompletionDates.map(d => d.getTime()))) 
+      : null;
+  }
+
+  // Calculate duration safely
+  let durationDays = null;
+  if (startDate && completionDate && startDate <= completionDate) {
+    const diffTime = completionDate.getTime() - startDate.getTime();
+    durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Ensure duration is a positive number
+    if (durationDays < 0) durationDays = null;
+  }
+
   const summary = {
     total_fields: quotes.length,
     total_quotes: quotes.length,
     total_work_completed: quotes.filter(
-      (q) => q.work_details && q.work_details.total_amount
+      (q) => q.work_details && getNumericValue(q.work_details.total_amount) > 0
     ).length,
     total_cost: quotes.reduce(
-      (sum, q) => sum + (q.work_details?.amount_spent || 0),
+      (sum, q) => sum + getNumericValue(q.work_details?.amount_spent),
       0
     ),
     total_gst: quotes.reduce(
-      (sum, q) => sum + (q.work_details?.gst_amount || 0),
+      (sum, q) => sum + getNumericValue(q.work_details?.gst_amount),
       0
     ),
     grand_total: quotes.reduce(
-      (sum, q) => sum + (q.work_details?.total_amount || 0),
+      (sum, q) => sum + getNumericValue(q.work_details?.total_amount),
       0
     ),
-    start_date:
-      quotes.length > 0
-        ? new Date(Math.min(...quotes.map((q) => new Date(q.quote_created_at))))
-        : null,
-    completion_date:
-      quotes.length > 0
-        ? new Date(
-            Math.max(
-              ...quotes
-                .filter((q) => q.work_completed_at)
-                .map((q) => new Date(q.work_completed_at))
-            )
-          )
-        : null,
+    start_date: startDate,
+    completion_date: completionDate,
+    duration_days: durationDays // This will be null if calculation fails, avoiding NaN
   };
-
-  if (summary.start_date && summary.completion_date) {
-    summary.duration_days = Math.ceil(
-      (summary.completion_date - summary.start_date) / (1000 * 60 * 60 * 24)
-    );
-  }
 
   const statusCounts = {
     completed_jobs: 0,
@@ -574,18 +605,52 @@ const calculateStageStatistics = (quotes) => {
     rework: 0,
   };
 
-  // Note: We don't have status in our quote data structure, so we'd need to determine this based on other fields
-  // For now, we'll assume all are completed since we're only generating reports for completed workshops
+  // Count statuses based on work completion
+  quotes.forEach(quote => {
+    if (quote.work_details && getNumericValue(quote.work_details.total_amount) > 0) {
+      statusCounts.completed_jobs++;
+    } else if (quote.approved_supplier) {
+      statusCounts.work_in_progress++;
+    } else if (quote.quote_responses && quote.quote_responses.length > 0) {
+      statusCounts.quote_sent++;
+    } else {
+      statusCounts.quote_request++;
+    }
+  });
 
+  const totalCost = summary.total_cost;
   const detailed = {
     fields_by_status: statusCounts,
-    avg_completion_time: summary.duration_days || 0,
+    avg_completion_time: durationDays || 0,
     cost_breakdown: {
-      parts: summary.total_cost * 0.6, // Estimate
-      labor: summary.total_cost * 0.3, // Estimate
-      other: summary.total_cost * 0.1, // Estimate
+      parts: getNumericValue(totalCost * 0.6), // Estimate
+      labor: getNumericValue(totalCost * 0.3), // Estimate
+      other: getNumericValue(totalCost * 0.1), // Estimate
     },
-    supplier_performance: [], // Could be calculated from quotes
+    supplier_performance: quotes.reduce((acc, quote) => {
+      if (quote.approved_supplier && quote.work_details) {
+        const supplierId = quote.approved_supplier.supplier_id || quote.approved_supplier;
+        const supplierName = quote.approved_supplier.supplier_name || 'Unknown';
+        const totalAmount = getNumericValue(quote.work_details.total_amount);
+        
+        const existing = acc.find(s => s.supplier_id.toString() === supplierId.toString());
+        if (existing) {
+          existing.jobs_completed++;
+          existing.total_earned += totalAmount;
+          existing.avg_cost = existing.total_earned / existing.jobs_completed;
+        } else if (totalAmount > 0) {
+          acc.push({
+            supplier_id: supplierId,
+            supplier_name: supplierName,
+            jobs_completed: 1,
+            avg_cost: totalAmount,
+            avg_time: durationDays || 0,
+            total_earned: totalAmount
+          });
+        }
+      }
+      return acc;
+    }, [])
   };
 
   return { summary, detailed };

@@ -3,6 +3,7 @@ const { MongoClient } = require("mongodb");
 const app = require('./app');
 const connectDB = require('./config/db');
 const { startQueueConsumer } = require('./controllers/sqs.controller');
+const { startWorkshopQueueConsumer } = require('./controllers/workshopReportSqs.controller');
 const { initializeSocket } = require('./controllers/socket.controller');
 const { startSubscriptionCronJob } = require('./jobs/subscriptionCron');
 const Env_Configuration =require('./config/env');
@@ -19,8 +20,14 @@ const server = http.createServer(app);
 // Initialize Socket.io with the server
 initializeSocket(server);
 
-// Start SQS queue consumer
-// startQueueConsumer();
+// Start SQS queue consumers
+console.log('🔄 Starting SQS Queue Consumers...');
+
+// Start main vehicle processing queue consumer
+startQueueConsumer();
+
+// Start workshop report processing queue consumer
+startWorkshopQueueConsumer();
 
 // Start subscription CRON job
 startSubscriptionCronJob();
@@ -33,6 +40,8 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🔗 Database: ${Env_Configuration.MONGODB_URI ? 'Connected' : 'Not configured'}`);
   console.log(`🌐 Frontend URL: ${Env_Configuration.FRONTEND_URL || 'http://localhost:8080'}`);
   console.log(`🔌 Socket.io server initialized and available at http://localhost:${PORT}`);
+  console.log(`🚛 Vehicle Queue Consumer: Running (every 10 seconds)`);
+  console.log(`🏗️ Workshop Queue Consumer: Running (every 15 seconds)`);
 });
 
 // Handle unhandled promise rejections
@@ -48,7 +57,12 @@ process.on('unhandledRejection', (err, promise) => {
 process.on('SIGTERM', () => {
   console.log('🛑 SIGTERM received, shutting down gracefully');
   const { stopQueueConsumer } = require('./controllers/sqs.controller');
+  const { stopWorkshopQueueConsumer } = require('./controllers/workshopReportSqs.controller');
+  
+  // Stop both queue consumers
   stopQueueConsumer();
+  stopWorkshopQueueConsumer();
+  
   server.close(() => {
     console.log('💤 Process terminated');
   });
@@ -57,14 +71,16 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   console.log('🛑 SIGINT received, shutting down gracefully');
   const { stopQueueConsumer } = require('./controllers/sqs.controller');
+  const { stopWorkshopQueueConsumer } = require('./controllers/workshopReportSqs.controller');
+  
+  // Stop both queue consumers
   stopQueueConsumer();
+  stopWorkshopQueueConsumer();
+  
   server.close(() => {
     console.log('💤 Process terminated');
   });
 });
-
-
-
 
 async function migrate() {
   console.log("Starting migration...");

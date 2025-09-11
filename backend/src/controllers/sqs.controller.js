@@ -32,7 +32,7 @@ const getSQSClient = async () => {
   }
 };
 
-// Get queue URL from master admin settings
+// Get queue URL from master admin settings (MAIN VEHICLE PROCESSING QUEUE)
 const getQueueUrl = async () => {
   try {
     const masterAdmin = await MasterAdmin.findOne({ role: 'master_admin' });
@@ -42,20 +42,6 @@ const getQueueUrl = async () => {
     }
 
     return masterAdmin.aws_settings.sqs_queue_url;
-  } catch (error) {
-    console.error('Error getting queue URL:', error);
-    throw error;
-  }
-};
-const getWorkshopQueueUrl = async () => {
-  try {
-    const masterAdmin = await MasterAdmin.findOne({ role: 'master_admin' });
-    
-    if (!masterAdmin || !masterAdmin.aws_settings || !masterAdmin.aws_settings.workshop_sqs_queue_url) {
-      throw new Error('SQS Queue URL not configured in master admin');
-    }
-
-    return masterAdmin.aws_settings.workshop_sqs_queue_url;
   } catch (error) {
     console.error('Error getting queue URL:', error);
     throw error;
@@ -651,9 +637,9 @@ const deleteMessageFromQueue = async (receiptHandle) => {
   }
 };
 
-// Process messages from SQS queue
+// Process messages from SQS queue (ONLY VEHICLE PROCESSING)
 const processQueueMessages = async () => {
-  console.log('Checking SQS queue for messages...');
+  console.log('Checking SQS queue for vehicle messages...');
   
   try {
     const receiveResult = await receiveFromQueue();
@@ -669,14 +655,14 @@ const processQueueMessages = async () => {
     }
 
     const messages = receiveResult.messages;
-    console.log(`Received ${messages.length} messages from queue`);
+    console.log(`Received ${messages.length} messages from vehicle queue`);
 
     if (messages.length === 0) {
       return {
         success: true,
         processed: 0,
         failed: 0,
-        message: 'No messages in queue'
+        message: 'No messages in vehicle queue'
       };
     }
 
@@ -687,20 +673,10 @@ const processQueueMessages = async () => {
     // Process each message
     for (const message of messages) {
       try {
-        console.log(`Processing message: ${message.MessageId}`);
+        console.log(`Processing vehicle message: ${message.MessageId}`);
         
-        // Check message type for workshop reports
-        const messageType = message.MessageAttributes?.message_type?.StringValue;
-        let processResult;
-        
-        if (messageType === 'workshop_report_generation') {
-          // Process workshop report message
-          const { processWorkshopReportFromQueue } = require('./workshopReportSqs.controller');
-          processResult = await processWorkshopReportFromQueue(message.Body);
-        } else {
-          // Process regular vehicle message
-          processResult = await processVehicleFromQueue(message.Body);
-        }
+        // Process regular vehicle message only
+        const processResult = await processVehicleFromQueue(message.Body);
         
         if (processResult.success) {
           // Delete message from queue after successful processing
@@ -708,23 +684,15 @@ const processQueueMessages = async () => {
           
           if (deleteResult.success) {
             processedCount++;
-            const resultData = messageType === 'workshop_report_generation' 
-              ? {
-                  message_id: message.MessageId,
-                  vehicle_stock_id: processResult.vehicle_stock_id,
-                  vehicle_type: processResult.vehicle_type,
-                  action: 'workshop_report_generated',
-                  status: 'success'
-                }
-              : {
-                  message_id: message.MessageId,
-                  vehicle_stock_id: processResult.vehicle_stock_id,
-                  vehicle_type: processResult.vehicle_type,
-                  action: processResult.action,
-                  status: 'success'
-                };
+            const resultData = {
+              message_id: message.MessageId,
+              vehicle_stock_id: processResult.vehicle_stock_id,
+              vehicle_type: processResult.vehicle_type,
+              action: processResult.action,
+              status: 'success'
+            };
             
-            console.log(`Successfully processed message: ${message.MessageId}`);
+            console.log(`Successfully processed vehicle message: ${message.MessageId}`);
             results.push(resultData);
           } else {
             console.error(`Failed to delete message ${message.MessageId} from queue`);
@@ -795,7 +763,7 @@ const processQueueMessages = async () => {
       }
     }
 
-    console.log(`Queue processing completed: ${processedCount} processed, ${failedCount} failed`);
+    console.log(`Vehicle queue processing completed: ${processedCount} processed, ${failedCount} failed`);
     
     return {
       success: true,
@@ -806,7 +774,7 @@ const processQueueMessages = async () => {
     };
 
   } catch (error) {
-    console.error('Error in queue processing:', error);
+    console.error('Error in vehicle queue processing:', error);
     return {
       success: false,
       error: error.message,
@@ -820,7 +788,7 @@ const processQueueMessages = async () => {
 let queueInterval;
 
 const startQueueConsumer = () => {
-  console.log('Starting SQS queue consumer...');
+  console.log('Starting SQS vehicle queue consumer...');
   
   // Process immediately
   processQueueMessages();
@@ -830,14 +798,14 @@ const startQueueConsumer = () => {
     processQueueMessages();
   }, 10000); // 10 seconds
   
-  console.log('Queue consumer started - checking every 10 seconds');
+  console.log('Vehicle queue consumer started - checking every 10 seconds');
 };
 
 const stopQueueConsumer = () => {
   if (queueInterval) {
     clearInterval(queueInterval);
     queueInterval = null;
-    console.log('Queue consumer stopped');
+    console.log('Vehicle queue consumer stopped');
   }
 };
 

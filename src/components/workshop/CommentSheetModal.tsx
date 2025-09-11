@@ -1,29 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
-import { 
-  DollarSign, 
-  FileText, 
-  Upload, 
-  X, 
+import React, { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import {
+  DollarSign,
+  FileText,
+  Upload,
+  X,
   Download,
   Eye,
-  Image as ImageIcon
-} from 'lucide-react';
-import { S3Uploader } from '@/lib/s3-client';
+  Image as ImageIcon,
+} from "lucide-react";
+import { S3Uploader } from "@/lib/s3-client";
+import { supplierDashboardServices } from "@/api/services";
 
 interface CommentSheetModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   quote: any;
   workMode: any;
-  mode: 'supplier_submit' | 'company_review';
+  mode: "supplier_submit" | "company_review";
   onSubmit: (data: any) => void;
   loading?: boolean;
 }
@@ -35,20 +41,20 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
   workMode,
   mode,
   onSubmit,
-  loading = false
+  loading = false,
 }) => {
   const [formData, setFormData] = useState({
-    final_price: '',
-    gst_amount: '',
-    amount_spent: '',
-    supplier_comments: '',
-    company_feedback: '',
-    invoice_pdf_url: '',
-    invoice_pdf_key: '',
-    workMode:workMode,
-    work_images: [] as Array<{ url: string; key: string }>
+    final_price: "",
+    gst_amount: "",
+    amount_spent: "",
+    supplier_comments: "",
+    company_feedback: "",
+    invoice_pdf_url: "",
+    invoice_pdf_key: "",
+    workMode: workMode,
+    work_images: [] as Array<{ url: string; key: string }>,
   });
-  
+
   const [uploading, setUploading] = useState(false);
   const [s3Uploader, setS3Uploader] = useState<S3Uploader | null>(null);
 
@@ -57,17 +63,21 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
     // This would typically come from your settings/config
     const initializeS3 = async () => {
       try {
-        // Get S3 config from your settings API
-        const config = {
-          region: 'us-east-1',
-          bucket: 'your-bucket-name',
-          access_key: 'your-access-key',
-          secret_key: 'your-secret-key'
-        };
-        
-        setS3Uploader(new S3Uploader(config));
+        const response = await supplierDashboardServices.getsupplierS3Config();
+        const config = response.data.data;
+
+        if (config && config.bucket && config.access_key) {
+          const s3Config = {
+            region: config.region,
+            bucket: config.bucket,
+            access_key: config.access_key,
+            secret_key: config.secret_key,
+            url: config.url,
+          };
+          setS3Uploader(new S3Uploader(s3Config));
+        }
       } catch (error) {
-        console.error('Failed to initialize S3:', error);
+        console.error("Failed to initialize S3:", error);
       }
     };
 
@@ -78,46 +88,49 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
     if (quote?.comment_sheet) {
       const sheet = quote.comment_sheet;
       setFormData({
-        final_price: sheet.final_price?.toString() || '',
-        gst_amount: sheet.gst_amount?.toString() || '',
-        amount_spent: sheet.amount_spent?.toString() || '',
-        supplier_comments: sheet.supplier_comments || '',
-        company_feedback: sheet.company_feedback || '',
-        invoice_pdf_url: sheet.invoice_pdf_url || '',
-        invoice_pdf_key: sheet.invoice_pdf_key || '',
-        workMode: sheet.workMode || '',
-        work_images: sheet.work_images || []
+        final_price: sheet.final_price?.toString() || "",
+        gst_amount: sheet.gst_amount?.toString() || "",
+        amount_spent: sheet.amount_spent?.toString() || "",
+        supplier_comments: sheet.supplier_comments || "",
+        company_feedback: sheet.company_feedback || "",
+        invoice_pdf_url: sheet.invoice_pdf_url || "",
+        invoice_pdf_key: sheet.invoice_pdf_key || "",
+        workMode: sheet.workMode || "",
+        work_images: sheet.work_images || [],
       });
     }
   }, [quote]);
 
-  const handleFileUpload = async (file: File, type: 'pdf' | 'image') => {
+  const handleFileUpload = async (file: File, type: "pdf" | "image") => {
     if (!s3Uploader) {
-      toast.error('S3 uploader not initialized');
+      toast.error("S3 uploader not initialized");
       return;
     }
 
     setUploading(true);
     try {
-      const category = type === 'pdf' ? 'document' : 'otherImage';
+      const category = type === "pdf" ? "document" : "otherImage";
       const result = await s3Uploader.uploadFile(file, category);
-      
-      if (type === 'pdf') {
-        setFormData(prev => ({
+
+      if (type === "pdf") {
+        setFormData((prev) => ({
           ...prev,
           invoice_pdf_url: result.url,
-          invoice_pdf_key: result.key
+          invoice_pdf_key: result.key,
         }));
       } else {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          work_images: [...prev.work_images, { url: result.url, key: result.key }]
+          work_images: [
+            ...prev.work_images,
+            { url: result.url, key: result.key },
+          ],
         }));
       }
-      
+
       toast.success(`${type.toUpperCase()} uploaded successfully`);
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error("Upload error:", error);
       toast.error(`Failed to upload ${type}`);
     } finally {
       setUploading(false);
@@ -125,26 +138,26 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
   };
 
   const removeImage = (index: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      work_images: prev.work_images.filter((_, i) => i !== index)
+      work_images: prev.work_images.filter((_, i) => i !== index),
     }));
   };
 
   const removePDF = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      invoice_pdf_url: '',
-      invoice_pdf_key: ''
+      invoice_pdf_url: "",
+      invoice_pdf_key: "",
     }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (mode === 'supplier_submit') {
+
+    if (mode === "supplier_submit") {
       if (!formData.final_price) {
-        toast.error('Please enter the final price');
+        toast.error("Please enter the final price");
         return;
       }
     }
@@ -154,21 +167,29 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
       final_price: parseFloat(formData.final_price) || 0,
       gst_amount: parseFloat(formData.gst_amount) || 0,
       amount_spent: parseFloat(formData.amount_spent) || 0,
-      total_amount: (parseFloat(formData.final_price) || 0) + (parseFloat(formData.gst_amount) || 0),
-      workMode: workMode
+      total_amount:
+        (parseFloat(formData.final_price) || 0) +
+        (parseFloat(formData.gst_amount) || 0),
+      workMode: workMode,
     };
 
     onSubmit(submitData);
   };
 
-  const isReadOnly = mode === 'company_review';
+  const isReadOnly = mode === "company_review";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {mode === 'supplier_submit' ? `${workMode === "submit"?"Submit Work Details":"Update Work Details" }` : 'Review Work Submission'}
+            {mode === "supplier_submit"
+              ? `${
+                  workMode === "submit"
+                    ? "Submit Work Details"
+                    : "Update Work Details"
+                }`
+              : "Review Work Submission"}
           </DialogTitle>
         </DialogHeader>
 
@@ -183,12 +204,16 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                   <p className="font-medium">{quote?.field_name}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Original Quote Amount</Label>
+                  <Label className="text-muted-foreground">
+                    Original Quote Amount
+                  </Label>
                   <p className="font-medium">${quote?.quote_amount}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Vehicle</Label>
-                  <p className="font-medium">Stock ID: {quote?.vehicle_stock_id}</p>
+                  <p className="font-medium">
+                    Stock ID: {quote?.vehicle_stock_id}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Status</Label>
@@ -212,15 +237,20 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                       type="number"
                       step="0.01"
                       value={formData.final_price}
-                      onChange={(e) => setFormData(prev => ({ ...prev, final_price: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          final_price: e.target.value,
+                        }))
+                      }
                       placeholder="0.00"
                       className="pl-10"
                       readOnly={isReadOnly}
-                      required={mode === 'supplier_submit'}
+                      required={mode === "supplier_submit"}
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <Label htmlFor="gst_amount">GST Amount</Label>
                   <div className="relative">
@@ -230,14 +260,19 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                       type="number"
                       step="0.01"
                       value={formData.gst_amount}
-                      onChange={(e) => setFormData(prev => ({ ...prev, gst_amount: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          gst_amount: e.target.value,
+                        }))
+                      }
                       placeholder="0.00"
                       className="pl-10"
                       readOnly={isReadOnly}
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <Label htmlFor="amount_spent">Amount Spent</Label>
                   <div className="relative">
@@ -247,7 +282,12 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                       type="number"
                       step="0.01"
                       value={formData.amount_spent}
-                      onChange={(e) => setFormData(prev => ({ ...prev, amount_spent: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          amount_spent: e.target.value,
+                        }))
+                      }
                       placeholder="0.00"
                       className="pl-10"
                       readOnly={isReadOnly}
@@ -255,12 +295,18 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                   </div>
                 </div>
               </div>
-              
+
               {(formData.final_price || formData.gst_amount) && (
                 <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                   <div className="flex justify-between items-center font-semibold">
                     <span>Total Amount:</span>
-                    <span>${((parseFloat(formData.final_price) || 0) + (parseFloat(formData.gst_amount) || 0)).toFixed(2)}</span>
+                    <span>
+                      $
+                      {(
+                        (parseFloat(formData.final_price) || 0) +
+                        (parseFloat(formData.gst_amount) || 0)
+                      ).toFixed(2)}
+                    </span>
                   </div>
                 </div>
               )}
@@ -271,7 +317,7 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
           <Card>
             <CardContent className="pt-4">
               <h3 className="font-semibold mb-3">Invoice Document</h3>
-              
+
               {formData.invoice_pdf_url ? (
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-2">
@@ -283,7 +329,9 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(formData.invoice_pdf_url, '_blank')}
+                      onClick={() =>
+                        window.open(formData.invoice_pdf_url, "_blank")
+                      }
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       View
@@ -309,7 +357,7 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                       accept=".pdf"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handleFileUpload(file, 'pdf');
+                        if (file) handleFileUpload(file, "pdf");
                       }}
                       className="hidden"
                     />
@@ -332,7 +380,7 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
           <Card>
             <CardContent className="pt-4">
               <h3 className="font-semibold mb-3">Work Images</h3>
-              
+
               {formData.work_images.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
                   {formData.work_images.map((image, index) => (
@@ -357,7 +405,7 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                   ))}
                 </div>
               )}
-              
+
               {!isReadOnly && (
                 <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
                   <input
@@ -367,7 +415,7 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                     multiple
                     onChange={(e) => {
                       const files = Array.from(e.target.files || []);
-                      files.forEach(file => handleFileUpload(file, 'image'));
+                      files.forEach((file) => handleFileUpload(file, "image"));
                     }}
                     className="hidden"
                   />
@@ -389,13 +437,20 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
           <Card>
             <CardContent className="pt-4">
               <div className="space-y-4">
-                {mode === 'supplier_submit' ? (
+                {mode === "supplier_submit" ? (
                   <div>
-                    <Label htmlFor="supplier_comments">Work Description & Comments *</Label>
+                    <Label htmlFor="supplier_comments">
+                      Work Description & Comments *
+                    </Label>
                     <Textarea
                       id="supplier_comments"
                       value={formData.supplier_comments}
-                      onChange={(e) => setFormData(prev => ({ ...prev, supplier_comments: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          supplier_comments: e.target.value,
+                        }))
+                      }
                       placeholder="Describe the work completed, any issues encountered, etc."
                       rows={4}
                       required
@@ -406,17 +461,24 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                     <div>
                       <Label>Supplier Comments</Label>
                       <div className="p-3 bg-muted/50 rounded-lg">
-                        {formData.supplier_comments || 'No comments provided'}
+                        {formData.supplier_comments || "No comments provided"}
                       </div>
                     </div>
-                    
-                    {quote?.status === 'work_review' && (
+
+                    {quote?.status === "work_review" && (
                       <div>
-                        <Label htmlFor="company_feedback">Company Feedback</Label>
+                        <Label htmlFor="company_feedback">
+                          Company Feedback
+                        </Label>
                         <Textarea
                           id="company_feedback"
                           value={formData.company_feedback}
-                          onChange={(e) => setFormData(prev => ({ ...prev, company_feedback: e.target.value }))}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              company_feedback: e.target.value,
+                            }))
+                          }
                           placeholder="Provide feedback on the completed work"
                           rows={3}
                         />
@@ -435,15 +497,16 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              {mode === 'company_review' ? 'Close' : 'Cancel'}
+              {mode === "company_review" ? "Close" : "Cancel"}
             </Button>
-            
+
             {!isReadOnly && (
-              <Button
-                type="submit"
-                disabled={loading || uploading}
-              >
-                {loading ? 'Processing...' : mode === 'supplier_submit' ? `${workMode === "submit"?"Submit Work":"Update Work" }` : 'Save Feedback'}
+              <Button type="submit" disabled={loading || uploading}>
+                {loading
+                  ? "Processing..."
+                  : mode === "supplier_submit"
+                  ? `${workMode === "submit" ? "Submit Work" : "Update Work"}`
+                  : "Save Feedback"}
               </Button>
             )}
           </div>
