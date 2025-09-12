@@ -853,7 +853,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-1">
           {hasNoModuleAccess ? <NoAccessContent /> : children}
         </main>
       </div>
