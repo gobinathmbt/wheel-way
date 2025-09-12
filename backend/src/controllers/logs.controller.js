@@ -276,293 +276,7 @@ const getLogs = async (req, res) => {
   }
 };
 
-// @desc    Get log analytics (Highly optimized for large datasets)
-// @route   GET /api/logs/analytics
-// @access  Private (Master Admin or Company Super Admin)
-const getLogAnalytics = async (req, res) => {
-  try {
-    const {
-      days = 7,
-      start_date,
-      end_date,
-      company_id,
-      event_type,
-    } = req.query;
 
-    // Build date filter
-    let dateFilter;
-    if (start_date && end_date) {
-      dateFilter = {
-        $gte: new Date(start_date),
-        $lte: new Date(end_date + "T23:59:59.999Z"),
-      };
-    } else {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - parseInt(days));
-      dateFilter = { $gte: startDate };
-    }
-
-    const baseFilter = { created_at: dateFilter };
-
-    // Company scope for non-master admins
-    if (req.user.role !== "master_admin" && req.user.company_id) {
-      baseFilter.company_id = req.user.company_id;
-    } else if (company_id && company_id !== "all") {
-      baseFilter.company_id = company_id;
-    }
-
-    if (event_type && event_type !== "all") {
-      baseFilter.event_type = event_type;
-    }
-
-    // Optimized aggregation with index hints
-    const aggregateOptions = {
-      allowDiskUse: true,
-      maxTimeMS: 45000, // 45 second timeout for analytics
-    };
-
-    // Use parallel aggregations with proper index hints
-    const [
-      eventTypeStats,
-      severityStats,
-      dailyActivity,
-      topUsers,
-      responseTimeStats,
-      errorRateStats,
-    ] = await Promise.all([
-      // Event type distribution
-      GlobalLog.aggregate(
-        [
-          { $match: baseFilter },
-          {
-            $group: {
-              _id: "$event_type",
-              count: { $sum: 1 },
-            },
-          },
-          { $sort: { count: -1 } },
-          { $limit: 20 },
-        ],
-        aggregateOptions
-      ),
-
-      // Severity distribution
-      GlobalLog.aggregate(
-        [
-          { $match: baseFilter },
-          {
-            $group: {
-              _id: "$severity",
-              count: { $sum: 1 },
-            },
-          },
-          { $sort: { count: -1 } },
-        ],
-        aggregateOptions
-      ),
-
-      // Daily activity with sampling for large datasets
-      GlobalLog.aggregate(
-        [
-          { $match: baseFilter },
-          { $sample: { size: Math.min(100000, 500000) } }, // Sample for performance
-          {
-            $group: {
-              _id: {
-                $dateToString: { format: "%Y-%m-%d", date: "$created_at" },
-              },
-              total_events: { $sum: 1 },
-              errors: {
-                $sum: {
-                  $cond: [{ $in: ["$severity", ["error", "critical"]] }, 1, 0],
-                },
-              },
-              warnings: {
-                $sum: { $cond: [{ $eq: ["$severity", "warning"] }, 1, 0] },
-              },
-              avg_response_time: {
-                $avg: {
-                  $cond: [
-                    {
-                      $and: [
-                        { $gt: ["$response_time_ms", 0] },
-                        { $lt: ["$response_time_ms", 60000] }, // Filter outliers
-                      ],
-                    },
-                    "$response_time_ms",
-                    null,
-                  ],
-                },
-              },
-            },
-          },
-          { $sort: { _id: 1 } },
-        ],
-        aggregateOptions
-      ),
-
-      // Top users by activity (limited and optimized)
-      GlobalLog.aggregate(
-        [
-          {
-            $match: {
-              ...baseFilter,
-              user_id: { $exists: true, $ne: null },
-            },
-          },
-          { $sample: { size: 50000 } }, // Sample for performance
-          {
-            $group: {
-              _id: "$user_id",
-              activity_count: { $sum: 1 },
-            },
-          },
-          { $sort: { activity_count: -1 } },
-          { $limit: 10 },
-          {
-            $lookup: {
-              from: "users",
-              localField: "_id",
-              foreignField: "_id",
-              as: "user",
-              pipeline: [{ $project: { username: 1, email: 1, role: 1 } }],
-            },
-          },
-          { $unwind: "$user" },
-        ],
-        aggregateOptions
-      ),
-
-      // Response time statistics (with sampling)
-      GlobalLog.aggregate(
-        [
-          {
-            $match: {
-              ...baseFilter,
-              response_time_ms: { $exists: true, $gt: 0, $lt: 60000 }, // Filter valid response times
-            },
-          },
-          { $sample: { size: 10000 } }, // Sample for percentile calculation
-          {
-            $group: {
-              _id: null,
-              avg_response_time: { $avg: "$response_time_ms" },
-              min_response_time: { $min: "$response_time_ms" },
-              max_response_time: { $max: "$response_time_ms" },
-              response_times: { $push: "$response_time_ms" }, // For P95 calculation
-            },
-          },
-          {
-            $project: {
-              avg_response_time: 1,
-              min_response_time: 1,
-              max_response_time: 1,
-              p95_response_time: {
-                $arrayElemAt: [
-                  {
-                    $slice: [
-                      { $sortArray: { input: "$response_times", sortBy: 1 } },
-                      {
-                        $floor: {
-                          $multiply: [{ $size: "$response_times" }, 0.95],
-                        },
-                      },
-                      1,
-                    ],
-                  },
-                  0,
-                ],
-              },
-            },
-          },
-        ],
-        aggregateOptions
-      ),
-
-      // Error rate by endpoint (optimized)
-      GlobalLog.aggregate(
-        [
-          {
-            $match: {
-              ...baseFilter,
-              event_type: "api_call",
-              response_status: { $exists: true },
-            },
-          },
-          { $sample: { size: 50000 } }, // Sample for performance
-          {
-            $group: {
-              _id: { $substr: ["$request_url", 0, 50] }, // Truncate URL for grouping
-              total_requests: { $sum: 1 },
-              error_requests: {
-                $sum: { $cond: [{ $gte: ["$response_status", 400] }, 1, 0] },
-              },
-            },
-          },
-          {
-            $addFields: {
-              error_rate: {
-                $multiply: [
-                  { $divide: ["$error_requests", "$total_requests"] },
-                  100,
-                ],
-              },
-            },
-          },
-          { $match: { total_requests: { $gte: 5 } } }, // Lower threshold for sampled data
-          { $sort: { error_rate: -1 } },
-          { $limit: 10 },
-        ],
-        aggregateOptions
-      ),
-    ]);
-
-    res.status(200).json({
-      success: true,
-      analytics: {
-        summary: {
-          total_events: dailyActivity.reduce(
-            (sum, day) => sum + day.total_events,
-            0
-          ),
-          total_errors: dailyActivity.reduce((sum, day) => sum + day.errors, 0),
-          total_warnings: dailyActivity.reduce(
-            (sum, day) => sum + day.warnings,
-            0
-          ),
-          avg_response_time: responseTimeStats[0]?.avg_response_time || 0,
-          p95_response_time: responseTimeStats[0]?.p95_response_time || 0,
-        },
-        event_types: eventTypeStats,
-        severity_distribution: severityStats,
-        daily_activity: dailyActivity,
-        top_users: topUsers,
-        response_time_stats: responseTimeStats[0] || {},
-        error_rate_by_endpoint: errorRateStats,
-        period_days: parseInt(days),
-        date_range: {
-          start: start_date || null,
-          end: end_date || null,
-        },
-        note: "Analytics based on statistical sampling for performance optimization",
-      },
-    });
-  } catch (error) {
-    console.error("Get log analytics error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error retrieving log analytics",
-      error:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : "Internal server error",
-    });
-  }
-};
-
-// @desc    Get users for log filters (Cached and optimized)
-// @route   GET /api/logs/users
-// @access  Private
 // @desc    Get users for log filters (Optimized)
 // @route   GET /api/logs/users
 // @access  Private
@@ -626,9 +340,7 @@ const getLogUsers = async (req, res) => {
   }
 };
 
-// @desc    Get companies for log filters (Cached and optimized)
-// @route   GET /api/logs/companies
-// @access  Private (Master Admin)
+
 // @desc    Get companies for log filters (Optimized)
 // @route   GET /api/logs/companies
 // @access  Private (Master Admin)
@@ -894,13 +606,150 @@ const getLogById = async (req, res) => {
   }
 };
 
+
+// @desc    Get log analytics for a specific date (Optimized for large datasets)
+// @route   GET /api/logs/analytics/daily
+// @access  Private (Master Admin or Company Super Admin)
+const getDailyLogAnalytics = async (req, res) => {
+  try {
+    const { date, company_id, event_type } = req.query;
+
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date parameter is required",
+      });
+    }
+
+    const targetDate = new Date(date);
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const baseFilter = { 
+      created_at: { 
+        $gte: startOfDay, 
+        $lte: endOfDay 
+      } 
+    };
+
+    // Company scope for non-master admins
+    if (req.user.role !== "master_admin" && req.user.company_id) {
+      baseFilter.company_id = req.user.company_id;
+    } else if (company_id && company_id !== "all") {
+      baseFilter.company_id = company_id;
+    }
+
+    if (event_type && event_type !== "all") {
+      baseFilter.event_type = event_type;
+    }
+
+    const aggregateOptions = {
+      allowDiskUse: true,
+      maxTimeMS: 15000, // 15 second timeout for daily analytics
+    };
+
+    // Get basic counts for the day
+    const [dailyCounts, responseTimeStats] = await Promise.all([
+      // Daily counts
+      GlobalLog.aggregate(
+        [
+          { $match: baseFilter },
+          {
+            $group: {
+              _id: null,
+              total_events: { $sum: 1 },
+              errors: {
+                $sum: {
+                  $cond: [{ $in: ["$severity", ["error", "critical"]] }, 1, 0],
+                },
+              },
+              warnings: {
+                $sum: { $cond: [{ $eq: ["$severity", "warning"] }, 1, 0] },
+              },
+            },
+          },
+        ],
+        aggregateOptions
+      ),
+
+      // Response time statistics
+      GlobalLog.aggregate(
+        [
+          {
+            $match: {
+              ...baseFilter,
+              response_time_ms: { $exists: true, $gt: 0, $lt: 60000 },
+            },
+          },
+          { $sample: { size: 5000 } },
+          {
+            $group: {
+              _id: null,
+              avg_response_time: { $avg: "$response_time_ms" },
+              response_times: { $push: "$response_time_ms" },
+            },
+          },
+          {
+            $project: {
+              avg_response_time: 1,
+              p95_response_time: {
+                $arrayElemAt: [
+                  {
+                    $slice: [
+                      { $sortArray: { input: "$response_times", sortBy: 1 } },
+                      {
+                        $floor: {
+                          $multiply: [{ $size: "$response_times" }, 0.95],
+                        },
+                      },
+                      1,
+                    ],
+                  },
+                  0,
+                ],
+              },
+            },
+          },
+        ],
+        aggregateOptions
+      ),
+    ]);
+
+    const result = {
+      date: targetDate.toISOString().split('T')[0],
+      total_events: dailyCounts[0]?.total_events || 0,
+      errors: dailyCounts[0]?.errors || 0,
+      warnings: dailyCounts[0]?.warnings || 0,
+      avg_response_time: responseTimeStats[0]?.avg_response_time || 0,
+      p95_response_time: responseTimeStats[0]?.p95_response_time || 0,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Get daily log analytics error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving daily analytics",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Internal server error",
+    });
+  }
+};
+
 module.exports = {
   logEvent,
   logRequest,
   getLogs,
-  getLogAnalytics,
   getLogUsers,
   getLogCompanies,
   exportLogs,
   getLogById,
+  getDailyLogAnalytics,
 };

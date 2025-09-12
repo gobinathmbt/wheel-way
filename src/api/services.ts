@@ -919,11 +919,10 @@ export const logServices = {
       timeout: 30000, // 30 second timeout
     }),
 
-  // Get analytics with caching and timeout
-  getLogAnalytics: (queryString: string) =>
-    apiClient.get(`/api/logs/analytics?${queryString}`, {
-      timeout: 45000, // 45 second timeout for analytics
-    }),
+getDailyAnalytics: (queryString: string) =>
+  apiClient.get(`/api/logs/analytics/daily?${queryString}`, {
+    timeout: 15000, // 15 second timeout for daily analytics
+  }),
 
   // Cached user and company lookups
   getLogUsers: (params?: any) =>
