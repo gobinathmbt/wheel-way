@@ -5,6 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { X } from "lucide-react";
@@ -16,8 +17,6 @@ import {
   UploadResults,
 } from "@/lib/metaSocket";
 import UploadStepContent from "./UploadStepContent";
-
-const XLSX = await import("xlsx");
 
 interface FlexibleUploadModalProps {
   open: boolean;
