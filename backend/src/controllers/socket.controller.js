@@ -390,16 +390,21 @@ const initializeSocket = (server) => {
 
   // Initialize main Socket.IO server
   mainIO = new Server(server, {
-    cors: {
-      origin: [
-        Env_Configuration.FRONTEND_URL || "http://localhost:8080",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-      ],
-      methods: ["GET", "POST"],
-      credentials: true,
-      allowEIO3: true,
-    },
+    // cors: {
+    //   origin: [
+    //     Env_Configuration.FRONTEND_URL || "http://localhost:8080",
+    //     "http://localhost:8080",
+    //     "http://127.0.0.1:8080",
+    //   ],
+    //   methods: ["GET", "POST"],
+    //   credentials: true,
+    //   allowEIO3: true,
+    // },
+      cors: {
+    origin: "*", // Allow all origins (quick fix, not recommended for prod)
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
     allowEIO3: true,
     transports: ["websocket", "polling"],
     pingTimeout: 120000,
