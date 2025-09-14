@@ -5,9 +5,9 @@
 const getApiDocs = async (req, res) => {
   try {
     const documentation = {
-      title: 'Vehcile Erp API Documentation',
+      title: 'Auto Erp API Documentation',
       version: '1.0.0',
-      description: 'Comprehensive API documentation for the Vehcile Erp platform',
+      description: 'Comprehensive API documentation for the Auto Erp platform',
       base_url: process.env.API_BASE_URL || 'http://localhost:5000/api',
       
       authentication: {
@@ -138,7 +138,7 @@ const getApiSpec = async (req, res) => {
     const openApiSpec = {
       openapi: '3.0.0',
       info: {
-        title: 'Vehcile Erp API',
+        title: 'Auto Erp API',
         version: '1.0.0',
         description: 'Vehicle Trade-in and Inspection Platform API'
       },

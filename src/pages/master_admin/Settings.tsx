@@ -34,7 +34,7 @@ const MasterSettings = () => {
     secure: false,
     auth_user: "",
     auth_pass: "",
-    from_name: "Vehcile Erp Platform",
+    from_name: "Auto Erp Platform",
     from_email: "",
   });
 
@@ -395,7 +395,7 @@ const MasterSettings = () => {
                             from_email: e.target.value,
                           })
                         }
-                        placeholder="noreply@Vehcile Erp.com"
+                        placeholder="noreply@Auto Erp.com"
                         required
                       />
                     </div>

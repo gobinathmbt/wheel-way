@@ -88,7 +88,7 @@ const RegisterCompany = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <Car className="h-10 w-10 text-primary" />
-            <span className="text-3xl font-bold">Vehcile Erp</span>
+            <span className="text-3xl font-bold">Auto Erp</span>
           </div>
           <p className="text-muted-foreground">Register your company to get started</p>
         </div>
@@ -100,7 +100,7 @@ const RegisterCompany = () => {
               <span>Company Registration</span>
             </CardTitle>
             <CardDescription>
-              Fill in your company details to create your Vehcile Erp account
+              Fill in your company details to create your Auto Erp account
             </CardDescription>
           </CardHeader>
           <CardContent>

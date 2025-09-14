@@ -1,5 +1,5 @@
 
-# Vehcile Erp Backend API
+# Auto Erp Backend API
 
 Enterprise-grade backend for vehicle trade-in and inspection management platform.
 

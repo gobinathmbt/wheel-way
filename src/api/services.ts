@@ -145,6 +145,22 @@ export const vehicleMetadataServices = {
   deleteModel: (id: string) =>
     apiClient.delete(`/api/master/vehicle-metadata/models/${id}`),
 
+  // Variants
+  getVariants: (params?: any) =>
+    apiClient.get("/api/master/vehicle-metadata/variants", { params }),
+
+  getVariantsByModel: (modelId: string, params?: any) =>
+    apiClient.get(`/api/master/vehicle-metadata/models/${modelId}/variants`, { params }),
+
+  addVariant: (data: any) =>
+    apiClient.post("/api/master/vehicle-metadata/variants", data),
+
+  updateVariant: (id: string, data: any) =>
+    apiClient.put(`/api/master/vehicle-metadata/variants/${id}`, data),
+
+  deleteVariant: (id: string) =>
+    apiClient.delete(`/api/master/vehicle-metadata/variants/${id}`),
+
   // Bodies
   getBodies: (params?: any) =>
     apiClient.get("/api/master/vehicle-metadata/bodies", { params }),
@@ -161,6 +177,9 @@ export const vehicleMetadataServices = {
   // Variant Years
   getVariantYears: (params?: any) =>
     apiClient.get("/api/master/vehicle-metadata/variant-years", { params }),
+
+  getVariantYearsByVariant: (variantId: string, params?: any) =>
+    apiClient.get(`/api/master/vehicle-metadata/variants/${variantId}/years`, { params }),
 
   addVariantYear: (data: any) =>
     apiClient.post("/api/master/vehicle-metadata/variant-years", data),
@@ -184,30 +203,57 @@ export const vehicleMetadataServices = {
   deleteVehicleMetadata: (id: string) =>
     apiClient.delete(`/api/master/vehicle-metadata/delete/${id}`),
 
-  // Dropdown data
-  getDropdownData: (type: string, params?: any) =>
-    apiClient.get("/api/master/vehicle-metadata/dropdown-data", { params: { type, ...params } }),
-
   // Counts
   getCounts: () =>
     apiClient.get("/api/master/vehicle-metadata/counts"),
 
-
-  // Optimized bulk operations
-  bulkUploadMetadata: (data: any) =>
-    apiClient.post("/api/master/vehicle-metadata/bulk-upload", data),
-
-  parseUploadedFile: (data: any) =>
-    apiClient.post("/api/master/vehicle-metadata/parse-file", data),
+  // Dropdown data
+  getDropdownData: (type: string, params?: any) =>
+    apiClient.get("/api/master/vehicle-metadata/dropdown-data", { params: { type, ...params } }),
 
   getSchemaFields: () =>
     apiClient.get("/api/master/vehicle-metadata/schema-fields"),
 
-  searchAdvanced: (params?: any) =>
-    apiClient.get("/api/master/vehicle-metadata/search-advanced", { params }),
+};
 
-  getUploadBatches: () =>
-    apiClient.get("/api/master/vehicle-metadata/upload-batches")
+
+// Workflow Services
+export const workflowServices = {
+  // Get all workflows
+  getWorkflows: (params?: any) =>
+    apiClient.get("/api/workflows", { params }),
+
+  // Get workflow by ID
+  getWorkflow: (id: string) =>
+    apiClient.get(`/api/workflows/${id}`),
+
+  // Create workflow
+  createWorkflow: (data: any) =>
+    apiClient.post("/api/workflows", data),
+
+  // Update workflow
+  updateWorkflow: (id: string, data: any) =>
+    apiClient.put(`/api/workflows/${id}`, data),
+
+  // Delete workflow
+  deleteWorkflow: (id: string) =>
+    apiClient.delete(`/api/workflows/${id}`),
+
+  // Toggle workflow status
+  toggleWorkflowStatus: (id: string, data: any) =>
+    apiClient.patch(`/api/workflows/${id}/status`, data),
+
+  // Get workflow statistics
+  getWorkflowStats: () =>
+    apiClient.get("/api/workflows/stats"),
+
+  // Get vehicle schema fields for mapping
+  getVehicleSchemaFields: () =>
+    apiClient.get("/api/workflows/vehicle-schema"),
+
+  // Test workflow configuration
+  testWorkflow: (id: string, data: any) =>
+    apiClient.post(`/api/workflows/${id}/test`, data),
 };
 
 // Custom Module Services

@@ -45,6 +45,7 @@ import AdPublishingList from "./pages/vehicles/AdPublishingList";
 // Workshop Pages
 import Workshop from "./pages/company/Workshop";
 import WorkshopConfig from "./pages/company/WorkshopConfig";
+import WorkflowManagement from "./pages/company/WorkflowManagement";
 
 import SupplierManagement from "./pages/company/SupplierManagement";
 
@@ -217,6 +218,11 @@ const App = () => (
             <Route path="/company/workshop-config/:vehicleId/:vehicleType" element={
               <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']} requiredModule="work_shop">
                 <WorkshopConfig />
+              </ProtectedRoute>
+            } />
+            <Route path="/company/workflows" element={
+              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="workflow_automation">
+                <WorkflowManagement />
               </ProtectedRoute>
             } />
 

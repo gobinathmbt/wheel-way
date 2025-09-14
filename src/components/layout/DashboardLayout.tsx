@@ -32,6 +32,7 @@ import {
   BarChart3,
   Search,
   Archive,
+  Workflow,
 } from "lucide-react";
 import { authServices, subscriptionServices } from "@/api/services";
 import { Badge } from "../ui/badge";
@@ -321,6 +322,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             { icon: Package, label: "Workshop", path: "/company/workshop" },
             { icon: Truck, label: "Suppliers", path: "/company/suppliers" },
           ],
+        },
+        {
+          icon: Workflow,
+          label: "Workflows",
+          path: "/company/workflows",
+          module: "workflow_automation",
         },
         {
           icon: UserCog,
@@ -686,7 +693,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {!isSidebarCollapsed && (
             <>
               <Car className="h-6 w-6 text-primary" />
-              <span className="text-lg font-bold">Vehcile Erp</span>
+              <span className="text-lg font-bold">Auto Erp</span>
             </>
           )}
           {isSidebarCollapsed && (
@@ -697,7 +704,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right">
-                <p>Vehcile Erp</p>
+                <p>Auto Erp</p>
               </TooltipContent>
             </Tooltip>
           )}
