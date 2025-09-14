@@ -8,6 +8,9 @@ const xss = require("xss-clean");
 const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const { startSubscriptionCronJob } = require("./jobs/subscriptionCron");
+const { startGlobalLogCleanupCron } = require("./jobs/globalLogsCron");
+const { startQueueConsumer } = require('./controllers/sqs.controller');
+const { startWorkshopQueueConsumer } = require('./controllers/workshopReportSqs.controller');
 const mongoose = require("mongoose");
 
 // Import routes
@@ -45,6 +48,13 @@ connectDB();
 
 // Start CRON jobs
 startSubscriptionCronJob();
+startGlobalLogCleanupCron();
+// Start main vehicle processing queue consumer
+// startQueueConsumer();
+
+// Start workshop report processing queue consumer
+// startWorkshopQueueConsumer();
+
 
 const app = express();
 

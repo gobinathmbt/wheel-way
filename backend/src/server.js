@@ -2,10 +2,7 @@ const http = require('http');
 const { MongoClient } = require("mongodb");
 const app = require('./app');
 const connectDB = require('./config/db');
-const { startQueueConsumer } = require('./controllers/sqs.controller');
-const { startWorkshopQueueConsumer } = require('./controllers/workshopReportSqs.controller');
 const { initializeSocket } = require('./controllers/socket.controller');
-const { startSubscriptionCronJob } = require('./jobs/subscriptionCron');
 const Env_Configuration =require('./config/env');
 
 
@@ -23,14 +20,7 @@ const { mainIO, chatIO, metaIO } = initializeSocket(server);
 // Start SQS queue consumers
 console.log('🔄 Starting SQS Queue Consumers...');
 
-// Start main vehicle processing queue consumer
-// startQueueConsumer();
 
-// Start workshop report processing queue consumer
-// startWorkshopQueueConsumer();
-
-// Start subscription CRON job
-startSubscriptionCronJob();
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
