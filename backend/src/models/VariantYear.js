@@ -4,7 +4,6 @@ const variantYearSchema = new mongoose.Schema({
   model: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Model",
-    required: true,
   },
   variant: {
     type: mongoose.Schema.Types.ObjectId,
@@ -41,9 +40,9 @@ variantYearSchema.pre("save", function (next) {
   next();
 });
 
-// Ensure uniqueness based on either model or variant
+// Ensure uniqueness only on model, variant, and displayValue
 variantYearSchema.index(
-  { model: 1, variant: 1, year: 1, displayValue: 1 },
+  { model: 1, variant: 1, displayValue: 1 },
   { unique: true }
 );
 

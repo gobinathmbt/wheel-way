@@ -61,12 +61,16 @@ interface DropdownItem {
   isActive?: boolean;
   year?: number;
   make?: DropdownItem;
+  models?: DropdownItem[];
+  model?: DropdownItem;
+  variant?: DropdownItem;
 }
 
 interface VehicleMetadataItem {
   _id: string;
   make?: DropdownItem;
   model?: DropdownItem;
+  variant?: DropdownItem;
   body?: DropdownItem;
   variantYear?: DropdownItem;
   fuelType?: string;
@@ -80,6 +84,7 @@ interface VehicleMetadataItem {
 interface CountsData {
   makes?: number;
   models?: number;
+  variants?: number;
   bodies?: number;
   years?: number;
   metadata?: number;
@@ -116,6 +121,7 @@ const VehicleMetadata = () => {
   const [filters, setFilters] = useState({
     make: "",
     model: "",
+    variant: "",
     body: "",
     year: "",
     fuelType: "",
@@ -154,8 +160,21 @@ const VehicleMetadata = () => {
   });
 
   const { data: allModels, isLoading: allModelsLoading } = useQuery({
-    queryKey: ["dropdown-models"],
-    queryFn: () => vehicleMetadataServices.getDropdownData("models"),
+    queryKey: ["dropdown-models", filters.make],
+    queryFn: () =>
+      vehicleMetadataServices.getDropdownData("models", {
+        makeId: filters.make || undefined,
+      }),
+    enabled: !!filters.make,
+  });
+
+  const { data: allVariants, isLoading: allVariantsLoading } = useQuery({
+    queryKey: ["dropdown-variants", filters.model],
+    queryFn: () =>
+      vehicleMetadataServices.getDropdownData("variants", {
+        modelId: filters.model || undefined,
+      }),
+    enabled: !!filters.model,
   });
 
   const { data: allBodies, isLoading: allBodiesLoading } = useQuery({
@@ -164,8 +183,13 @@ const VehicleMetadata = () => {
   });
 
   const { data: allYears, isLoading: allYearsLoading } = useQuery({
-    queryKey: ["dropdown-years"],
-    queryFn: () => vehicleMetadataServices.getDropdownData("years"),
+    queryKey: ["dropdown-years", filters.model, filters.variant],
+    queryFn: () =>
+      vehicleMetadataServices.getDropdownData("years", {
+        modelId: filters.model || undefined,
+        variantId: filters.variant || undefined,
+      }),
+    enabled: !!(filters.model || filters.variant),
   });
 
   // Get counts for dashboard
@@ -203,6 +227,8 @@ const VehicleMetadata = () => {
           return vehicleMetadataServices.getMakes(params);
         case "models":
           return vehicleMetadataServices.getModels(params);
+        case "variants":
+          return vehicleMetadataServices.getVariants(params);
         case "bodies":
           return vehicleMetadataServices.getBodies(params);
         case "years":
@@ -226,10 +252,6 @@ const VehicleMetadata = () => {
     }
   }, [currentTabData]);
 
-  // ============================================================================
-  // MUTATIONS - Using new unified API structure
-  // ============================================================================
-
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       const { type, ...formData } = data;
@@ -246,6 +268,12 @@ const VehicleMetadata = () => {
             makeId: formData.makeId,
             isActive: formData.isActive ?? true,
           });
+        case "variant":
+          return vehicleMetadataServices.addVariant({
+            displayName: formData.displayName,
+            models: formData.models,
+            isActive: formData.isActive ?? true,
+          });
         case "body":
           return vehicleMetadataServices.addBody({
             displayName: formData.displayName,
@@ -255,6 +283,8 @@ const VehicleMetadata = () => {
           return vehicleMetadataServices.addVariantYear({
             year: parseInt(formData.year),
             displayName: formData.year.toString(),
+            ...(formData.modelId && { modelId: formData.modelId }),
+            ...(formData.variantId && { variantId: formData.variantId }),
             isActive: true,
           });
         case "metadata":
@@ -308,6 +338,8 @@ const VehicleMetadata = () => {
           return vehicleMetadataServices.updateMake(id, data);
         case "model":
           return vehicleMetadataServices.updateModel(id, data);
+        case "variant":
+          return vehicleMetadataServices.updateVariant(id, data);
         case "body":
           return vehicleMetadataServices.updateBody(id, data);
         case "year":
@@ -336,6 +368,8 @@ const VehicleMetadata = () => {
           return vehicleMetadataServices.deleteMake(id);
         case "model":
           return vehicleMetadataServices.deleteModel(id);
+        case "variant":
+          return vehicleMetadataServices.deleteVariant(id);
         case "body":
           return vehicleMetadataServices.deleteBody(id);
         case "year":
@@ -362,10 +396,6 @@ const VehicleMetadata = () => {
       setDeleteItem(null);
     },
   });
-
-  // ============================================================================
-  // EVENT HANDLERS
-  // ============================================================================
 
   const handleDeleteItem = (item: any, type: string) => {
     setDeleteItem({ ...item, type });
@@ -448,6 +478,7 @@ const VehicleMetadata = () => {
           <TableRow>
             <TableHead>Make</TableHead>
             <TableHead>Model</TableHead>
+            <TableHead>Variant</TableHead>
             <TableHead>Body</TableHead>
             <TableHead>Year</TableHead>
             <TableHead>Fuel Type</TableHead>
@@ -460,6 +491,7 @@ const VehicleMetadata = () => {
             <TableRow key={item._id}>
               <TableCell>{item.make?.displayName}</TableCell>
               <TableCell>{item.model?.displayName}</TableCell>
+              <TableCell>{item.variant?.displayName || "-"}</TableCell>
               <TableCell>{item.body?.displayName || "-"}</TableCell>
               <TableCell>{item.variantYear?.year || "-"}</TableCell>
               <TableCell>{item.fuelType || "-"}</TableCell>
@@ -504,6 +536,9 @@ const VehicleMetadata = () => {
             <TableHead>Display Value</TableHead>
             {type === "years" && <TableHead>Year</TableHead>}
             {type === "models" && <TableHead>Make</TableHead>}
+            {type === "variants" && <TableHead>Models</TableHead>}
+            {type === "years" && <TableHead>Model</TableHead>}
+            {type === "years" && <TableHead>Variant</TableHead>}
             <TableHead>Status</TableHead>
             <TableHead className="w-24">Actions</TableHead>
           </TableRow>
@@ -516,6 +551,19 @@ const VehicleMetadata = () => {
               {type === "years" && <TableCell>{item.year}</TableCell>}
               {type === "models" && (
                 <TableCell>{item.make?.displayName || "-"}</TableCell>
+              )}
+              {type === "variants" && (
+                <TableCell>
+                  {item.models
+                    ?.map((model: any) => model.displayName)
+                    .join(", ") || "-"}
+                </TableCell>
+              )}
+              {type === "years" && (
+                <TableCell>{item.model?.displayName || "-"}</TableCell>
+              )}
+              {type === "years" && (
+                <TableCell>{item.variant?.displayName || "-"}</TableCell>
               )}
               <TableCell>
                 <Badge variant={item.isActive ? "default" : "secondary"}>
@@ -572,6 +620,9 @@ const VehicleMetadata = () => {
                 <Badge variant="outline" className="bg-green-50 text-green-700">
                   Models: {counts.data?.models?.toLocaleString()}
                 </Badge>
+                <Badge variant="outline" className="bg-cyan-50 text-cyan-700">
+                  Variants: {counts.data?.variants?.toLocaleString()}
+                </Badge>
                 <Badge
                   variant="outline"
                   className="bg-purple-50 text-purple-700"
@@ -613,7 +664,7 @@ const VehicleMetadata = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
               <div>
                 <Label>Search</Label>
                 <Input
@@ -627,7 +678,13 @@ const VehicleMetadata = () => {
                 <Select
                   value={filters.make}
                   onValueChange={(value) =>
-                    setFilters((prev) => ({ ...prev, make: value }))
+                    setFilters((prev) => ({
+                      ...prev,
+                      make: value,
+                      model: "", // Reset dependent filters
+                      variant: "",
+                      year: "",
+                    }))
                   }
                 >
                   <SelectTrigger>
@@ -648,8 +705,14 @@ const VehicleMetadata = () => {
                 <Select
                   value={filters.model}
                   onValueChange={(value) =>
-                    setFilters((prev) => ({ ...prev, model: value }))
+                    setFilters((prev) => ({
+                      ...prev,
+                      model: value,
+                      variant: "", // Reset dependent filters
+                      year: "",
+                    }))
                   }
+                  disabled={!filters.make}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="All Models" />
@@ -659,6 +722,32 @@ const VehicleMetadata = () => {
                     {allModels?.data?.data?.map((model: DropdownItem) => (
                       <SelectItem key={model._id} value={model._id}>
                         {model.displayName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Variant</Label>
+                <Select
+                  value={filters.variant}
+                  onValueChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      variant: value,
+                      year: "", // Reset dependent filter
+                    }))
+                  }
+                  disabled={!filters.model}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Variants" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Variants</SelectItem>
+                    {allVariants?.data?.data?.map((variant: DropdownItem) => (
+                      <SelectItem key={variant._id} value={variant._id}>
+                        {variant.displayName}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -692,6 +781,7 @@ const VehicleMetadata = () => {
                   onValueChange={(value) =>
                     setFilters((prev) => ({ ...prev, year: value }))
                   }
+                  disabled={!filters.model && !filters.variant}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="All Years" />
@@ -713,6 +803,7 @@ const VehicleMetadata = () => {
                     setFilters({
                       make: "",
                       model: "",
+                      variant: "",
                       body: "",
                       year: "",
                       fuelType: "",
@@ -732,7 +823,7 @@ const VehicleMetadata = () => {
           <CardContent className="p-0">
             <Tabs value={currentTab} onValueChange={setCurrentTab}>
               <CardHeader>
-                <TabsList className="grid grid-cols-5 w-full">
+                <TabsList className="grid grid-cols-6 w-full">
                   <TabsTrigger
                     value="metadata"
                     className="flex items-center gap-2"
@@ -753,6 +844,13 @@ const VehicleMetadata = () => {
                   >
                     <FileText className="h-4 w-4" />
                     Models
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="variants"
+                    className="flex items-center gap-2"
+                  >
+                    <Car className="h-4 w-4" />
+                    Variants
                   </TabsTrigger>
                   <TabsTrigger
                     value="bodies"
@@ -793,6 +891,14 @@ const VehicleMetadata = () => {
                     <div className="text-center py-8">Loading...</div>
                   ) : (
                     renderBasicTable("models")
+                  )}
+                </TabsContent>
+
+                <TabsContent value="variants" className="mt-0">
+                  {currentTabLoading ? (
+                    <div className="text-center py-8">Loading...</div>
+                  ) : (
+                    renderBasicTable("variants")
                   )}
                 </TabsContent>
 

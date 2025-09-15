@@ -128,6 +128,14 @@ export const vehicleMetadataServices = {
     apiClient.get("/api/master/vehicle-metadata/list/models", { 
       params: { ...params, makeId } 
     }),
+
+  getVariants: (params = {}) => 
+    apiClient.get("/api/master/vehicle-metadata/list/variants", { params }),
+    
+  getVariantsByModel: (modelId, params = {}) => 
+    apiClient.get("/api/master/vehicle-metadata/list/variants", { 
+      params: { ...params, modelId } 
+    }),
     
   getBodies: (params = {}) => 
     apiClient.get("/api/master/vehicle-metadata/list/bodies", { params }),
@@ -158,6 +166,9 @@ export const vehicleMetadataServices = {
     
   addModel: (data) => 
     apiClient.post("/api/master/vehicle-metadata/create/model", data),
+
+  addVariant: (data) => 
+    apiClient.post("/api/master/vehicle-metadata/create/variant", data),
     
   addBody: (data) => 
     apiClient.post("/api/master/vehicle-metadata/create/body", data),
@@ -178,6 +189,9 @@ export const vehicleMetadataServices = {
     
   updateModel: (id, data) => 
     apiClient.put(`/api/master/vehicle-metadata/update/model/${id}`, data),
+
+  updateVariant: (id, data) => 
+    apiClient.put(`/api/master/vehicle-metadata/update/variant/${id}`, data),
     
   updateBody: (id, data) => 
     apiClient.put(`/api/master/vehicle-metadata/update/body/${id}`, data),
@@ -194,6 +208,9 @@ export const vehicleMetadataServices = {
     
   deleteModel: (id) => 
     apiClient.delete(`/api/master/vehicle-metadata/delete/model/${id}`),
+
+  deleteVariant: (id) => 
+    apiClient.delete(`/api/master/vehicle-metadata/delete/variant/${id}`),
     
   deleteBody: (id) => 
     apiClient.delete(`/api/master/vehicle-metadata/delete/body/${id}`),
@@ -204,27 +221,20 @@ export const vehicleMetadataServices = {
   deleteVehicleMetadata: (id) => 
     apiClient.delete(`/api/master/vehicle-metadata/delete/metadata/${id}`),
 
-  // These can be kept for backward compatibility if needed
-  getVariants: (params = {}) => 
-    apiClient.get("/api/master/vehicle-metadata/list/models", { params }),
-    
-  getVariantsByModel: (modelId, params = {}) => 
-    apiClient.get("/api/master/vehicle-metadata/list/models", { 
-      params: { ...params, modelId } 
-    }),
-    
-  addVariant: (data) => 
-    apiClient.post("/api/master/vehicle-metadata/create/model", data),
-    
-  updateVariant: (id, data) => 
-    apiClient.put(`/api/master/vehicle-metadata/update/model/${id}`, data),
-    
-  deleteVariant: (id) => 
-    apiClient.delete(`/api/master/vehicle-metadata/delete/model/${id}`),
-    
+  // Get years by variant or model
   getVariantYearsByVariant: (variantId, params = {}) => 
     apiClient.get("/api/master/vehicle-metadata/list/years", { 
       params: { ...params, variantId } 
+    }),
+
+  getYearsByModel: (modelId, params = {}) => 
+    apiClient.get("/api/master/vehicle-metadata/list/years", { 
+      params: { ...params, modelId } 
+    }),
+
+  getYearsByModelAndVariant: (modelId, variantId, params = {}) => 
+    apiClient.get("/api/master/vehicle-metadata/list/years", { 
+      params: { ...params, modelId, variantId } 
     }),
 };
 

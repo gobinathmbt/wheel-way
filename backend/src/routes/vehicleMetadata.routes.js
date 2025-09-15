@@ -10,7 +10,7 @@ const router = express.Router();
 router.use(protect);
 router.use(authorize('master_admin'));
 
-// Get lists for tables (makes, models, bodies, years, metadata)
+// Get lists for tables (makes, models, variants, bodies, years, metadata)
 router.get('/list/:type', retrieveController.list);
 
 // Get dropdown data
@@ -23,7 +23,7 @@ router.get('/counts', retrieveController.counts);
 router.get('/schema-fields', retrieveController.schemaFields);
 
 
-// Create single entry (make, model, body, year, metadata)
+// Create single entry (make, model, variant, body, year, metadata)
 router.post('/create/:type', createController.create);
 
 // Bulk create entries
