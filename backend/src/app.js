@@ -8,6 +8,9 @@ const xss = require("xss-clean");
 const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const { startSubscriptionCronJob } = require("./jobs/subscriptionCron");
+const { startGlobalLogCleanupCron } = require("./jobs/globalLogsCron");
+const { startQueueConsumer } = require('./controllers/sqs.controller');
+const { startWorkshopQueueConsumer } = require('./controllers/workshopReportSqs.controller');
 const mongoose = require("mongoose");
 
 // Import routes
@@ -23,6 +26,8 @@ const mastervehicleRoutes = require("./routes/mastervehicle.routes");
 const adpublishingRoutes = require("./routes/adpublishing.routes");
 const docsRoutes = require("./routes/docs.routes");
 const workshopRoutes = require("./routes/workshop.routes");
+const workflowsRoutes = require("./routes/workflow.routes");
+const workflowExcecutionRoutes = require("./routes/workflowExecution.routes");
 const workshopReportRoutes = require("./routes/workshopReport.routes");
 const supplierRoutes = require("./routes/supplier.routes");
 const supplierAuthRoutes = require("./routes/supplierAuth.routes");
@@ -43,6 +48,13 @@ connectDB();
 
 // Start CRON jobs
 startSubscriptionCronJob();
+startGlobalLogCleanupCron();
+// Start main vehicle processing queue consumer
+// startQueueConsumer();
+
+// Start workshop report processing queue consumer
+// startWorkshopQueueConsumer();
+
 
 const app = express();
 
@@ -118,6 +130,8 @@ app.use("/api/docs", docsRoutes);
 app.use("/api/logs", logsRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/workshop", workshopRoutes);
+app.use("/api/workflows", workflowsRoutes);
+app.use("/api/workflow-execute", workflowExcecutionRoutes);
 app.use("/api/workshop-report", workshopReportRoutes);
 app.use("/api/supplier", supplierRoutes);
 app.use("/api/supplier-auth", supplierAuthRoutes);

@@ -1,4 +1,4 @@
-// socket.controller.js - Fixed multi-namespace socket management with proper meta integration
+// socket.controller.js - Complete version with all chat events
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
@@ -8,11 +8,6 @@ const Conversation = require("../models/Conversation");
 const WorkshopQuote = require("../models/WorkshopQuote");
 const MasterAdmin = require("../models/MasterAdmin");
 const Env_Configuration = require("../config/env");
-const {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-} = require("@aws-sdk/client-s3");
 const { v4: uuidv4 } = require("uuid");
 const { logEvent } = require("./logs.controller");
 const VehicleMetadata = require("../models/VehicleMetadata");
@@ -26,13 +21,13 @@ let chatIO;
 let metaIO;
 const connectedUsers = new Map();
 const metaConnectedUsers = new Map();
-const activeBulkOperations = new Map(); // Shared operations map
+const activeBulkOperations = new Map(); // Track active operations by socket ID
 
 // Batch processing configuration
 const BATCH_SIZE = 100;
-const BATCH_DELAY = 500;
+const BATCH_DELAY = 200; // Reduced delay for better performance
 
-// Data type conversion helpers (copied from metaSocket.controller.js)
+// Data type conversion helpers
 const convertToType = (value, targetType, fieldName) => {
   if (value === null || value === undefined || value === "") return null;
 
@@ -64,35 +59,31 @@ const convertToType = (value, targetType, fieldName) => {
   }
 };
 
-// Enhanced create/update helper (copied from metaSocket.controller.js)
+// Enhanced create/update helper
 const createOrUpdateEntry = async (Model, findCriteria, data, options = {}) => {
   try {
-    const session = options.session;
-
-    const existing = await Model.findOne(findCriteria).session(session);
+    const existing = await Model.findOne(findCriteria);
     if (existing) {
       if (options.updateExisting !== false) {
         Object.assign(existing, data);
-        await existing.save({ session });
+        await existing.save();
       }
       return existing;
     }
 
     const newEntry = new Model(data);
-    await newEntry.save({ session });
+    await newEntry.save();
     return newEntry;
   } catch (error) {
     if (error.code === 11000) {
-      const existing = await Model.findOne(findCriteria).session(
-        options.session
-      );
+      const existing = await Model.findOne(findCriteria);
       if (existing) return existing;
     }
     throw error;
   }
 };
 
-// Process a single batch with real-time updates - FIXED VERSION
+// Process batch with proper error handling and sequencing
 const processBatchWithSocket = async (
   socketId,
   batch,
@@ -102,7 +93,7 @@ const processBatchWithSocket = async (
   options,
   batchInfo
 ) => {
-  const { batchId, session, user, batchNumber, totalBatches } = options;
+  const { batchId, user, batchNumber, totalBatches } = options;
   const results = {
     processed: 0,
     created: 0,
@@ -111,13 +102,14 @@ const processBatchWithSocket = async (
     errors: [],
   };
 
-  // Use the correct IO instance - metaIO should be available here
   const ioInstance = metaIO;
-
   if (!ioInstance) {
-    console.error("MetaIO instance not available in processBatchWithSocket");
     throw new Error("MetaIO instance not initialized");
   }
+
+  console.log(
+    `Processing batch ${batchNumber}/${totalBatches} (${batch.length} records)`
+  );
 
   // Send batch start notification
   ioInstance.to(socketId).emit("batch_start", {
@@ -131,6 +123,13 @@ const processBatchWithSocket = async (
     const item = batch[index];
 
     try {
+      // Check if operation was cancelled
+      const operation = activeBulkOperations.get(socketId);
+      if (!operation || operation.status === "cancelled") {
+        console.log(`Operation cancelled, stopping batch ${batchNumber}`);
+        break;
+      }
+
       // Validate required fields
       const makeName = item[fieldMapping.make];
       const modelName = item[fieldMapping.model];
@@ -149,7 +148,7 @@ const processBatchWithSocket = async (
           displayName: makeName,
           displayValue: makeName.toLowerCase().trim().replace(/\s+/g, "_"),
         },
-        { session, updateExisting: options.updateExisting }
+        { updateExisting: options.updateExisting }
       );
 
       // Process model
@@ -164,7 +163,7 @@ const processBatchWithSocket = async (
           displayValue: modelName.toLowerCase().trim().replace(/\s+/g, "_"),
           make: make._id,
         },
-        { session, updateExisting: options.updateExisting }
+        { updateExisting: options.updateExisting }
       );
 
       // Process optional body
@@ -178,7 +177,7 @@ const processBatchWithSocket = async (
             displayName: bodyName,
             displayValue: bodyName.toLowerCase().trim().replace(/\s+/g, "_"),
           },
-          { session, updateExisting: options.updateExisting }
+          { updateExisting: options.updateExisting }
         );
       }
 
@@ -203,7 +202,7 @@ const processBatchWithSocket = async (
               displayName: yearValue.toString(),
               displayValue: yearValue.toString(),
             },
-            { session, updateExisting: options.updateExisting }
+            { updateExisting: options.updateExisting }
           );
         }
       }
@@ -284,19 +283,17 @@ const processBatchWithSocket = async (
         variantYear: variantYear?._id || null,
       };
 
-      const existingMetadata = await VehicleMetadata.findOne(filter).session(
-        session
-      );
+      const existingMetadata = await VehicleMetadata.findOne(filter);
       if (existingMetadata) {
         if (options.updateExisting !== false) {
           Object.assign(existingMetadata, metadataObj);
-          await existingMetadata.save({ session });
+          await existingMetadata.save();
           results.updated++;
         } else {
           results.skipped++;
         }
       } else {
-        await VehicleMetadata.create([metadataObj], { session });
+        await VehicleMetadata.create(metadataObj);
         results.created++;
       }
 
@@ -313,7 +310,6 @@ const processBatchWithSocket = async (
           progressInBatch: Math.round((results.processed / batch.length) * 100),
         });
       }
-
     } catch (error) {
       console.error(
         `Error processing item ${index} in batch ${batchNumber}:`,
@@ -327,20 +323,6 @@ const processBatchWithSocket = async (
       });
     }
   }
-
-  // Send batch completion notification
-  ioInstance.to(socketId).emit("batch_complete", {
-    batchId,
-    batchNumber,
-    totalBatches,
-    results: {
-      processed: results.processed,
-      created: results.created,
-      updated: results.updated,
-      skipped: results.skipped,
-      errors: results.errors.length,
-    },
-  });
 
   console.log(
     `Batch ${batchNumber}/${totalBatches} completed: ${results.processed} processed, ${results.created} created, ${results.updated} updated, ${results.skipped} skipped`
@@ -404,47 +386,52 @@ const getOrCreateConversation = async (quoteId, companyId, supplierId) => {
 };
 
 const initializeSocket = (server) => {
-  console.log("🔌 Initializing Multi-namespace Socket.io...");
+  console.log("Initializing Multi-namespace Socket.io...");
 
   // Initialize main Socket.IO server
   mainIO = new Server(server, {
-    cors: {
-      origin: [
-        Env_Configuration.FRONTEND_URL || "http://localhost:8080",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-      ],
-      methods: ["GET", "POST"],
-      credentials: true,
-      allowEIO3: true,
-    },
+    // cors: {
+    //   origin: [
+    //     Env_Configuration.FRONTEND_URL || "http://localhost:8080",
+    //     "http://localhost:8080",
+    //     "http://127.0.0.1:8080",
+    //   ],
+    //   methods: ["GET", "POST"],
+    //   credentials: true,
+    //   allowEIO3: true,
+    // },
+      cors: {
+    origin: "*", // Allow all origins (quick fix, not recommended for prod)
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
     allowEIO3: true,
     transports: ["websocket", "polling"],
-    pingTimeout: 120000, // Increased for long operations
+    pingTimeout: 120000,
     pingInterval: 25000,
   });
 
   // Initialize Chat namespace
   chatIO = mainIO.of("/chat");
 
-  // Initialize Metadata namespace - FIXED
+  // Initialize Metadata namespace
   metaIO = mainIO.of("/metadata");
 
   console.log(
-    `🌐 Multi-namespace Socket.io server initialized with CORS origin: ${
+    `Multi-namespace Socket.io server initialized with CORS origin: ${
       Env_Configuration.FRONTEND_URL || "http://localhost:8080"
     }`
   );
-  console.log("💬 Chat namespace: /chat");
-  console.log("📊 Metadata namespace: /metadata");
+  console.log("Chat namespace: /chat");
+  console.log("Metadata namespace: /metadata");
 
   // Chat namespace authentication middleware
   chatIO.use(async (socket, next) => {
-    console.log("🔌 Chat socket authentication middleware triggered");
+    console.log("Chat socket authentication middleware triggered");
     try {
       const token = socket.handshake.auth.token;
       console.log(
-        "🔑 Authenticating chat socket with token:",
+        "Authenticating chat socket with token:",
         token ? "present" : "missing"
       );
       if (!token) {
@@ -452,9 +439,8 @@ const initializeSocket = (server) => {
       }
 
       const decoded = jwt.verify(token, Env_Configuration.JWT_SECRET);
-
       console.log(
-        `🔍 Chat socket authentication attempt for user ID: ${decoded.id}, role: ${decoded.role}`
+        `Chat socket authentication attempt for user ID: ${decoded.id}, role: ${decoded.role}`
       );
 
       if (
@@ -492,11 +478,11 @@ const initializeSocket = (server) => {
 
   // Metadata namespace authentication middleware
   metaIO.use(async (socket, next) => {
-    console.log("🔌 Metadata socket authentication middleware triggered");
+    console.log("Metadata socket authentication middleware triggered");
     try {
       const token = socket.handshake.auth.token;
       console.log(
-        "🔑 Authenticating metadata socket with token:",
+        "Authenticating metadata socket with token:",
         token ? "present" : "missing"
       );
       if (!token) {
@@ -504,9 +490,8 @@ const initializeSocket = (server) => {
       }
 
       const decoded = jwt.verify(token, Env_Configuration.JWT_SECRET);
-
       console.log(
-        `🔍 Metadata socket authentication attempt for user ID: ${decoded.id}, role: ${decoded.role}`
+        `Metadata socket authentication attempt for user ID: ${decoded.id}, role: ${decoded.role}`
       );
 
       // Allow both master admin and company users for metadata operations
@@ -560,11 +545,11 @@ const initializeSocket = (server) => {
   return { mainIO, chatIO, metaIO };
 };
 
-// Chat namespace connection handlers (keeping existing implementation)
+// Chat namespace connection handlers
 const initializeChatHandlers = () => {
   chatIO.on("connection", (socket) => {
     console.log(
-      `✅ Chat User connected: ${socket.user.username || socket.user.name} (${
+      `Chat User connected: ${socket.user.username || socket.user.name} (${
         socket.user.type
       }) - Socket ID: ${socket.id}`
     );
@@ -604,7 +589,7 @@ const initializeChatHandlers = () => {
     // Emit online status to relevant users
     emitChatUserStatus(socket.user, true);
 
-    // Chat event handlers (keeping existing implementation)
+    // Chat event handlers
     socket.on("get_conversation", async (data) => {
       try {
         const { quote_id } = data;
@@ -641,13 +626,288 @@ const initializeChatHandlers = () => {
       }
     });
 
-    // Additional chat handlers would continue here...
+    // Join conversation room
+    socket.on("join_conversation", async (data) => {
+      try {
+        const { quote_id, supplier_id, company_id } = data;
+        console.log(
+          "Joining conversation room for quote:",
+          quote_id,
+          supplier_id,
+          company_id
+        );
+        let companyId =
+          socket.user.type === "company" ? socket.user.company_id : company_id;
+        let supplierId =
+          socket.user.type === "supplier" ? socket.user._id : supplier_id;
 
+        const conversation = await getOrCreateConversation(
+          quote_id,
+          companyId,
+          supplierId
+        );
+
+        if (conversation) {
+          socket.join(`conversation_${quote_id}`);
+          socket.currentConversation = quote_id;
+
+          // Mark messages as read
+          await markMessagesAsRead(
+            conversation._id,
+            socket.user.type,
+            socket.user._id
+          );
+
+          // Update unread counts
+          if (socket.user.type === "company") {
+            conversation.unread_count_company = 0;
+          } else {
+            conversation.unread_count_supplier = 0;
+          }
+          await conversation.save();
+
+          // Populate messages before sending
+          await conversation.populate(
+            "messages.sender_id",
+            "name email supplier_shop_name"
+          );
+
+          socket.emit("joined_conversation", {
+            quote_id,
+            conversation: conversation.toObject(),
+          });
+
+          console.log(
+            `User ${
+              socket.user.username || socket.user.name
+            } joined conversation ${quote_id}`
+          );
+        } else {
+          socket.emit("error", {
+            message: "Conversation not found or access denied",
+          });
+        }
+      } catch (error) {
+        console.error("Join conversation error:", error);
+        socket.emit("error", { message: "Failed to join conversation" });
+      }
+    });
+
+    // Leave conversation room
+    socket.on("leave_conversation", (data) => {
+      const { quote_id } = data;
+      socket.leave(`conversation_${quote_id}`);
+      console.log(
+        `User ${
+          socket.user.username || socket.user.name
+        } left conversation ${quote_id}`
+      );
+    });
+
+    // Send message with file handling
+    socket.on("send_message", async (data) => {
+      try {
+        const { quote_id, content, message_type = "text", file_data } = data;
+
+        // Validate file size (10MB limit)
+        if (file_data && file_data.size > 10 * 1024 * 1024) {
+          socket.emit("error", { message: "File size exceeds 10MB limit" });
+          return;
+        }
+
+        const conversation = await Conversation.findOne({
+          quote_id,
+          $or: [
+            { company_id: socket.user.company_id || socket.user._id },
+            { supplier_id: socket.user._id },
+          ],
+        }).populate("company_id supplier_id");
+
+        if (!conversation) {
+          socket.emit("error", { message: "Conversation not found" });
+          return;
+        }
+
+        // Use the pre-uploaded file data from frontend
+        let fileUrl = file_data ? file_data.url : null;
+        let fileKey = file_data ? file_data.key : null;
+        let fileSize = file_data ? file_data.size : null;
+        let fileType = file_data ? file_data.type : null;
+        let fileName = file_data ? file_data.name : null;
+
+        // Create new message
+        const newMessage = {
+          sender_id: socket.user._id,
+          sender_type: socket.user.type,
+          sender_name: socket.user.username || socket.user.name,
+          message_type,
+          content: content || fileName || "",
+          file_url: fileUrl,
+          file_key: fileKey,
+          file_size: fileSize,
+          file_type: fileType,
+          file_name: fileName,
+          is_read: false,
+          created_at: new Date(),
+        };
+
+        // Add message to conversation
+        conversation.messages.push(newMessage);
+
+        // Update unread counts
+        if (socket.user.type === "company") {
+          conversation.unread_count_supplier += 1;
+        } else {
+          conversation.unread_count_company += 1;
+        }
+
+        conversation.last_message_at = new Date();
+        await conversation.save();
+
+        // Update WorkshopQuote with conversation reference
+        await WorkshopQuote.findByIdAndUpdate(quote_id, {
+          conversation_id: conversation._id,
+        });
+
+        // Get the saved message
+        const savedMessage =
+          conversation.messages[conversation.messages.length - 1];
+
+        // Emit to conversation room
+        chatIO.to(`conversation_${quote_id}`).emit("new_message", {
+          conversation_id: conversation._id,
+          message: savedMessage,
+        });
+
+        // Notify the other party
+        const targetUserId =
+          socket.user.type === "company"
+            ? `supplier_${conversation.supplier_id}`
+            : `company_${conversation.company_id._id}`;
+
+        const targetRoom =
+          socket.user.type === "company"
+            ? `supplier_${conversation.supplier_id}`
+            : `company_${conversation.company_id._id}`;
+
+        chatIO.to(targetRoom).emit("conversation_update", {
+          conversation_id: conversation._id,
+          quote_id: conversation.quote_id,
+          last_message: savedMessage.content,
+          last_message_at: savedMessage.created_at,
+          unread_count:
+            socket.user.type === "company"
+              ? conversation.unread_count_supplier
+              : conversation.unread_count_company,
+          sender_type: socket.user.type,
+        });
+
+        // Send push notification
+        chatIO.to(targetUserId).emit("new_message_notification", {
+          conversation_id: conversation._id,
+          quote_id: conversation.quote_id,
+          message: savedMessage.content.substring(0, 100) + "...",
+          sender_name: socket.user.username || socket.user.name,
+        });
+
+        console.log(
+          `Message sent in conversation ${quote_id} by ${
+            socket.user.username || socket.user.name
+          }`
+        );
+      } catch (error) {
+        console.error("Send message error:", error);
+        socket.emit("error", { message: "Failed to send message" });
+      }
+    });
+
+    // Typing indicators
+    socket.on("typing_start", (data) => {
+      const { quote_id } = data;
+      socket.to(`conversation_${quote_id}`).emit("user_typing", {
+        user_id: socket.user._id,
+        user_name: socket.user.username || socket.user.name,
+        typing: true,
+      });
+    });
+
+    socket.on("typing_stop", (data) => {
+      const { quote_id } = data;
+      socket.to(`conversation_${quote_id}`).emit("user_typing", {
+        user_id: socket.user._id,
+        user_name: socket.user.username || socket.user.name,
+        typing: false,
+      });
+    });
+
+    // Mark messages as read
+    socket.on("mark_messages_read", async (data) => {
+      try {
+        const { quote_id } = data;
+
+        const conversation = await Conversation.findOne({
+          quote_id,
+          $or: [
+            { company_id: socket.user.company_id || socket.user._id },
+            { supplier_id: socket.user._id },
+          ],
+        });
+
+        if (conversation) {
+          await markMessagesAsRead(
+            conversation._id,
+            socket.user.type,
+            socket.user._id
+          );
+
+          if (socket.user.type === "company") {
+            conversation.unread_count_company = 0;
+          } else {
+            conversation.unread_count_supplier = 0;
+          }
+
+          await conversation.save();
+          socket.emit("messages_marked_read", { quote_id });
+
+          // Emit to other users in conversation
+          socket.to(`conversation_${quote_id}`).emit("messages_marked_read", {
+            quote_id,
+            marked_by: socket.user.type,
+            marked_by_id: socket.user._id,
+          });
+        }
+      } catch (error) {
+        console.error("Mark messages read error:", error);
+      }
+    });
+
+    // Get user online status
+    socket.on("get_user_status", (data) => {
+      const { user_type, user_id } = data;
+      const userKey = `chat_${user_type}_${user_id}`;
+      const userStatus = connectedUsers.get(userKey);
+      socket.emit("user_status", {
+        user_id,
+        user_type,
+        online: userStatus ? userStatus.online : false,
+        last_seen: userStatus ? userStatus.lastSeen : new Date(),
+      });
+    });
+
+    // Ping/pong for connection testing
+    socket.on("ping", (data) => {
+      socket.emit("pong", {
+        ...data,
+        serverTime: new Date(),
+      });
+    });
+
+    // Handle disconnect
     socket.on("disconnect", (reason) => {
       console.log(
-        `❌ Chat User disconnected: ${
-          socket.user.username || socket.user.name
-        } (${socket.user.type}) - ${reason}`
+        `Chat User disconnected: ${socket.user.username || socket.user.name} (${
+          socket.user.type
+        }) - ${reason}`
       );
 
       const userKey = `chat_${socket.user.type}_${socket.user._id}`;
@@ -658,19 +918,34 @@ const initializeChatHandlers = () => {
         connectedUsers.set(userKey, userData);
       }
 
+      // Stop typing if user was typing
+      if (socket.currentConversation) {
+        socket.to(`conversation_${socket.currentConversation}`).emit("user_typing", {
+          user_id: socket.user._id,
+          user_name: socket.user.username || socket.user.name,
+          typing: false,
+        });
+      }
+
       emitChatUserStatus(socket.user, false);
       socket.leaveAll();
+    });
+
+    // Handle errors
+    socket.on("error", (error) => {
+      console.error("Chat socket error:", error);
+      socket.emit("error", { message: "Socket error occurred" });
     });
   });
 };
 
-// Metadata namespace connection handlers - PROPERLY INTEGRATED AND FIXED
+// Metadata namespace connection handlers
 const initializeMetaHandlers = () => {
-  console.log("🔌 Initializing Meta handlers with full socket integration...");
+  console.log("Initializing Meta handlers with proper batch sequencing...");
 
   metaIO.on("connection", (socket) => {
     console.log(
-      `✅ Metadata User connected: ${
+      `Metadata User connected: ${
         socket.user.username || socket.user.first_name
       } (${socket.user.type}) - Socket ID: ${socket.id}`
     );
@@ -707,140 +982,169 @@ const initializeMetaHandlers = () => {
       namespace: "metadata",
     });
 
-    // FIXED BULK UPLOAD HANDLER
-    socket.on("start_bulk_upload", async (data) => {
-      console.log("🚀 Starting integrated bulk upload process...");
-      
-      const session = await VehicleMetadata.startSession();
-      
+    // Bulk upload configuration handler
+    socket.on("start_bulk_upload_config", async (configData) => {
+      console.log("Received bulk upload configuration");
+
+      const batchId = uuidv4();
+      const {
+        fieldMapping,
+        dataTypes,
+        customFieldTypes,
+        options = {},
+        totalRecords,
+        totalBatches,
+      } = configData;
+
+      // Store configuration for this upload
+      activeBulkOperations.set(socket.id, {
+        batchId,
+        fieldMapping,
+        dataTypes,
+        customFieldTypes,
+        options,
+        totalRecords,
+        totalBatches,
+        processedBatches: 0,
+        currentBatch: 0,
+        startTime: new Date(),
+        status: "initialized",
+        results: {
+          processed: 0,
+          created: 0,
+          updated: 0,
+          skipped: 0,
+          errors: [],
+        },
+      });
+
+      socket.emit("upload_started", {
+        batchId,
+        totalRecords,
+        totalBatches,
+        estimatedTime: Math.ceil(totalBatches * 2),
+      });
+    });
+
+    // Sequential batch processing handler
+    socket.on("upload_batch", async (batchData) => {
+      const { batchNumber, totalBatches, data: batch } = batchData;
+      const operation = activeBulkOperations.get(socket.id);
+
+      if (!operation) {
+        console.log("No upload operation found for socket", socket.id);
+        socket.emit("upload_error", {
+          message: "No upload operation configured",
+          batchNumber,
+        });
+        return;
+      }
+
+      if (operation.status === "cancelled") {
+        console.log(`Upload cancelled, ignoring batch ${batchNumber}`);
+        return;
+      }
+
+      // Validate batch sequence to prevent duplicates
+      if (batchNumber !== operation.currentBatch + 1) {
+        console.log(
+          `Batch sequence error: expected ${
+            operation.currentBatch + 1
+          }, received ${batchNumber}`
+        );
+        socket.emit("upload_error", {
+          message: `Batch sequence error: expected batch ${
+            operation.currentBatch + 1
+          }, received ${batchNumber}`,
+          batchNumber,
+        });
+        return;
+      }
+
+      // Update operation status
+      if (operation.status === "initialized") {
+        operation.status = "processing";
+      }
+
+      operation.currentBatch = batchNumber;
+
       try {
-        await session.withTransaction(async () => {
-          const {
-            data: uploadData,
-            fieldMapping,
-            dataTypes,
-            customFieldTypes,
-            options = {},
-          } = data;
+        console.log(
+          `Processing batch ${batchNumber}/${totalBatches} (${batch.length} records)`
+        );
 
-          if (!uploadData || !Array.isArray(uploadData)) {
-            socket.emit("upload_error", { message: "Invalid data provided" });
-            return;
-          }
-
-          const batchId = uuidv4();
-          const totalBatches = Math.ceil(uploadData.length / BATCH_SIZE);
-          
-          // Store operation info in the shared activeBulkOperations map
-          activeBulkOperations.set(socket.id, {
-            batchId,
-            totalRecords: uploadData.length,
+        // Process the batch
+        const batchResults = await processBatchWithSocket(
+          socket.id,
+          batch,
+          operation.fieldMapping,
+          operation.dataTypes,
+          operation.customFieldTypes,
+          {
+            ...operation.options,
+            batchId: operation.batchId,
+            user: socket.user,
+            batchNumber,
             totalBatches,
-            startTime: new Date(),
-            status: 'running'
-          });
+          },
+          {}
+        );
 
-          const overallResults = {
-            processed: 0,
-            created: 0,
-            updated: 0,
-            skipped: 0,
-            errors: [],
-            batchId,
-            totalBatches,
-            totalRecords: uploadData.length,
-          };
+        // Update overall results
+        operation.results.processed += batchResults.processed;
+        operation.results.created += batchResults.created;
+        operation.results.updated += batchResults.updated;
+        operation.results.skipped += batchResults.skipped;
+        operation.results.errors.push(...batchResults.errors);
+        operation.processedBatches = batchNumber;
 
-          // Send upload start notification
-          socket.emit("upload_started", {
-            batchId,
-            totalRecords: uploadData.length,
-            totalBatches,
-            estimatedTime: Math.ceil(totalBatches * 2),
-          });
+        // Send progress update
+        const overallProgress = Math.round((batchNumber / totalBatches) * 100);
+        socket.emit("upload_progress", {
+          batchId: operation.batchId,
+          progress: overallProgress,
+          currentBatch: batchNumber,
+          totalBatches,
+          results: {
+            processed: operation.results.processed,
+            created: operation.results.created,
+            updated: operation.results.updated,
+            skipped: operation.results.skipped,
+            errors: operation.results.errors.length,
+          },
+          estimatedTimeRemaining: Math.ceil((totalBatches - batchNumber) * 2),
+        });
 
-          // Process data in batches
-          for (let i = 0; i < uploadData.length; i += BATCH_SIZE) {
-            // Check if operation was cancelled
-            const operation = activeBulkOperations.get(socket.id);
-            if (!operation || operation.status === 'cancelled') {
-              socket.emit("upload_cancelled", { batchId });
-              break;
-            }
+        // Single batch completion notification
+        socket.emit("batch_complete", {
+          batchId: operation.batchId,
+          batchNumber,
+          totalBatches,
+          results: {
+            processed: batchResults.processed,
+            created: batchResults.created,
+            updated: batchResults.updated,
+            skipped: batchResults.skipped,
+            errors: batchResults.errors.length,
+          },
+        });
 
-            const batch = uploadData.slice(i, i + BATCH_SIZE);
-            const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
-
-            console.log(
-              `Processing batch ${batchNumber}/${totalBatches} (${batch.length} records)`
-            );
-
-            // Use the fixed processBatchWithSocket function
-            const batchResults = await processBatchWithSocket(
-              socket.id,
-              batch,
-              fieldMapping,
-              dataTypes,
-              customFieldTypes,
-              {
-                ...options,
-                batchId,
-                session,
-                user: socket.user,
-                batchNumber,
-                totalBatches,
-              },
-              {} // batchInfo parameter
-            );
-
-            // Accumulate results
-            overallResults.processed += batchResults.processed;
-            overallResults.created += batchResults.created;
-            overallResults.updated += batchResults.updated;
-            overallResults.skipped += batchResults.skipped;
-            overallResults.errors.push(...batchResults.errors);
-
-            // Send overall progress update
-            const overallProgress = Math.round((batchNumber / totalBatches) * 100);
-            socket.emit("upload_progress", {
-              batchId,
-              progress: overallProgress,
-              currentBatch: batchNumber,
-              totalBatches,
-              results: {
-                processed: overallResults.processed,
-                created: overallResults.created,
-                updated: overallResults.updated,
-                skipped: overallResults.skipped,
-                errors: overallResults.errors.length,
-              },
-              estimatedTimeRemaining: Math.ceil((totalBatches - batchNumber) * 2),
-            });
-
-            // Add delay between batches to prevent overwhelming
-            if (batchNumber < totalBatches) {
-              await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
-            }
-          }
-
-          // Mark operation as completed
-          const operation = activeBulkOperations.get(socket.id);
-          if (operation) {
-            operation.status = 'completed';
-            operation.endTime = new Date();
-          }
+        // If this is the last batch, complete the upload
+        if (batchNumber === totalBatches) {
+          operation.status = "completed";
+          operation.endTime = new Date();
 
           // Log the operation
           await logEvent({
             event_type: "meta_operation",
             event_action: "bulk_upload_completed",
-            event_description: `Bulk uploaded ${overallResults.processed} vehicle metadata entries in ${totalBatches} batches`,
+            event_description: `Bulk uploaded ${operation.results.processed} vehicle metadata entries in ${totalBatches} batches`,
             user_id: socket.user._id,
             user_role: socket.user.role || socket.user.type,
             metadata: {
-              batchId,
-              totalRecords: uploadData.length,
-              results: overallResults,
+              batchId: operation.batchId,
+              totalRecords: operation.totalRecords,
+              results: operation.results,
             },
           });
 
@@ -848,33 +1152,42 @@ const initializeMetaHandlers = () => {
           socket.emit("upload_completed", {
             success: true,
             message: "Bulk upload completed successfully",
-            data: overallResults,
-            duration: operation ? operation.endTime - operation.startTime : null,
+            data: operation.results,
+            duration: operation.endTime - operation.startTime,
           });
 
-          // Clean up operation tracking
+          // Clean up operation tracking after delay
           setTimeout(() => {
             activeBulkOperations.delete(socket.id);
           }, 30000);
-
-        });
-      } catch (error) {
-        console.error("Integrated bulk upload error:", error);
-        
-        // Mark operation as failed
-        const operation = activeBulkOperations.get(socket.id);
-        if (operation) {
-          operation.status = 'failed';
-          operation.error = error.message;
-          operation.endTime = new Date();
         }
+      } catch (error) {
+        console.error(`Error processing batch ${batchNumber}:`, error);
+
+        operation.status = "failed";
+        operation.error = error.message;
+        operation.endTime = new Date();
 
         socket.emit("upload_error", {
-          message: "Error during bulk upload",
+          message: `Error processing batch ${batchNumber}: ${error.message}`,
           error: error.message,
+          batchNumber,
         });
-      } finally {
-        await session.endSession();
+
+        // Still emit batch complete for sequencing
+        socket.emit("batch_complete", {
+          batchId: operation.batchId,
+          batchNumber,
+          totalBatches,
+          error: error.message,
+          results: {
+            processed: 0,
+            created: 0,
+            updated: 0,
+            skipped: batch.length,
+            errors: batch.length,
+          },
+        });
       }
     });
 
@@ -882,14 +1195,21 @@ const initializeMetaHandlers = () => {
     socket.on("cancel_upload", (data) => {
       const { batchId } = data;
       const operation = activeBulkOperations.get(socket.id);
-      
+
       if (operation && operation.batchId === batchId) {
-        operation.status = 'cancelled';
+        operation.status = "cancelled";
         socket.emit("upload_cancelled", {
           batchId,
-          message: "Upload cancelled by user"
+          message: "Upload cancelled by user",
         });
-        console.log(`Upload cancelled by user: ${socket.user.username}, batchId: ${batchId}`);
+        console.log(
+          `Upload cancelled by user: ${socket.user.username}, batchId: ${batchId}`
+        );
+
+        // Clean up after short delay
+        setTimeout(() => {
+          activeBulkOperations.delete(socket.id);
+        }, 5000);
       }
     });
 
@@ -898,7 +1218,7 @@ const initializeMetaHandlers = () => {
       const operation = activeBulkOperations.get(socket.id);
       socket.emit("upload_status", {
         hasActiveUpload: !!operation,
-        operation: operation || null
+        operation: operation || null,
       });
     });
 
@@ -923,15 +1243,15 @@ const initializeMetaHandlers = () => {
     // Handle disconnect
     socket.on("disconnect", (reason) => {
       console.log(
-        `❌ Metadata User disconnected: ${
+        `Metadata User disconnected: ${
           socket.user.username || socket.user.first_name
         } (${socket.user.type}) - ${reason}`
       );
 
       // Clean up active operations
       const operation = activeBulkOperations.get(socket.id);
-      if (operation && operation.status === 'running') {
-        operation.status = 'disconnected';
+      if (operation && operation.status === "processing") {
+        operation.status = "disconnected";
         operation.endTime = new Date();
         console.log(`Marking upload as disconnected: ${operation.batchId}`);
       }
@@ -1030,18 +1350,32 @@ const getIO = () => {
   return getChatSocketIO();
 };
 
-// Get active operations summary for all namespaces
+// Get active operations summary
 const getActiveOperations = () => {
   const operations = {};
   activeBulkOperations.forEach((operation, socketId) => {
     operations[socketId] = {
       ...operation,
-      duration: operation.endTime ? 
-        operation.endTime - operation.startTime : 
-        Date.now() - operation.startTime
+      duration: operation.endTime
+        ? operation.endTime - operation.startTime
+        : Date.now() - operation.startTime,
     };
   });
   return operations;
+};
+
+// Get connected users summary
+const getConnectedUsers = () => {
+  return {
+    chat: Array.from(connectedUsers.entries()).map(([key, data]) => ({
+      key,
+      ...data,
+    })),
+    metadata: Array.from(metaConnectedUsers.entries()).map(([key, data]) => ({
+      key,
+      ...data,
+    })),
+  };
 };
 
 module.exports = {
@@ -1051,6 +1385,7 @@ module.exports = {
   getChatSocketIO,
   getMetaSocketIO,
   getActiveOperations,
+  getConnectedUsers,
   connectedUsers,
   metaConnectedUsers,
-};
+}

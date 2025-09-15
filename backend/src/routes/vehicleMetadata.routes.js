@@ -23,17 +23,9 @@ const {
   deleteModel,
   deleteBody,
   deleteVariantYear,
-  deleteVehicleMetadata
+  deleteVehicleMetadata,
+  getSchemaFields
 } = require('../controllers/vehicleMetadata.controller');
-
-// Import optimized controller methods
-const {
-  bulkUploadMetadata,
-  parseUploadedFile,
-  getSchemaFields,
-  searchVehicleMetadata,
-  getUploadBatches
-} = require('../controllers/optimizedVehicleMetadata.controller');
 
 const router = express.Router();
 
@@ -53,11 +45,7 @@ router.get('/counts', getCounts);
 
 
 // Optimized bulk upload routes
-router.post('/bulk-upload', bulkUploadMetadata);
-router.post('/parse-file', parseUploadedFile);
 router.get('/schema-fields', getSchemaFields);
-router.get('/search-advanced', searchVehicleMetadata);
-router.get('/upload-batches', getUploadBatches);
 
 // Add individual entries
 router.post('/makes', addMake);

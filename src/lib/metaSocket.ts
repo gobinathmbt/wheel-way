@@ -1,4 +1,4 @@
-// src/lib/metaSocket.ts - Enhanced meta operations socket client with improved error handling
+// src/lib/metaSocket.ts - Fixed sequential batch processing
 import { io, Socket } from "socket.io-client";
 import { BASE_URL } from "@/lib/config";
 
@@ -64,12 +64,19 @@ class MetaSocketService {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private connectionRetryTimeout: NodeJS.Timeout | null = null;
 
+  // Fixed batch processing state
+  private currentBatches: any[][] = [];
+  private currentBatchIndex: number = 0;
+  private uploadConfig: any = null;
+  private isProcessingBatch: boolean = false;
+  private batchProcessingTimeout: NodeJS.Timeout | null = null;
+
   // Connection stats
   private stats: ConnectionStats = {
     isConnected: false,
     socketId: null,
-    connectionState: 'disconnected',
-    retryCount: 0
+    connectionState: "disconnected",
+    retryCount: 0,
   };
 
   // Event callbacks
@@ -110,29 +117,32 @@ class MetaSocketService {
       }
 
       this.isConnecting = true;
-      this.stats.connectionState = 'connecting';
+      this.stats.connectionState = "connecting";
       const token = sessionStorage.getItem("token");
 
       if (!token) {
         this.isConnecting = false;
-        this.stats.connectionState = 'disconnected';
-        this.stats.lastError = 'No auth token found';
+        this.stats.connectionState = "disconnected";
+        this.stats.lastError = "No auth token found";
         reject(new Error("No auth token found"));
         return;
       }
 
       const socketUrl = this.getSocketUrl();
-      console.log(`🔌 Connecting to metadata socket server at: ${socketUrl}`);
+      console.log(`Connecting to metadata socket server at: ${socketUrl}`);
 
-      // Health check with retry logic
       this.performHealthCheck()
         .then(() => {
-          console.log("✅ Metadata server health check passed, initializing socket...");
+          console.log(
+            "Metadata server health check passed, initializing socket..."
+          );
           this.createMetaSocket(socketUrl, token, resolve, reject);
         })
         .catch((error) => {
-          console.warn("⚠️ Metadata server health check failed, attempting connection anyway:", error);
-          // Try to connect anyway
+          console.warn(
+            "Metadata server health check failed, attempting connection anyway:",
+            error
+          );
           this.createMetaSocket(socketUrl, token, resolve, reject);
         });
     });
@@ -143,23 +153,28 @@ class MetaSocketService {
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     try {
-      const response = await fetch(`${BASE_URL}/api/socket_connection/v1/metadata_connection/health`, {
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json'
+      const response = await fetch(
+        `${BASE_URL}/api/socket_connection/v1/metadata_connection/health`,
+        {
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
-      });
+      );
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
-        throw new Error(`Health check failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Health check failed: ${response.status} ${response.statusText}`
+        );
       }
-      
+
       return await response.json();
     } catch (error) {
       clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        throw new Error('Health check timeout');
+      if (error.name === "AbortError") {
+        throw new Error("Health check timeout");
       }
       throw error;
     }
@@ -171,7 +186,6 @@ class MetaSocketService {
     resolve: () => void,
     reject: (error: Error) => void
   ): void {
-    // Clean up any existing socket
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
@@ -193,49 +207,52 @@ class MetaSocketService {
     this.setupEventHandlers(resolve, reject);
   }
 
-  private setupEventHandlers(resolve: () => void, reject: (error: Error) => void): void {
+  private setupEventHandlers(
+    resolve: () => void,
+    reject: (error: Error) => void
+  ): void {
     if (!this.socket) return;
 
     this.socket.on("connect", () => {
-      console.log("✅ Connected to meta socket server");
-      console.log(`📡 Meta Socket ID: ${this.socket?.id}`);
-      
+      console.log("Connected to meta socket server");
+      console.log(`Socket ID: ${this.socket?.id}`);
+
       this.reconnectAttempts = 0;
       this.isConnecting = false;
       this.stats = {
         isConnected: true,
         socketId: this.socket?.id || null,
-        connectionState: 'connected',
+        connectionState: "connected",
         lastConnected: new Date(),
-        retryCount: 0
+        retryCount: 0,
       };
       this.startHeartbeat();
       resolve();
     });
 
     this.socket.on("meta_connected", (data) => {
-      console.log("🎉 Meta socket connection confirmed:", data);
+      console.log("Meta socket connection confirmed:", data);
       this.emit("connected", data);
     });
 
     this.socket.on("disconnect", (reason) => {
-      console.log("❌ Disconnected from meta server:", reason);
+      console.log("Disconnected from meta server:", reason);
       this.isConnecting = false;
       this.stats.isConnected = false;
-      this.stats.connectionState = 'disconnected';
+      this.stats.connectionState = "disconnected";
       this.stopHeartbeat();
+      this.resetBatchProcessing();
       this.emit("disconnected", { reason });
-      
-      // Auto-reconnect for certain disconnect reasons
-      if (reason === 'io server disconnect' || reason === 'transport close') {
+
+      if (reason === "io server disconnect" || reason === "transport close") {
         this.scheduleReconnect();
       }
     });
 
     this.socket.on("connect_error", (error) => {
-      console.error("🚫 Meta socket connection error:", error);
+      console.error("Meta socket connection error:", error);
       this.isConnecting = false;
-      this.stats.connectionState = 'error';
+      this.stats.connectionState = "error";
       this.stats.lastError = error.message;
       this.stats.retryCount++;
       reject(error);
@@ -244,33 +261,34 @@ class MetaSocketService {
     this.socket.on("reconnect_attempt", (attempt) => {
       this.reconnectAttempts = attempt;
       this.stats.retryCount = attempt;
-      console.log(`🔄 Meta socket reconnection attempt ${attempt}`);
+      console.log(`Meta socket reconnection attempt ${attempt}`);
     });
 
     this.socket.on("reconnect", (attempt) => {
-      console.log(`✅ Meta socket reconnected after ${attempt} attempts`);
+      console.log(`Meta socket reconnected after ${attempt} attempts`);
       this.stats.isConnected = true;
-      this.stats.connectionState = 'connected';
+      this.stats.connectionState = "connected";
       this.stats.lastConnected = new Date();
       this.startHeartbeat();
     });
 
     this.socket.on("reconnect_failed", () => {
-      console.error("❌ Failed to reconnect meta socket after maximum attempts");
+      console.error("Failed to reconnect meta socket after maximum attempts");
       this.isConnecting = false;
-      this.stats.connectionState = 'failed';
+      this.stats.connectionState = "failed";
       this.scheduleReconnect();
       reject(new Error("Failed to reconnect"));
     });
 
-    // Upload event handlers with better error handling
+    // FIXED: Upload event handlers with proper sequencing
     this.socket.on("upload_started", (data) => {
-      console.log("🚀 Bulk upload started:", data);
+      console.log("Bulk upload started:", data);
       this.emit("uploadStarted", data);
     });
 
     this.socket.on("batch_start", (data) => {
-      console.log(`📦 Batch ${data.batchNumber}/${data.totalBatches} started`);
+      console.log(`Batch ${data.batchNumber}/${data.totalBatches} started`);
+      this.isProcessingBatch = true;
       this.emit("batchStart", data);
     });
 
@@ -278,28 +296,61 @@ class MetaSocketService {
       this.emit("batchProgress", data);
     });
 
-    this.socket.on("batch_complete", (data) => {
-      console.log(`✅ Batch ${data.batchNumber}/${data.totalBatches} completed`);
+    // CRITICAL FIX: Proper batch_complete handler
+    this.socket.on("batch_complete", (data: any) => {
+      console.log(
+        `Batch ${data.batchNumber}/${data.totalBatches} completed:`,
+        data.results
+      );
+
+      this.isProcessingBatch = false;
       this.emit("batchComplete", data);
+
+      // FIXED: Only process next batch if we have more batches and no errors
+      if (!data.error && this.currentBatchIndex < this.currentBatches.length) {
+        // Add a small delay to prevent race conditions
+        if (this.batchProcessingTimeout) {
+          clearTimeout(this.batchProcessingTimeout);
+        }
+
+        this.batchProcessingTimeout = setTimeout(() => {
+          this.processNextBatch();
+        }, 200); // 200ms delay between batches
+      } else if (data.error) {
+        console.error("Batch processing error, stopping upload:", data.error);
+        this.resetBatchProcessing();
+        this.emit("uploadError", {
+          message: data.error,
+          batchNumber: data.batchNumber,
+        });
+      }
     });
 
     this.socket.on("upload_progress", (data: UploadProgress) => {
-      console.log(`📊 Upload progress: ${data.progress}% (Batch ${data.currentBatch}/${data.totalBatches})`);
+      console.log(
+        `Upload progress: ${data.progress}% (Batch ${data.currentBatch}/${data.totalBatches})`
+      );
       this.emit("uploadProgress", data);
     });
 
-    this.socket.on("upload_completed", (data: { success: boolean; data: UploadResults; duration?: number }) => {
-      console.log("🎉 Bulk upload completed:", data);
-      this.emit("uploadCompleted", data);
-    });
+    this.socket.on(
+      "upload_completed",
+      (data: { success: boolean; data: UploadResults; duration?: number }) => {
+        console.log("Bulk upload completed:", data);
+        this.resetBatchProcessing();
+        this.emit("uploadCompleted", data);
+      }
+    );
 
     this.socket.on("upload_error", (data) => {
-      console.error("❌ Upload error:", data);
+      console.error("Upload error:", data);
+      this.resetBatchProcessing();
       this.emit("uploadError", data);
     });
 
     this.socket.on("upload_cancelled", (data) => {
-      console.log("ℹ️ Upload cancelled:", data);
+      console.log("Upload cancelled:", data);
+      this.resetBatchProcessing();
       this.emit("uploadCancelled", data);
     });
 
@@ -308,18 +359,17 @@ class MetaSocketService {
     });
 
     this.socket.on("heartbeat_ack", (data) => {
-      console.log("💓 Meta socket heartbeat acknowledged");
+      console.log("Meta socket heartbeat acknowledged");
     });
 
     this.socket.on("connection_test_result", (data) => {
-      console.log("🧪 Meta socket connection test result:", data);
+      console.log("Meta socket connection test result:", data);
       this.emit("connectionTestResult", data);
     });
 
-    // Generic error handler
     this.socket.on("error", (error) => {
-      console.error("🔥 Meta socket error:", error);
-      this.stats.lastError = error.message || 'Unknown error';
+      console.error("Meta socket error:", error);
+      this.stats.lastError = error.message || "Unknown error";
       this.emit("error", error);
     });
   }
@@ -329,14 +379,20 @@ class MetaSocketService {
       clearTimeout(this.connectionRetryTimeout);
     }
 
-    const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts), 30000);
-    console.log(`⏰ Scheduling reconnect in ${delay}ms`);
-    
+    const delay = Math.min(
+      this.reconnectDelay * Math.pow(2, this.reconnectAttempts),
+      30000
+    );
+    console.log(`Scheduling reconnect in ${delay}ms`);
+
     this.connectionRetryTimeout = setTimeout(() => {
-      if (!this.socket?.connected && this.reconnectAttempts < this.maxReconnectAttempts) {
-        console.log("🔄 Attempting scheduled reconnect...");
-        this.connect().catch(error => {
-          console.error("❌ Scheduled reconnect failed:", error);
+      if (
+        !this.socket?.connected &&
+        this.reconnectAttempts < this.maxReconnectAttempts
+      ) {
+        console.log("Attempting scheduled reconnect...");
+        this.connect().catch((error) => {
+          console.error("Scheduled reconnect failed:", error);
         });
       }
     }, delay);
@@ -348,7 +404,7 @@ class MetaSocketService {
       if (this.socket?.connected) {
         this.socket.emit("heartbeat");
       }
-    }, 30000); // Send heartbeat every 30 seconds
+    }, 30000);
   }
 
   private stopHeartbeat(): void {
@@ -358,66 +414,176 @@ class MetaSocketService {
     }
   }
 
+  // FIXED: Reset batch processing state
+  private resetBatchProcessing(): void {
+    this.currentBatches = [];
+    this.currentBatchIndex = 0;
+    this.uploadConfig = null;
+    this.isProcessingBatch = false;
+
+    if (this.batchProcessingTimeout) {
+      clearTimeout(this.batchProcessingTimeout);
+      this.batchProcessingTimeout = null;
+    }
+  }
+
   public disconnect(): void {
     if (this.socket) {
-      console.log("🔌 Disconnecting from meta socket server");
+      console.log("Disconnecting from meta socket server");
       this.stopHeartbeat();
+      this.resetBatchProcessing();
+
       if (this.connectionRetryTimeout) {
         clearTimeout(this.connectionRetryTimeout);
         this.connectionRetryTimeout = null;
       }
+
       this.socket.disconnect();
       this.socket = null;
     }
     this.isConnecting = false;
     this.stats.isConnected = false;
-    this.stats.connectionState = 'disconnected';
+    this.stats.connectionState = "disconnected";
     this.callbacks = {};
   }
 
-  // Upload operations with improved validation
-  public startBulkUpload(uploadData: BulkUploadData): void {
+  // FIXED: Sequential upload with proper batch management
+  public startSequentialUpload(config: any, batches: any[][]): void {
     if (!this.socket || !this.socket.connected) {
-      console.warn("❌ Meta socket not connected. Cannot start bulk upload.");
+      throw new Error("Socket not connected");
+    }
+
+    if (this.isProcessingBatch) {
+      throw new Error("Another upload is already in progress");
+    }
+
+    console.log(`Starting sequential upload with ${batches.length} batches`);
+
+    // Reset and initialize batch processing
+    this.resetBatchProcessing();
+    this.currentBatches = batches;
+    this.currentBatchIndex = 0;
+    this.uploadConfig = config;
+
+    // Send configuration first
+    this.socket.emit("start_bulk_upload_config", {
+      ...config,
+      totalRecords: batches.reduce((sum, batch) => sum + batch.length, 0),
+      totalBatches: batches.length,
+    });
+
+    // Start processing first batch after a small delay
+    setTimeout(() => {
+      this.processNextBatch();
+    }, 100);
+  }
+
+  // FIXED: Process next batch with proper validation
+  private processNextBatch(): void {
+    if (this.currentBatchIndex >= this.currentBatches.length) {
+      console.log("All batches processed successfully");
+      return;
+    }
+
+    if (this.isProcessingBatch) {
+      console.log("Batch already processing, skipping...");
+      return;
+    }
+
+    if (!this.socket || !this.socket.connected) {
+      console.error("Socket disconnected during batch processing");
+      this.resetBatchProcessing();
+      this.emit("uploadError", {
+        message: "Socket disconnected during processing",
+      });
+      return;
+    }
+
+    const batch = this.currentBatches[this.currentBatchIndex];
+    const batchNumber = this.currentBatchIndex + 1;
+    const totalBatches = this.currentBatches.length;
+
+    console.log(
+      `Processing batch ${batchNumber}/${totalBatches} (${batch.length} records) - Meta Socket`
+    );
+
+    this.isProcessingBatch = true;
+    this.currentBatchIndex++; // Increment BEFORE sending to prevent duplicates
+
+    this.socket.emit("upload_batch", {
+      batchNumber,
+      totalBatches,
+      data: batch,
+    });
+  }
+
+  // Keep existing startBulkUpload for backward compatibility
+  public startBulkUpload(uploadData: BulkUploadData): void {
+    const BATCH_SIZE = 100;
+
+    if (!this.socket || !this.socket.connected) {
+      console.warn("Meta socket not connected. Cannot start bulk upload.");
       this.emit("error", { message: "Meta socket not connected" });
       return;
     }
 
-    // Validate upload data
-    if (!uploadData.data || !Array.isArray(uploadData.data) || uploadData.data.length === 0) {
-      console.warn("❌ Invalid upload data provided");
-      this.emit("error", { message: "Invalid upload data: data must be a non-empty array" });
+    if (
+      !uploadData.data ||
+      !Array.isArray(uploadData.data) ||
+      uploadData.data.length === 0
+    ) {
+      console.warn("Invalid upload data provided");
+      this.emit("error", {
+        message: "Invalid upload data: data must be a non-empty array",
+      });
       return;
     }
 
-    if (!uploadData.fieldMapping || !uploadData.fieldMapping.make || !uploadData.fieldMapping.model) {
-      console.warn("❌ Invalid field mapping: make and model are required");
-      this.emit("error", { message: "Invalid field mapping: make and model fields are required" });
+    if (!uploadData.fieldMapping?.make || !uploadData.fieldMapping?.model) {
+      console.warn("Invalid field mapping: make and model are required");
+      this.emit("error", {
+        message: "Invalid field mapping: make and model fields are required",
+      });
       return;
     }
 
-    console.log("🚀 Starting bulk upload with", uploadData.data.length, "records");
-    this.socket.emit("start_bulk_upload", uploadData);
+    console.log("Starting bulk upload with", uploadData.data.length, "records");
+
+    // Convert to batches and use sequential upload
+    const batches: any[][] = [];
+    for (let i = 0; i < uploadData.data.length; i += BATCH_SIZE) {
+      batches.push(uploadData.data.slice(i, i + BATCH_SIZE));
+    }
+
+    const config = {
+      fieldMapping: uploadData.fieldMapping,
+      dataTypes: uploadData.dataTypes,
+      customFieldTypes: uploadData.customFieldTypes,
+      options: uploadData.options,
+    };
+
+    this.startSequentialUpload(config, batches);
   }
 
   public cancelUpload(batchId: string): void {
     if (!this.socket || !this.socket.connected) {
-      console.warn("❌ Meta socket not connected. Cannot cancel upload.");
+      console.warn("Meta socket not connected. Cannot cancel upload.");
       return;
     }
 
     if (!batchId) {
-      console.warn("❌ No batch ID provided for cancel operation");
+      console.warn("No batch ID provided for cancel operation");
       return;
     }
 
-    console.log("ℹ️ Cancelling upload with batchId:", batchId);
+    console.log("Cancelling upload with batchId:", batchId);
+    this.resetBatchProcessing();
     this.socket.emit("cancel_upload", { batchId });
   }
 
   public getUploadStatus(): void {
     if (!this.socket || !this.socket.connected) {
-      console.warn("❌ Meta socket not connected. Cannot get upload status.");
+      console.warn("Meta socket not connected. Cannot get upload status.");
       this.emit("uploadStatus", { hasActiveUpload: false, operation: null });
       return;
     }
@@ -427,16 +593,16 @@ class MetaSocketService {
 
   public testConnection(): void {
     if (!this.socket || !this.socket.connected) {
-      console.warn("❌ Cannot test connection - meta socket not connected");
-      this.emit("connectionTestResult", { 
-        status: "error", 
+      console.warn("Cannot test connection - meta socket not connected");
+      this.emit("connectionTestResult", {
+        status: "error",
         message: "Socket not connected",
-        timestamp: new Date()
+        timestamp: new Date(),
       });
       return;
     }
 
-    console.log("🧪 Testing meta socket connection...");
+    console.log("Testing meta socket connection...");
     this.socket.emit("test_connection");
   }
 
@@ -452,7 +618,9 @@ class MetaSocketService {
     if (!this.callbacks[event]) return;
 
     if (callback) {
-      this.callbacks[event] = this.callbacks[event].filter(cb => cb !== callback);
+      this.callbacks[event] = this.callbacks[event].filter(
+        (cb) => cb !== callback
+      );
     } else {
       this.callbacks[event] = [];
     }
@@ -460,11 +628,14 @@ class MetaSocketService {
 
   private emit(event: string, ...args: any[]): void {
     if (this.callbacks[event]) {
-      this.callbacks[event].forEach(callback => {
+      this.callbacks[event].forEach((callback) => {
         try {
           callback(...args);
         } catch (error) {
-          console.error(`Error in meta socket event callback for ${event}:`, error);
+          console.error(
+            `Error in meta socket event callback for ${event}:`,
+            error
+          );
         }
       });
     }
@@ -493,37 +664,34 @@ class MetaSocketService {
     }
   }
 
-  // Enhanced retry mechanism
   public async reconnectWithRetry(maxRetries: number = 3): Promise<void> {
     let attempts = 0;
-    
+
     while (attempts < maxRetries && !this.isConnected()) {
       attempts++;
-      console.log(`🔄 Reconnect attempt ${attempts}/${maxRetries}`);
-      
+      console.log(`Reconnect attempt ${attempts}/${maxRetries}`);
+
       try {
         await this.connect();
-        console.log("✅ Reconnected successfully");
+        console.log("Reconnected successfully");
         return;
       } catch (error) {
-        console.error(`❌ Reconnect attempt ${attempts} failed:`, error);
-        
+        console.error(`Reconnect attempt ${attempts} failed:`, error);
+
         if (attempts < maxRetries) {
-          const delay = 1000 * Math.pow(2, attempts); // Exponential backoff
-          console.log(`⏰ Waiting ${delay}ms before next attempt...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          const delay = 1000 * Math.pow(2, attempts);
+          console.log(`Waiting ${delay}ms before next attempt...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
-    
+
     throw new Error(`Failed to reconnect after ${maxRetries} attempts`);
   }
 }
 
-// Export singleton instance
 export const metaSocketService = MetaSocketService.getInstance();
 
-// Export types for use in components
 export type {
   UploadProgress,
   BatchProgress,
