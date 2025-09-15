@@ -1,71 +1,38 @@
 const express = require('express');
 const { protect, authorize } = require('../middleware/auth');
-const {
-  getMakes,
-  getModels,
-  getModelsByMake,
-  getBodies,
-  getVariantYears,
-  getVehicleMetadata,
-  getDropdownData,
-  getCounts,
-  addMake,
-  addModel,
-  addBody,
-  addVariantYear,
-  addVehicleMetadata,
-  updateMake,
-  updateModel,
-  updateBody,
-  updateVariantYear,
-  updateVehicleMetadata,
-  deleteMake,
-  deleteModel,
-  deleteBody,
-  deleteVariantYear,
-  deleteVehicleMetadata,
-  getSchemaFields
+const { 
+  createController, 
+  modifyController, 
+  retrieveController 
 } = require('../controllers/vehicleMetadata.controller');
 
 const router = express.Router();
-
-// Apply auth middleware to all routes
 router.use(protect);
 router.use(authorize('master_admin'));
 
-// Get routes
-router.get('/makes', getMakes);
-router.get('/models', getModels);
-router.get('/makes/:makeId/models', getModelsByMake);
-router.get('/bodies', getBodies);
-router.get('/variant-years', getVariantYears);
-router.get('/metadata', getVehicleMetadata);
-router.get('/dropdown-data', getDropdownData);
-router.get('/counts', getCounts);
+// Get lists for tables (makes, models, bodies, years, metadata)
+router.get('/list/:type', retrieveController.list);
+
+// Get dropdown data
+router.get('/dropdown', retrieveController.dropdown);
+
+// Get counts for dashboard
+router.get('/counts', retrieveController.counts);
+
+// Get schema fields for form building
+router.get('/schema-fields', retrieveController.schemaFields);
 
 
-// Optimized bulk upload routes
-router.get('/schema-fields', getSchemaFields);
+// Create single entry (make, model, body, year, metadata)
+router.post('/create/:type', createController.create);
 
-// Add individual entries
-router.post('/makes', addMake);
-router.post('/models', addModel);
-router.post('/bodies', addBody);
-router.post('/variant-years', addVariantYear);
-router.post('/metadata', addVehicleMetadata);
+// Bulk create entries
+router.post('/bulk-create', createController.bulkCreate);
 
-// Update routes
-router.put('/makes/:id', updateMake);
-router.put('/models/:id', updateModel);
-router.put('/bodies/:id', updateBody);
-router.put('/variant-years/:id', updateVariantYear);
-router.put('/update/:id', updateVehicleMetadata);
+// Update single entry
+router.put('/update/:type/:id', modifyController.update);
 
-// Delete routes
-router.delete('/makes/:id', deleteMake);
-router.delete('/models/:id', deleteModel);
-router.delete('/bodies/:id', deleteBody);
-router.delete('/variant-years/:id', deleteVariantYear);
-router.delete('/delete/:id', deleteVehicleMetadata);
+// Delete single entry
+router.delete('/delete/:type/:id', modifyController.delete);
 
 module.exports = router;

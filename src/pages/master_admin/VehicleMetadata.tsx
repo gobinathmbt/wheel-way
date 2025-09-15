@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,27 +25,23 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
   Upload,
   Plus,
-  Search,
   Filter,
-  FileText,
   Database,
   Car,
   Calendar,
   Settings,
   Trash2,
   Edit,
-  RefreshCw,
+  FileText,
 } from "lucide-react";
 import { vehicleMetadataServices } from "@/api/services";
 import FlexibleUploadModal from "@/components/metadata/FlexibleUploadModal";
@@ -58,6 +54,49 @@ interface PaginationState {
   pages: number;
 }
 
+interface DropdownItem {
+  _id: string;
+  displayName: string;
+  displayValue?: string;
+  isActive?: boolean;
+  year?: number;
+  make?: DropdownItem;
+}
+
+interface VehicleMetadataItem {
+  _id: string;
+  make?: DropdownItem;
+  model?: DropdownItem;
+  body?: DropdownItem;
+  variantYear?: DropdownItem;
+  fuelType?: string;
+  transmission?: string;
+  engineCapacity?: string;
+  power?: string;
+  torque?: string;
+  seatingCapacity?: string;
+}
+
+interface CountsData {
+  makes?: number;
+  models?: number;
+  bodies?: number;
+  years?: number;
+  metadata?: number;
+}
+
+interface CountsResponse {
+  data: CountsData;
+}
+
+interface ApiResponse<T> {
+  data: T;
+  pagination?: {
+    total: number;
+    pages: number;
+  };
+}
+
 const VehicleMetadata = () => {
   const queryClient = useQueryClient();
 
@@ -66,8 +105,8 @@ const VehicleMetadata = () => {
     if (!text) return "";
     return text
       .toLowerCase()
-      .replace(/\s+/g, "_") // Replace spaces with underscores
-      .replace(/[^a-z0-9_]/g, "") // Remove special characters
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "")
       .trim();
   };
 
@@ -93,119 +132,143 @@ const VehicleMetadata = () => {
 
   // Dialog states
   const [showFlexibleUpload, setShowFlexibleUpload] = useState(false);
-  const [editItem, setEditItem] = useState<any>(null);
+  const [editItem, setEditItem] = useState<
+    VehicleMetadataItem | DropdownItem | null
+  >(null);
   const [editData, setEditData] = useState<any>({});
-  const [deleteItem, setDeleteItem] = useState<any>(null);
+  const [deleteItem, setDeleteItem] = useState<{
+    _id: string;
+    type: string;
+    displayName?: string;
+    make?: DropdownItem;
+    model?: DropdownItem;
+    body?: DropdownItem;
+    variantYear?: DropdownItem;
+  } | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  // Fetch queries - Get ALL models and makes for filters
+  // Get dropdown data for filters
   const { data: allMakes, isLoading: allMakesLoading } = useQuery({
-    queryKey: ["all-vehicle-makes"],
-    queryFn: () => vehicleMetadataServices.getMakes(),
+    queryKey: ["dropdown-makes"],
+    queryFn: () => vehicleMetadataServices.getDropdownData("makes"),
   });
 
   const { data: allModels, isLoading: allModelsLoading } = useQuery({
-    queryKey: ["all-vehicle-models"],
-    queryFn: () => vehicleMetadataServices.getModels(),
+    queryKey: ["dropdown-models"],
+    queryFn: () => vehicleMetadataServices.getDropdownData("models"),
+  });
+
+  const { data: allBodies, isLoading: allBodiesLoading } = useQuery({
+    queryKey: ["dropdown-bodies"],
+    queryFn: () => vehicleMetadataServices.getDropdownData("bodies"),
+  });
+
+  const { data: allYears, isLoading: allYearsLoading } = useQuery({
+    queryKey: ["dropdown-years"],
+    queryFn: () => vehicleMetadataServices.getDropdownData("years"),
   });
 
   // Get counts for dashboard
-  const { data: counts, isLoading: countsLoading } = useQuery({
+  const { data: counts, isLoading: countsLoading } = useQuery<CountsResponse>({
     queryKey: ["vehicle-metadata-counts"],
-    queryFn: () => vehicleMetadataServices.getCounts(),
+    queryFn: async () => {
+      const response = await vehicleMetadataServices.getCounts();
+      return response.data; // unwrap here
+    },
   });
 
-  const { data: makes, isLoading: makesLoading } = useQuery({
-    queryKey: ["vehicle-metadata-makes"],
-    queryFn: () => vehicleMetadataServices.getMakes(),
-  });
-
-  const { data: models, isLoading: modelsLoading } = useQuery({
-    queryKey: ["vehicle-metadata-models", filters.make],
-    queryFn: () => vehicleMetadataServices.getModelsByMake(filters.make),
-    enabled: !!filters.make,
-  });
-
-  const { data: bodies, isLoading: bodiesLoading } = useQuery({
-    queryKey: ["vehicle-metadata-bodies"],
-    queryFn: () => vehicleMetadataServices.getBodies(),
-  });
-
-  const { data: years, isLoading: yearsLoading } = useQuery({
-    queryKey: ["vehicle-metadata-years"],
-    queryFn: () => vehicleMetadataServices.getVariantYears(),
-  });
-
-  // Metadata query
-  const { data: metadata, isLoading: metadataLoading } = useQuery({
+  // Get current tab data based on selected tab
+  const { data: currentTabData, isLoading: currentTabLoading } = useQuery<
+    ApiResponse<{ data: any[]; pagination?: PaginationState }>
+  >({
     queryKey: [
-      "vehicle-metadata",
+      `vehicle-metadata-${currentTab}`,
       filters,
       pagination.page,
       pagination.limit,
       searchTerm,
     ],
-    queryFn: () =>
-      vehicleMetadataServices.getVehicleMetadata({
-        ...filters,
-        search: searchTerm,
+    queryFn: () => {
+      const params = {
         page: pagination.page,
         limit: pagination.limit,
-      }),
+        search: searchTerm,
+        ...filters,
+      };
+
+      switch (currentTab) {
+        case "metadata":
+          return vehicleMetadataServices.getVehicleMetadata(params);
+        case "makes":
+          return vehicleMetadataServices.getMakes(params);
+        case "models":
+          return vehicleMetadataServices.getModels(params);
+        case "bodies":
+          return vehicleMetadataServices.getBodies(params);
+        case "years":
+          return vehicleMetadataServices.getVariantYears(params);
+        default:
+          return Promise.resolve({ data: { data: [] } } as ApiResponse<{
+            data: any[];
+          }>);
+      }
+    },
   });
 
-  // Add useEffect to handle the success case
+  // Update pagination when data changes
   useEffect(() => {
-    if (metadata?.data?.pagination) {
+    if (currentTabData?.data?.pagination) {
       setPagination((prev) => ({
         ...prev,
-        total: metadata.data.pagination.total,
-        pages: metadata.data.pagination.pages,
+        total: currentTabData.data.pagination?.total || 0,
+        pages: currentTabData.data.pagination?.pages || 0,
       }));
     }
-  }, [metadata]);
+  }, [currentTabData]);
 
-  // Mutations
-  const addMutation = useMutation({
-    mutationFn: (data: any) => {
+  // ============================================================================
+  // MUTATIONS - Using new unified API structure
+  // ============================================================================
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
       const { type, ...formData } = data;
+
       switch (type) {
         case "make":
           return vehicleMetadataServices.addMake({
             displayName: formData.displayName,
-            displayValue: transformToDisplayValue(formData.displayName),
-            isActive: formData.isActive,
+            isActive: formData.isActive ?? true,
           });
         case "model":
           return vehicleMetadataServices.addModel({
             displayName: formData.displayName,
-            displayValue: transformToDisplayValue(formData.displayName),
-            make: formData.makeId,
-            isActive: formData.isActive,
+            makeId: formData.makeId,
+            isActive: formData.isActive ?? true,
           });
         case "body":
           return vehicleMetadataServices.addBody({
             displayName: formData.displayName,
-            displayValue: transformToDisplayValue(formData.displayName),
-            isActive: formData.isActive,
+            isActive: formData.isActive ?? true,
           });
         case "year":
           return vehicleMetadataServices.addVariantYear({
             year: parseInt(formData.year),
             displayName: formData.year.toString(),
-            displayValue: transformToDisplayValue(formData.year.toString()),
             isActive: true,
           });
         case "metadata":
           return vehicleMetadataServices.addVehicleMetadata({
             make: formData.makeId,
-            model: formData.displayName,
-            body: formData.bodyType,
-            year: formData.year ? parseInt(formData.year) : undefined,
+            model: formData.modelId,
+            body: formData.bodyId,
+            variantYear: formData.yearId,
             fuelType: formData.fuelType,
             transmission: formData.transmission,
-            source: "manual",
-            isActive: true,
+            engineCapacity: formData.engineCapacity,
+            power: formData.power,
+            torque: formData.torque,
+            seatingCapacity: formData.seatingCapacity,
           });
         default:
           throw new Error("Invalid type");
@@ -217,13 +280,9 @@ const VehicleMetadata = () => {
           variables.type.charAt(0).toUpperCase() + variables.type.slice(1)
         } added successfully`
       );
+      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ["vehicle-metadata"] });
-      queryClient.invalidateQueries({ queryKey: ["all-vehicle-makes"] });
-      queryClient.invalidateQueries({ queryKey: ["all-vehicle-models"] });
-      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata-makes"] });
-      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata-bodies"] });
-      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata-years"] });
-      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["dropdown"] });
     },
     onError: (error: any, variables) => {
       toast.error(
@@ -234,86 +293,121 @@ const VehicleMetadata = () => {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({
+      type,
+      id,
+      data,
+    }: {
+      type: string;
+      id: string;
+      data: any;
+    }) => {
+      switch (type) {
+        case "make":
+          return vehicleMetadataServices.updateMake(id, data);
+        case "model":
+          return vehicleMetadataServices.updateModel(id, data);
+        case "body":
+          return vehicleMetadataServices.updateBody(id, data);
+        case "year":
+          return vehicleMetadataServices.updateVariantYear(id, data);
+        case "metadata":
+          return vehicleMetadataServices.updateVehicleMetadata(id, data);
+        default:
+          throw new Error("Invalid type");
+      }
+    },
+    onSuccess: () => {
+      toast.success("Item updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata"] });
+      setEditItem(null);
+    },
+    onError: (error: any) => {
+      toast.error("Failed to update item");
+      console.error("Update error:", error);
+    },
+  });
+
   const deleteMutation = useMutation({
-    mutationFn: (id: string) =>
-      vehicleMetadataServices.deleteVehicleMetadata(id),
+    mutationFn: async ({ type, id }: { type: string; id: string }) => {
+      switch (type) {
+        case "make":
+          return vehicleMetadataServices.deleteMake(id);
+        case "model":
+          return vehicleMetadataServices.deleteModel(id);
+        case "body":
+          return vehicleMetadataServices.deleteBody(id);
+        case "year":
+          return vehicleMetadataServices.deleteVariantYear(id);
+        case "metadata":
+          return vehicleMetadataServices.deleteVehicleMetadata(id);
+        default:
+          throw new Error("Invalid type");
+      }
+    },
     onSuccess: () => {
       toast.success("Item deleted successfully");
       queryClient.invalidateQueries({ queryKey: ["vehicle-metadata"] });
       setShowDeleteDialog(false);
       setDeleteItem(null);
     },
-    onError: () => {
-      toast.error("Failed to delete item");
+    onError: (error: any) => {
+      toast.error(
+        `Failed to delete item: ${
+          error.response?.data?.message || error.message
+        }`
+      );
       setShowDeleteDialog(false);
       setDeleteItem(null);
     },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: (data: any) =>
-      vehicleMetadataServices.updateVehicleMetadata(editItem._id, data),
-    onSuccess: (response) => {
-      console.log("Update successful:", response);
-      toast.success("Item updated successfully");
-      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata"] });
-      setEditItem(null);
-    },
-    onError: (error) => {
-      console.error("Update error:", error);
-      toast.error("Failed to update item");
-    },
-  });
+  // ============================================================================
+  // EVENT HANDLERS
+  // ============================================================================
 
-  const handleDeleteItem = (item: any) => {
-    setDeleteItem(item);
+  const handleDeleteItem = (item: any, type: string) => {
+    setDeleteItem({ ...item, type });
     setShowDeleteDialog(true);
   };
 
   const handleConfirmDelete = () => {
     if (deleteItem) {
-      deleteMutation.mutate(deleteItem._id);
+      deleteMutation.mutate({
+        type: deleteItem.type,
+        id: deleteItem._id,
+      });
     }
   };
 
   const handleSaveEdit = () => {
-    // Transform display names to display values
-    const updatedData = {
-      ...editData,
-      make: editData.make
-        ? {
-            ...editData.make,
-            displayValue: transformToDisplayValue(editData.make.displayName),
-          }
-        : undefined,
-      model: editData.model
-        ? {
-            ...editData.model,
-            displayValue: transformToDisplayValue(editData.model.displayName),
-          }
-        : undefined,
-      body: editData.body
-        ? {
-            ...editData.body,
-            displayValue: transformToDisplayValue(editData.body.displayName),
-          }
-        : undefined,
-      variantYear: editData.variantYear
-        ? {
-            ...editData.variantYear,
-            displayValue: transformToDisplayValue(
-              editData.variantYear.year?.toString()
-            ),
-          }
-        : undefined,
-    };
+    if (!editItem) return;
 
-    updateMutation.mutate(updatedData);
+    const type = getItemType(editItem);
+    updateMutation.mutate({
+      type,
+      id: editItem._id,
+      data: editData,
+    });
   };
 
   const handleAddEntry = (type: string, data: any) => {
-    addMutation.mutate({ type, ...data });
+    createMutation.mutate({ type, ...data });
   };
+
+  // Helper function to determine item type
+  const getItemType = (item: VehicleMetadataItem | DropdownItem): string => {
+    if ("make" in item && item.make && "model" in item && item.model)
+      return "metadata";
+    if ("year" in item && item.year !== undefined) return "year";
+    if ("make" in item && item.make) return "model";
+    return currentTab.slice(0, -1); // Remove 's' from plural
+  };
+
+  // ============================================================================
+  // RENDER HELPERS
+  // ============================================================================
 
   const PaginationControls = () => (
     <div className="flex items-center justify-between mt-4">
@@ -362,7 +456,7 @@ const VehicleMetadata = () => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {metadata?.data?.data?.map((item: any) => (
+          {currentTabData?.data?.data?.map((item: VehicleMetadataItem) => (
             <TableRow key={item._id}>
               <TableCell>{item.make?.displayName}</TableCell>
               <TableCell>{item.model?.displayName}</TableCell>
@@ -386,7 +480,7 @@ const VehicleMetadata = () => {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => handleDeleteItem(item)}
+                    onClick={() => handleDeleteItem(item, "metadata")}
                     className="h-8 w-8"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -401,59 +495,62 @@ const VehicleMetadata = () => {
     </>
   );
 
-  const renderBasicTable = (data: any[], type: string) => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Display Name</TableHead>
-          <TableHead>Display Value</TableHead>
-          {type === "year" && <TableHead>Year</TableHead>}
-          {type === "model" && <TableHead>Make</TableHead>}
-          <TableHead>Status</TableHead>
-          <TableHead className="w-24">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {data?.map((item: any) => (
-          <TableRow key={item._id}>
-            <TableCell>{item.displayName}</TableCell>
-            <TableCell>{item.displayValue}</TableCell>
-            {type === "year" && <TableCell>{item.year}</TableCell>}
-            {type === "model" && (
-              <TableCell>{item.make?.displayName || "-"}</TableCell>
-            )}
-            <TableCell>
-              <Badge variant={item.isActive ? "default" : "secondary"}>
-                {item.isActive ? "Active" : "Inactive"}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <div className="flex gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    setEditItem(item);
-                    setEditData(item);
-                  }}
-                  className="h-8 w-8"
-                >
-                  <Edit className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleDeleteItem(item)}
-                  className="h-8 w-8"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </TableCell>
+  const renderBasicTable = (type: string) => (
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Display Name</TableHead>
+            <TableHead>Display Value</TableHead>
+            {type === "years" && <TableHead>Year</TableHead>}
+            {type === "models" && <TableHead>Make</TableHead>}
+            <TableHead>Status</TableHead>
+            <TableHead className="w-24">Actions</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {currentTabData?.data?.data?.map((item: DropdownItem) => (
+            <TableRow key={item._id}>
+              <TableCell>{item.displayName}</TableCell>
+              <TableCell>{item.displayValue}</TableCell>
+              {type === "years" && <TableCell>{item.year}</TableCell>}
+              {type === "models" && (
+                <TableCell>{item.make?.displayName || "-"}</TableCell>
+              )}
+              <TableCell>
+                <Badge variant={item.isActive ? "default" : "secondary"}>
+                  {item.isActive ? "Active" : "Inactive"}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      setEditItem(item);
+                      setEditData(item);
+                    }}
+                    className="h-8 w-8"
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleDeleteItem(item, type.slice(0, -1))}
+                    className="h-8 w-8"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <PaginationControls />
+    </>
   );
 
   return (
@@ -470,25 +567,25 @@ const VehicleMetadata = () => {
             {!countsLoading && counts?.data && (
               <div className="flex gap-4 mt-2">
                 <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                  Makes: {counts.data?.data?.makes?.toLocaleString()}
+                  Makes: {counts.data?.makes?.toLocaleString()}
                 </Badge>
                 <Badge variant="outline" className="bg-green-50 text-green-700">
-                  Models: {counts.data?.data?.models?.toLocaleString()}
+                  Models: {counts.data?.models?.toLocaleString()}
                 </Badge>
                 <Badge
                   variant="outline"
                   className="bg-purple-50 text-purple-700"
                 >
-                  Bodies: {counts.data?.data?.bodies?.toLocaleString()}
+                  Bodies: {counts.data?.bodies?.toLocaleString()}
                 </Badge>
                 <Badge
                   variant="outline"
                   className="bg-orange-50 text-orange-700"
                 >
-                  Years: {counts.data?.data?.years?.toLocaleString()}
+                  Years: {counts.data?.years?.toLocaleString()}
                 </Badge>
                 <Badge variant="outline" className="bg-red-50 text-red-700">
-                  Metadata: {counts.data?.data?.metadata?.toLocaleString()}
+                  Metadata: {counts.data?.metadata?.toLocaleString()}
                 </Badge>
               </div>
             )}
@@ -500,9 +597,9 @@ const VehicleMetadata = () => {
             </Button>
 
             <AddEntryDialog
-              makes={makes?.data?.data || []}
+              makes={allMakes?.data?.data || []}
               onAddEntry={handleAddEntry}
-              isLoading={addMutation.isPending}
+              isLoading={createMutation.isPending}
             />
           </div>
         </div>
@@ -538,7 +635,7 @@ const VehicleMetadata = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Makes</SelectItem>
-                    {allMakes?.data?.data?.map((make: any) => (
+                    {allMakes?.data?.data?.map((make: DropdownItem) => (
                       <SelectItem key={make._id} value={make._id}>
                         {make.displayName}
                       </SelectItem>
@@ -559,7 +656,7 @@ const VehicleMetadata = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Models</SelectItem>
-                    {allModels?.data?.data?.map((model: any) => (
+                    {allModels?.data?.data?.map((model: DropdownItem) => (
                       <SelectItem key={model._id} value={model._id}>
                         {model.displayName}
                       </SelectItem>
@@ -580,7 +677,7 @@ const VehicleMetadata = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Bodies</SelectItem>
-                    {bodies?.data?.data?.map((body: any) => (
+                    {allBodies?.data?.data?.map((body: DropdownItem) => (
                       <SelectItem key={body._id} value={body._id}>
                         {body.displayName}
                       </SelectItem>
@@ -601,7 +698,7 @@ const VehicleMetadata = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Years</SelectItem>
-                    {years?.data?.data?.map((year: any) => (
+                    {allYears?.data?.data?.map((year: DropdownItem) => (
                       <SelectItem key={year._id} value={year._id}>
                         {year.year}
                       </SelectItem>
@@ -676,7 +773,7 @@ const VehicleMetadata = () => {
 
               <div className="p-6">
                 <TabsContent value="metadata" className="mt-0">
-                  {metadataLoading ? (
+                  {currentTabLoading ? (
                     <div className="text-center py-8">Loading...</div>
                   ) : (
                     renderMetadataTable()
@@ -684,34 +781,34 @@ const VehicleMetadata = () => {
                 </TabsContent>
 
                 <TabsContent value="makes" className="mt-0">
-                  {makesLoading ? (
+                  {currentTabLoading ? (
                     <div className="text-center py-8">Loading...</div>
                   ) : (
-                    renderBasicTable(makes?.data?.data || [], "make")
+                    renderBasicTable("makes")
                   )}
                 </TabsContent>
 
                 <TabsContent value="models" className="mt-0">
-                  {modelsLoading ? (
+                  {currentTabLoading ? (
                     <div className="text-center py-8">Loading...</div>
                   ) : (
-                    renderBasicTable(models?.data?.data || [], "model")
+                    renderBasicTable("models")
                   )}
                 </TabsContent>
 
                 <TabsContent value="bodies" className="mt-0">
-                  {bodiesLoading ? (
+                  {currentTabLoading ? (
                     <div className="text-center py-8">Loading...</div>
                   ) : (
-                    renderBasicTable(bodies?.data?.data || [], "body")
+                    renderBasicTable("bodies")
                   )}
                 </TabsContent>
 
                 <TabsContent value="years" className="mt-0">
-                  {yearsLoading ? (
+                  {currentTabLoading ? (
                     <div className="text-center py-8">Loading...</div>
                   ) : (
-                    renderBasicTable(years?.data?.data || [], "year")
+                    renderBasicTable("years")
                   )}
                 </TabsContent>
               </div>
@@ -733,130 +830,42 @@ const VehicleMetadata = () => {
         <Dialog open={!!editItem} onOpenChange={() => setEditItem(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Edit Vehicle Metadata</DialogTitle>
+              <DialogTitle>Edit Item</DialogTitle>
               <DialogDescription>
-                Make changes to the vehicle metadata here. Display values will
-                be automatically generated from display names.
+                Make changes to the item here. Display values will be
+                automatically generated from display names.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Make Display Name</Label>
+                  <Label>Display Name</Label>
                   <Input
-                    value={editData.make?.displayName || ""}
-                    onChange={(e) => {
-                      const displayName = e.target.value;
-                      const displayValue = transformToDisplayValue(displayName);
-                      setEditData({
-                        ...editData,
-                        make: {
-                          ...editData.make,
-                          displayName,
-                          displayValue,
-                        },
-                      });
-                    }}
-                  />
-                  {editData.make?.displayValue && (
-                    <p className="text-xs text-muted-foreground">
-                      Display Value: {editData.make.displayValue}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Model Display Name</Label>
-                  <Input
-                    value={editData.model?.displayName || ""}
-                    onChange={(e) => {
-                      const displayName = e.target.value;
-                      const displayValue = transformToDisplayValue(displayName);
-                      setEditData({
-                        ...editData,
-                        model: {
-                          ...editData.model,
-                          displayName,
-                          displayValue,
-                        },
-                      });
-                    }}
-                  />
-                  {editData.model?.displayValue && (
-                    <p className="text-xs text-muted-foreground">
-                      Display Value: {editData.model.displayValue}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Body Type Display Name</Label>
-                  <Input
-                    value={editData.body?.displayName || ""}
-                    onChange={(e) => {
-                      const displayName = e.target.value;
-                      const displayValue = transformToDisplayValue(displayName);
-                      setEditData({
-                        ...editData,
-                        body: {
-                          ...editData.body,
-                          displayName,
-                          displayValue,
-                        },
-                      });
-                    }}
-                  />
-                  {editData.body?.displayValue && (
-                    <p className="text-xs text-muted-foreground">
-                      Display Value: {editData.body.displayValue}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Year</Label>
-                  <Input
-                    type="number"
-                    value={editData.variantYear?.year || ""}
-                    onChange={(e) => {
-                      const year = e.target.value;
-                      const displayValue = transformToDisplayValue(year);
-                      setEditData({
-                        ...editData,
-                        variantYear: {
-                          ...editData.variantYear,
-                          year,
-                          displayValue,
-                        },
-                      });
-                    }}
-                  />
-                  {editData.variantYear?.displayValue && (
-                    <p className="text-xs text-muted-foreground">
-                      Display Value: {editData.variantYear.displayValue}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label>Fuel Type</Label>
-                  <Input
-                    value={editData.fuelType || ""}
+                    value={editData.displayName || ""}
                     onChange={(e) =>
-                      setEditData({ ...editData, fuelType: e.target.value })
+                      setEditData({
+                        ...editData,
+                        displayName: e.target.value,
+                        displayValue: transformToDisplayValue(e.target.value),
+                      })
                     }
                   />
                 </div>
-
-                <div>
-                  <Label>Transmission</Label>
-                  <Input
-                    value={editData.transmission || ""}
-                    onChange={(e) =>
-                      setEditData({ ...editData, transmission: e.target.value })
-                    }
-                  />
-                </div>
+                {editData.year !== undefined && (
+                  <div className="space-y-2">
+                    <Label>Year</Label>
+                    <Input
+                      type="number"
+                      value={editData.year || ""}
+                      onChange={(e) =>
+                        setEditData({
+                          ...editData,
+                          year: parseInt(e.target.value) || "",
+                        })
+                      }
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-2">
@@ -888,9 +897,11 @@ const VehicleMetadata = () => {
               {deleteItem && (
                 <div className="space-y-2">
                   <p className="font-medium">
-                    {deleteItem.make?.displayName || deleteItem.displayName}{" "}
-                    {deleteItem.model?.displayName &&
-                      `- ${deleteItem.model.displayName}`}
+                    {deleteItem.displayName ||
+                      (deleteItem.make?.displayName &&
+                      deleteItem.model?.displayName
+                        ? `${deleteItem.make.displayName} - ${deleteItem.model.displayName}`
+                        : "Item")}
                   </p>
                   {deleteItem.body?.displayName && (
                     <p>Body: {deleteItem.body.displayName}</p>
