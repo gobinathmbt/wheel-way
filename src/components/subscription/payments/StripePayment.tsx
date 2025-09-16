@@ -1,16 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import {
+  CardElement,
+  useStripe,
+  useElements,
+  Elements,
+  AddressElement
+} from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CreditCard, Shield } from "lucide-react";
 import { toast } from "sonner";
-import { loadStripe } from "@stripe/stripe-js";
 import { subscriptionServices } from "@/api/services";
 
-const stripePromise = loadStripe(
-  "pk_test_51Pbd1iRx349WEEQWwzaRaHaqvRNiPzAJBPDyjxQhPKF8dgH2GDW4aSV0Ne9wI8ycKVfl5LT3E4GD1tWAdQLGQgkO00Msfk1ujR"
-);
+// Initialize Stripe with your publishable key
+const stripePromise = loadStripe("pk_test_51Pbd1iRx349WEEQWwzaRaHaqvRNiPzAJBPDyjxQhPKF8dgH2GDW4aSV0Ne9wI8ycKVfl5LT3E4GD1tWAdQLGQgkO00Msfk1ujR");
 
 interface StripePaymentProps {
   subscriptionData: any;
@@ -22,7 +27,8 @@ interface StripePaymentProps {
   onClose: () => void;
 }
 
-const StripePayment: React.FC<StripePaymentProps> = ({
+// Inner component that uses Stripe hooks (must be wrapped in Elements provider)
+const StripePaymentForm: React.FC<StripePaymentProps> = ({
   subscriptionData,
   pricing,
   mode,
@@ -31,69 +37,118 @@ const StripePayment: React.FC<StripePaymentProps> = ({
   userProfile,
   onClose,
 }) => {
+  const stripe = useStripe();
+  const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [billingInfo, setBillingInfo] = useState({
-    email: userProfile?.email || "",
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [billingDetails, setBillingDetails] = useState({
     name: userProfile?.name || "",
-    address: "",
-    city: "",
-    postal_code: "",
-    country: "US",
+    email: userProfile?.email || "",
+    address: {
+      line1: "",
+      line2: "",
+      city: "",
+      state: "",
+      postal_code: "",
+      country: "US",
+    },
   });
 
-  const createSubscription = async (paymentMethod: string) => {
-    try {
-      const response = await subscriptionServices.createSubscription({
-        ...subscriptionData,
-        total_amount: pricing.total_amount,
-        payment_method: paymentMethod,
-        is_upgrade: mode === "upgrade",
-        is_renewal: mode === "renewal",
-        billing_info: billingInfo,
-      });
-      return response.data.data;
-    } catch (error) {
-      throw error;
-    }
-  };
+  // Create payment intent when component mounts
+  useEffect(() => {
+    const createPaymentIntent = async () => {
+      try {
+        setIsProcessing(true);
+        // Create subscription and get client secret from your backend
+        const response = await subscriptionServices.createSubscription({
+          ...subscriptionData,
+          total_amount: pricing.total_amount,
+          payment_method: "stripe",
+          is_upgrade: mode === "upgrade",
+          is_renewal: mode === "renewal",
+        });
+        
+        setClientSecret(response.data.clientSecret);
+      } catch (error: any) {
+        console.error("Error creating payment intent:", error);
+        toast.error(error.response?.data?.message || "Failed to initialize payment");
+      } finally {
+        setIsProcessing(false);
+      }
+    };
 
-  const handleStripePayment = async () => {
-    if (!billingInfo.email || !billingInfo.name) {
-      toast.error("Please fill in all required billing information");
+    createPaymentIntent();
+  }, []);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    
+    if (!stripe || !elements || !clientSecret) {
       return;
     }
 
     setIsProcessing(true);
+    setPaymentError(null);
+
+    // Get the CardElement
+    const cardElement = elements.getElement(CardElement);
+    
+    if (!cardElement) {
+      setPaymentError("Card element not found");
+      setIsProcessing(false);
+      return;
+    }
+
     try {
-      const stripe = await stripePromise;
-      if (!stripe) {
-        toast.error("Stripe failed to initialize");
+      // Confirm card payment with Stripe
+      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: billingDetails,
+        },
+      });
+
+      if (stripeError) {
+        setPaymentError(stripeError.message || "An error occurred with your payment");
+        toast.error(stripeError.message || "Payment failed");
         return;
       }
 
-      // Create subscription first
-      const subscription = await createSubscription("stripe");
+      if (paymentIntent.status === "succeeded") {
+        // Update payment status in your backend
+        await subscriptionServices.updatePaymentStatus(subscriptionData._id, {
+          payment_status: "completed",
+          payment_transaction_id: paymentIntent.id,
+        });
 
-      // For now, simulate payment success (replace with actual Stripe session creation)
-      setTimeout(async () => {
-        try {
-          await subscriptionServices.updatePaymentStatus(subscription._id, {
-            payment_status: "completed", 
-            payment_transaction_id: "stripe_sim_" + Date.now(),
-          });
-
-          toast.success("Payment successful! Your subscription is now active.");
-          onSuccess?.();
-          onClose();
-        } catch (error) {
-          toast.error("Payment completed but failed to update subscription. Please contact support.");
-        }
-      }, 2000);
-    } catch (error) {
-      console.error("Stripe Error:", error);
+        toast.success("Payment successful! Your subscription is now active.");
+        onSuccess?.();
+        onClose();
+      }
+    } catch (error: any) {
+      console.error("Payment error:", error);
+      setPaymentError(error.message || "An unexpected error occurred");
       toast.error("Failed to process payment. Please try again.");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleAddressChange = (event: any) => {
+    if (event.complete) {
+      const address = event.value.address;
+      setBillingDetails(prev => ({
+        ...prev,
+        address: {
+          line1: address.line1 || "",
+          line2: address.line2 || "",
+          city: address.city || "",
+          state: address.state || "",
+          postal_code: address.postal_code || "",
+          country: address.country || "US",
+        }
+      }));
     }
   };
 
@@ -104,101 +159,128 @@ const StripePayment: React.FC<StripePaymentProps> = ({
         <span>Secured by Stripe</span>
       </div>
 
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Billing Information
-          </CardTitle>
-          <CardDescription>
-            Enter your billing details to complete the payment
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">Full Name *</Label>
-              <Input
-                id="name"
-                value={billingInfo.name}
-                onChange={(e) => setBillingInfo({ ...billingInfo, name: e.target.value })}
-                placeholder="John Doe"
-                required
-              />
+      <form onSubmit={handleSubmit}>
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Billing Information
+            </CardTitle>
+            <CardDescription>
+              Enter your billing details to complete the payment
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Full Name *</Label>
+                <input
+                  id="name"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={billingDetails.name}
+                  onChange={(e) => setBillingDetails({ ...billingDetails, name: e.target.value })}
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email *</Label>
+                <input
+                  id="email"
+                  type="email"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={billingDetails.email}
+                  onChange={(e) => setBillingDetails({ ...billingDetails, email: e.target.value })}
+                  placeholder="john@example.com"
+                  required
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={billingInfo.email}
-                onChange={(e) => setBillingInfo({ ...billingInfo, email: e.target.value })}
-                placeholder="john@example.com"
-                required
-              />
-            </div>
-          </div>
 
-          <div>
-            <Label htmlFor="address">Address</Label>
-            <Input
-              id="address"
-              value={billingInfo.address}
-              onChange={(e) => setBillingInfo({ ...billingInfo, address: e.target.value })}
-              placeholder="123 Main Street"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="city">City</Label>
-              <Input
-                id="city"
-                value={billingInfo.city}
-                onChange={(e) => setBillingInfo({ ...billingInfo, city: e.target.value })}
-                placeholder="New York"
+              <Label>Billing Address</Label>
+              <AddressElement 
+                options={{
+                  mode: 'billing',
+                  defaultValues: {
+                    name: billingDetails.name,
+                    address: {
+                      country: 'US'
+                    }
+                  },
+                  fields: {
+                    phone: 'never'
+                  },
+                }}
+                onChange={handleAddressChange}
               />
             </div>
-            <div>
-              <Label htmlFor="postal_code">Postal Code</Label>
-              <Input
-                id="postal_code"
-                value={billingInfo.postal_code}
-                onChange={(e) => setBillingInfo({ ...billingInfo, postal_code: e.target.value })}
-                placeholder="10001"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      <div className="bg-muted p-4 rounded-lg">
-        <div className="flex justify-between items-center">
-          <span className="font-semibold">Total Amount:</span>
-          <span className="text-2xl font-bold">${pricing.total_amount}</span>
+            <div>
+              <Label htmlFor="card-element">Credit or Debit Card *</Label>
+              <div className="border rounded-md p-3 mt-1">
+                <CardElement
+                  id="card-element"
+                  options={{
+                    style: {
+                      base: {
+                        fontSize: '16px',
+                        color: '#424770',
+                        '::placeholder': {
+                          color: '#aab7c4',
+                        },
+                      },
+                      invalid: {
+                        color: '#9e2146',
+                      },
+                    },
+                  }}
+                />
+              </div>
+              {paymentError && (
+                <div className="text-destructive text-sm mt-2">{paymentError}</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="bg-muted p-4 rounded-lg my-4">
+          <div className="flex justify-between items-center">
+            <span className="font-semibold">Total Amount:</span>
+            <span className="text-2xl font-bold">${pricing.total_amount}</span>
+          </div>
         </div>
-      </div>
 
-      <Button
-        onClick={handleStripePayment}
-        disabled={isProcessing}
-        className="w-full"
-        size="lg"
-      >
-        {isProcessing ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Processing Payment...
-          </>
-        ) : (
-          `Pay $${pricing.total_amount} with Stripe`
-        )}
-      </Button>
+        <Button
+          type="submit"
+          disabled={!stripe || isProcessing || !clientSecret}
+          className="w-full"
+          size="lg"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Processing Payment...
+            </>
+          ) : (
+            `Pay $${pricing.total_amount}`
+          )}
+        </Button>
+      </form>
 
       <p className="text-xs text-center text-muted-foreground">
         Your payment is secured by Stripe. We don't store your card details.
       </p>
     </div>
+  );
+};
+
+// Outer wrapper component that provides the Elements context
+const StripePayment: React.FC<StripePaymentProps> = (props) => {
+  return (
+    <Elements stripe={stripePromise}>
+      <StripePaymentForm {...props} />
+    </Elements>
   );
 };
 
