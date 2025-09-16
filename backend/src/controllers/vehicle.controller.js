@@ -1048,7 +1048,7 @@ const deleteVehicleAttachment = async (req, res) => {
 const updateVehicleWorkshopStatus = async (req, res) => {
   try {
     const { stages, workshop_action } = req.body;
-    console.log(stages, workshop_action);
+    console.log('Update request:', { stages, workshop_action });
 
     const vehicle = await Vehicle.findOne({
       _id: req.params.id,
@@ -1076,9 +1076,16 @@ const updateVehicleWorkshopStatus = async (req, res) => {
         vehicle.workshop_report_preparing = [];
       }
 
-      // Only handle push action - keep adding stages
+      console.log('Before update:', {
+        is_workshop: vehicle.is_workshop,
+        workshop_progress: vehicle.workshop_progress,
+        workshop_report_preparing: vehicle.workshop_report_preparing
+      });
+
       if (workshop_action === 'push') {
         stages.forEach(stageName => {
+          console.log(`Processing stage: ${stageName}`);
+          
           // Check if stage already exists in workshop
           const existingWorkshopIndex = vehicle.is_workshop.findIndex(
             item => item.stage_name === stageName
@@ -1090,37 +1097,110 @@ const updateVehicleWorkshopStatus = async (req, res) => {
             item => item.stage_name === stageName
           );
 
-          // Add new stages or update existing ones (keep adding without removing)
+          console.log(`Existing indices for ${stageName}:`, {
+            workshop: existingWorkshopIndex,
+            progress: existingProgressIndex,
+            preparing: existingPreparingIndex
+          });
+
+          // Handle is_workshop array
           if (existingWorkshopIndex === -1) {
             vehicle.is_workshop.push({
               stage_name: stageName,
               in_workshop: true,
               pushed_at: new Date()
             });
+            console.log(`Added new workshop entry for ${stageName}`);
           } else {
             vehicle.is_workshop[existingWorkshopIndex].in_workshop = true;
             vehicle.is_workshop[existingWorkshopIndex].pushed_at = new Date();
+            console.log(`Updated existing workshop entry for ${stageName}`);
           }
 
+          // Handle workshop_progress array
           if (existingProgressIndex === -1) {
             vehicle.workshop_progress.push({
               stage_name: stageName,
               progress: "in_progress",
               started_at: new Date()
             });
+            console.log(`Added new progress entry for ${stageName}`);
           } else {
-            vehicle.workshop_progress[existingProgressIndex].progress = "in_progress";
-            vehicle.workshop_progress[existingProgressIndex].started_at = new Date();
+            // Only update if not already in progress or completed
+            const currentProgress = vehicle.workshop_progress[existingProgressIndex].progress;
+            if (currentProgress === "not_processed_yet") {
+              vehicle.workshop_progress[existingProgressIndex].progress = "in_progress";
+              vehicle.workshop_progress[existingProgressIndex].started_at = new Date();
+              console.log(`Updated progress for ${stageName} from ${currentProgress} to in_progress`);
+            } else {
+              console.log(`Skipped progress update for ${stageName}, current progress: ${currentProgress}`);
+            }
           }
 
+          // Handle workshop_report_preparing array
           if (existingPreparingIndex === -1) {
             vehicle.workshop_report_preparing.push({
               stage_name: stageName,
               preparing: false
             });
+            console.log(`Added new preparing entry for ${stageName}`);
+          } else {
+            console.log(`Preparing entry already exists for ${stageName}`);
           }
         });
+      } 
+      else if (workshop_action === 'remove') {
+        stages.forEach(stageName => {
+          console.log(`Removing stage: ${stageName}`);
+          
+          // Check if stage is in progress - cannot remove if in progress
+          const progressIndex = vehicle.workshop_progress.findIndex(
+            item => item.stage_name === stageName
+          );
+          
+          if (progressIndex !== -1 && vehicle.workshop_progress[progressIndex].progress === "in_progress") {
+            console.log(`Cannot remove ${stageName} - stage is in progress`);
+            return;
+          }
+
+          // Get initial lengths for logging
+          const initialWorkshopLength = vehicle.is_workshop.length;
+          const initialProgressLength = vehicle.workshop_progress.length;
+          const initialPreparingLength = vehicle.workshop_report_preparing.length;
+
+          // Remove from is_workshop array
+          vehicle.is_workshop = vehicle.is_workshop.filter(
+            item => item.stage_name !== stageName
+          );
+
+          // Remove from workshop_progress array (only if not in progress)
+          vehicle.workshop_progress = vehicle.workshop_progress.filter(
+            item => item.stage_name !== stageName || item.progress === "in_progress"
+          );
+
+          // Remove from workshop_report_preparing array
+          vehicle.workshop_report_preparing = vehicle.workshop_report_preparing.filter(
+            item => item.stage_name !== stageName
+          );
+
+          console.log(`Removed ${stageName}:`, {
+            workshop_removed: initialWorkshopLength - vehicle.is_workshop.length,
+            progress_removed: initialProgressLength - vehicle.workshop_progress.length,
+            preparing_removed: initialPreparingLength - vehicle.workshop_report_preparing.length
+          });
+        });
       }
+
+      console.log('After update:', {
+        is_workshop: vehicle.is_workshop,
+        workshop_progress: vehicle.workshop_progress,
+        workshop_report_preparing: vehicle.workshop_report_preparing
+      });
+
+      // Mark arrays as modified to ensure Mongoose saves them
+      vehicle.markModified('is_workshop');
+      vehicle.markModified('workshop_progress');
+      vehicle.markModified('workshop_report_preparing');
 
     } else {
       // Handle single workshop status for tradein
@@ -1134,13 +1214,17 @@ const updateVehicleWorkshopStatus = async (req, res) => {
       }
     }
 
-    await vehicle.save();
+    // Save the vehicle with force update
+    const savedVehicle = await vehicle.save();
+    console.log('Vehicle saved successfully:', savedVehicle._id);
 
     // Log the event
     await logEvent({
       event_type: "vehicle_operation",
-      event_action: vehicle.vehicle_type === "inspection" ? "stages_pushed_to_workshop" : "vehicle_pushed_to_workshop",
-      event_description: `Vehicle/stages pushed to workshop: ${vehicle.make} ${vehicle.model}`,
+      event_action: vehicle.vehicle_type === "inspection" 
+        ? `stages_${workshop_action}_workshop` 
+        : "vehicle_pushed_to_workshop",
+      event_description: `Vehicle/stages ${workshop_action} workshop: ${vehicle.make} ${vehicle.model}`,
       user_id: req.user.id,
       company_id: req.user.company_id,
       user_role: req.user.role,
@@ -1148,18 +1232,20 @@ const updateVehicleWorkshopStatus = async (req, res) => {
         vehicle_stock_id: vehicle.vehicle_stock_id,
         vehicle_type: vehicle.vehicle_type,
         stages: vehicle.vehicle_type === "inspection" ? stages : null,
+        action: workshop_action,
       },
     });
 
     res.status(200).json({
       success: true,
-      data: vehicle,
+      data: savedVehicle,
     });
   } catch (error) {
     console.error("Update vehicle workshop status error:", error);
     res.status(500).json({
       success: false,
       message: "Error updating vehicle workshop status",
+      error: error.message,
     });
   }
 };

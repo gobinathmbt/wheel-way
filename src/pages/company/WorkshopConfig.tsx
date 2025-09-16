@@ -126,34 +126,80 @@ const WorkshopConfig = () => {
 
       if (!resultData || resultData.length === 0) {
         setCanCompleteWorkshop(false);
+        setAvailableCompletionStages([]);
         return;
       }
 
-      // Flatten all fields from the result data
-      const allFields: any[] = [];
+      if (vehicle.vehicle_type === "inspection") {
+        // For inspection: Show complete workshop button always, but filter stages that have completed jobs
+        setCanCompleteWorkshop(true); // Always enabled for inspection
 
-      resultData.forEach((item: any) => {
-        // Handle both category structure and direct section structure
-        if (item.sections) {
-          // Category with sections
-          item.sections.forEach((section: any) => {
-            if (section.fields) {
-              allFields.push(...section.fields);
-            }
+        const completableStages: string[] = [];
+
+        vehicle.inspection_result.forEach((category: any) => {
+          let hasCompletedJobs = false;
+          let allFieldsCompleted = true;
+
+          if (category.sections) {
+            category.sections.forEach((section: any) => {
+              if (section.fields) {
+                section.fields.forEach((field: any) => {
+                  const fieldStatus = getStatus(field.field_id);
+                  if (fieldStatus === "completed_jobs") {
+                    hasCompletedJobs = true;
+                  } else if (fieldStatus && fieldStatus !== "completed_jobs") {
+                    allFieldsCompleted = false;
+                  }
+                });
+              }
+            });
+          }
+
+          // Check if stage is in workshop
+          const stageInWorkshop =
+            Array.isArray(vehicle.workshop_progress) &&
+            vehicle.workshop_progress.some(
+              (item: any) =>
+                item.stage_name === category.category_name &&
+                item.progress === "in_progress"
+            );
+
+          // Stage is completable if it has completed jobs, is in workshop, and all fields are completed
+          if (hasCompletedJobs && stageInWorkshop && allFieldsCompleted) {
+            completableStages.push(category.category_name);
+          }
+        });
+
+        setAvailableCompletionStages(completableStages);
+      } else {
+        // For trade-in: Only enable complete workshop button when ALL fields are completed
+        const allFields: any[] = [];
+
+        resultData.forEach((item: any) => {
+          if (item.sections) {
+            // Category with sections
+            item.sections.forEach((section: any) => {
+              if (section.fields) {
+                allFields.push(...section.fields);
+              }
+            });
+          } else if (item.fields) {
+            // Direct section
+            allFields.push(...item.fields);
+          }
+        });
+
+        // For tradein, all fields must be completed
+        const allCompleted =
+          allFields.length > 0 &&
+          allFields.every((field: any) => {
+            const fieldStatus = getStatus(field.field_id);
+            return fieldStatus === "completed_jobs";
           });
-        } else if (item.fields) {
-          // Direct section
-          allFields.push(...item.fields);
-        }
-      });
 
-      // Check if all fields have status "completed_jobs"
-      const allCompleted = allFields.every((field: any) => {
-        const fieldStatus = getStatus(field.field_id);
-        return fieldStatus === "completed_jobs";
-      });
-
-      setCanCompleteWorkshop(allCompleted);
+        setCanCompleteWorkshop(allCompleted);
+        setAvailableCompletionStages([]); // Not used for tradein
+      }
     }
   }, [vehicleData, vehicleType, vehicle, vehicle_quotes]);
 
@@ -525,7 +571,15 @@ const WorkshopConfig = () => {
       });
     }
 
-    return hasFields && allFieldsCompleted;
+    // Check if stage is in workshop
+    const stageInWorkshop =
+      Array.isArray(vehicle.workshop_progress) &&
+      vehicle.workshop_progress.some(
+        (item: any) =>
+          item.stage_name === stageName && item.progress === "in_progress"
+      );
+
+    return hasFields && allFieldsCompleted && stageInWorkshop;
   };
 
   const handleSendQuote = (
@@ -844,16 +898,16 @@ const WorkshopConfig = () => {
 
   const handleCompleteWorkshop = () => {
     if (vehicle.vehicle_type === "inspection") {
-      // For inspection, show stage selection modal
+      // For inspection, always show stage selection (if there are completable stages)
       if (availableCompletionStages.length > 0) {
         setStageSelectionModalOpen(true);
       } else {
         toast.error(
-          "No stages are ready for completion. Ensure at least one stage has completed jobs."
+          "No stages are ready for completion. Ensure at least one stage has all jobs completed and is in workshop."
         );
       }
     } else {
-      // For tradein, proceed with original logic
+      // For tradein, check if all jobs are completed
       if (canCompleteWorkshop) {
         setCompleteWorkshopModalOpen(true);
       } else {
@@ -986,7 +1040,9 @@ const WorkshopConfig = () => {
                 variant="default"
                 onClick={() => handleCompleteWorkshop()}
                 disabled={
-                  !canCompleteWorkshop || completeWorkshopMutation.isPending
+                  vehicle.vehicle_type === "inspection"
+                    ? false // Always enabled for inspection (will show appropriate message if no stages ready)
+                    : !canCompleteWorkshop || completeWorkshopMutation.isPending // For tradein, check if all completed
                 }
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
@@ -1648,7 +1704,7 @@ const WorkshopConfig = () => {
               <DialogTitle>Select Stage to Complete</DialogTitle>
               <DialogDescription>
                 Choose which inspection stage you want to complete. Only stages
-                with all completed jobs can be finished.
+                with all completed jobs and in workshop status can be finished.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
@@ -1672,26 +1728,21 @@ const WorkshopConfig = () => {
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{stageName}</span>
-                        <Badge
-                          variant={
-                            canStageBeCompleted(stageName)
-                              ? "default"
-                              : "secondary"
-                          }
-                          className="ml-2"
-                        >
-                          {canStageBeCompleted(stageName)
-                            ? "Ready"
-                            : "In Progress"}
+                        <Badge variant="default" className="ml-2 bg-green-600">
+                          Ready to Complete
                         </Badge>
                       </div>
                     </label>
                   </div>
                 ))
               ) : (
-                <p className="text-center text-muted-foreground py-4">
-                  No stages are ready for completion yet
-                </p>
+                <div className="text-center text-muted-foreground py-4">
+                  <p>No stages are ready for completion.</p>
+                  <p className="text-xs mt-2">
+                    Stages must have all jobs completed and be in workshop
+                    status to be completable.
+                  </p>
+                </div>
               )}
             </div>
             <div className="flex justify-end gap-2 pt-4">
@@ -1717,7 +1768,6 @@ const WorkshopConfig = () => {
             </div>
           </DialogContent>
         </Dialog>
-        // Update the existing Complete Workshop Modal title to be dynamic
         <Dialog
           open={completeWorkshopModalOpen}
           onOpenChange={setCompleteWorkshopModalOpen}

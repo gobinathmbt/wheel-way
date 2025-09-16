@@ -101,6 +101,7 @@ const completeWorkshop = async (req, res) => {
   try {
     const { vehicleId, vehicleType } = req.params;
     const { confirmation, stageName } = req.body; // stageName for inspection
+    console.log(confirmation, stageName);
 
     // Validate confirmation
     if (confirmation !== "CONFIRM") {
@@ -124,35 +125,117 @@ const completeWorkshop = async (req, res) => {
     }
 
     if (vehicleType === "inspection" && stageName) {
-      // Handle stage completion for inspection
+      // Handle stage completion for inspection - FORCE UPDATE ARRAYS
 
-      // Update workshop_progress for specific stage
-      if (Array.isArray(vehicle.workshop_progress)) {
-        const progressIndex = vehicle.workshop_progress.findIndex(
-          (item) => item.stage_name === stageName
-        );
-        if (progressIndex !== -1) {
-          vehicle.workshop_progress[progressIndex].progress = "completed";
-          vehicle.workshop_progress[progressIndex].completed_at = new Date();
-        }
+      console.log('Before update:', {
+        workshop_progress: vehicle.workshop_progress,
+        workshop_report_preparing: vehicle.workshop_report_preparing,
+        workshop_report_ready: vehicle.workshop_report_ready,
+        is_workshop: vehicle.is_workshop
+      });
+
+      // Ensure arrays are properly initialized
+      if (!Array.isArray(vehicle.workshop_progress)) {
+        vehicle.workshop_progress = [];
+      }
+      if (!Array.isArray(vehicle.workshop_report_preparing)) {
+        vehicle.workshop_report_preparing = [];
+      }
+      if (!Array.isArray(vehicle.workshop_report_ready)) {
+        vehicle.workshop_report_ready = [];
+      }
+      if (!Array.isArray(vehicle.is_workshop)) {
+        vehicle.is_workshop = [];
       }
 
-      // Update workshop_report_preparing for specific stage
-      if (Array.isArray(vehicle.workshop_report_preparing)) {
-        const preparingIndex = vehicle.workshop_report_preparing.findIndex(
-          (item) => item.stage_name === stageName
-        );
-        if (preparingIndex !== -1) {
-          vehicle.workshop_report_preparing[preparingIndex].preparing = true;
-        } else {
-          vehicle.workshop_report_preparing.push({
-            stage_name: stageName,
-            preparing: true,
-          });
-        }
+      // FORCE UPDATE workshop_progress for specific stage
+      const progressIndex = vehicle.workshop_progress.findIndex(
+        (item) => item.stage_name === stageName
+      );
+      if (progressIndex !== -1) {
+        vehicle.workshop_progress[progressIndex].progress = "completed";
+        vehicle.workshop_progress[progressIndex].completed_at = new Date();
+        console.log(`Updated existing progress for ${stageName}`);
+      } else {
+        // Force add if doesn't exist
+        vehicle.workshop_progress.push({
+          stage_name: stageName,
+          progress: "completed",
+          completed_at: new Date(),
+          started_at: new Date() // Add started date as well
+        });
+        console.log(`Added new progress entry for ${stageName}`);
       }
 
-      await vehicle.save();
+      // FORCE UPDATE workshop_report_preparing for specific stage
+      const preparingIndex = vehicle.workshop_report_preparing.findIndex(
+        (item) => item.stage_name === stageName
+      );
+      if (preparingIndex !== -1) {
+        vehicle.workshop_report_preparing[preparingIndex].preparing = true;
+        console.log(`Updated existing preparing status for ${stageName}`);
+      } else {
+        // Force add if doesn't exist
+        vehicle.workshop_report_preparing.push({
+          stage_name: stageName,
+          preparing: true,
+        });
+        console.log(`Added new preparing entry for ${stageName}`);
+      }
+
+      // FORCE UPDATE workshop_report_ready for specific stage (set to false initially)
+      const reportReadyIndex = vehicle.workshop_report_ready.findIndex(
+        (item) => item.stage_name === stageName
+      );
+      if (reportReadyIndex !== -1) {
+        vehicle.workshop_report_ready[reportReadyIndex].ready = false;
+        vehicle.workshop_report_ready[reportReadyIndex].generated_at = new Date();
+        console.log(`Updated existing report ready status for ${stageName}`);
+      } else {
+        // Force add if doesn't exist
+        vehicle.workshop_report_ready.push({
+          stage_name: stageName,
+          ready: false,
+          generated_at: new Date(),
+        });
+        console.log(`Added new report ready entry for ${stageName}`);
+      }
+
+      // FORCE UPDATE is_workshop for specific stage (mark as completed in workshop)
+      const workshopIndex = vehicle.is_workshop.findIndex(
+        (item) => item.stage_name === stageName
+      );
+      if (workshopIndex !== -1) {
+        vehicle.is_workshop[workshopIndex].in_workshop = true; // Keep in workshop but mark as completed
+        vehicle.is_workshop[workshopIndex].completed_at = new Date();
+        console.log(`Updated existing workshop status for ${stageName}`);
+      } else {
+        // Force add if doesn't exist
+        vehicle.is_workshop.push({
+          stage_name: stageName,
+          in_workshop: true,
+          pushed_at: new Date(),
+          completed_at: new Date()
+        });
+        console.log(`Added new workshop entry for ${stageName}`);
+      }
+
+      console.log('After update:', {
+        workshop_progress: vehicle.workshop_progress,
+        workshop_report_preparing: vehicle.workshop_report_preparing,
+        workshop_report_ready: vehicle.workshop_report_ready,
+        is_workshop: vehicle.is_workshop
+      });
+
+      // Mark arrays as modified to ensure Mongoose saves them
+      vehicle.markModified('workshop_progress');
+      vehicle.markModified('workshop_report_preparing');
+      vehicle.markModified('workshop_report_ready');
+      vehicle.markModified('is_workshop');
+
+      // Save with force
+      const savedVehicle = await vehicle.save();
+      console.log('Vehicle saved successfully with stage completion:', savedVehicle._id);
 
       // Send stage-specific data to SQS
       const {
@@ -168,26 +251,36 @@ const completeWorkshop = async (req, res) => {
       });
 
       if (!queueResult.success) {
-        // Rollback stage status
-        if (Array.isArray(vehicle.workshop_progress)) {
-          const progressIndex = vehicle.workshop_progress.findIndex(
-            (item) => item.stage_name === stageName
-          );
-          if (progressIndex !== -1) {
-            vehicle.workshop_progress[progressIndex].progress = "in_progress";
-            delete vehicle.workshop_progress[progressIndex].completed_at;
-          }
+        console.log('Queue failed, rolling back changes');
+        
+        // ROLLBACK: Restore previous states
+        const rollbackProgressIndex = vehicle.workshop_progress.findIndex(
+          (item) => item.stage_name === stageName
+        );
+        if (rollbackProgressIndex !== -1) {
+          vehicle.workshop_progress[rollbackProgressIndex].progress = "in_progress";
+          delete vehicle.workshop_progress[rollbackProgressIndex].completed_at;
         }
 
-        if (Array.isArray(vehicle.workshop_report_preparing)) {
-          const preparingIndex = vehicle.workshop_report_preparing.findIndex(
-            (item) => item.stage_name === stageName
-          );
-          if (preparingIndex !== -1) {
-            vehicle.workshop_report_preparing[preparingIndex].preparing = false;
-          }
+        const rollbackPreparingIndex = vehicle.workshop_report_preparing.findIndex(
+          (item) => item.stage_name === stageName
+        );
+        if (rollbackPreparingIndex !== -1) {
+          vehicle.workshop_report_preparing[rollbackPreparingIndex].preparing = false;
         }
 
+        const rollbackReadyIndex = vehicle.workshop_report_ready.findIndex(
+          (item) => item.stage_name === stageName
+        );
+        if (rollbackReadyIndex !== -1) {
+          vehicle.workshop_report_ready.splice(rollbackReadyIndex, 1); // Remove the entry
+        }
+
+        // Mark as modified and save rollback
+        vehicle.markModified('workshop_progress');
+        vehicle.markModified('workshop_report_preparing');
+        vehicle.markModified('workshop_report_ready');
+        
         await vehicle.save();
 
         return res.status(500).json({
@@ -206,7 +299,7 @@ const completeWorkshop = async (req, res) => {
         },
       });
     } else {
-      // Handle full workshop completion for tradein (existing logic)
+      // Handle full workshop completion for tradein (existing logic with force updates)
       const quotes = await WorkshopQuote.find({
         vehicle_type: vehicleType,
         company_id: req.user.company_id,
@@ -223,9 +316,24 @@ const completeWorkshop = async (req, res) => {
         });
       }
 
+      // FORCE UPDATE for tradein
       vehicle.workshop_progress = "completed";
       vehicle.workshop_report_preparing = true;
-      await vehicle.save();
+      vehicle.is_workshop = true; // Ensure is_workshop is set
+
+      // Initialize workshop_report_ready for tradein if it doesn't exist
+      if (typeof vehicle.workshop_report_ready === 'undefined') {
+        vehicle.workshop_report_ready = false;
+      }
+
+      // Mark fields as modified for tradein
+      vehicle.markModified('workshop_progress');
+      vehicle.markModified('workshop_report_preparing');
+      vehicle.markModified('workshop_report_ready');
+      vehicle.markModified('is_workshop');
+
+      const savedVehicle = await vehicle.save();
+      console.log('Tradein vehicle saved successfully:', savedVehicle._id);
 
       const {
         sendToWorkshopReportQueue,
@@ -239,8 +347,13 @@ const completeWorkshop = async (req, res) => {
       });
 
       if (!queueResult.success) {
+        // ROLLBACK for tradein
         vehicle.workshop_progress = "in_progress";
         vehicle.workshop_report_preparing = false;
+        
+        vehicle.markModified('workshop_progress');
+        vehicle.markModified('workshop_report_preparing');
+        
         await vehicle.save();
 
         return res.status(500).json({
@@ -251,8 +364,7 @@ const completeWorkshop = async (req, res) => {
 
       res.json({
         success: true,
-        message:
-          "Workshop completed successfully. Report will be available shortly.",
+        message: "Workshop completed successfully. Report will be available shortly.",
         data: {
           queue_id: queueResult.queueId,
           vehicle_id: vehicle._id,
@@ -264,10 +376,10 @@ const completeWorkshop = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error completing workshop",
+      error: error.message,
     });
   }
 };
-
 // Generate workshop report (called by SQS processor)
 const generateWorkshopReport = async (messageData) => {
   console.log(messageData);
@@ -334,19 +446,52 @@ const generateInspectionReport = async (
   company,
   quotes,
   conversations,
-  completed_by,
-  specificStageName = null
+  completed_by
 ) => {
   const resultData = vehicle.inspection_result || [];
-  let stagesToProcess = resultData;
-
-  // If specific stage is provided, filter to only that stage
-  if (specificStageName) {
-    stagesToProcess = resultData.filter(
-      (category) => category.category_name === specificStageName
-    );
+  
+  // Determine stages that need report generation
+  // Criteria: workshop_progress is "completed" AND workshop_report_ready is false
+  const stagesToGenerate = [];
+  
+  if (Array.isArray(vehicle.workshop_progress)) {
+    for (const progressItem of vehicle.workshop_progress) {
+      if (progressItem.progress === "completed") {
+        // Check if report is not ready for this stage
+        const reportReadyItem = Array.isArray(vehicle.workshop_report_ready) 
+          ? vehicle.workshop_report_ready.find(item => item.stage_name === progressItem.stage_name)
+          : null;
+        
+        // Generate report if: no report ready entry exists OR report ready is false
+        if (!reportReadyItem || reportReadyItem.ready === false) {
+          stagesToGenerate.push(progressItem.stage_name);
+        }
+      }
+    }
   }
+  
+  // If no stages need report generation, exit early
+  if (stagesToGenerate.length === 0) {
+    console.log('No stages require report generation at this time');
+    return;
+  }
+  
+  console.log(`Generating reports for stages: ${stagesToGenerate.join(', ')}`);
+  
+  // Filter resultData to only include stages that need report generation
+  const stagesToProcess = resultData.filter(category => 
+    stagesToGenerate.includes(category.category_name)
+  );
+  
   const reportReadyFlags = [];
+
+  // Initialize arrays if they don't exist or are not arrays
+  if (!Array.isArray(vehicle.workshop_report_ready)) {
+    vehicle.workshop_report_ready = [];
+  }
+  if (!Array.isArray(vehicle.workshop_report_preparing)) {
+    vehicle.workshop_report_preparing = [];
+  }
 
   // Process each category (stage)
   for (const category of stagesToProcess) {
@@ -474,53 +619,66 @@ const generateInspectionReport = async (
       ready: true,
       generated_at: new Date(),
     });
-    if (specificStageName && category.category_name === specificStageName) {
-      // Update workshop_report_ready for specific stage
-      if (!Array.isArray(vehicle.workshop_report_ready)) {
-        vehicle.workshop_report_ready = [];
-      }
 
-      const readyIndex = vehicle.workshop_report_ready.findIndex(
-        (item) => item.stage_name === specificStageName
-      );
+    // FORCE UPDATE: workshop_report_ready for this specific stage
+    const readyIndex = vehicle.workshop_report_ready.findIndex(
+      (item) => item.stage_name === category.category_name
+    );
 
-      if (readyIndex !== -1) {
-        vehicle.workshop_report_ready[readyIndex].ready = true;
-        vehicle.workshop_report_ready[readyIndex].generated_at = new Date();
-      } else {
-        vehicle.workshop_report_ready.push({
-          stage_name: specificStageName,
-          ready: true,
-          generated_at: new Date(),
-        });
-      }
-
-      // Update workshop_report_preparing for specific stage
-      if (Array.isArray(vehicle.workshop_report_preparing)) {
-        const preparingIndex = vehicle.workshop_report_preparing.findIndex(
-          (item) => item.stage_name === specificStageName
-        );
-        if (preparingIndex !== -1) {
-          vehicle.workshop_report_preparing[preparingIndex].preparing = false;
-        }
-      }
-
-      await vehicle.save();
-      return; // Exit after processing the specific stage
+    if (readyIndex !== -1) {
+      // Update existing entry
+      vehicle.workshop_report_ready[readyIndex] = {
+        ...vehicle.workshop_report_ready[readyIndex],
+        ready: true,
+        generated_at: new Date(),
+      };
+    } else {
+      // Add new entry
+      vehicle.workshop_report_ready.push({
+        stage_name: category.category_name,
+        ready: true,
+        generated_at: new Date(),
+      });
     }
+
+    // FORCE UPDATE: workshop_report_preparing for this specific stage
+    const preparingIndex = vehicle.workshop_report_preparing.findIndex(
+      (item) => item.stage_name === category.category_name
+    );
+
+    if (preparingIndex !== -1) {
+      // Update existing entry
+      vehicle.workshop_report_preparing[preparingIndex] = {
+        ...vehicle.workshop_report_preparing[preparingIndex],
+        preparing: false,
+        updated_at: new Date(),
+      };
+    } else {
+      // Add new entry if it doesn't exist
+      vehicle.workshop_report_preparing.push({
+        stage_name: category.category_name,
+        preparing: false,
+        updated_at: new Date(),
+      });
+    }
+
+    // Mark the specific fields as modified to ensure Mongoose saves them
+    vehicle.markModified('workshop_report_ready');
+    vehicle.markModified('workshop_report_preparing');
+
+    console.log(`Report generated successfully for stage: ${category.category_name}`);
   }
 
-  if (!specificStageName) {
-    const reportReadyFlags = stagesToProcess.map((category) => ({
-      stage_name: category.category_name,
-      ready: true,
-      generated_at: new Date(),
-    }));
-
-    vehicle.workshop_report_ready = reportReadyFlags;
-    vehicle.workshop_report_preparing = false;
+  // Force save the vehicle document with explicit field updates
+  try {
     await vehicle.save();
+    console.log(`Vehicle document saved with updated workshop_report_ready and workshop_report_preparing fields`);
+  } catch (error) {
+    console.error('Error saving vehicle document:', error);
+    throw error;
   }
+  
+  console.log(`Report generation completed for ${reportReadyFlags.length} stages`);
 };
 // Generate tradein workshop report (single report)
 const generateTradeinReport = async (
@@ -637,7 +795,6 @@ const generateTradeinReport = async (
   await vehicle.save();
 };
 
-// Calculate statistics for stage/report
 // Calculate statistics for stage/report
 const calculateStageStatistics = (quotes) => {
   // Helper function to safely parse dates

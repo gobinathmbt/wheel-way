@@ -661,9 +661,6 @@ const UserPermissions = () => {
                                 <Label className="font-medium text-sm">
                                   {permission.internal_name}
                                 </Label>
-                                <Badge variant="outline" className="text-xs">
-                                  {permission.internal_name}
-                                </Badge>
                               </div>
                               <p className="text-sm text-muted-foreground leading-relaxed">
                                 {permission.description}

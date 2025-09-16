@@ -85,16 +85,22 @@ const getWorkshopVehicleDetails = async (req, res) => {
       });
     }
 
-    // For inspection vehicles, filter inspection_result to only include pushed stages
+    // For inspection vehicles, filter inspection_result to only include stages that are in progress
     if (vehicle.vehicle_type === "inspection" && vehicle.inspection_result) {
-      // Get the stage names that have been pushed to workshop
-      const pushedStages = Array.isArray(vehicle.is_workshop) 
-        ? vehicle.is_workshop.map(stage => stage.stage_name)
-        : [];
+      // Get the stage names that are currently in progress in workshop
+      const inProgressStages = [];
+      
+      if (Array.isArray(vehicle.workshop_progress)) {
+        vehicle.workshop_progress.forEach(stage => {
+          if (stage.progress === "in_progress") {
+            inProgressStages.push(stage.stage_name);
+          }
+        });
+      }
 
-      // Filter inspection_result to only include pushed stages
+      // Filter inspection_result to only include in-progress stages
       vehicle.inspection_result = vehicle.inspection_result.filter(category => 
-        pushedStages.includes(category.category_name)
+        inProgressStages.includes(category.category_name)
       );
     }
 

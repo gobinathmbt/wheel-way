@@ -11,6 +11,16 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Car,
   X,
   Wrench,
@@ -53,12 +63,19 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
 }) => {
   const navigate = useNavigate();
   const [workshopReportModalOpen, setWorkshopReportModalOpen] = useState(false);
-  const [workshopStageSelectionOpen, setWorkshopStageSelectionOpen] =
-    useState(false);
+  const [workshopStageSelectionOpen, setWorkshopStageSelectionOpen] = useState(false);
   const [selectedStage, setSelectedStage] = useState<string>("");
   const [stageSelectionOpen, setStageSelectionOpen] = useState(false);
   const [selectedStages, setSelectedStages] = useState<string[]>([]);
   const [availableStages, setAvailableStages] = useState<string[]>([]);
+  
+  // Confirmation dialog states
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'tradein' | 'inspection';
+    action?: 'push' | 'remove';
+    stages?: string[];
+  } | null>(null);
 
   // Move all hooks before any conditional returns
   useEffect(() => {
@@ -71,6 +88,18 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
         .map((item: any) => item.category_name)
         .filter(Boolean);
       setAvailableStages(stages);
+    }
+  }, [vehicle]);
+
+  useEffect(() => {
+    if (vehicle && vehicle.vehicle_type === "inspection") {
+      // Set currently selected stages based on workshop status
+      const currentlyInWorkshop = Array.isArray(vehicle.is_workshop) 
+        ? vehicle.is_workshop
+            .filter((item: any) => item.in_workshop)
+            .map((item: any) => item.stage_name)
+        : [];
+      setSelectedStages(currentlyInWorkshop);
     }
   }, [vehicle]);
 
@@ -94,12 +123,29 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
     return progressInfo?.progress || "not_processed_yet";
   };
 
+  // Check if stage can be removed (not in progress)
+const canRemoveStage = (stageName: string) => {
+  const progress = getStageProgress(stageName);
+  return !(progress === "in_progress" || progress === "completed");
+};
+
+
   const handlePushToWorkshop = async () => {
+    if (vehicle.vehicle_type === "inspection") {
+      // Open stage selection modal
+      setStageSelectionOpen(true);
+    } else {
+      // Show confirmation for tradein
+      setPendingAction({ type: 'tradein' });
+      setConfirmationOpen(true);
+    }
+  };
+
+  const handleConfirmAction = async () => {
     try {
-      if (vehicle.vehicle_type === "inspection") {
-        // Open stage selection modal
-        setStageSelectionOpen(true);
-      } else {
+      if (!pendingAction) return;
+
+      if (pendingAction.type === 'tradein') {
         // Direct push for tradein
         await vehicleServices.updateVehicleWorkshopStatus(
           vehicle._id,
@@ -110,36 +156,115 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
           }
         );
         toast.success("Vehicle pushed to workshop successfully");
-        onUpdate();
+      } else if (pendingAction.type === 'inspection' && pendingAction.stages) {
+        // Handle inspection stages
+        await vehicleServices.updateVehicleWorkshopStatus(
+          vehicle._id,
+          vehicleType,
+          {
+            stages: pendingAction.stages,
+            workshop_action: pendingAction.action,
+          }
+        );
+
+        const actionText = pendingAction.action === 'push' ? 'pushed to' : 'removed from';
+        toast.success(`Selected stages ${actionText} workshop successfully`);
+        setStageSelectionOpen(false);
+        
+        // Reset selected stages to current workshop state after update
+        setTimeout(() => {
+          onUpdate();
+        }, 100);
       }
     } catch (error) {
-      toast.error("Failed to push vehicle to workshop");
+      const actionText = pendingAction.action === 'push' ? 'push to' : 'remove from';
+      toast.error(`Failed to ${actionText} workshop`);
+    } finally {
+      setConfirmationOpen(false);
+      setPendingAction(null);
     }
   };
 
-  // New function to handle stage workshop push
-  const handleStagePush = async () => {
-    if (selectedStages.length === 0) {
-      toast.error("Please select at least one stage");
+  // New function to handle stage changes
+  const handleStageUpdate = async () => {
+    // Get currently in workshop stages
+    const currentlyInWorkshop = Array.isArray(vehicle.is_workshop) 
+      ? vehicle.is_workshop
+          .filter((item: any) => item.in_workshop)
+          .map((item: any) => item.stage_name)
+      : [];
+
+    // Determine which stages to push and which to remove
+    const stagesToPush = selectedStages.filter(stage => !currentlyInWorkshop.includes(stage));
+    const stagesToRemove = currentlyInWorkshop.filter(stage => 
+      !selectedStages.includes(stage) && canRemoveStage(stage)
+    );
+
+    if (stagesToPush.length === 0 && stagesToRemove.length === 0) {
+      toast.error("No changes to apply");
       return;
     }
 
-    try {
-      await vehicleServices.updateVehicleWorkshopStatus(
-        vehicle._id,
-        vehicleType,
-        {
-          stages: selectedStages,
-          workshop_action: "push",
-        }
-      );
+    // Check if trying to remove in-progress stages
+    const attemptingToRemoveInProgress = currentlyInWorkshop.filter(stage => 
+      !selectedStages.includes(stage) && !canRemoveStage(stage)
+    );
 
-      toast.success(`Selected stages pushed to workshop successfully`);
-      setStageSelectionOpen(false);
-      setSelectedStages([]);
-      onUpdate();
-    } catch (error) {
-      toast.error("Failed to push stages to workshop");
+    if (attemptingToRemoveInProgress.length > 0) {
+      toast.error(`Cannot remove stages that are in progress: ${attemptingToRemoveInProgress.join(', ')}`);
+      return;
+    }
+
+    // Prepare confirmation with details
+    const actions = [];
+    if (stagesToPush.length > 0) actions.push(`Push: ${stagesToPush.join(', ')}`);
+    if (stagesToRemove.length > 0) actions.push(`Remove: ${stagesToRemove.join(', ')}`);
+
+    setPendingAction({ 
+      type: 'inspection', 
+      action: stagesToPush.length > 0 ? 'push' : 'remove',
+      stages: stagesToPush.length > 0 ? stagesToPush : stagesToRemove
+    });
+    setConfirmationOpen(true);
+
+    // If we have both actions, handle them sequentially
+    if (stagesToPush.length > 0 && stagesToRemove.length > 0) {
+      try {
+        // First push new stages
+        if (stagesToPush.length > 0) {
+          await vehicleServices.updateVehicleWorkshopStatus(
+            vehicle._id,
+            vehicleType,
+            {
+              stages: stagesToPush,
+              workshop_action: 'push',
+            }
+          );
+        }
+
+        // Then remove stages
+        if (stagesToRemove.length > 0) {
+          await vehicleServices.updateVehicleWorkshopStatus(
+            vehicle._id,
+            vehicleType,
+            {
+              stages: stagesToRemove,
+              workshop_action: 'remove',
+            }
+          );
+        }
+
+        toast.success("Workshop stages updated successfully");
+        setStageSelectionOpen(false);
+        onUpdate();
+        setConfirmationOpen(false);
+        setPendingAction(null);
+      } catch (error) {
+        toast.error("Failed to update workshop stages");
+        setConfirmationOpen(false);
+        setPendingAction(null);
+      }
+      return;
     }
   };
 
@@ -158,7 +283,7 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
         return `${inWorkshopStages.length} Stage(s) in Workshop`;
       }
     }
-    return "Push Stages to Workshop";
+    return "Manage Workshop Stages";
   };
 
   const handleOpenMasterInspection = () => {
@@ -184,6 +309,22 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
     setSelectedStage(stageName);
     setWorkshopStageSelectionOpen(false);
     setWorkshopReportModalOpen(true);
+  };
+
+  const getConfirmationMessage = () => {
+    if (!pendingAction) return "";
+    
+    if (pendingAction.type === 'tradein') {
+      return "Are you sure you want to push this vehicle to the workshop?";
+    }
+    
+    if (pendingAction.type === 'inspection') {
+      const actionText = pendingAction.action === 'push' ? 'push to' : 'remove from';
+      const stagesText = pendingAction.stages?.join(', ') || '';
+      return `Are you sure you want to ${actionText} workshop the following stages: ${stagesText}?`;
+    }
+    
+    return "";
   };
 
   return (
@@ -232,7 +373,7 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
                     onClick={handlePushToWorkshop}
                     disabled={
                       vehicle.vehicle_type === "inspection"
-                        ? false // Allow multiple stage pushes for inspection
+                        ? false // Always allow for inspection to manage stages
                         : vehicle.workshop_progress === "completed"
                     }
                     className={
@@ -271,19 +412,51 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
                   </Button>
 
                   {/* Workshop Report Button */}
-                  {vehicle.workshop_progress === "completed" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleWorkshopReport}
-                      disabled={vehicle.workshop_report_preparing}
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      {vehicle.workshop_report_preparing
-                        ? "Preparing Report..."
-                        : "Workshop Report"}
-                    </Button>
-                  )}
+               {/* Workshop Report Button */}
+                  {(() => {
+                    if (vehicle.vehicle_type === "tradein") {
+                      // For tradein, show button when workshop is completed
+                      return vehicle.workshop_progress === "completed" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleWorkshopReport}
+                          disabled={vehicle.workshop_report_preparing}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          {vehicle.workshop_report_preparing
+                            ? "Preparing Report..."
+                            : "Workshop Report"}
+                        </Button>
+                      );
+                    } else if (vehicle.vehicle_type === "inspection") {
+                      // For inspection, check if any stage has report preparing or ready
+                      const hasPreparingReports = Array.isArray(vehicle.workshop_report_preparing) && 
+                        vehicle.workshop_report_preparing.some((stage: any) => stage.preparing);
+                      
+                      const hasReadyReports = Array.isArray(vehicle.workshop_report_ready) && 
+                        vehicle.workshop_report_ready.length > 0;
+                      
+                      const showButton = hasPreparingReports || hasReadyReports;
+                      
+                      if (showButton) {
+                        return (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleWorkshopReport}
+                            disabled={hasPreparingReports && !hasReadyReports}
+                          >
+                            <FileText className="h-4 w-4 mr-2" />
+                            {hasPreparingReports && !hasReadyReports
+                              ? "Preparing Report..."
+                              : "Workshop Report"}
+                          </Button>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
             )}
@@ -401,19 +574,21 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Stage Selection Modal */}
+      {/* Stage Selection Modal for Workshop Management */}
       <Dialog open={stageSelectionOpen} onOpenChange={setStageSelectionOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <SheetTitle>Select Stages for Workshop</SheetTitle>
+            <SheetTitle>Manage Workshop Stages</SheetTitle>
             <SheetDescription>
-              Choose which inspection stages to push to workshop
+              Select stages to push to workshop or unselect to remove from workshop
             </SheetDescription>
           </DialogHeader>
           <div className="space-y-3">
             {availableStages.map((stageName) => {
               const inWorkshop = isStageInWorkshop(stageName);
               const progress = getStageProgress(stageName);
+              const canEdit = canRemoveStage(stageName);
+              const isSelected = selectedStages.includes(stageName);
 
               return (
                 <div
@@ -423,8 +598,13 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
                   <div className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={selectedStages.includes(stageName)}
+                      checked={isSelected}
                       onChange={(e) => {
+                        if (!canEdit && inWorkshop && !e.target.checked) {
+                          // Prevent unchecking in-progress stages
+                          return;
+                        }
+                        
                         if (e.target.checked) {
                           setSelectedStages((prev) => [...prev, stageName]);
                         } else {
@@ -433,9 +613,15 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
                           );
                         }
                       }}
+                      disabled={!canEdit && inWorkshop}
                       className="rounded"
                     />
-                    <span className="font-medium">{stageName}</span>
+                    <span className={`font-medium ${!canEdit && inWorkshop ? 'text-gray-500' : ''}`}>
+                      {stageName}
+                    </span>
+                    {!canEdit && inWorkshop && (
+                      <span className="text-xs text-gray-500">(Cannot edit - In Progress)</span>
+                    )}
                   </div>
                   <div className="flex space-x-1">
                     {inWorkshop && (
@@ -445,7 +631,8 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
                     )}
                     <Badge
                       variant={
-                        progress === "completed" ? "default" : "secondary"
+                        progress === "completed" ? "default" : 
+                        progress === "in_progress" ? "destructive" : "secondary"
                       }
                       className="text-xs"
                     >
@@ -459,14 +646,46 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
           <div className="flex space-x-2 pt-4">
             <Button
               variant="outline"
-              onClick={() => setStageSelectionOpen(false)}
+              onClick={() => {
+                setStageSelectionOpen(false);
+                // Reset to current workshop state
+                const currentlyInWorkshop = Array.isArray(vehicle.is_workshop) 
+                  ? vehicle.is_workshop
+                      .filter((item: any) => item.in_workshop)
+                      .map((item: any) => item.stage_name)
+                  : [];
+                setSelectedStages(currentlyInWorkshop);
+              }}
             >
               Cancel
             </Button>
-            <Button onClick={handleStagePush}>Push Selected Stages</Button>
+            <Button onClick={handleStageUpdate}>Apply Changes</Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Action</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getConfirmationMessage()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setConfirmationOpen(false);
+              setPendingAction(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAction}>
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Workshop Report Modal */}
       <WorkshopReportModal

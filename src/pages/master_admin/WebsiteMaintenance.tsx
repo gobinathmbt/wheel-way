@@ -226,8 +226,8 @@ const WebsiteMaintenance = () => {
     // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(item =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.message.toLowerCase().includes(searchTerm.toLowerCase())
+        item.name?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
+        item.message?.toLowerCase().includes(searchTerm?.toLowerCase())
       );
     }
 
@@ -250,8 +250,8 @@ const WebsiteMaintenance = () => {
         let bValue = b[sortField as keyof MaintenanceTableRow];
 
         if (typeof aValue === "string") {
-          aValue = aValue.toLowerCase();
-          bValue = (bValue as string).toLowerCase();
+          aValue = aValue?.toLowerCase();
+          bValue = (bValue as string)?.toLowerCase();
         }
 
         if (sortOrder === "asc") {
