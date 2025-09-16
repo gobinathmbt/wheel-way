@@ -1,42 +1,183 @@
-
 import React, { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { FileUpload, FilePreview } from "@/components/ui/file-upload";
-import { Upload, Download, Image, File, Trash2, Eye, Plus, Loader2 } from "lucide-react";
+import {
+  Upload,
+  Download,
+  Image,
+  File,
+  Trash2,
+  Eye,
+  Plus,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { vehicleServices, companyServices } from "@/api/services";
 import { S3Uploader, S3Config } from "@/lib/s3-client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface VehicleAttachmentsSectionProps {
   vehicle: any;
+  vehicleType: any;
   onUpdate: () => void;
 }
 
 const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
   vehicle,
   onUpdate,
+  vehicleType,
 }) => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [uploadType, setUploadType] = useState<'images' | 'files'>('images');
-  const [uploadCategory, setUploadCategory] = useState<string>('listImage');
+  const [uploadType, setUploadType] = useState<"images" | "files">("images");
+  const [uploadCategory, setUploadCategory] = useState<string>("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>(
+    {}
+  );
   const [s3Config, setS3Config] = useState<S3Config | null>(null);
   const [s3Uploader, setS3Uploader] = useState<S3Uploader | null>(null);
 
   const attachments = vehicle.vehicle_attachments || [];
-  
-  // Group attachments by category
-  const listImages = attachments.filter((att: any) => att.type === 'image' && att.image_category === 'listImage');
-  const inspectionImages = attachments.filter((att: any) => att.type === 'image' && att.image_category === 'inspectionImage');
-  const otherImages = attachments.filter((att: any) => att.type === 'image' && (att.image_category === 'otherImage' || !att.image_category));
-  const documents = attachments.filter((att: any) => att.type === 'file');
+
+  const { data: dropdownsImageCategoryData } = useQuery({
+    queryKey: ["master-modules-for-image"],
+    queryFn: () =>
+      companyServices
+        .getCompanyMasterdropdownvalues({
+          dropdown_name: ["attachment_category_image"],
+        })
+        .then((res) => res.data),
+  });
+
+  const { data: dropdownsFileCategoryData } = useQuery({
+    queryKey: ["master-modules-for-file"],
+    queryFn: () =>
+      companyServices
+        .getCompanyMasterdropdownvalues({
+          dropdown_name: ["attachment_category_files"],
+        })
+        .then((res) => res.data),
+  });
+
+  // Extract categories from API responses
+  const imageCategoryOptions =
+    dropdownsImageCategoryData?.data?.[0]?.values || [];
+  const fileCategoryOptions =
+    dropdownsFileCategoryData?.data?.[0]?.values || [];
+
+  // Helper function to get category display name
+  const getCategoryDisplayName = (
+    categoryValue: string,
+    type: "images" | "files"
+  ) => {
+    const options =
+      type === "images" ? imageCategoryOptions : fileCategoryOptions;
+    const category = options.find((opt) => opt.option_value === categoryValue);
+    return (
+      category?.display_value ||
+      (type === "images" ? "Other Images" : "Other Files")
+    );
+  };
+
+  // Helper function to determine if a category exists in dropdown
+  const isCategoryInDropdown = (
+    categoryValue: string,
+    type: "images" | "files"
+  ) => {
+    const options =
+      type === "images" ? imageCategoryOptions : fileCategoryOptions;
+    return options.some((opt) => opt.option_value === categoryValue);
+  };
+
+  // Group attachments by category with dynamic categorization
+  const categorizeAttachments = () => {
+    const imageAttachments = attachments.filter(
+      (att: any) => att.type === "image"
+    );
+    const fileAttachments = attachments.filter(
+      (att: any) => att.type === "file"
+    );
+
+    // Group images by categories
+    const imageGroups: Record<string, any[]> = {};
+    imageAttachments.forEach((att: any) => {
+      const category = att.image_category || "other_images";
+      const isValidCategory = isCategoryInDropdown(category, "images");
+      const groupKey = isValidCategory ? category : "other_images";
+
+      if (!imageGroups[groupKey]) {
+        imageGroups[groupKey] = [];
+      }
+      imageGroups[groupKey].push(att);
+    });
+
+    // Group files by categories
+    const fileGroups: Record<string, any[]> = {};
+    fileAttachments.forEach((att: any) => {
+      const category = att.file_category || "other_files";
+      const isValidCategory = isCategoryInDropdown(category, "files");
+      const groupKey = isValidCategory ? category : "other_files";
+
+      if (!fileGroups[groupKey]) {
+        fileGroups[groupKey] = [];
+      }
+      fileGroups[groupKey].push(att);
+    });
+
+    return { imageGroups, fileGroups };
+  };
+
+  const { imageGroups, fileGroups } = categorizeAttachments();
+
+  // Set default upload category when dropdown data is loaded
+  useEffect(() => {
+    if (
+      uploadType === "images" &&
+      imageCategoryOptions.length > 0 &&
+      !uploadCategory
+    ) {
+      setUploadCategory(imageCategoryOptions[0].option_value);
+    } else if (
+      uploadType === "files" &&
+      fileCategoryOptions.length > 0 &&
+      !uploadCategory
+    ) {
+      setUploadCategory(fileCategoryOptions[0].option_value);
+    }
+  }, [uploadType, imageCategoryOptions, fileCategoryOptions, uploadCategory]);
+
+  // Reset category when switching upload type
+  useEffect(() => {
+    if (uploadType === "images" && imageCategoryOptions.length > 0) {
+      setUploadCategory(imageCategoryOptions[0].option_value);
+    } else if (uploadType === "files" && fileCategoryOptions.length > 0) {
+      setUploadCategory(fileCategoryOptions[0].option_value);
+    }
+  }, [uploadType, imageCategoryOptions, fileCategoryOptions]);
 
   useEffect(() => {
     loadS3Config();
@@ -45,36 +186,37 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
   const loadS3Config = async () => {
     try {
       const response = await companyServices.getS3Config();
-      console.log('S3 config response:', response);
+      console.log("S3 config response:", response);
       const config = response.data.data;
-      
-     if (config && config.bucket && config.access_key) {
-        // Map the API response to our S3Config interface
+
+      if (config && config.bucket && config.access_key) {
         const s3ConfigMapped: S3Config = {
           region: config.region,
           bucket: config.bucket,
           access_key: config.access_key,
           secret_key: config.secret_key,
-          url: config.url
+          url: config.url,
         };
-        
+
         setS3Config(s3ConfigMapped);
         setS3Uploader(new S3Uploader(s3ConfigMapped));
       } else {
-        toast.error("S3 configuration not found. Please configure S3 settings first.");
+        toast.error(
+          "S3 configuration not found. Please configure S3 settings first."
+        );
       }
     } catch (error) {
       toast.error("Failed to load S3 configuration");
-      console.error('S3 config error:', error);
+      console.error("S3 config error:", error);
     }
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   const handleFilesSelected = (files: File[]) => {
@@ -82,7 +224,7 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
   };
 
   const handleRemoveFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const uploadToS3AndSave = async () => {
@@ -93,22 +235,18 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
 
     try {
       for (const [index, file] of selectedFiles.entries()) {
-        // Update progress
-        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
+        setUploadProgress((prev) => ({ ...prev, [file.name]: 0 }));
 
-        // Determine category folder for S3
-      const s3Category = uploadType === 'images' ? uploadCategory : 'document';
-        
-        // Upload to S3
+        const s3Category =
+          uploadType === "images" ? uploadCategory : uploadCategory;
+
         const uploadResult = await s3Uploader.uploadFile(file, s3Category);
-        
-        // Update progress
-        setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
 
-        // Prepare attachment data
+        setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
+
         const attachmentData = {
           vehicle_stock_id: vehicle.vehicle_stock_id,
-          type: uploadType === 'images' ? 'image' : 'file',
+          type: uploadType === "images" ? "image" : "file",
           url: uploadResult.url,
           s3_key: uploadResult.key,
           s3_bucket: s3Config?.bucket,
@@ -117,28 +255,32 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
           filename: file.name,
           original_filename: file.name,
           position: attachments.length + index,
-          ...(uploadType === 'images' 
+          ...(uploadType === "images"
             ? { image_category: uploadCategory }
-            : { file_category: 'document' }
-          )
+            : { file_category: uploadCategory }),
         };
 
         uploadedAttachments.push(attachmentData);
       }
 
-      // Save all attachments to backend
       for (const attachmentData of uploadedAttachments) {
-        await vehicleServices.uploadVehicleAttachment(vehicle._id, attachmentData);
+        await vehicleServices.uploadVehicleAttachment(
+          vehicle._id,
+          vehicleType,
+          attachmentData
+        );
       }
 
-      toast.success(`Successfully uploaded ${selectedFiles.length} ${uploadType}`);
+      toast.success(
+        `Successfully uploaded ${selectedFiles.length} ${uploadType}`
+      );
       setSelectedFiles([]);
       setUploadDialogOpen(false);
       setUploadProgress({});
       onUpdate();
     } catch (error) {
       toast.error("Failed to upload files");
-      console.error('Upload error:', error);
+      console.error("Upload error:", error);
     } finally {
       setUploading(false);
     }
@@ -146,32 +288,40 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
 
   const handleDeleteAttachment = async (attachment: any) => {
     try {
-      // Delete from S3 if s3_key exists
       if (s3Uploader && attachment.s3_key) {
         await s3Uploader.deleteFile(attachment.s3_key);
       }
 
-      // Delete from backend
-      await vehicleServices.deleteVehicleAttachment(vehicle._id, attachment._id);
-      
+      await vehicleServices.deleteVehicleAttachment(
+        vehicle._id,
+        vehicleType,
+        attachment._id
+      );
+
       toast.success("Attachment deleted successfully");
       onUpdate();
     } catch (error) {
       toast.error("Failed to delete attachment");
-      console.error('Delete error:', error);
+      console.error("Delete error:", error);
     }
   };
 
   const handleViewAttachment = (url: string) => {
-    window.open(url, '_blank');
+    window.open(url, "_blank");
   };
 
-  const AttachmentGrid = ({ items, title }: { items: any[]; title: string }) => {
+  const AttachmentGrid = ({
+    items,
+    title,
+  }: {
+    items: any[];
+    title: string;
+  }) => {
     if (items.length === 0) return null;
 
     return (
       <Accordion type="single" collapsible>
-        <AccordionItem value={title.toLowerCase().replace(' ', '-')}>
+        <AccordionItem value={title.toLowerCase().replace(" ", "-")}>
           <AccordionTrigger>
             <div className="flex items-center justify-between w-full mr-4">
               <span>{title}</span>
@@ -183,7 +333,7 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
               {items.map((item: any) => (
                 <Card key={item._id} className="overflow-hidden group">
                   <CardContent className="p-0">
-                    {item.type === 'image' ? (
+                    {item.type === "image" ? (
                       <div className="relative">
                         <img
                           src={item.url}
@@ -213,8 +363,12 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
                       <div className="p-4 flex items-center space-x-3">
                         <File className="h-8 w-8 text-muted-foreground flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{item.original_filename || item.filename}</p>
-                          <p className="text-xs text-muted-foreground">{formatFileSize(item.size)}</p>
+                          <p className="text-sm font-medium truncate">
+                            {item.original_filename || item.filename}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatFileSize(item.size)}
+                          </p>
                         </div>
                         <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
@@ -240,7 +394,9 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
                         {item.original_filename || item.filename}
                       </p>
                       {item.size && (
-                        <p className="text-xs text-muted-foreground">{formatFileSize(item.size)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatFileSize(item.size)}
+                        </p>
                       )}
                     </div>
                   </CardContent>
@@ -259,7 +415,9 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
         <CardContent className="text-center py-8">
           <Image className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground mb-2">No attachments found</p>
-          <p className="text-sm text-muted-foreground">Configure S3 settings to enable file uploads</p>
+          <p className="text-sm text-muted-foreground">
+            Configure S3 settings to enable file uploads
+          </p>
         </CardContent>
       </Card>
     );
@@ -281,49 +439,84 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
               <DialogHeader>
                 <DialogTitle>Upload Attachments</DialogTitle>
               </DialogHeader>
-              
-              <Tabs value={uploadType} onValueChange={(value) => setUploadType(value as 'images' | 'files')}>
+
+              <Tabs
+                value={uploadType}
+                onValueChange={(value) =>
+                  setUploadType(value as "images" | "files")
+                }
+              >
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="images">Images</TabsTrigger>
                   <TabsTrigger value="files">Documents</TabsTrigger>
                 </TabsList>
-                
-                <TabsContent value="images" className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Image Category</label>
-                    <select
-                      value={uploadCategory}
-                      onChange={(e) => setUploadCategory(e.target.value)}
-                      className="w-full p-2 border rounded-md"
-                    >
-                      <option value="listImage">Listing Images</option>
-                      <option value="inspectionImage">Inspection Images</option>
-                      <option value="otherImage">Other Images</option>
-                    </select>
-                  </div>
-                  
-                  <FileUpload
-                    onFilesSelected={handleFilesSelected}
-                    accept="images"
-                    multiple={true}
-                    maxSize={10 * 1024 * 1024} // 10MB
-                  />
-                </TabsContent>
-                
-                <TabsContent value="files" className="space-y-4">
-                  <FileUpload
-                    onFilesSelected={handleFilesSelected}
-                    accept="files"
-                    multiple={true}
-                    maxSize={25 * 1024 * 1024} // 25MB for documents
-                  />
-                </TabsContent>
+
+             <TabsContent value="images" className="space-y-4">
+  <div className="space-y-2">
+    <label className="text-sm font-medium">Image Category</label>
+    <Select value={uploadCategory} onValueChange={setUploadCategory}>
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="Select an image category" />
+      </SelectTrigger>
+      <SelectContent>
+        {imageCategoryOptions.map((option) => (
+          <SelectItem
+            key={option.option_value}
+            value={option.option_value}
+          >
+            {option.display_value}
+          </SelectItem>
+        ))}
+        <SelectItem value="other_images">Other Images</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+
+  <FileUpload
+    onFilesSelected={handleFilesSelected}
+    accept="images"
+    multiple={true}
+    maxSize={10 * 1024 * 1024} // 10MB
+  />
+</TabsContent>
+
+<TabsContent value="files" className="space-y-4">
+  <div className="space-y-2">
+    <label className="text-sm font-medium">File Category</label>
+    <Select value={uploadCategory} onValueChange={setUploadCategory}>
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="Select a file category" />
+      </SelectTrigger>
+      <SelectContent>
+        {fileCategoryOptions.map((option) => (
+          <SelectItem
+            key={option.option_value}
+            value={option.option_value}
+          >
+            {option.display_value}
+          </SelectItem>
+        ))}
+        <SelectItem value="other_files">Other Files</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+
+  <FileUpload
+    onFilesSelected={handleFilesSelected}
+    accept="files"
+    multiple={true}
+    maxSize={25 * 1024 * 1024} // 25MB
+  />
+</TabsContent>
+
               </Tabs>
 
               {selectedFiles.length > 0 && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium">Selected Files ({selectedFiles.length})</h4>
+                    <h4 className="font-medium">
+                      Selected Files ({selectedFiles.length})
+                    </h4>
                     <Button
                       onClick={uploadToS3AndSave}
                       disabled={uploading}
@@ -342,7 +535,7 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
                       )}
                     </Button>
                   </div>
-                  
+
                   <FilePreview
                     files={selectedFiles}
                     onRemove={handleRemoveFile}
@@ -364,10 +557,23 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
         </Card>
       ) : (
         <div className="space-y-4">
-          <AttachmentGrid items={listImages} title="Listing Images" />
-          <AttachmentGrid items={inspectionImages} title="Inspection Images" />
-          <AttachmentGrid items={otherImages} title="Other Images" />
-          <AttachmentGrid items={documents} title="Documents" />
+          {/* Render image categories dynamically */}
+          {Object.entries(imageGroups).map(([categoryKey, items]) => (
+            <AttachmentGrid
+              key={categoryKey}
+              items={items}
+              title={getCategoryDisplayName(categoryKey, "images")}
+            />
+          ))}
+
+          {/* Render file categories dynamically */}
+          {Object.entries(fileGroups).map(([categoryKey, items]) => (
+            <AttachmentGrid
+              key={categoryKey}
+              items={items}
+              title={getCategoryDisplayName(categoryKey, "files")}
+            />
+          ))}
         </div>
       )}
     </div>

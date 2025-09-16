@@ -726,8 +726,8 @@ export const vehicleServices = {
   getVehicleStock: (params?: any) =>
     apiClient.get("/api/vehicle/stock", { params }),
 
-  getVehicleDetail: (vehicleId: string) =>
-    apiClient.get(`/api/vehicle/detail/${vehicleId}`),
+  getVehicleDetail: (vehicleId: string,vehicleType: string,) =>
+    apiClient.get(`/api/vehicle/detail/${vehicleId}/${vehicleType}`),
 
   createVehicleStock: (data: any) =>
     apiClient.post("/api/vehicle/create-stock", data),
@@ -735,55 +735,55 @@ export const vehicleServices = {
   bulkImportVehicles: (data: any) =>
     apiClient.post("/api/vehicle/bulk-import", data),
 
-  updateVehicle: (id: string, data: any) =>
-    apiClient.put(`/api/vehicle/${id}`, data),
+  updateVehicle: (id: string,vehicleType: string, data: any) =>
+    apiClient.put(`/api/vehicle/${id}/${vehicleType}`, data),
 
   deleteVehicle: (id: string) => apiClient.delete(`/api/vehicle/${id}`),
 
   // Vehicle Section Updates
-  updateVehicleOverview: (vehicleId: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/overview`, data),
+  updateVehicleOverview: (vehicleId: string,vehicleType: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/overview`, data),
 
-  updateVehicleGeneralInfo: (vehicleId: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/general-info`, data),
+  updateVehicleGeneralInfo: (vehicleId: string,vehicleType: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/general-info`, data),
 
-  updateVehicleSource: (vehicleId: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/source`, data),
+  updateVehicleSource: (vehicleId: string,vehicleType: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/source`, data),
 
-  updateVehicleRegistration: (vehicleId: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/registration`, data),
+  updateVehicleRegistration: (vehicleId: string,vehicleType: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/registration`, data),
 
-  updateVehicleImport: (vehicleId: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/import`, data),
+  updateVehicleImport: (vehicleId: string,vehicleType: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/import`, data),
 
-  updateVehicleEngine: (vehicleId: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/engine`, data),
+  updateVehicleEngine: (vehicleId: string,vehicleType: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/engine`, data),
 
-  updateVehicleSpecifications: (vehicleId: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/specifications`, data),
+  updateVehicleSpecifications: (vehicleId: string,vehicleType: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/specifications`, data),
 
-  updateVehicleSafetyFeatures: (vehicleId: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/safety`, data),
+  updateVehicleSafetyFeatures: (vehicleId: string,vehicleType: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/safety`, data),
 
-  updateVehicleOdometer: (vehicleId: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/odometer`, data),
+  updateVehicleOdometer: (vehicleId: string,vehicleType: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/odometer`, data),
 
-  updateVehicleOwnership: (vehicleId: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/ownership`, data),
+  updateVehicleOwnership: (vehicleId: string,vehicleType: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/ownership`, data),
 
   // Vehicle Attachments
-  getVehicleAttachments: (vehicleId: string) =>
-    apiClient.get(`/api/vehicle/${vehicleId}/attachments`),
+  getVehicleAttachments: (vehicleId: string,vehicleType: string,) =>
+    apiClient.get(`/api/vehicle/${vehicleId}/${vehicleType}/attachments`),
 
-  uploadVehicleAttachment: (vehicleId: string, data: any) =>
-    apiClient.post(`/api/vehicle/${vehicleId}/attachments`, data),
+  uploadVehicleAttachment: (vehicleId: string,vehicleType: string, data: any) =>
+    apiClient.post(`/api/vehicle/${vehicleId}/${vehicleType}/attachments`, data),
 
-  deleteVehicleAttachment: (vehicleId: string, attachmentId: string) =>
-    apiClient.delete(`/api/vehicle/${vehicleId}/attachments/${attachmentId}`),
+  deleteVehicleAttachment: (vehicleId: string,vehicleType: string,  attachmentId: string) =>
+    apiClient.delete(`/api/vehicle/${vehicleId}/${vehicleType}/attachments/${attachmentId}`),
 
   // Workshop Status
-  updateVehicleWorkshopStatus: (vehicleId: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/workshop-status`, data),
+  updateVehicleWorkshopStatus: (vehicleId: string,vehicleType: string, data: any) =>
+    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/workshop-status`, data),
 };
 
 // Inspection Services
@@ -810,8 +810,8 @@ export const inspectionServices = {
 export const tradeinServices = {
   getTadeins: (params?: any) => apiClient.get("/api/tradein", { params }),
 
-  startAppraisal: (vehicleId: string) =>
-    apiClient.post(`/api/tradein/start/${vehicleId}`),
+  startAppraisal: (vehicleId: string,vehicleType: string,) =>
+    apiClient.post(`/api/tradein/start/${vehicleId}/${vehicleType}`),
 
   getTradein: (id: string) => apiClient.get(`/api/tradein/${id}`),
 

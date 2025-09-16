@@ -334,52 +334,6 @@ const getVehicleInspectionData = async (req, res) => {
   }
 };
 
-// // @desc    Save inspection/tradein data (Private - Auth required)
-// // @route   POST /api/master-inspection/save/:company_id/:vehicle_stock_id/:vehicle_type
-// // @access  Private
-// const saveInspectionData = async (req, res) => {
-//   try {
-//     const { company_id, vehicle_stock_id, vehicle_type } = req.params;
-//     const { inspection_result, reportPdfUrl } = req.body;
-
-//     const vehicle = await Vehicle.findOne({
-//       company_id,
-//       vehicle_stock_id: parseInt(vehicle_stock_id),
-//       vehicle_type,
-//     });
-
-//     if (!vehicle) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Vehicle not found",
-//       });
-//     }
-
-//     // Update the relevant result field
-//     if (vehicle_type === "inspection") {
-//       vehicle.inspection_result = inspection_result || [];
-//       vehicle.inspection_report_pdf = reportPdfUrl || [];
-//     } else {
-//       vehicle.trade_in_result = inspection_result || [];
-//       vehicle.tradein_report_pdf = reportPdfUrl || [];
-//     }
-
-//     await vehicle.save();
-
-//     res.status(200).json({
-//       success: true,
-//       message: `${vehicle_type} data saved successfully`,
-//       data: vehicle,
-//     });
-//   } catch (error) {
-//     console.error("Save inspection data error:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Error saving inspection data",
-//     });
-//   }
-// };
-
 
 // @desc    Get all active configurations for inspection/tradein
 // @route   GET /api/master-inspection/active-configs/:company_id/:vehicle_type

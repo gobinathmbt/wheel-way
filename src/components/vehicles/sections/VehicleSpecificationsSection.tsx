@@ -40,7 +40,7 @@ const VehicleSpecificationsSection: React.FC<VehicleSpecificationsSectionProps> 
 
   const handleSave = async () => {
     try {
-      await vehicleServices.updateVehicleSpecifications(vehicle._id, {
+      await vehicleServices.updateVehicleSpecifications(vehicle._id,vehicle.vehicle_type, {
         vehicle_specifications: [{
           number_of_seats: formData.number_of_seats,
           number_of_doors: formData.number_of_doors,

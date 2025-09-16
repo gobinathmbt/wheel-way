@@ -141,6 +141,16 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         configId
       );
       const data = response.data.data;
+
+      if (!data.config) {
+        // No configuration found
+        setConfig(null);
+        setShowConfigDialog(mode === "edit"); // Only show dialog in edit mode
+        setConfigurationLoaded(true);
+        setLoading(false);
+        return;
+      }
+
       setConfig(data.config);
       setDropdowns(data.dropdowns);
       setS3Config(data.s3Config);
@@ -156,6 +166,7 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         );
         setSelectedCategory(sortedCategories[0].category_id);
       }
+
       if (data.company.last_config_id) {
         setShowConfigDialog(false);
       }
@@ -166,20 +177,18 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
       toast.error(
         error.response?.data?.message || "Failed to load configuration"
       );
+      setConfig(null);
+      setShowConfigDialog(mode === "edit"); // Show dialog in edit mode on error
       setLoading(false);
     }
   };
 
   // Replace the existing useEffect
   useEffect(() => {
-    // Only show config dialog for edit mode and when we have the required params
     if (mode === "edit" && company_id && vehicle_type) {
-      // Check if we have vehicle_stock_id to look for last used config
       if (vehicle_stock_id) {
-        // Try to load with last used configuration
         loadConfiguration();
       } else {
-        // No vehicle_stock_id, show config selection dialog
         setShowConfigDialog(true);
       }
     } else {
@@ -1490,7 +1499,23 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     );
   }
 
+  // Replace the existing condition that renders "Configuration Not Found"
   if (!config) {
+    // If we're in edit mode and config is null, show the configuration dialog
+    if (mode === "edit") {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <ConfigurationSelectionDialog
+            isOpen={true}
+            companyId={company_id!}
+            vehicleType={vehicle_type!}
+            onConfigurationSelected={handleConfigurationSelected}
+          />
+        </div>
+      );
+    }
+
+    // For view mode or other cases, show the not found message
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="max-w-md mx-auto text-center shadow-lg">

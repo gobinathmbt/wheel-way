@@ -11,9 +11,13 @@ const getWorkshopVehicles = async (req, res) => {
     const { page = 1, limit = 20, search, vehicle_type } = req.query;
     const skip = (page - 1) * limit;
 
+    // Create a filter that handles both string and array formats for workshop_progress
     let filter = {
       company_id: req.user.company_id,
-      workshop_progress: "in_progress", // 🔥 Only in_progress
+      $or: [
+        { workshop_progress: "in_progress" }, // String format
+        { "workshop_progress.progress": "in_progress" } // Array of objects format
+      ]
     };
 
     if (vehicle_type) {
@@ -21,18 +25,21 @@ const getWorkshopVehicles = async (req, res) => {
     }
 
     if (search) {
-      filter.$or = [
-        { make: { $regex: search, $options: "i" } },
-        { model: { $regex: search, $options: "i" } },
-        { plate_no: { $regex: search, $options: "i" } },
-        { vin: { $regex: search, $options: "i" } },
-        { name: { $regex: search, $options: "i" } },
-      ];
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { make: { $regex: search, $options: "i" } },
+          { model: { $regex: search, $options: "i" } },
+          { plate_no: { $regex: search, $options: "i" } },
+          { vin: { $regex: search, $options: "i" } },
+          { name: { $regex: search, $options: "i" } },
+        ]
+      });
     }
 
     const vehicles = await Vehicle.find(filter)
       .select(
-        "vehicle_stock_id make model year plate_no vehicle_type vin name vehicle_hero_image  created_at"
+        "vehicle_stock_id make model year plate_no vehicle_type vin name vehicle_hero_image created_at"
       )
       .sort({ created_at: -1 })
       .skip(skip)
@@ -76,6 +83,19 @@ const getWorkshopVehicleDetails = async (req, res) => {
         success: false,
         message: "Vehicle not found",
       });
+    }
+
+    // For inspection vehicles, filter inspection_result to only include pushed stages
+    if (vehicle.vehicle_type === "inspection" && vehicle.inspection_result) {
+      // Get the stage names that have been pushed to workshop
+      const pushedStages = Array.isArray(vehicle.is_workshop) 
+        ? vehicle.is_workshop.map(stage => stage.stage_name)
+        : [];
+
+      // Filter inspection_result to only include pushed stages
+      vehicle.inspection_result = vehicle.inspection_result.filter(category => 
+        pushedStages.includes(category.category_name)
+      );
     }
 
     const quotes = await WorkshopQuote.find({

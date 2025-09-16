@@ -20,7 +20,7 @@ router.use(companyScopeCheck);
 
 // Trade-in routes
 router.get('/', getTadeins);
-router.post('/start/:vehicleId', startAppraisal);
+router.post('/start/:vehicleId/:vehicleType', startAppraisal);
 router.get('/:id', getTradein);
 router.put('/:id', updateTradein);
 router.post('/:id/complete', completeAppraisal);

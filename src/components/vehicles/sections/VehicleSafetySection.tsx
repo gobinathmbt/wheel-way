@@ -26,7 +26,7 @@ const VehicleSafetySection: React.FC<VehicleSafetySectionProps> = ({ vehicle, on
 
   const handleSave = async () => {
     try {
-      await vehicleServices.updateVehicleSafetyFeatures(vehicle._id, {
+      await vehicleServices.updateVehicleSafetyFeatures(vehicle._id,vehicle.vehicle_type, {
         vehicle_safety_features: [{
           features: formData.features,
         }]

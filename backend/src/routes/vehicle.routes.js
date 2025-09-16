@@ -43,30 +43,30 @@ router.use(companyScopeCheck);
 
 // Vehicle management routes
 router.get('/stock', getVehicleStock);
-router.get('/detail/:vehicleId', getVehicleDetail);
+router.get('/detail/:vehicleId/:vehicleType', getVehicleDetail);
 router.post('/bulk-import', bulkImportVehicles);
 router.post('/create-stock', createVehicleStock);
-router.put('/:id', updateVehicle);
+router.put('/:id/:vehicleType', updateVehicle);
 router.delete('/:id', deleteVehicle);
 
 // Vehicle section update routes
-router.put('/:id/overview', updateVehicleOverview);
-router.put('/:id/general-info', updateVehicleGeneralInfo);
-router.put('/:id/source', updateVehicleSource);
-router.put('/:id/registration', updateVehicleRegistration);
-router.put('/:id/import', updateVehicleImport);
-router.put('/:id/engine', updateVehicleEngine);
-router.put('/:id/specifications', updateVehicleSpecifications);
-router.put('/:id/safety', updateVehicleSafetyFeatures);
-router.put('/:id/odometer', updateVehicleOdometer);
-router.put('/:id/ownership', updateVehicleOwnership);
+router.put('/:id/:vehicleType/overview', updateVehicleOverview);
+router.put('/:id/:vehicleType/general-info', updateVehicleGeneralInfo);
+router.put('/:id/:vehicleType/source', updateVehicleSource);
+router.put('/:id/:vehicleType/registration', updateVehicleRegistration);
+router.put('/:id/:vehicleType/import', updateVehicleImport);
+router.put('/:id/:vehicleType/engine', updateVehicleEngine);
+router.put('/:id/:vehicleType/specifications', updateVehicleSpecifications);
+router.put('/:id/:vehicleType/safety', updateVehicleSafetyFeatures);
+router.put('/:id/:vehicleType/odometer', updateVehicleOdometer);
+router.put('/:id/:vehicleType/ownership', updateVehicleOwnership);
 
 // Vehicle attachment routes
-router.get('/:id/attachments', getVehicleAttachments);
-router.post('/:id/attachments', uploadVehicleAttachment);
-router.delete('/:id/attachments/:attachmentId', deleteVehicleAttachment);
+router.get('/:id/:vehicleType/attachments', getVehicleAttachments);
+router.post('/:id/:vehicleType/attachments', uploadVehicleAttachment);
+router.delete('/:id/:vehicleType/attachments/:attachmentId', deleteVehicleAttachment);
 
 // Workshop status update
-router.put('/:id/workshop-status', updateVehicleWorkshopStatus);
+router.put('/:id/:vehicleType/workshop-status', updateVehicleWorkshopStatus);
 
 module.exports = router;

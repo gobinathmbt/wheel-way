@@ -34,7 +34,7 @@ const VehicleEngineSection: React.FC<VehicleEngineSectionProps> = ({ vehicle, on
 
   const handleSave = async () => {
     try {
-      await vehicleServices.updateVehicleEngine(vehicle._id, {
+      await vehicleServices.updateVehicleEngine(vehicle._id,vehicle.vehicle_type, {
         vehicle_eng_transmission: [{
           engine_no: formData.engine_no,
           engine_type: formData.engine_type,

@@ -100,7 +100,7 @@ const checkWorkshopCompletion = async (req, res) => {
 const completeWorkshop = async (req, res) => {
   try {
     const { vehicleId, vehicleType } = req.params;
-    const { confirmation } = req.body;
+    const { confirmation, stageName } = req.body; // stageName for inspection
 
     // Validate confirmation
     if (confirmation !== "CONFIRM") {
@@ -123,77 +123,142 @@ const completeWorkshop = async (req, res) => {
       });
     }
 
-    // Check if workshop can be completed
-    const quotes = await WorkshopQuote.find({
-      vehicle_type: vehicleType,
-      company_id: req.user.company_id,
-      vehicle_stock_id: vehicle.vehicle_stock_id,
-    });
+    if (vehicleType === "inspection" && stageName) {
+      // Handle stage completion for inspection
 
-    const completedQuotes = quotes.filter(
-      (quote) => quote.status === "completed_jobs"
-    );
-    if (completedQuotes.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No completed jobs found for this vehicle",
-      });
-    }
+      // Update workshop_progress for specific stage
+      if (Array.isArray(vehicle.workshop_progress)) {
+        const progressIndex = vehicle.workshop_progress.findIndex(
+          (item) => item.stage_name === stageName
+        );
+        if (progressIndex !== -1) {
+          vehicle.workshop_progress[progressIndex].progress = "completed";
+          vehicle.workshop_progress[progressIndex].completed_at = new Date();
+        }
+      }
 
-    // Set vehicle workshop as completed and report as preparing
-    vehicle.workshop_progress = "completed";
-    vehicle.workshop_report_preparing = true;
-    await vehicle.save();
+      // Update workshop_report_preparing for specific stage
+      if (Array.isArray(vehicle.workshop_report_preparing)) {
+        const preparingIndex = vehicle.workshop_report_preparing.findIndex(
+          (item) => item.stage_name === stageName
+        );
+        if (preparingIndex !== -1) {
+          vehicle.workshop_report_preparing[preparingIndex].preparing = true;
+        } else {
+          vehicle.workshop_report_preparing.push({
+            stage_name: stageName,
+            preparing: true,
+          });
+        }
+      }
 
-    // Send to SQS for report generation
-    const {
-      sendToWorkshopReportQueue,
-    } = require("./workshopReportSqs.controller");
-    const queueResult = await sendToWorkshopReportQueue({
-      vehicle_id: vehicle._id,
-      company_id: req.user.company_id,
-      vehicle_stock_id: vehicle.vehicle_stock_id,
-      vehicle_type: vehicleType,
-      completed_by: req.user._id,
-    });
-
-    if (!queueResult.success) {
-      // Rollback vehicle status
-      vehicle.workshop_progress = "in_progress";
-      vehicle.workshop_report_preparing = false;
       await vehicle.save();
 
-      return res.status(500).json({
-        success: false,
-        message: "Failed to queue report generation",
-      });
-    }
-
-    // Log the event
-    await logEvent({
-      event_type: "workshop_operation",
-      event_action: "workshop_completed",
-      event_description: `Workshop completed for vehicle ${vehicle.vehicle_stock_id}`,
-      company_id: req.user.company_id,
-      user_id: req.user._id,
-      resource_type: "vehicle",
-      resource_id: vehicle._id.toString(),
-      metadata: {
+      // Send stage-specific data to SQS
+      const {
+        sendToWorkshopReportQueue,
+      } = require("./workshopReportSqs.controller");
+      const queueResult = await sendToWorkshopReportQueue({
+        vehicle_id: vehicle._id,
+        company_id: req.user.company_id,
         vehicle_stock_id: vehicle.vehicle_stock_id,
         vehicle_type: vehicleType,
-        queue_id: queueResult.queueId,
-      },
-    });
+        stage_name: stageName,
+        completed_by: req.user._id,
+      });
 
-    res.json({
-      success: true,
-      message:
-        "Workshop completed successfully. Report will be available shortly.",
-      data: {
-        queue_id: queueResult.queueId,
+      if (!queueResult.success) {
+        // Rollback stage status
+        if (Array.isArray(vehicle.workshop_progress)) {
+          const progressIndex = vehicle.workshop_progress.findIndex(
+            (item) => item.stage_name === stageName
+          );
+          if (progressIndex !== -1) {
+            vehicle.workshop_progress[progressIndex].progress = "in_progress";
+            delete vehicle.workshop_progress[progressIndex].completed_at;
+          }
+        }
+
+        if (Array.isArray(vehicle.workshop_report_preparing)) {
+          const preparingIndex = vehicle.workshop_report_preparing.findIndex(
+            (item) => item.stage_name === stageName
+          );
+          if (preparingIndex !== -1) {
+            vehicle.workshop_report_preparing[preparingIndex].preparing = false;
+          }
+        }
+
+        await vehicle.save();
+
+        return res.status(500).json({
+          success: false,
+          message: "Failed to queue report generation",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Stage "${stageName}" completed successfully. Report will be available shortly.`,
+        data: {
+          queue_id: queueResult.queueId,
+          vehicle_id: vehicle._id,
+          stage_name: stageName,
+        },
+      });
+    } else {
+      // Handle full workshop completion for tradein (existing logic)
+      const quotes = await WorkshopQuote.find({
+        vehicle_type: vehicleType,
+        company_id: req.user.company_id,
+        vehicle_stock_id: vehicle.vehicle_stock_id,
+      });
+
+      const completedQuotes = quotes.filter(
+        (quote) => quote.status === "completed_jobs"
+      );
+      if (completedQuotes.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No completed jobs found for this vehicle",
+        });
+      }
+
+      vehicle.workshop_progress = "completed";
+      vehicle.workshop_report_preparing = true;
+      await vehicle.save();
+
+      const {
+        sendToWorkshopReportQueue,
+      } = require("./workshopReportSqs.controller");
+      const queueResult = await sendToWorkshopReportQueue({
         vehicle_id: vehicle._id,
-      },
-    });
+        company_id: req.user.company_id,
+        vehicle_stock_id: vehicle.vehicle_stock_id,
+        vehicle_type: vehicleType,
+        completed_by: req.user._id,
+      });
+
+      if (!queueResult.success) {
+        vehicle.workshop_progress = "in_progress";
+        vehicle.workshop_report_preparing = false;
+        await vehicle.save();
+
+        return res.status(500).json({
+          success: false,
+          message: "Failed to queue report generation",
+        });
+      }
+
+      res.json({
+        success: true,
+        message:
+          "Workshop completed successfully. Report will be available shortly.",
+        data: {
+          queue_id: queueResult.queueId,
+          vehicle_id: vehicle._id,
+        },
+      });
+    }
   } catch (error) {
     console.error("Complete workshop error:", error);
     res.status(500).json({
@@ -205,7 +270,7 @@ const completeWorkshop = async (req, res) => {
 
 // Generate workshop report (called by SQS processor)
 const generateWorkshopReport = async (messageData) => {
-  console.log(messageData)
+  console.log(messageData);
   try {
     const {
       vehicle_id,
@@ -269,13 +334,22 @@ const generateInspectionReport = async (
   company,
   quotes,
   conversations,
-  completed_by
+  completed_by,
+  specificStageName = null
 ) => {
   const resultData = vehicle.inspection_result || [];
+  let stagesToProcess = resultData;
+
+  // If specific stage is provided, filter to only that stage
+  if (specificStageName) {
+    stagesToProcess = resultData.filter(
+      (category) => category.category_name === specificStageName
+    );
+  }
   const reportReadyFlags = [];
 
   // Process each category (stage)
-  for (const category of resultData) {
+  for (const category of stagesToProcess) {
     if (!category.sections || category.sections.length === 0) continue;
 
     const stageQuotes = [];
@@ -400,14 +474,54 @@ const generateInspectionReport = async (
       ready: true,
       generated_at: new Date(),
     });
+    if (specificStageName && category.category_name === specificStageName) {
+      // Update workshop_report_ready for specific stage
+      if (!Array.isArray(vehicle.workshop_report_ready)) {
+        vehicle.workshop_report_ready = [];
+      }
+
+      const readyIndex = vehicle.workshop_report_ready.findIndex(
+        (item) => item.stage_name === specificStageName
+      );
+
+      if (readyIndex !== -1) {
+        vehicle.workshop_report_ready[readyIndex].ready = true;
+        vehicle.workshop_report_ready[readyIndex].generated_at = new Date();
+      } else {
+        vehicle.workshop_report_ready.push({
+          stage_name: specificStageName,
+          ready: true,
+          generated_at: new Date(),
+        });
+      }
+
+      // Update workshop_report_preparing for specific stage
+      if (Array.isArray(vehicle.workshop_report_preparing)) {
+        const preparingIndex = vehicle.workshop_report_preparing.findIndex(
+          (item) => item.stage_name === specificStageName
+        );
+        if (preparingIndex !== -1) {
+          vehicle.workshop_report_preparing[preparingIndex].preparing = false;
+        }
+      }
+
+      await vehicle.save();
+      return; // Exit after processing the specific stage
+    }
   }
 
-  // Update vehicle report status
-  vehicle.workshop_report_ready = reportReadyFlags;
-  vehicle.workshop_report_preparing = false;
-  await vehicle.save();
-};
+  if (!specificStageName) {
+    const reportReadyFlags = stagesToProcess.map((category) => ({
+      stage_name: category.category_name,
+      ready: true,
+      generated_at: new Date(),
+    }));
 
+    vehicle.workshop_report_ready = reportReadyFlags;
+    vehicle.workshop_report_preparing = false;
+    await vehicle.save();
+  }
+};
 // Generate tradein workshop report (single report)
 const generateTradeinReport = async (
   vehicle,
@@ -546,21 +660,23 @@ const calculateStageStatistics = (quotes) => {
   if (quotes.length > 0) {
     // Get valid start dates
     const validStartDates = quotes
-      .map(q => parseDate(q.quote_created_at))
-      .filter(date => date !== null);
-    
+      .map((q) => parseDate(q.quote_created_at))
+      .filter((date) => date !== null);
+
     // Get valid completion dates
     const validCompletionDates = quotes
-      .map(q => parseDate(q.work_completed_at))
-      .filter(date => date !== null);
+      .map((q) => parseDate(q.work_completed_at))
+      .filter((date) => date !== null);
 
-    startDate = validStartDates.length > 0 
-      ? new Date(Math.min(...validStartDates.map(d => d.getTime()))) 
-      : null;
-    
-    completionDate = validCompletionDates.length > 0 
-      ? new Date(Math.max(...validCompletionDates.map(d => d.getTime()))) 
-      : null;
+    startDate =
+      validStartDates.length > 0
+        ? new Date(Math.min(...validStartDates.map((d) => d.getTime())))
+        : null;
+
+    completionDate =
+      validCompletionDates.length > 0
+        ? new Date(Math.max(...validCompletionDates.map((d) => d.getTime())))
+        : null;
   }
 
   // Calculate duration safely
@@ -592,7 +708,7 @@ const calculateStageStatistics = (quotes) => {
     ),
     start_date: startDate,
     completion_date: completionDate,
-    duration_days: durationDays // This will be null if calculation fails, avoiding NaN
+    duration_days: durationDays, // This will be null if calculation fails, avoiding NaN
   };
 
   const statusCounts = {
@@ -606,8 +722,11 @@ const calculateStageStatistics = (quotes) => {
   };
 
   // Count statuses based on work completion
-  quotes.forEach(quote => {
-    if (quote.work_details && getNumericValue(quote.work_details.total_amount) > 0) {
+  quotes.forEach((quote) => {
+    if (
+      quote.work_details &&
+      getNumericValue(quote.work_details.total_amount) > 0
+    ) {
       statusCounts.completed_jobs++;
     } else if (quote.approved_supplier) {
       statusCounts.work_in_progress++;
@@ -629,11 +748,14 @@ const calculateStageStatistics = (quotes) => {
     },
     supplier_performance: quotes.reduce((acc, quote) => {
       if (quote.approved_supplier && quote.work_details) {
-        const supplierId = quote.approved_supplier.supplier_id || quote.approved_supplier;
-        const supplierName = quote.approved_supplier.supplier_name || 'Unknown';
+        const supplierId =
+          quote.approved_supplier.supplier_id || quote.approved_supplier;
+        const supplierName = quote.approved_supplier.supplier_name || "Unknown";
         const totalAmount = getNumericValue(quote.work_details.total_amount);
-        
-        const existing = acc.find(s => s.supplier_id.toString() === supplierId.toString());
+
+        const existing = acc.find(
+          (s) => s.supplier_id.toString() === supplierId.toString()
+        );
         if (existing) {
           existing.jobs_completed++;
           existing.total_earned += totalAmount;
@@ -645,12 +767,12 @@ const calculateStageStatistics = (quotes) => {
             jobs_completed: 1,
             avg_cost: totalAmount,
             avg_time: durationDays || 0,
-            total_earned: totalAmount
+            total_earned: totalAmount,
           });
         }
       }
       return acc;
-    }, [])
+    }, []),
   };
 
   return { summary, detailed };

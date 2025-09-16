@@ -35,7 +35,7 @@ const VehicleOverviewSection: React.FC<VehicleOverviewSectionProps> = ({
 
   const handleSave = async () => {
     try {
-      await vehicleServices.updateVehicleOverview(vehicle._id, formData);
+      await vehicleServices.updateVehicleOverview(vehicle._id,vehicle.vehicle_type, formData);
       toast.success("Vehicle overview updated successfully");
       setIsEditing(false);
       onUpdate();

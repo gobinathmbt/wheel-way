@@ -25,7 +25,7 @@ const VehicleOdometerSection: React.FC<VehicleOdometerSectionProps> = ({ vehicle
 
   const handleSave = async () => {
     try {
-      await vehicleServices.updateVehicleOdometer(vehicle._id, {
+      await vehicleServices.updateVehicleOdometer(vehicle._id,vehicle.vehicle_type, {
         vehicle_odometer: [{
           reading: formData.reading,
           reading_date: formData.reading_date,

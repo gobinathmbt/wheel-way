@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -53,22 +53,112 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
 }) => {
   const navigate = useNavigate();
   const [workshopReportModalOpen, setWorkshopReportModalOpen] = useState(false);
-  const [workshopStageSelectionOpen, setWorkshopStageSelectionOpen] = useState(false);
+  const [workshopStageSelectionOpen, setWorkshopStageSelectionOpen] =
+    useState(false);
   const [selectedStage, setSelectedStage] = useState<string>("");
+  const [stageSelectionOpen, setStageSelectionOpen] = useState(false);
+  const [selectedStages, setSelectedStages] = useState<string[]>([]);
+  const [availableStages, setAvailableStages] = useState<string[]>([]);
 
+  // Move all hooks before any conditional returns
+  useEffect(() => {
+    if (
+      vehicle &&
+      vehicle.vehicle_type === "inspection" &&
+      vehicle.inspection_result
+    ) {
+      const stages = vehicle.inspection_result
+        .map((item: any) => item.category_name)
+        .filter(Boolean);
+      setAvailableStages(stages);
+    }
+  }, [vehicle]);
+
+  // Now check if vehicle exists and return early if needed
   if (!vehicle) return null;
+
+  const isStageInWorkshop = (stageName: string) => {
+    if (!Array.isArray(vehicle.is_workshop)) return false;
+    const stageInfo = vehicle.is_workshop.find(
+      (item: any) => item.stage_name === stageName
+    );
+    return stageInfo?.in_workshop || false;
+  };
+
+  // Helper function to get stage progress
+  const getStageProgress = (stageName: string) => {
+    if (!Array.isArray(vehicle.workshop_progress)) return "not_processed_yet";
+    const progressInfo = vehicle.workshop_progress.find(
+      (item: any) => item.stage_name === stageName
+    );
+    return progressInfo?.progress || "not_processed_yet";
+  };
 
   const handlePushToWorkshop = async () => {
     try {
-      await vehicleServices.updateVehicleWorkshopStatus(vehicle._id, {
-        is_workshop: true,
-        workshop_progress: "in_progress",
-      });
-      toast.success("Vehicle pushed to workshop successfully");
-      onUpdate();
+      if (vehicle.vehicle_type === "inspection") {
+        // Open stage selection modal
+        setStageSelectionOpen(true);
+      } else {
+        // Direct push for tradein
+        await vehicleServices.updateVehicleWorkshopStatus(
+          vehicle._id,
+          vehicleType,
+          {
+            is_workshop: true,
+            workshop_progress: "in_progress",
+          }
+        );
+        toast.success("Vehicle pushed to workshop successfully");
+        onUpdate();
+      }
     } catch (error) {
       toast.error("Failed to push vehicle to workshop");
     }
+  };
+
+  // New function to handle stage workshop push
+  const handleStagePush = async () => {
+    if (selectedStages.length === 0) {
+      toast.error("Please select at least one stage");
+      return;
+    }
+
+    try {
+      await vehicleServices.updateVehicleWorkshopStatus(
+        vehicle._id,
+        vehicleType,
+        {
+          stages: selectedStages,
+          workshop_action: "push",
+        }
+      );
+
+      toast.success(`Selected stages pushed to workshop successfully`);
+      setStageSelectionOpen(false);
+      setSelectedStages([]);
+      onUpdate();
+    } catch (error) {
+      toast.error("Failed to push stages to workshop");
+    }
+  };
+
+  // Function to get workshop status display for inspection
+  const getWorkshopStatusDisplay = () => {
+    if (vehicle.vehicle_type !== "inspection") {
+      return vehicle.is_workshop ? "In Workshop" : "Push to Workshop";
+    }
+
+    // For inspection, check if any stages are in workshop
+    if (Array.isArray(vehicle.is_workshop)) {
+      const inWorkshopStages = vehicle.is_workshop.filter(
+        (item: any) => item.in_workshop
+      );
+      if (inWorkshopStages.length > 0) {
+        return `${inWorkshopStages.length} Stage(s) in Workshop`;
+      }
+    }
+    return "Push Stages to Workshop";
   };
 
   const handleOpenMasterInspection = () => {
@@ -94,28 +184,6 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
     setSelectedStage(stageName);
     setWorkshopStageSelectionOpen(false);
     setWorkshopReportModalOpen(true);
-  };
-
-  const getReportStatus = () => {
-    if (vehicle.workshop_report_preparing) return "Preparing...";
-
-    if (vehicle.vehicle_type === "inspection") {
-      const readyStages = Array.isArray(vehicle.workshop_report_ready)
-        ? vehicle.workshop_report_ready
-        : [];
-      return readyStages.length > 0
-        ? `${readyStages.length} stages ready`
-        : "No reports ready";
-    } else {
-      return vehicle.workshop_report_ready ? "Report ready" : "No report ready";
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount || 0);
   };
 
   return (
@@ -148,22 +216,40 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
               <div className="flex items-center justify-between border-t pt-4">
                 <div className="flex space-x-2">
                   <Button
-                    variant={vehicle.is_workshop ? "default" : "outline"}
+                    variant={
+                      vehicle.vehicle_type === "inspection"
+                        ? Array.isArray(vehicle.is_workshop) &&
+                          vehicle.is_workshop.some(
+                            (item: any) => item.in_workshop
+                          )
+                          ? "default"
+                          : "outline"
+                        : vehicle.is_workshop
+                        ? "default"
+                        : "outline"
+                    }
                     size="sm"
                     onClick={handlePushToWorkshop}
-                    disabled={vehicle.workshop_progress === "completed"}
+                    disabled={
+                      vehicle.vehicle_type === "inspection"
+                        ? false // Allow multiple stage pushes for inspection
+                        : vehicle.workshop_progress === "completed"
+                    }
                     className={
-                      vehicle.is_workshop
+                      (
+                        vehicle.vehicle_type === "inspection"
+                          ? Array.isArray(vehicle.is_workshop) &&
+                            vehicle.is_workshop.some(
+                              (item: any) => item.in_workshop
+                            )
+                          : vehicle.is_workshop
+                      )
                         ? "bg-orange-500 hover:bg-orange-600 text-white"
                         : ""
                     }
                   >
                     <Wrench className="h-4 w-4 mr-2" />
-                    {vehicle.is_workshop
-                      ? vehicle.workshop_progress === "completed"
-                        ? "Workshop Complete"
-                        : "In Workshop"
-                      : "Push to Workshop"}
+                    {getWorkshopStatusDisplay()}
                   </Button>
 
                   <Button
@@ -216,9 +302,15 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
             </TabsContent>
 
             <TabsContent value="details" className="space-y-6">
-              <VehicleGeneralInfoSection vehicle={vehicle} onUpdate={onUpdate} />
+              <VehicleGeneralInfoSection
+                vehicle={vehicle}
+                onUpdate={onUpdate}
+              />
               <VehicleSourceSection vehicle={vehicle} onUpdate={onUpdate} />
-              <VehicleRegistrationSection vehicle={vehicle} onUpdate={onUpdate} />
+              <VehicleRegistrationSection
+                vehicle={vehicle}
+                onUpdate={onUpdate}
+              />
               <VehicleImportSection vehicle={vehicle} onUpdate={onUpdate} />
               <VehicleEngineSection vehicle={vehicle} onUpdate={onUpdate} />
               <VehicleSpecificationsSection
@@ -231,13 +323,19 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
             </TabsContent>
 
             <TabsContent value="attachments">
-              <VehicleAttachmentsSection vehicle={vehicle} onUpdate={onUpdate} />
+              <VehicleAttachmentsSection
+                vehicle={vehicle}
+                onUpdate={onUpdate}
+                vehicleType={vehicleType}
+              />
             </TabsContent>
 
             <TabsContent value="status" className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Processing Status</h4>
+                  <h4 className="text-sm font-medium mb-2">
+                    Processing Status
+                  </h4>
                   <Badge variant="outline">{vehicle.status}</Badge>
                 </div>
                 <div>
@@ -299,6 +397,73 @@ const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
                 No inspection stage reports available yet
               </p>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stage Selection Modal */}
+      <Dialog open={stageSelectionOpen} onOpenChange={setStageSelectionOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <SheetTitle>Select Stages for Workshop</SheetTitle>
+            <SheetDescription>
+              Choose which inspection stages to push to workshop
+            </SheetDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {availableStages.map((stageName) => {
+              const inWorkshop = isStageInWorkshop(stageName);
+              const progress = getStageProgress(stageName);
+
+              return (
+                <div
+                  key={stageName}
+                  className="flex items-center justify-between p-3 border rounded"
+                >
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedStages.includes(stageName)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedStages((prev) => [...prev, stageName]);
+                        } else {
+                          setSelectedStages((prev) =>
+                            prev.filter((s) => s !== stageName)
+                          );
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <span className="font-medium">{stageName}</span>
+                  </div>
+                  <div className="flex space-x-1">
+                    {inWorkshop && (
+                      <Badge variant="default" className="text-xs">
+                        In Workshop
+                      </Badge>
+                    )}
+                    <Badge
+                      variant={
+                        progress === "completed" ? "default" : "secondary"
+                      }
+                      className="text-xs"
+                    >
+                      {progress.replace("_", " ")}
+                    </Badge>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex space-x-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setStageSelectionOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleStagePush}>Push Selected Stages</Button>
           </div>
         </DialogContent>
       </Dialog>

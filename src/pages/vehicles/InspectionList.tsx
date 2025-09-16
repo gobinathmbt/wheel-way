@@ -175,9 +175,9 @@ const InspectionList = () => {
     return;
   };
 
-  const handleViewDetails = async (vehicleId: string) => {
+  const handleViewDetails = async (vehicleId: string,vehicleType: string,) => {
     try {
-      const response = await vehicleServices.getVehicleDetail(vehicleId);
+      const response = await vehicleServices.getVehicleDetail(vehicleId,vehicleType);
       setSelectedVehicle(response.data.data);
     } catch (error) {
       toast.error("Failed to load vehicle details");
@@ -428,7 +428,7 @@ const InspectionList = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleViewDetails(vehicle.vehicle_stock_id)}
+                onClick={() => handleViewDetails(vehicle.vehicle_stock_id,vehicle.vehicle_type)}
                 className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
               >
                 <Eye className="h-4 w-4" />

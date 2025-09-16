@@ -31,7 +31,7 @@ const VehicleSourceSection: React.FC<VehicleSourceSectionProps> = ({
 
   const handleSave = async () => {
     try {
-      await vehicleServices.updateVehicleSource(vehicle._id, { 
+      await vehicleServices.updateVehicleSource(vehicle._id,vehicle.vehicle_type, {
         vehicle_source: [{
           supplier: formData.supplier,
           purchase_date: formData.purchase_date,

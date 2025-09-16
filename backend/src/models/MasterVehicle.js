@@ -10,6 +10,10 @@ const MasterVehicleSchema = new mongoose.Schema({
     ref: 'Company',
     required: true
   },
+   dealership_id: {
+    type: String,
+    ref: "Dealership",
+  },
   
   // Vehicle Type & Status
   vehicle_type: {
@@ -137,11 +141,9 @@ const MasterVehicleSchema = new mongoose.Schema({
     position: Number,
     image_category: {
       type: String,
-      enum: ['listImage', 'otherImage', 'inspectionImage']
     },
     file_category: {
       type: String,
-      enum: ['document', 'report', 'certificate', 'other']
     },
     uploaded_at: {
       type: Date,

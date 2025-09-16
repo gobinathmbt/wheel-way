@@ -1,4 +1,3 @@
-
 const Vehicle = require("../models/Vehicle");
 const Dealership = require("../models/Dealership");
 const { logEvent } = require("./logs.controller");
@@ -53,7 +52,7 @@ const getVehicleStock = async (req, res) => {
       vehicle_eng_transmission: 0,
       vehicle_specifications: 0,
       vehicle_safety_features: 0,
-      vehicle_odometer: 0
+      vehicle_odometer: 0,
     };
 
     // Use parallel execution for count and data retrieval
@@ -63,7 +62,7 @@ const getVehicleStock = async (req, res) => {
         .skip(skip)
         .limit(numericLimit)
         .lean(), // Use lean for faster queries
-      Vehicle.countDocuments(filter)
+      Vehicle.countDocuments(filter),
     ]);
 
     res.status(200).json({
@@ -94,6 +93,7 @@ const getVehicleDetail = async (req, res) => {
     const vehicle = await Vehicle.findOne({
       vehicle_stock_id: req.params.vehicleId,
       company_id: req.user.company_id,
+       vehicle_type: req.params.vehicleType,
     });
 
     if (!vehicle) {
@@ -137,7 +137,7 @@ const createVehicleStock = async (req, res) => {
       purchase_date,
       purchase_notes,
       year,
-      vehicle_hero_image
+      vehicle_hero_image,
     } = req.body;
 
     // Validate required fields
@@ -149,7 +149,9 @@ const createVehicleStock = async (req, res) => {
     }
 
     // Generate new vehicle stock ID
-    const lastVehicle = await Vehicle.findOne({ company_id: req.user.company_id })
+    const lastVehicle = await Vehicle.findOne({
+      company_id: req.user.company_id,
+    })
       .sort({ vehicle_stock_id: -1 })
       .limit(1);
 
@@ -158,15 +160,16 @@ const createVehicleStock = async (req, res) => {
     // Check if VIN or plate number already exists for this company
     const existingVehicle = await Vehicle.findOne({
       company_id: req.user.company_id,
-      $or: [{ vin }, { plate_no }]
+      $or: [{ vin }, { plate_no }],
     });
 
     if (existingVehicle) {
       return res.status(400).json({
         success: false,
-        message: existingVehicle.vin === vin
-          ? "A vehicle with this VIN already exists"
-          : "A vehicle with this registration number already exists",
+        message:
+          existingVehicle.vin === vin
+            ? "A vehicle with this VIN already exists"
+            : "A vehicle with this registration number already exists",
       });
     }
 
@@ -174,8 +177,9 @@ const createVehicleStock = async (req, res) => {
     const vehicleData = {
       vehicle_stock_id: nextStockId,
       company_id: req.user.company_id,
-      vehicle_type: vehicle_type || 'tradein',
-      vehicle_hero_image: vehicle_hero_image || 'https://via.placeholder.com/400x300',
+      vehicle_type: vehicle_type || "tradein",
+      vehicle_hero_image:
+        vehicle_hero_image || "https://via.placeholder.com/400x300",
       vin,
       plate_no,
       make,
@@ -184,26 +188,30 @@ const createVehicleStock = async (req, res) => {
       chassis_no: vin, // Using VIN as chassis number
       variant,
       body_style,
-      status: 'pending',
-      queue_status: 'processed', // Skip queue processing for manually created vehicles
+      status: "pending",
+      queue_status: "processed", // Skip queue processing for manually created vehicles
     };
 
     // Add vehicle source information
     if (supplier || purchase_date || purchase_type || purchase_notes) {
-      vehicleData.vehicle_source = [{
-        supplier,
-        purchase_date: purchase_date ? new Date(purchase_date) : null,
-        purchase_type,
-        purchase_notes
-      }];
+      vehicleData.vehicle_source = [
+        {
+          supplier,
+          purchase_date: purchase_date ? new Date(purchase_date) : null,
+          purchase_type,
+          purchase_notes,
+        },
+      ];
     }
 
     // Add other details if provided
     if (status) {
-      vehicleData.vehicle_other_details = [{
-        status,
-        trader_acquisition: dealership
-      }];
+      vehicleData.vehicle_other_details = [
+        {
+          status,
+          trader_acquisition: dealership,
+        },
+      ];
     }
 
     const newVehicle = new Vehicle(vehicleData);
@@ -223,7 +231,7 @@ const createVehicleStock = async (req, res) => {
         model,
         year,
         vin,
-        plate_no
+        plate_no,
       },
     });
 
@@ -240,8 +248,6 @@ const createVehicleStock = async (req, res) => {
     });
   }
 };
-
-// ... keep existing code (bulk import, update, delete, receive vehicle data, process queue, section updates, attachments)
 
 // @desc    Bulk import vehicles
 // @route   POST /api/vehicle/bulk-import
@@ -384,7 +390,7 @@ const receiveVehicleData = async (req, res) => {
       }
 
       // Process each vehicle to ensure schema compliance
-      const processedVehicles = requestData.map(vehicle => {
+      const processedVehicles = requestData.map((vehicle) => {
         const { schemaFields } = separateSchemaAndCustomFields(vehicle);
         return schemaFields;
       });
@@ -437,7 +443,10 @@ const receiveVehicleData = async (req, res) => {
       }
 
       // Handle dealership_id logic
-      const dealershipResult = await handleDealershipId(requestData, requestData.company_id);
+      const dealershipResult = await handleDealershipId(
+        requestData,
+        requestData.company_id
+      );
       if (!dealershipResult.success) {
         return res.status(400).json({
           success: false,
@@ -510,26 +519,27 @@ const handleDealershipId = async (vehicleData, companyId) => {
     if (vehicleData.dealership_id) {
       const existingDealerships = await Dealership.find({
         company_id: companyId,
-        is_active: true
-      }).select('dealership_id dealership_name');
+        is_active: true,
+      }).select("dealership_id dealership_name");
 
       // Check if the provided dealership_id exists and is valid
       const isValidDealership = existingDealerships.some(
-        dealership => dealership.dealership_id === vehicleData.dealership_id
+        (dealership) => dealership.dealership_id === vehicleData.dealership_id
       );
 
       if (isValidDealership) {
         return {
           success: true,
           dealership_id: vehicleData.dealership_id,
-          message: "Dealership is valid"
+          message: "Dealership is valid",
         };
       } else {
         return {
           success: false,
           dealership_id: vehicleData.dealership_id,
-          message: "Dealership is invalid - provided dealership_id does not exist or is not active for this company",
-          available_dealerships: existingDealerships
+          message:
+            "Dealership is invalid - provided dealership_id does not exist or is not active for this company",
+          available_dealerships: existingDealerships,
         };
       }
     }
@@ -537,8 +547,8 @@ const handleDealershipId = async (vehicleData, companyId) => {
     // Check existing dealerships for the company
     const existingDealerships = await Dealership.find({
       company_id: companyId,
-      is_active: true
-    }).select('dealership_id dealership_name');
+      is_active: true,
+    }).select("dealership_id dealership_name");
 
     const dealershipCount = existingDealerships.length;
 
@@ -546,30 +556,30 @@ const handleDealershipId = async (vehicleData, companyId) => {
       // No dealerships found, leave it empty
       return {
         success: true,
-        dealership_id: null
+        dealership_id: null,
       };
     } else if (dealershipCount === 1) {
       // Exactly one dealership found, use it
       return {
         success: true,
-        dealership_id: existingDealerships[0].dealership_id
+        dealership_id: existingDealerships[0].dealership_id,
       };
     } else {
       // Multiple dealerships found, require explicit dealership_id
-      const dealershipList = existingDealerships.map(d =>
-        `${d.dealership_id} (${d.dealership_name})`
-      ).join(', ');
+      const dealershipList = existingDealerships
+        .map((d) => `${d.dealership_id} (${d.dealership_name})`)
+        .join(", ");
 
       return {
         success: false,
-        message: `Multiple dealerships found for this company. Please provide dealership_id. Available dealerships: ${dealershipList}`
+        message: `Multiple dealerships found for this company. Please provide dealership_id. Available dealerships: ${dealershipList}`,
       };
     }
   } catch (error) {
-    console.error('Error handling dealership_id:', error);
+    console.error("Error handling dealership_id:", error);
     return {
       success: false,
-      message: 'Error checking dealership information'
+      message: "Error checking dealership information",
     };
   }
 };
@@ -613,7 +623,7 @@ const processQueueManually = async (req, res) => {
 const updateVehicleOverview = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
+      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
       {
         make: req.body.make,
         model: req.body.model,
@@ -654,7 +664,7 @@ const updateVehicleOverview = async (req, res) => {
 const updateVehicleGeneralInfo = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
+      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
       { vehicle_other_details: req.body.vehicle_other_details },
       { new: true, runValidators: true }
     );
@@ -685,7 +695,7 @@ const updateVehicleGeneralInfo = async (req, res) => {
 const updateVehicleSource = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
+      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
       { vehicle_source: req.body.vehicle_source },
       { new: true, runValidators: true }
     );
@@ -716,7 +726,7 @@ const updateVehicleSource = async (req, res) => {
 const updateVehicleRegistration = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
+      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
       { vehicle_registration: req.body.vehicle_registration },
       { new: true, runValidators: true }
     );
@@ -747,7 +757,7 @@ const updateVehicleRegistration = async (req, res) => {
 const updateVehicleImport = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
+      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
       { vehicle_import_details: req.body.vehicle_import_details },
       { new: true, runValidators: true }
     );
@@ -778,7 +788,7 @@ const updateVehicleImport = async (req, res) => {
 const updateVehicleEngine = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
+      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
       { vehicle_eng_transmission: req.body.vehicle_eng_transmission },
       { new: true, runValidators: true }
     );
@@ -809,7 +819,7 @@ const updateVehicleEngine = async (req, res) => {
 const updateVehicleSpecifications = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
+      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
       { vehicle_specifications: req.body.vehicle_specifications },
       { new: true, runValidators: true }
     );
@@ -840,7 +850,7 @@ const updateVehicleSpecifications = async (req, res) => {
 const updateVehicleSafetyFeatures = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
+      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
       { vehicle_safety_features: req.body.vehicle_safety_features },
       { new: true, runValidators: true }
     );
@@ -871,7 +881,7 @@ const updateVehicleSafetyFeatures = async (req, res) => {
 const updateVehicleOdometer = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
+      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
       { vehicle_odometer: req.body.vehicle_odometer },
       { new: true, runValidators: true }
     );
@@ -902,7 +912,7 @@ const updateVehicleOdometer = async (req, res) => {
 const updateVehicleOwnership = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
+      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
       { vehicle_ownership: req.body.vehicle_ownership },
       { new: true, runValidators: true }
     );
@@ -935,6 +945,7 @@ const getVehicleAttachments = async (req, res) => {
     const vehicle = await Vehicle.findOne({
       _id: req.params.id,
       company_id: req.user.company_id,
+      vehicle_type: req.params.vehicleType,
     });
 
     if (!vehicle) {
@@ -965,6 +976,7 @@ const uploadVehicleAttachment = async (req, res) => {
     const vehicle = await Vehicle.findOne({
       _id: req.params.id,
       company_id: req.user.company_id,
+      vehicle_type: req.params.vehicleType,
     });
 
     if (!vehicle) {
@@ -973,7 +985,6 @@ const uploadVehicleAttachment = async (req, res) => {
         message: "Vehicle not found",
       });
     }
-
     // Add the new attachment
     vehicle.vehicle_attachments = vehicle.vehicle_attachments || [];
     vehicle.vehicle_attachments.push(req.body);
@@ -1001,6 +1012,7 @@ const deleteVehicleAttachment = async (req, res) => {
     const vehicle = await Vehicle.findOne({
       _id: req.params.id,
       company_id: req.user.company_id,
+      vehicle_type: req.params.vehicleType,
     });
 
     if (!vehicle) {
@@ -1012,7 +1024,7 @@ const deleteVehicleAttachment = async (req, res) => {
 
     // Remove the attachment
     vehicle.vehicle_attachments = vehicle.vehicle_attachments.filter(
-      attachment => attachment._id.toString() !== req.params.attachmentId
+      (attachment) => attachment._id.toString() !== req.params.attachmentId
     );
 
     await vehicle.save();
@@ -1030,18 +1042,19 @@ const deleteVehicleAttachment = async (req, res) => {
   }
 };
 
-// @desc    Update vehicle workshop status
+// @desc    Push vehicle or specific stages to workshop
 // @route   PUT /api/vehicle/:id/workshop-status
 // @access  Private (Company Admin/Super Admin)
 const updateVehicleWorkshopStatus = async (req, res) => {
   try {
-    const { is_workshop, workshop_progress } = req.body;
+    const { stages, workshop_action } = req.body;
+    console.log(stages, workshop_action);
 
-    const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
-      { is_workshop, workshop_progress },
-      { new: true, runValidators: true }
-    );
+    const vehicle = await Vehicle.findOne({
+      _id: req.params.id,
+      company_id: req.user.company_id,
+      vehicle_type: req.params.vehicleType,
+    });
 
     if (!vehicle) {
       return res.status(404).json({
@@ -1049,6 +1062,94 @@ const updateVehicleWorkshopStatus = async (req, res) => {
         message: "Vehicle not found",
       });
     }
+
+    if (vehicle.vehicle_type === "inspection" && stages && Array.isArray(stages)) {
+      
+      // Ensure arrays are properly initialized (handle case where they might be false)
+      if (!Array.isArray(vehicle.is_workshop)) {
+        vehicle.is_workshop = [];
+      }
+      if (!Array.isArray(vehicle.workshop_progress)) {
+        vehicle.workshop_progress = [];
+      }
+      if (!Array.isArray(vehicle.workshop_report_preparing)) {
+        vehicle.workshop_report_preparing = [];
+      }
+
+      // Only handle push action - keep adding stages
+      if (workshop_action === 'push') {
+        stages.forEach(stageName => {
+          // Check if stage already exists in workshop
+          const existingWorkshopIndex = vehicle.is_workshop.findIndex(
+            item => item.stage_name === stageName
+          );
+          const existingProgressIndex = vehicle.workshop_progress.findIndex(
+            item => item.stage_name === stageName
+          );
+          const existingPreparingIndex = vehicle.workshop_report_preparing.findIndex(
+            item => item.stage_name === stageName
+          );
+
+          // Add new stages or update existing ones (keep adding without removing)
+          if (existingWorkshopIndex === -1) {
+            vehicle.is_workshop.push({
+              stage_name: stageName,
+              in_workshop: true,
+              pushed_at: new Date()
+            });
+          } else {
+            vehicle.is_workshop[existingWorkshopIndex].in_workshop = true;
+            vehicle.is_workshop[existingWorkshopIndex].pushed_at = new Date();
+          }
+
+          if (existingProgressIndex === -1) {
+            vehicle.workshop_progress.push({
+              stage_name: stageName,
+              progress: "in_progress",
+              started_at: new Date()
+            });
+          } else {
+            vehicle.workshop_progress[existingProgressIndex].progress = "in_progress";
+            vehicle.workshop_progress[existingProgressIndex].started_at = new Date();
+          }
+
+          if (existingPreparingIndex === -1) {
+            vehicle.workshop_report_preparing.push({
+              stage_name: stageName,
+              preparing: false
+            });
+          }
+        });
+      }
+
+    } else {
+      // Handle single workshop status for tradein
+      const { is_workshop, workshop_progress } = req.body;
+      
+      vehicle.is_workshop = is_workshop;
+      vehicle.workshop_progress = workshop_progress;
+      
+      if (!vehicle.workshop_report_preparing) {
+        vehicle.workshop_report_preparing = false;
+      }
+    }
+
+    await vehicle.save();
+
+    // Log the event
+    await logEvent({
+      event_type: "vehicle_operation",
+      event_action: vehicle.vehicle_type === "inspection" ? "stages_pushed_to_workshop" : "vehicle_pushed_to_workshop",
+      event_description: `Vehicle/stages pushed to workshop: ${vehicle.make} ${vehicle.model}`,
+      user_id: req.user.id,
+      company_id: req.user.company_id,
+      user_role: req.user.role,
+      metadata: {
+        vehicle_stock_id: vehicle.vehicle_stock_id,
+        vehicle_type: vehicle.vehicle_type,
+        stages: vehicle.vehicle_type === "inspection" ? stages : null,
+      },
+    });
 
     res.status(200).json({
       success: true,

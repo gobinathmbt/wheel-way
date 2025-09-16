@@ -37,7 +37,7 @@ const VehicleRegistrationSection: React.FC<VehicleRegistrationSectionProps> = ({
 
   const handleSave = async () => {
     try {
-      await vehicleServices.updateVehicleRegistration(vehicle._id, {
+      await vehicleServices.updateVehicleRegistration(vehicle._id,vehicle.vehicle_type, {
         vehicle_registration: [{
           registered_in_local: formData.registered_in_local,
           year_first_registered_local: formData.year_first_registered_local,

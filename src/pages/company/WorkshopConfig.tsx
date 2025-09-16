@@ -58,6 +58,12 @@ const WorkshopConfig = () => {
   const [quoteModalOpen, setQuoteModalOpen] = useState(false);
   const [editFieldModalOpen, setEditFieldModalOpen] = useState(false);
   const [selectedEditField, setSelectedEditField] = useState<any>(null);
+  const [stageSelectionModalOpen, setStageSelectionModalOpen] = useState(false);
+  const [selectedCompletionStage, setSelectedCompletionStage] = useState("");
+  const [availableCompletionStages, setAvailableCompletionStages] = useState<
+    string[]
+  >([]);
+
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [fieldToDelete, setFieldToDelete] = useState<any>(null);
   const [receivedQuotesModalOpen, setReceivedQuotesModalOpen] = useState(false);
@@ -187,6 +193,50 @@ const WorkshopConfig = () => {
     }
   }, [vehicleData, vehicle_quotes, vehicleType, vehicle]);
 
+  useEffect(() => {
+    if (
+      vehicle &&
+      vehicle.vehicle_type === "inspection" &&
+      vehicle.inspection_result
+    ) {
+      // Get stages that are in workshop and have completed jobs
+      const completableStages: string[] = [];
+
+      vehicle.inspection_result.forEach((category: any) => {
+        // Check if this stage has any completed jobs
+        let hasCompletedJobs = false;
+
+        if (category.sections) {
+          category.sections.forEach((section: any) => {
+            if (section.fields) {
+              section.fields.forEach((field: any) => {
+                const fieldStatus = getStatus(field.field_id);
+                if (fieldStatus === "completed_jobs") {
+                  hasCompletedJobs = true;
+                }
+              });
+            }
+          });
+        }
+
+        // Check if stage is in workshop
+        const stageInWorkshop =
+          Array.isArray(vehicle.workshop_progress) &&
+          vehicle.workshop_progress.some(
+            (item: any) =>
+              item.stage_name === category.category_name &&
+              item.progress === "in_progress"
+          );
+
+        if (hasCompletedJobs && stageInWorkshop) {
+          completableStages.push(category.category_name);
+        }
+      });
+
+      setAvailableCompletionStages(completableStages);
+    }
+  }, [vehicle, vehicle_quotes]);
+
   const deleteWorkshopFieldMutation = useMutation({
     mutationFn: async (fieldData: any) => {
       const currentResults =
@@ -260,7 +310,11 @@ const WorkshopConfig = () => {
           ? { inspection_result: updatedResults }
           : { trade_in_result: updatedResults };
 
-      await vehicleServices.updateVehicle(vehicle._id, updateField);
+      await vehicleServices.updateVehicle(
+        vehicle._id,
+        vehicle.vehicle_type,
+        updateField
+      );
       return updatedResults;
     },
     onSuccess: () => {
@@ -362,7 +416,11 @@ const WorkshopConfig = () => {
           ? { inspection_result: updatedResults }
           : { trade_in_result: updatedResults };
 
-      await vehicleServices.updateVehicle(vehicle._id, updateField);
+      await vehicleServices.updateVehicle(
+        vehicle._id,
+        vehicle.vehicle_type,
+        updateField
+      );
       return updatedResults;
     },
     onSuccess: () => {
@@ -384,7 +442,11 @@ const WorkshopConfig = () => {
           ? { inspection_result: newOrder }
           : { trade_in_result: newOrder };
 
-      await vehicleServices.updateVehicle(vehicle._id, updateField);
+      await vehicleServices.updateVehicle(
+        vehicle._id,
+        vehicle.vehicle_type,
+        updateField
+      );
     },
     onSuccess: () => {
       toast.success(`${vehicleType} order updated successfully`);
@@ -402,18 +464,34 @@ const WorkshopConfig = () => {
   // Complete workshop mutation
   const completeWorkshopMutation = useMutation({
     mutationFn: async (confirmation: string) => {
-      return await workshopServices.completeWorkshop(vehicleId!, vehicleType!, {
-        confirmation,
-      });
+      const requestBody: any = { confirmation };
+
+      // Add stageName for inspection vehicles
+      if (vehicle.vehicle_type === "inspection" && selectedCompletionStage) {
+        requestBody.stageName = selectedCompletionStage;
+      }
+
+      return await workshopServices.completeWorkshop(
+        vehicleId!,
+        vehicleType!,
+        requestBody
+      );
     },
     onSuccess: (response) => {
       toast.success(response.data.message);
       setCompleteWorkshopModalOpen(false);
       setConfirmText("");
+      setSelectedCompletionStage("");
       queryClient.invalidateQueries({ queryKey: ["workshop-vehicle-details"] });
       queryClient.invalidateQueries({ queryKey: ["workshop-completion"] });
-      // Navigate back to workshop list
-      setTimeout(() => navigate("/company/workshop"), 2000);
+
+      // For inspection stage completion, don't navigate away - just refresh the page
+      if (vehicle.vehicle_type === "inspection") {
+        // Stay on the same page and refresh data
+      } else {
+        // For tradein completion, navigate back to workshop list
+        setTimeout(() => navigate("/company/workshop"), 2000);
+      }
     },
     onError: (error: any) => {
       toast.error(
@@ -421,6 +499,34 @@ const WorkshopConfig = () => {
       );
     },
   });
+
+  const canStageBeCompleted = (stageName: string) => {
+    if (!vehicle.inspection_result) return false;
+
+    const category = vehicle.inspection_result.find(
+      (cat: any) => cat.category_name === stageName
+    );
+    if (!category) return false;
+
+    let allFieldsCompleted = true;
+    let hasFields = false;
+
+    if (category.sections) {
+      category.sections.forEach((section: any) => {
+        if (section.fields) {
+          section.fields.forEach((field: any) => {
+            hasFields = true;
+            const fieldStatus = getStatus(field.field_id);
+            if (fieldStatus !== "completed_jobs") {
+              allFieldsCompleted = false;
+            }
+          });
+        }
+      });
+    }
+
+    return hasFields && allFieldsCompleted;
+  };
 
   const handleSendQuote = (
     field: any,
@@ -644,7 +750,11 @@ const WorkshopConfig = () => {
           ? { inspection_result: updatedResults }
           : { trade_in_result: updatedResults };
 
-      await vehicleServices.updateVehicle(vehicle._id, updateField);
+      await vehicleServices.updateVehicle(
+        vehicle._id,
+        vehicle.vehicle_type,
+        updateField
+      );
       return updatedResults;
     },
     onSuccess: () => {
@@ -733,13 +843,35 @@ const WorkshopConfig = () => {
   };
 
   const handleCompleteWorkshop = () => {
-    if (canCompleteWorkshop) {
-      setCompleteWorkshopModalOpen(true);
+    if (vehicle.vehicle_type === "inspection") {
+      // For inspection, show stage selection modal
+      if (availableCompletionStages.length > 0) {
+        setStageSelectionModalOpen(true);
+      } else {
+        toast.error(
+          "No stages are ready for completion. Ensure at least one stage has completed jobs."
+        );
+      }
     } else {
-      toast.error(
-        "All workshop jobs must be completed before finishing workshop"
-      );
+      // For tradein, proceed with original logic
+      if (canCompleteWorkshop) {
+        setCompleteWorkshopModalOpen(true);
+      } else {
+        toast.error(
+          "All workshop jobs must be completed before finishing workshop"
+        );
+      }
     }
+  };
+
+  const handleStageCompletion = () => {
+    if (!selectedCompletionStage) {
+      toast.error("Please select a stage to complete");
+      return;
+    }
+
+    setStageSelectionModalOpen(false);
+    setCompleteWorkshopModalOpen(true);
   };
 
   const handleConfirmCompleteWorkshop = () => {
@@ -1355,7 +1487,6 @@ const WorkshopConfig = () => {
             </div>
           </div>
         </div>
-
         {/* Modals */}
         {selectedField && (
           <>
@@ -1421,7 +1552,6 @@ const WorkshopConfig = () => {
             />
           </>
         )}
-
         {/* Insert Workshop Field Modal */}
         <InsertWorkshopFieldModal
           open={insertFieldModalOpen}
@@ -1432,7 +1562,6 @@ const WorkshopConfig = () => {
           dropdowns={dropdowns}
           s3Config={completeUser.company_id.s3_config} // Will be implemented with S3 config
         />
-
         {/* Rearrange Modal */}
         <Dialog open={rearrangeModalOpen} onOpenChange={setRearrangeModalOpen}>
           <DialogContent className="max-w-7xl max-h-[90vh] w-[95vw]">
@@ -1511,16 +1640,102 @@ const WorkshopConfig = () => {
           </DialogContent>
         </Dialog>
         <Dialog
+          open={stageSelectionModalOpen}
+          onOpenChange={setStageSelectionModalOpen}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Select Stage to Complete</DialogTitle>
+              <DialogDescription>
+                Choose which inspection stage you want to complete. Only stages
+                with all completed jobs can be finished.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {availableCompletionStages.length > 0 ? (
+                availableCompletionStages.map((stageName) => (
+                  <div key={stageName} className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id={`stage-${stageName}`}
+                      name="completionStage"
+                      value={stageName}
+                      checked={selectedCompletionStage === stageName}
+                      onChange={(e) =>
+                        setSelectedCompletionStage(e.target.value)
+                      }
+                      className="rounded"
+                    />
+                    <label
+                      htmlFor={`stage-${stageName}`}
+                      className="flex-1 cursor-pointer p-2 border rounded hover:bg-muted"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{stageName}</span>
+                        <Badge
+                          variant={
+                            canStageBeCompleted(stageName)
+                              ? "default"
+                              : "secondary"
+                          }
+                          className="ml-2"
+                        >
+                          {canStageBeCompleted(stageName)
+                            ? "Ready"
+                            : "In Progress"}
+                        </Badge>
+                      </div>
+                    </label>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground py-4">
+                  No stages are ready for completion yet
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStageSelectionModalOpen(false);
+                  setSelectedCompletionStage("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleStageCompletion}
+                disabled={
+                  !selectedCompletionStage ||
+                  availableCompletionStages.length === 0
+                }
+                className="bg-green-600 hover:bg-green-700"
+              >
+                Continue to Complete
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+        // Update the existing Complete Workshop Modal title to be dynamic
+        <Dialog
           open={completeWorkshopModalOpen}
           onOpenChange={setCompleteWorkshopModalOpen}
         >
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Complete Workshop</DialogTitle>
+              <DialogTitle>
+                Complete{" "}
+                {vehicle.vehicle_type === "inspection" &&
+                selectedCompletionStage
+                  ? `${selectedCompletionStage} Stage`
+                  : "Workshop"}
+              </DialogTitle>
               <DialogDescription>
-                Are you sure you want to complete the workshop for this vehicle?
-                This action will generate the final workshop report and cannot
-                be undone.
+                {vehicle.vehicle_type === "inspection" &&
+                selectedCompletionStage
+                  ? `Are you sure you want to complete the "${selectedCompletionStage}" stage? This will generate the stage report and mark it as completed.`
+                  : "Are you sure you want to complete the workshop for this vehicle? This action will generate the final workshop report and cannot be undone."}
                 <br />
                 <br />
                 Type <strong>CONFIRM</strong> to proceed.
@@ -1538,6 +1753,7 @@ const WorkshopConfig = () => {
                   onClick={() => {
                     setCompleteWorkshopModalOpen(false);
                     setConfirmText("");
+                    setSelectedCompletionStage("");
                   }}
                   disabled={completeWorkshopMutation.isPending}
                 >
@@ -1553,13 +1769,17 @@ const WorkshopConfig = () => {
                 >
                   {completeWorkshopMutation.isPending
                     ? "Processing..."
-                    : "Complete Workshop"}
+                    : `Complete ${
+                        vehicle.vehicle_type === "inspection" &&
+                        selectedCompletionStage
+                          ? "Stage"
+                          : "Workshop"
+                      }`}
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
-
         {/* Color Palette Modal */}
         <Dialog
           open={colorPaletteModalOpen}
@@ -1623,7 +1843,6 @@ const WorkshopConfig = () => {
             </div>
           </DialogContent>
         </Dialog>
-
         {/* Delete Confirmation Modal */}
         <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
           <DialogContent className="max-w-md">
@@ -1656,7 +1875,6 @@ const WorkshopConfig = () => {
             </div>
           </DialogContent>
         </Dialog>
-
         {/* Edit Workshop Field Modal */}
         {selectedEditField && (
           <InsertWorkshopFieldModal

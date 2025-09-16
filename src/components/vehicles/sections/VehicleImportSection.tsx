@@ -34,7 +34,7 @@ const VehicleImportSection: React.FC<VehicleImportSectionProps> = ({
 
   const handleSave = async () => {
     try {
-      await vehicleServices.updateVehicleImport(vehicle._id, {
+      await vehicleServices.updateVehicleImport(vehicle._id,vehicle.vehicle_type, {
         vehicle_import_details: [{
           delivery_port: formData.delivery_port,
           vessel_name: formData.vessel_name,

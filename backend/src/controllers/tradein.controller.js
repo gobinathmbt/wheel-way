@@ -54,7 +54,8 @@ const startAppraisal = async (req, res) => {
     const vehicle = await Vehicle.findOneAndUpdate(
       { 
         vehicle_stock_id: req.params.vehicleId,
-        company_id: req.user.company_id 
+        company_id: req.user.company_id ,
+         vehicle_type: req.params.vehicleType,
       },
       { 
         tradein_status: 'in_progress',

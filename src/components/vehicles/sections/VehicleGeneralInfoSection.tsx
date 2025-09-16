@@ -4,7 +4,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Save, X } from "lucide-react";
 import { toast } from "sonner";
@@ -62,7 +61,7 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
   const handleSave = async () => {
     try {
       // Update vehicle basic info
-      await vehicleServices.updateVehicle(vehicle._id, {
+      await vehicleServices.updateVehicle(vehicle._id, vehicle.vehicle_type, {
         make: formData.make,
         model: formData.model,
         variant: formData.variant,
@@ -76,7 +75,7 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
       });
 
       // Update vehicle other details
-      await vehicleServices.updateVehicleGeneralInfo(vehicle._id, { 
+      await vehicleServices.updateVehicleGeneralInfo(vehicle._id,vehicle.vehicle_type, {
         vehicle_other_details: [{
           status: formData.status,
           trader_acquisition: formData.trader_acquisition,
@@ -93,7 +92,7 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
       });
 
       // Update vehicle source
-      await vehicleServices.updateVehicleSource(vehicle._id, {
+      await vehicleServices.updateVehicleSource(vehicle._id,vehicle.vehicle_type, {
         vehicle_source: [{
           purchase_date: formData.purchase_date,
           purchase_type: formData.purchase_type,

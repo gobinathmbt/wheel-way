@@ -19,7 +19,7 @@ interface VehicleOwnershipSectionProps {
 const VehicleOwnershipSection: React.FC<VehicleOwnershipSectionProps> = ({ vehicle, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const ownership = vehicle.vehicle_ownership || {};
-  
+  console.log(vehicle)
   const [formData, setFormData] = useState({
     origin: ownership.origin || "",
     no_of_previous_owners: ownership.no_of_previous_owners || "",
@@ -29,7 +29,7 @@ const VehicleOwnershipSection: React.FC<VehicleOwnershipSectionProps> = ({ vehic
 
   const handleSave = async () => {
     try {
-      await vehicleServices.updateVehicleOwnership(vehicle._id, {
+      await vehicleServices.updateVehicleOwnership(vehicle._id,vehicle.vehicle_type, {
         vehicle_ownership: {
           origin: formData.origin,
           no_of_previous_owners: formData.no_of_previous_owners,
