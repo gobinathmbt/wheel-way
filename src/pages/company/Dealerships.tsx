@@ -1,20 +1,18 @@
 import React, { useState } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableCell, TableHead, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Search, Edit, Trash2, Building2, Plus, X, Filter, MapPin, Mail, User } from 'lucide-react';
+import { Building2, Plus, Edit, Trash2, MapPin, Mail, User, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { dealershipServices } from '@/api/services';
 import DeleteConfirmationDialog from '@/components/dialogs/DeleteConfirmationDialog';
+import DataTableLayout from '@/components/common/DataTableLayout';
 
 const Dealerships = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -23,7 +21,12 @@ const Dealerships = () => {
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+  const [paginationEnabled, setPaginationEnabled] = useState(true);
+  const [sortField, setSortField] = useState('');
+const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [editDealership, setEditDealership] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -32,18 +35,115 @@ const Dealerships = () => {
     dealership_email: ''
   });
 
+  // Function to fetch all dealerships when pagination is disabled
+  const fetchAllDealerships = async () => {
+    try {
+      let allData = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          limit: '100',
+        });
+
+        if (searchTerm) params.append('search', searchTerm);
+        if (statusFilter !== 'all') params.append('status', statusFilter);
+
+        const response = await dealershipServices.getDealerships({
+          ...Object.fromEntries(params),
+        });
+
+        allData = [...allData, ...response.data.data];
+
+        if (response.data.data.length < 100) {
+          hasMore = false;
+        } else {
+          currentPage++;
+        }
+      }
+
+      return {
+        data: allData,
+        total: allData.length,
+        stats: {
+          totalDealerships: allData.length,
+          activeDealerships: allData.filter(d => d.is_active).length,
+          inactiveDealerships: allData.filter(d => !d.is_active).length,
+        }
+      };
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const { data: dealershipsData, isLoading, refetch } = useQuery({
-    queryKey: ['dealerships', currentPage, searchTerm, statusFilter],
+    queryKey: paginationEnabled
+      ? ['dealerships', page, searchTerm, statusFilter, rowsPerPage]
+      : ['all-dealerships', searchTerm, statusFilter],
     queryFn: async () => {
+      if (!paginationEnabled) {
+        return await fetchAllDealerships();
+      }
+
       const response = await dealershipServices.getDealerships({
-        page: currentPage,
-        limit: 10,
+        page: page,
+        limit: rowsPerPage,
         search: searchTerm,
         status: statusFilter
       });
       return response.data;
     }
   });
+
+  const dealerships = dealershipsData?.data || [];
+  const stats = dealershipsData?.stats || {};
+
+  // Sort dealerships when not using pagination
+  const sortedDealerships = React.useMemo(() => {
+    if (!sortField) return dealerships;
+
+    return [...dealerships].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      // Handle nested properties
+      if (sortField === 'created_by_name') {
+        aValue = `${a.created_by?.first_name || ''} ${a.created_by?.last_name || ''}`.trim();
+        bValue = `${b.created_by?.first_name || ''} ${b.created_by?.last_name || ''}`.trim();
+      }
+
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [dealerships, sortField, sortOrder]);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const getSortIcon = (field) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
+    return sortOrder === 'asc' ? (
+      <ArrowUp className="h-3 w-3 ml-1" />
+    ) : (
+      <ArrowDown className="h-3 w-3 ml-1" />
+    );
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -57,7 +157,7 @@ const Dealerships = () => {
         dealership_email: ''
       });
       refetch();
-    } catch (error: any) {
+    } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to create dealership');
     }
   };
@@ -70,7 +170,7 @@ const Dealerships = () => {
       setIsEditDialogOpen(false);
       setEditDealership(null);
       refetch();
-    } catch (error: any) {
+    } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update dealership');
     }
   };
@@ -103,385 +203,408 @@ const Dealerships = () => {
     }
   };
 
-  const dealerships = dealershipsData?.data || [];
-  const pagination = dealershipsData?.pagination || {};
-  const stats = dealershipsData?.stats || {};
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
   };
 
-  const handleClear = () => {
+  const handleRowsPerPageChange = (value) => {
+    setRowsPerPage(Number(value));
+    setPage(1);
+  };
+
+  const handlePaginationToggle = (checked) => {
+    setPaginationEnabled(checked);
+    setPage(1);
+  };
+
+  const handleClearSearch = () => {
     setSearchTerm('');
-    setCurrentPage(1);
+    setPage(1);
     refetch();
   };
 
-  const handleStatusFilter = (status) => {
-    setStatusFilter(status);
-    setCurrentPage(1);
+  const handleFilterChange = (value) => {
+    setStatusFilter(value);
+    setPage(1);
+    refetch();
   };
 
-  return (
-    <DashboardLayout title="Multi Dealership">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">Multi Dealership</h2>
-            <p className="text-muted-foreground">Manage multiple dealership locations for your company</p>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Building2 className="h-4 w-4 mr-2" />
-                Add Dealership
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Dealership</DialogTitle>
-                <DialogDescription>
-                  Create a new dealership location for your company
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="dealership_name">Dealership Name</Label>
-                  <Input
-                    id="dealership_name"
-                    value={formData.dealership_name}
-                    onChange={(e) => setFormData({ ...formData, dealership_name: e.target.value })}
-                    placeholder="Downtown Auto Center"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="dealership_address">Dealership Address</Label>
-                  <Input
-                    id="dealership_address"
-                    value={formData.dealership_address}
-                    onChange={(e) => setFormData({ ...formData, dealership_address: e.target.value })}
-                    placeholder="123 Main Street, City, State, ZIP"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="dealership_email">Dealership Email (Optional)</Label>
-                  <Input
-                    id="dealership_email"
-                    type="email"
-                    value={formData.dealership_email}
-                    onChange={(e) => setFormData({ ...formData, dealership_email: e.target.value })}
-                    placeholder="dealership@company.com"
-                  />
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit">Add Dealership</Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+  const handleRefresh = () => {
+    refetch();
+    toast.success('Data refreshed');
+  };
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Dealerships</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalDealerships || 0}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Dealerships</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.activeDealerships || 0}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Inactive Dealerships</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.inactiveDealerships || 0}</div>
-            </CardContent>
-          </Card>
-        </div>
+  // Calculate counts for chips
+  const totalDealerships = dealershipsData?.total || stats.totalDealerships || 0;
+  const activeDealerships = stats.activeDealerships || dealerships.filter(d => d.is_active).length;
+  const inactiveDealerships = stats.inactiveDealerships || dealerships.filter(d => !d.is_active).length;
 
-        {/* Search and Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Search & Filter</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search dealerships..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                    onKeyPress={(e) => e.key === "Enter" && refetch()}
-                  />
-                </div>
-              </div>
-              <Button
-                onClick={handleClear}
-                disabled={!searchTerm}
-                className="bg-blue-600 text-white hover:bg-gray-700"
-              >
-                <X className="h-4 w-4 mr-2 text-white" />
-                Clear
-              </Button>
-              <Select value={statusFilter} onValueChange={handleStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
+  // Prepare stat chips
+ const statChips = [
+    {
+      label: 'Total',
+      value: totalDealerships,
+      variant: 'outline' as const,
+      bgColor: 'bg-gray-100',
+    },
+    {
+      label: 'Active',
+      value: activeDealerships,
+      variant: 'default' as const,
+      bgColor: 'bg-green-100',
+      textColor: 'text-green-800',
+      hoverColor: 'hover:bg-green-100',
+    },
+    {
+      label: 'Inactive',
+      value: inactiveDealerships,
+      variant: 'secondary' as const,
+      bgColor: 'bg-red-100',
+      textColor: 'text-red-800',
+      hoverColor: 'hover:bg-red-100',
+    },
+  ];
+  // Prepare action buttons
+  const actionButtons = [
+
+    {
+      icon: <Plus className="h-4 w-4" />,
+      tooltip: 'Add Dealership',
+      onClick: () => setIsDialogOpen(true),
+      className: 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200',
+    },
+
+  ];
+
+  // Prepare filter component
+  const filterComponent = (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="search">Search Dealerships</Label>
+        <div className="relative">
+          <Input
+            id="search"
+            placeholder="Search by name, address, email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pr-10"
+          />
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearSearch}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-6 w-6"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="status-filter">Filter by Status</Label>
+        <Select value={statusFilter} onValueChange={handleFilterChange}>
+          <SelectTrigger id="status-filter">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+
+  // Render table header
+  const renderTableHeader = () => (
+    <TableRow>
+      <TableHead className="bg-muted/50">S.No</TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort('dealership_id')}
+      >
+        <div className="flex items-center">
+          Dealership ID
+          {getSortIcon('dealership_id')}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort('dealership_name')}
+      >
+        <div className="flex items-center">
+          Name
+          {getSortIcon('dealership_name')}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort('dealership_address')}
+      >
+        <div className="flex items-center">
+          Address
+          {getSortIcon('dealership_address')}
+        </div>
+      </TableHead>
+      <TableHead className="bg-muted/50">Email</TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort('is_active')}
+      >
+        <div className="flex items-center">
+          Status
+          {getSortIcon('is_active')}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort('created_by_name')}
+      >
+        <div className="flex items-center">
+          Created By
+          {getSortIcon('created_by_name')}
+        </div>
+      </TableHead>
+      <TableHead className="bg-muted/50">Actions</TableHead>
+    </TableRow>
+  );
+
+  // Render table body
+  const renderTableBody = () => (
+    <>
+      {sortedDealerships.map((dealership, index) => (
+        <TableRow key={dealership._id}>
+          <TableCell>
+            {paginationEnabled
+              ? (page - 1) * rowsPerPage + index + 1
+              : index + 1}
+          </TableCell>
+          <TableCell>
+            <Badge variant="outline" className="font-mono">
+              {dealership.dealership_id}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center space-x-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">{dealership.dealership_name}</span>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Dealerships Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Dealership Locations</CardTitle>
-            <CardDescription>Manage your company's dealership locations</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center space-x-2">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm max-w-xs truncate">{dealership.dealership_address}</span>
+            </div>
+          </TableCell>
+          <TableCell>
+            {dealership.dealership_email ? (
+              <div className="flex items-center space-x-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">{dealership.dealership_email}</span>
               </div>
             ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>S.No</TableHead>
-                      <TableHead>Dealership ID</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Address</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created By</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dealerships.map((dealership, index) => (
-                      <TableRow key={dealership._id}>
-                        <TableCell>{(currentPage - 1) * 10 + index + 1}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="font-mono">
-                            {dealership.dealership_id}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Building2 className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{dealership.dealership_name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <MapPin className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm max-w-xs truncate">{dealership.dealership_address}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {dealership.dealership_email ? (
-                            <div className="flex items-center space-x-2">
-                              <Mail className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm">{dealership.dealership_email}</span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              checked={dealership.is_active}
-                              onCheckedChange={() => handleToggleStatus(dealership._id, dealership.is_active)}
-                            />
-                            <Badge variant={dealership.is_active ? "default" : "secondary"}>
-                              {dealership.is_active ? "Active" : "Inactive"}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">
-                              {dealership.created_by?.first_name} {dealership.created_by?.last_name}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => {
-                                setEditDealership(dealership);
-                                setIsEditDialogOpen(true);
-                              }}
-                              title="Edit Dealership"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => confirmDeleteDealership(dealership._id)}
-                              title="Delete Dealership"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-
-                {/* Pagination */}
-                {pagination.total_pages > 1 && (
-                  <div className="mt-4">
-                    <Pagination>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious 
-                            onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                            className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                          />
-                        </PaginationItem>
-                        
-                        {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
-                          let page;
-                          if (pagination.total_pages <= 5) {
-                            page = i + 1;
-                          } else if (currentPage <= 3) {
-                            page = i + 1;
-                          } else if (currentPage >= pagination.total_pages - 2) {
-                            page = pagination.total_pages - 4 + i;
-                          } else {
-                            page = currentPage - 2 + i;
-                          }
-                          
-                          return (
-                            <PaginationItem key={page}>
-                              <PaginationLink
-                                onClick={() => handlePageChange(page)}
-                                isActive={currentPage === page}
-                                className="cursor-pointer"
-                              >
-                                {page}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        })}
-                        
-                        <PaginationItem>
-                          <PaginationNext 
-                            onClick={() => handlePageChange(Math.min(pagination.total_pages, currentPage + 1))}
-                            className={currentPage === pagination.total_pages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                          />
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
-                )}
-              </>
+              <span className="text-muted-foreground">-</span>
             )}
-          </CardContent>
-        </Card>
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={dealership.is_active}
+                onCheckedChange={() => handleToggleStatus(dealership._id, dealership.is_active)}
+              />
+              <Badge
+                variant={dealership.is_active ? 'default' : 'secondary'}
+                className={
+                  dealership.is_active
+                    ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                    : 'bg-red-100 text-red-800 hover:bg-red-100'
+                }
+              >
+                {dealership.is_active ? 'Active' : 'Inactive'}
+              </Badge>
+            </div>
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center space-x-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">
+                {dealership.created_by?.first_name} {dealership.created_by?.last_name}
+              </span>
+            </div>
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditDealership(dealership);
+                  setIsEditDialogOpen(true);
+                }}
+                title="Edit Dealership"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => confirmDeleteDealership(dealership._id)}
+                title="Delete Dealership"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
 
-        {/* Edit Dealership Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Dealership</DialogTitle>
-              <DialogDescription>Update dealership information</DialogDescription>
-            </DialogHeader>
-            {editDealership && (
-              <form onSubmit={handleEditSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="edit_dealership_name">Dealership Name</Label>
-                  <Input
-                    id="edit_dealership_name"
-                    value={editDealership.dealership_name}
-                    onChange={(e) =>
-                      setEditDealership({ ...editDealership, dealership_name: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit_dealership_address">Dealership Address</Label>
-                  <Input
-                    id="edit_dealership_address"
-                    value={editDealership.dealership_address}
-                    onChange={(e) =>
-                      setEditDealership({ ...editDealership, dealership_address: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit_dealership_email">Dealership Email</Label>
-                  <Input
-                    id="edit_dealership_email"
-                    type="email"
-                    value={editDealership.dealership_email || ''}
-                    onChange={(e) =>
-                      setEditDealership({ ...editDealership, dealership_email: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit">Update Dealership</Button>
-                </div>
-              </form>
-            )}
-          </DialogContent>
-        </Dialog>
+  return (
+    <>
+      <DataTableLayout
+        title="Multi Dealership"
+        data={sortedDealerships}
+        isLoading={isLoading}
+        totalCount={dealershipsData?.total || totalDealerships}
+        statChips={statChips}
+        actionButtons={actionButtons}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        paginationEnabled={paginationEnabled}
+        onPageChange={handlePageChange}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        onPaginationToggle={handlePaginationToggle}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        getSortIcon={getSortIcon}
+        filterComponent={filterComponent}
+        isFilterDialogOpen={isFilterDialogOpen}
+        onFilterDialogChange={setIsFilterDialogOpen}
+        onApplyFilters={refetch}
+        renderTableHeader={renderTableHeader}
+        renderTableBody={renderTableBody}
+        onRefresh={handleRefresh}
+      />
 
-        {/* Delete Confirmation Dialog */}
-        <DeleteConfirmationDialog
-          isOpen={isDeleteDialogOpen}
-          onClose={() => {
-            setIsDeleteDialogOpen(false);
-            setDeleteTargetId(null);
-          }}
-          onConfirm={handleDeleteDealership}
-          title="Delete Dealership"
-          description="Are you sure you want to delete this dealership? This action cannot be undone."
-        />
-      </div>
-    </DashboardLayout>
+      {/* Add Dealership Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Dealership</DialogTitle>
+            <DialogDescription>
+              Create a new dealership location for your company
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="dealership_name">Dealership Name</Label>
+              <Input
+                id="dealership_name"
+                value={formData.dealership_name}
+                onChange={(e) => setFormData({ ...formData, dealership_name: e.target.value })}
+                placeholder="Downtown Auto Center"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="dealership_address">Dealership Address</Label>
+              <Input
+                id="dealership_address"
+                value={formData.dealership_address}
+                onChange={(e) => setFormData({ ...formData, dealership_address: e.target.value })}
+                placeholder="123 Main Street, City, State, ZIP"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="dealership_email">Dealership Email (Optional)</Label>
+              <Input
+                id="dealership_email"
+                type="email"
+                value={formData.dealership_email}
+                onChange={(e) => setFormData({ ...formData, dealership_email: e.target.value })}
+                placeholder="dealership@company.com"
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Add Dealership</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dealership Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Dealership</DialogTitle>
+            <DialogDescription>Update dealership information</DialogDescription>
+          </DialogHeader>
+          {editDealership && (
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="edit_dealership_name">Dealership Name</Label>
+                <Input
+                  id="edit_dealership_name"
+                  value={editDealership.dealership_name}
+                  onChange={(e) =>
+                    setEditDealership({ ...editDealership, dealership_name: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_dealership_address">Dealership Address</Label>
+                <Input
+                  id="edit_dealership_address"
+                  value={editDealership.dealership_address}
+                  onChange={(e) =>
+                    setEditDealership({ ...editDealership, dealership_address: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_dealership_email">Dealership Email</Label>
+                <Input
+                  id="edit_dealership_email"
+                  type="email"
+                  value={editDealership.dealership_email || ''}
+                  onChange={(e) =>
+                    setEditDealership({ ...editDealership, dealership_email: e.target.value })
+                  }
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Update Dealership</Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setDeleteTargetId(null);
+        }}
+        onConfirm={handleDeleteDealership}
+        title="Delete Dealership"
+        description="Are you sure you want to delete this dealership? This action cannot be undone."
+      />
+    </>
   );
 };
 
