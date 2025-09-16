@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { TableCell, TableHead, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Plus, Edit, Trash2, MapPin, Mail, User, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, Download, Upload } from 'lucide-react';
+import { Building2, Plus, Edit, Trash2, MapPin, Mail, User, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, Download, Upload, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { dealershipServices } from '@/api/services';
@@ -26,7 +26,7 @@ const Dealerships = () => {
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [paginationEnabled, setPaginationEnabled] = useState(true);
   const [sortField, setSortField] = useState('');
-const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [editDealership, setEditDealership] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -217,8 +217,9 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
     setPage(1);
   };
 
-  const handleClearSearch = () => {
+  const handleClearFilters = () => {
     setSearchTerm('');
+    setStatusFilter('all');
     setPage(1);
     refetch();
   };
@@ -234,13 +235,17 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
     toast.success('Data refreshed');
   };
 
+  const handleExport = () => {
+    toast.success('Export started');
+  };
+
   // Calculate counts for chips
   const totalDealerships = dealershipsData?.total || stats.totalDealerships || 0;
   const activeDealerships = stats.activeDealerships || dealerships.filter(d => d.is_active).length;
   const inactiveDealerships = stats.inactiveDealerships || dealerships.filter(d => !d.is_active).length;
 
   // Prepare stat chips
- const statChips = [
+  const statChips = [
     {
       label: 'Total',
       value: totalDealerships,
@@ -264,58 +269,34 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
       hoverColor: 'hover:bg-red-100',
     },
   ];
+
   // Prepare action buttons
   const actionButtons = [
-
+    {
+      icon: <SlidersHorizontal className="h-4 w-4" />,
+      tooltip: 'Search & Filters',
+      onClick: () => setIsFilterDialogOpen(true),
+      className: 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200',
+    },
+    {
+      icon: <Download className="h-4 w-4" />,
+      tooltip: 'Export Report',
+      onClick: handleExport,
+      className: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200',
+    },
     {
       icon: <Plus className="h-4 w-4" />,
       tooltip: 'Add Dealership',
       onClick: () => setIsDialogOpen(true),
       className: 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200',
     },
-
+    {
+      icon: <Upload className="h-4 w-4" />,
+      tooltip: 'Import Dealerships',
+      onClick: () => toast.info('Import feature coming soon'),
+      className: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200',
+    },
   ];
-
-  // Prepare filter component
-  const filterComponent = (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="search">Search Dealerships</Label>
-        <div className="relative">
-          <Input
-            id="search"
-            placeholder="Search by name, address, email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pr-10"
-          />
-          {searchTerm && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearSearch}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-6 w-6"
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
-      </div>
-      <div>
-        <Label htmlFor="status-filter">Filter by Status</Label>
-        <Select value={statusFilter} onValueChange={handleFilterChange}>
-          <SelectTrigger id="status-filter">
-            <SelectValue placeholder="Select status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
 
   // Render table header
   const renderTableHeader = () => (
@@ -485,6 +466,82 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
         renderTableBody={renderTableBody}
         onRefresh={handleRefresh}
       />
+
+      {/* Search & Filter Dialog */}
+      <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Search & Filters</DialogTitle>
+            <DialogDescription>
+              Search and filter dealerships by various criteria
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="search">Search Dealerships</Label>
+              <div className="relative">
+                <Input
+                  id="search"
+                  placeholder="Search by name, address, email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pr-10"
+                />
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-6 w-6"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status-filter">Filter by Status</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger id="status-filter">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-between">
+            <Button
+              variant="outline"
+              onClick={handleClearFilters}
+              disabled={isLoading}
+            >
+              Clear Filters
+            </Button>
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsFilterDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setPage(1);
+                  refetch();
+                  setIsFilterDialogOpen(false);
+                }}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Applying...' : 'Apply Filters'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Dealership Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

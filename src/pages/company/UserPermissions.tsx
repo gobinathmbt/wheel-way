@@ -1,13 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Settings, Save, Filter, X, Layers } from "lucide-react";
+import { Settings, Save, Layers, ArrowUpDown, ArrowUp, ArrowDown, SlidersHorizontal, Download, Plus, UserPlus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { companyServices } from "@/api/services";
+import ManageModuleDialog from "@/components/permissions/ManageModuleDialog";
+import DataTableLayout from "@/components/common/DataTableLayout";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -15,34 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { companyServices } from "@/api/services";
-import ManageModuleDialog from "@/components/permissions/ManageModuleDialog";
 
-import DashboardLayout from "@/components/layout/DashboardLayout";
 import { CompleteUser, useAuth } from "@/auth/AuthContext";
 
 interface Permission {
@@ -75,32 +60,75 @@ interface UserPermission {
 const UserPermissions = () => {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isModuleDialogOpen, setIsModuleDialogOpen] = useState(false);
+  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+  const [paginationEnabled, setPaginationEnabled] = useState(true);
+  const [sortField, setSortField] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const { completeUser } = useAuth();
-  console.log(completeUser)
+  
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
 
-  // ... keep existing code (data fetching and mutations)
+  // Function to fetch all users when pagination is disabled
+  const fetchAllUsers = async () => {
+    try {
+      let allData = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await companyServices.getUsersWithPermissions({
+          page: currentPage,
+          limit: 100,
+          search: search || undefined,
+          status: statusFilter !== "all" ? statusFilter : undefined,
+        });
+
+        allData = [...allData, ...response.data.data];
+
+        if (response.data.data.length < 100) {
+          hasMore = false;
+        } else {
+          currentPage++;
+        }
+      }
+
+      return {
+        data: allData,
+        total: allData.length,
+        pagination: { total_pages: 1 }
+      };
+    } catch (error) {
+      throw error;
+    }
+  };
 
   const {
     data: usersData,
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ["company-users-permissions", page, search, statusFilter],
-    queryFn: () =>
-      companyServices
-        .getUsersWithPermissions({
-          page,
-          limit: 10,
-          search: search || undefined,
-          status: statusFilter,
-        })
-        .then((res) => res.data),
+    queryKey: paginationEnabled
+      ? ["company-users-permissions", page, search, statusFilter, rowsPerPage]
+      : ["all-company-users-permissions", search, statusFilter],
+    queryFn: async () => {
+      if (!paginationEnabled) {
+        return await fetchAllUsers();
+      }
+
+      const response = await companyServices.getUsersWithPermissions({
+        page,
+        limit: rowsPerPage,
+        search: search || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+      });
+      return response.data;
+    },
   });
 
   const { data: availablePermissions } = useQuery({
@@ -130,6 +158,59 @@ const UserPermissions = () => {
       );
     },
   });
+
+  const users = usersData?.data || [];
+
+  // Sort users when not using pagination
+  const sortedUsers = React.useMemo(() => {
+    if (!sortField) return users;
+
+    return [...users].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      // Handle nested properties
+      if (sortField === "name") {
+        aValue = `${a.first_name} ${a.last_name}`;
+        bValue = `${b.first_name} ${b.last_name}`;
+      } else if (sortField === "permissions_count") {
+        aValue = a.permissions?.length || 0;
+        bValue = b.permissions?.length || 0;
+      } else if (sortField === "module_access_count") {
+        aValue = a.module_access?.length || 0;
+        bValue = b.module_access?.length || 0;
+      }
+
+      if (typeof aValue === "string") {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (sortOrder === "asc") {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [users, sortField, sortOrder]);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const getSortIcon = (field: string) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
+    return sortOrder === "asc" ? (
+      <ArrowUp className="h-3 w-3 ml-1" />
+    ) : (
+      <ArrowDown className="h-3 w-3 ml-1" />
+    );
+  };
 
   const handleManagePermissions = (user: User) => {
     setSelectedUser(user);
@@ -187,30 +268,248 @@ const UserPermissions = () => {
     });
   };
 
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
+  const handleRowsPerPageChange = (value: string) => {
+    setRowsPerPage(Number(value));
+    setPage(1);
   };
 
-  const handleSearch = () => {
+  const handlePaginationToggle = (checked: boolean) => {
+    setPaginationEnabled(checked);
+    setPage(1);
+  };
+
+  const handleRefresh = () => {
+    refetch();
+    toast.success("Data refreshed");
+  };
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
     setPage(1);
     refetch();
   };
 
-  const handleClear = () => {
-    setSearch("");
-    setPage(1);
+  const handleExport = () => {
+    toast.success("Export started");
   };
 
-  const handleStatusFilter = (status: string) => {
-    setStatusFilter(status);
-    setPage(1);
+  const handleImport = () => {
+    toast.info("Import feature coming soon");
+  };
+
+  const handleAddUser = () => {
+    toast.info("Add user feature coming soon");
   };
 
   useEffect(() => {
     setPage(1);
   }, [search, statusFilter]);
 
-  const totalPages = usersData?.pagination?.total_pages || 1;
+  // Calculate counts for chips
+  const totalUsers = usersData?.pagination?.total_records || usersData?.total || 0;
+  const activeCount = users.filter((u: User) => u.is_active).length;
+  const inactiveCount = users.filter((u: User) => !u.is_active).length;
+  const adminCount = users.filter((u: User) => u.role.includes("admin")).length;
+
+  // Prepare stat chips
+  const statChips = [
+    {
+      label: "Total",
+      value: totalUsers,
+      variant: "outline" as const,
+      bgColor: "bg-gray-100",
+    },
+    {
+      label: "Active",
+      value: activeCount,
+      variant: "default" as const,
+      bgColor: "bg-green-100",
+      textColor: "text-green-800",
+      hoverColor: "hover:bg-green-100",
+    },
+    {
+      label: "Inactive",
+      value: inactiveCount,
+      variant: "secondary" as const,
+      bgColor: "bg-red-100",
+      textColor: "text-red-800",
+      hoverColor: "hover:bg-red-100",
+    },
+    {
+      label: "Admins",
+      value: adminCount,
+      variant: "default" as const,
+      bgColor: "bg-blue-100",
+      textColor: "text-blue-800",
+      hoverColor: "hover:bg-blue-100",
+    },
+  ];
+
+  // Prepare action buttons
+  const actionButtons = [
+    {
+      icon: <SlidersHorizontal className="h-4 w-4" />,
+      tooltip: "Search & Filters",
+      onClick: () => setIsFilterDialogOpen(true),
+      className: "bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200",
+    },
+    {
+      icon: <Download className="h-4 w-4" />,
+      tooltip: "Export Report",
+      onClick: handleExport,
+      className: "bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200",
+    },
+    {
+      icon: <UserPlus className="h-4 w-4" />,
+      tooltip: "Add User",
+      onClick: handleAddUser,
+      className:
+        "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
+    },
+    {
+      icon: <Plus className="h-4 w-4" />,
+      tooltip: "Import Users",
+      onClick: handleImport,
+      className:
+        "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
+    },
+  ];
+
+  // Render table header
+  const renderTableHeader = () => (
+    <TableRow>
+      <TableHead className="bg-muted/50">S.No</TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("name")}
+      >
+        <div className="flex items-center">
+          Name
+          {getSortIcon("name")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("email")}
+      >
+        <div className="flex items-center">
+          Email
+          {getSortIcon("email")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("role")}
+      >
+        <div className="flex items-center">
+          Role
+          {getSortIcon("role")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("is_active")}
+      >
+        <div className="flex items-center">
+          Status
+          {getSortIcon("is_active")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("permissions_count")}
+      >
+        <div className="flex items-center">
+          Permissions
+          {getSortIcon("permissions_count")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("module_access_count")}
+      >
+        <div className="flex items-center">
+          Module Access
+          {getSortIcon("module_access_count")}
+        </div>
+      </TableHead>
+      <TableHead className="bg-muted/50">Actions</TableHead>
+    </TableRow>
+  );
+
+  // Render table body
+  const renderTableBody = () => (
+    <>
+      {sortedUsers.map((user: User, index: number) => (
+        <TableRow key={user._id}>
+          <TableCell>
+            {paginationEnabled
+              ? (page - 1) * rowsPerPage + index + 1
+              : index + 1}
+          </TableCell>
+          <TableCell className="font-medium">
+            <div>
+              <p className="font-medium">{user.first_name} {user.last_name}</p>
+              <p className="text-sm text-muted-foreground">@{user.username}</p>
+            </div>
+          </TableCell>
+          <TableCell>{user.email}</TableCell>
+          <TableCell>
+            <Badge variant="outline">
+              {user.role.replace("_", " ").toUpperCase()}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            <Badge
+              variant={user.is_active ? "default" : "secondary"}
+              className={
+                user.is_active
+                  ? "bg-green-100 text-green-800 hover:bg-green-100"
+                  : "bg-red-100 text-red-800 hover:bg-red-100"
+              }
+            >
+              {user.is_active ? "Active" : "Inactive"}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            <Badge variant="outline">
+              {user.permissions?.length || 0}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            <Badge variant="outline">
+              {user.module_access?.length || 0}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleManagePermissions(user)}
+                className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+              >
+                <Settings className="h-4 w-4 mr-1" />
+                Permissions
+              </Button>
+              {canManageModules(completeUser) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleManageModules(user)}
+                  className="text-purple-600 hover:text-purple-800 hover:bg-purple-100"
+                >
+                  <Layers className="h-4 w-4 mr-1" />
+                  Modules
+                </Button>
+              )}
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
 
   // Group permissions by module
   const groupedPermissions = userPermissions.reduce((acc, permission) => {
@@ -223,62 +522,67 @@ const UserPermissions = () => {
   }, {} as Record<string, UserPermission[]>);
 
   return (
-    <DashboardLayout title="User Permissions">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">
-              User Permissions
-            </h2>
-            <p className="text-muted-foreground">
-              Assign permissions to users and manage their access
-            </p>
-          </div>
-        </div>
+    <>
+      <DataTableLayout
+        title="User Permissions"
+        data={sortedUsers}
+        isLoading={isLoading}
+        totalCount={totalUsers}
+        statChips={statChips}
+        actionButtons={actionButtons}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        paginationEnabled={paginationEnabled}
+        onPageChange={setPage}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        onPaginationToggle={handlePaginationToggle}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        getSortIcon={getSortIcon}
+        renderTableHeader={renderTableHeader}
+        renderTableBody={renderTableBody}
+        onRefresh={handleRefresh}
+      />
 
-        {/* Search and Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Search & Filter</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search users..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10"
-                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                  />
-                  {search && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-                      onClick={handleClear}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
+      {/* Search and Filters Dialog */}
+      <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Search & Filter Users</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Search Input */}
+            <div className="space-y-2">
+              <Label htmlFor="search">Search Users</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  placeholder="Search by name, email, username..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 pr-10"
+                />
+                {search && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                    onClick={() => setSearch("")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
+            </div>
 
-              <Button
-                onClick={handleClear}
-                disabled={!search}
-                className="bg-blue-600 text-white hover:bg-gray-700"
-              >
-                <X className="h-4 w-4 mr-2 text-white" />
-                Clear
-              </Button>
-
-              <Select value={statusFilter} onValueChange={handleStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <Filter className="h-4 w-4 mr-2" />
+            {/* Status Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="status-filter">Status</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -288,236 +592,117 @@ const UserPermissions = () => {
                 </SelectContent>
               </Select>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Users Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Users</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>S.No</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Permissions Count</TableHead>
-                      <TableHead>Module Access</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {usersData?.data?.map((user: User, index: number) => (
-                      <TableRow key={user._id}>
-                        <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                        <TableCell className="font-medium">
-                          {user.first_name} {user.last_name}
-                        </TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {user.role.replace("_", " ").toUpperCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={user.is_active ? "default" : "secondary"}
-                          >
-                            {user.is_active ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{user.permissions?.length || 0}</TableCell>
-                        <TableCell>{user.module_access?.length || 0}</TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleManagePermissions(user)}
-                            >
-                              <Settings className="h-4 w-4 mr-2" />
-                              Permissions
-                            </Button>
-                            {canManageModules(completeUser) && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleManageModules(user)}
-                              >
-                                <Layers className="h-4 w-4 mr-2" />
-                                Modules
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleClearFilters}
+              disabled={!search && statusFilter === "all"}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Clear Filters
+            </Button>
+            <Button
+              onClick={() => {
+                setPage(1);
+                setIsFilterDialogOpen(false);
+                refetch();
+              }}
+              disabled={isLoading}
+            >
+              <Search className="h-4 w-4 mr-2" />
+              Apply Filters
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="mt-4">
-                    <Pagination>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious
-                            onClick={() =>
-                              handlePageChange(Math.max(1, page - 1))
-                            }
-                            className={
-                              page === 1
-                                ? "pointer-events-none opacity-50"
-                                : "cursor-pointer"
-                            }
-                          />
-                        </PaginationItem>
+      {/* Permissions Management Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>
+              Manage Permissions - {selectedUser?.first_name}{" "}
+              {selectedUser?.last_name}
+            </DialogTitle>
+          </DialogHeader>
 
-                        {Array.from(
-                          { length: Math.min(5, totalPages) },
-                          (_, i) => {
-                            let pageNum;
-                            if (totalPages <= 5) {
-                              pageNum = i + 1;
-                            } else if (page <= 3) {
-                              pageNum = i + 1;
-                            } else if (page >= totalPages - 2) {
-                              pageNum = totalPages - 4 + i;
-                            } else {
-                              pageNum = page - 2 + i;
-                            }
-
-                            return (
-                              <PaginationItem key={pageNum}>
-                                <PaginationLink
-                                  onClick={() => handlePageChange(pageNum)}
-                                  isActive={page === pageNum}
-                                  className="cursor-pointer"
-                                >
-                                  {pageNum}
-                                </PaginationLink>
-                              </PaginationItem>
-                            );
-                          }
-                        )}
-
-                        <PaginationItem>
-                          <PaginationNext
-                            onClick={() =>
-                              handlePageChange(Math.min(totalPages, page + 1))
-                            }
-                            className={
-                              page === totalPages
-                                ? "pointer-events-none opacity-50"
-                                : "cursor-pointer"
-                            }
-                          />
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Permissions Management Dialog */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-            <DialogHeader className="flex-shrink-0">
-              <DialogTitle>
-                Manage Permissions - {selectedUser?.first_name}{" "}
-                {selectedUser?.last_name}
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="flex-1 min-h-0">
-              <ScrollArea className="h-[60vh] pr-4">
-                <div className="space-y-6">
-                  {Object.entries(groupedPermissions).map(
-                    ([moduleName, permissions]) => (
-                      <div key={moduleName} className="space-y-3">
-                        <div className="sticky top-0 bg-background pb-2 border-b z-20">
-                          <h3 className="text-lg font-semibold text-primary">
-                            {moduleName}
-                          </h3>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-2">
-                          {permissions.map((permission) => (
-                            <div
-                              key={permission.permission_id}
-                              className="flex items-start space-x-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors relative z-10"
-                            >
-                              <Switch
-                                checked={permission.enabled}
-                                onCheckedChange={(checked) =>
-                                  handlePermissionToggle(
-                                    permission.internal_name,
-                                    checked
-                                  )
-                                }
-                                className="mt-1 relative z-10"
-                              />
-                              <div className="flex-1 space-y-1">
-                                <div className="flex items-center space-x-2">
-                                  <Label className="font-medium text-sm">
-                                    {permission.internal_name}
-                                  </Label>
-                                  <Badge variant="outline" className="text-xs">
-                                    {permission.internal_name}
-                                  </Badge>
-                                </div>
-                                <p className="text-sm text-muted-foreground leading-relaxed">
-                                  {permission.description}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+          <div className="flex-1 min-h-0">
+            <ScrollArea className="h-[60vh] pr-4">
+              <div className="space-y-6">
+                {Object.entries(groupedPermissions).map(
+                  ([moduleName, permissions]) => (
+                    <div key={moduleName} className="space-y-3">
+                      <div className="sticky top-0 bg-background pb-2 border-b z-20">
+                        <h3 className="text-lg font-semibold text-primary">
+                          {moduleName}
+                        </h3>
                       </div>
-                    )
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
 
-            <div className="flex justify-end space-x-2 pt-4 border-t flex-shrink-0">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSavePermissions}
-                disabled={updatePermissionsMutation.isPending}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {updatePermissionsMutation.isPending
-                  ? "Saving..."
-                  : "Save Permissions"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-2">
+                        {permissions.map((permission) => (
+                          <div
+                            key={permission.permission_id}
+                            className="flex items-start space-x-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors relative z-10"
+                          >
+                            <Switch
+                              checked={permission.enabled}
+                              onCheckedChange={(checked) =>
+                                handlePermissionToggle(
+                                  permission.internal_name,
+                                  checked
+                                )
+                              }
+                              className="mt-1 relative z-10"
+                            />
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center space-x-2">
+                                <Label className="font-medium text-sm">
+                                  {permission.internal_name}
+                                </Label>
+                                <Badge variant="outline" className="text-xs">
+                                  {permission.internal_name}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground leading-relaxed">
+                                {permission.description}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            </ScrollArea>
+          </div>
 
-        {/* Module Management Dialog */}
-        <ManageModuleDialog
-          open={isModuleDialogOpen}
-          onOpenChange={setIsModuleDialogOpen}
-          user={selectedUser}
-        />
-      </div>
-    </DashboardLayout>
+          <div className="flex justify-end space-x-2 pt-4 border-t flex-shrink-0">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSavePermissions}
+              disabled={updatePermissionsMutation.isPending}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {updatePermissionsMutation.isPending
+                ? "Saving..."
+                : "Save Permissions"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Module Management Dialog */}
+      <ManageModuleDialog
+        open={isModuleDialogOpen}
+        onOpenChange={setIsModuleDialogOpen}
+        user={selectedUser}
+      />
+    </>
   );
 };
 
