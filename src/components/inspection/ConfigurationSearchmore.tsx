@@ -1,15 +1,15 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Search, Filter, X } from 'lucide-react';
+} from "@/components/ui/select";
+import { Search, Filter, X } from "lucide-react";
 
 interface ConfigurationSearchProps {
   searchTerm: string;
@@ -26,7 +26,7 @@ const ConfigurationSearchmore: React.FC<ConfigurationSearchProps> = ({
   statusFilter,
   onFilterChange,
   onSearch,
-  isLoading
+  isLoading,
 }) => {
   return (
     <Card>
@@ -47,7 +47,7 @@ const ConfigurationSearchmore: React.FC<ConfigurationSearchProps> = ({
               />
             </div>
           </div>
-          <Button 
+          <Button
             className="bg-blue-500 hover:bg-blue-600 text-white disabled:bg-blue-300"
             onClick={onSearch}
             disabled={isLoading || !searchTerm}
@@ -67,9 +67,9 @@ const ConfigurationSearchmore: React.FC<ConfigurationSearchProps> = ({
             </SelectContent>
           </Select>
           <Button variant="outline">
-                          <Filter className="h-4 w-4 mr-2" />
-                          More Filters
-                        </Button>
+            <Filter className="h-4 w-4 mr-2" />
+            More Filters
+          </Button>
         </div>
       </CardContent>
     </Card>

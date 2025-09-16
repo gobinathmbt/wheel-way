@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  TableCell,
-  TableHead,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import {
   Eye,
   Download,
@@ -38,7 +34,7 @@ const InspectionList = () => {
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [paginationEnabled, setPaginationEnabled] = useState(true);
   const [sortField, setSortField] = useState("");
-const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   // Fetch current user's permissions
   const { data: userPermissions } = useQuery({
     queryKey: ["user-permissions"],
@@ -117,7 +113,7 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   });
 
   const vehicles = vehiclesData?.data || [];
-  
+
   // Sort vehicles when not using pagination
   const sortedVehicles = React.useMemo(() => {
     if (!sortField) return vehicles;
@@ -289,13 +285,15 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
       icon: <Plus className="h-4 w-4" />,
       tooltip: "Add Vehicle",
       onClick: () => setIsCreateModalOpen(true),
-      className: "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
+      className:
+        "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
     },
     {
       icon: <Upload className="h-4 w-4" />,
       tooltip: "Import Vehicles",
       onClick: () => toast.info("Import feature coming soon"),
-      className: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
+      className:
+        "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
     },
   ];
 
@@ -442,7 +440,9 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
               {vehicle.inspection_status === "pending" && (
                 <Button
                   size="sm"
-                  onClick={() => handleStartInspection(vehicle.vehicle_stock_id)}
+                  onClick={() =>
+                    handleStartInspection(vehicle.vehicle_stock_id)
+                  }
                   className="bg-green-600 hover:bg-green-700"
                 >
                   Start Inspection
