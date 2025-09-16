@@ -103,12 +103,6 @@ interface DataTableLayoutProps {
   onSort: (field: string) => void;
   getSortIcon: (field: string) => React.ReactNode;
 
-  // Filter props
-  filterComponent?: React.ReactNode;
-  isFilterDialogOpen: boolean;
-  onFilterDialogChange: (open: boolean) => void;
-  onApplyFilters: () => void;
-
   // Table content (render props)
   renderTableHeader: () => React.ReactNode;
   renderTableBody: () => React.ReactNode;
@@ -134,10 +128,6 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
   sortOrder,
   onSort,
   getSortIcon,
-  filterComponent,
-  isFilterDialogOpen,
-  onFilterDialogChange,
-  onApplyFilters,
   renderTableHeader,
   renderTableBody,
   onRefresh,
@@ -302,54 +292,6 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
                 </TooltipProvider>
               ))}
 
-              {/* Filter Dialog */}
-              {filterComponent && (
-                <Dialog
-                  open={isFilterDialogOpen}
-                  onOpenChange={onFilterDialogChange}
-                >
-                  <DialogTrigger asChild>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200 p-2"
-                          >
-                            <Filter className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Filter Data</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Filter Data</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4">{filterComponent}</div>
-                    <div className="flex justify-end space-x-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => onFilterDialogChange(false)}
-                      >
-                        Close
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          onFilterDialogChange(false);
-                          onApplyFilters();
-                        }}
-                      >
-                        Apply Filters
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
             </div>
           </div>
         </div>

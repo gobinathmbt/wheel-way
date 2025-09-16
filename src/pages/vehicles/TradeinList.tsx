@@ -1,11 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  TableCell,
-  TableHead,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import {
   Eye,
   Download,
@@ -15,6 +11,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -34,7 +31,7 @@ const TradeinList = () => {
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [paginationEnabled, setPaginationEnabled] = useState(true);
   const [sortField, setSortField] = useState("");
-const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   // Fetch current user's permissions
   const { data: userPermissions } = useQuery({
     queryKey: ["user-permissions"],
@@ -81,18 +78,6 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
     } catch (error) {
       throw error;
     }
-  };
-
-  const handleClearSearch = () => {
-    setSearchTerm("");
-    setPage(1);
-    refetch();
-  };
-
-  const handleFilterChange = (value: string) => {
-    setStatusFilter(value);
-    setPage(1);
-    refetch();
   };
 
   const {
@@ -197,6 +182,13 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
     refetch();
     setShowCreateModal(false);
     toast.success("Vehicle stock created successfully");
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setPage(1);
+    refetch();
   };
 
   const handleRowsPerPageChange = (value: string) => {
@@ -304,6 +296,12 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   // Prepare action buttons
   const actionButtons = [
     {
+      icon: <SlidersHorizontal className="h-4 w-4" />,
+      tooltip: "Search & Filters",
+      onClick: () => setIsFilterDialogOpen(true),
+      className: "bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200",
+    },
+    {
       icon: <Download className="h-4 w-4" />,
       tooltip: "Export Report",
       onClick: handleExport,
@@ -313,27 +311,17 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
       icon: <Plus className="h-4 w-4" />,
       tooltip: "Create Vehicle Stock",
       onClick: () => setShowCreateModal(true),
-      className: "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
+      className:
+        "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
     },
     {
       icon: <Upload className="h-4 w-4" />,
       tooltip: "Import Vehicles",
       onClick: () => toast.info("Import feature coming soon"),
-      className: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
+      className:
+        "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
     },
   ];
-
-  // Prepare filter component
-  const filterComponent = (
-    <ConfigurationSearchmore
-      searchTerm={searchTerm}
-      onSearchChange={setSearchTerm}
-      statusFilter={statusFilter}
-      onFilterChange={handleFilterChange}
-      onSearch={handleClearSearch}
-      isLoading={isLoading}
-    />
-  );
 
   // Render table header
   const renderTableHeader = () => (
@@ -502,10 +490,6 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
         sortOrder={sortOrder}
         onSort={handleSort}
         getSortIcon={getSortIcon}
-        filterComponent={filterComponent}
-        isFilterDialogOpen={isFilterDialogOpen}
-        onFilterDialogChange={setIsFilterDialogOpen}
-        onApplyFilters={refetch}
         renderTableHeader={renderTableHeader}
         renderTableBody={renderTableBody}
         onRefresh={handleRefresh}
@@ -526,6 +510,17 @@ const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}
         vehicleType="tradein"
+      />
+
+      <ConfigurationSearchmore
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        statusFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        onClear={handleClearFilters}
+        isLoading={isLoading}
+        isOpen={isFilterDialogOpen}
+        onOpenChange={setIsFilterDialogOpen}
       />
     </>
   );

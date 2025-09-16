@@ -1,5 +1,11 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,15 +15,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Filter, X } from "lucide-react";
+import { Search, Filter, X, SlidersHorizontal } from "lucide-react";
 
 interface ConfigurationSearchProps {
   searchTerm: string;
   onSearchChange: (term: string) => void;
   statusFilter: string;
   onFilterChange: (value: string) => void;
-  onSearch: () => void;
+  onClear: () => void;
   isLoading: boolean;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 const ConfigurationSearchmore: React.FC<ConfigurationSearchProps> = ({
@@ -25,54 +33,79 @@ const ConfigurationSearchmore: React.FC<ConfigurationSearchProps> = ({
   onSearchChange,
   statusFilter,
   onFilterChange,
-  onSearch,
+  onClear,
   isLoading,
+  isOpen,
+  onOpenChange,
 }) => {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Search & Filter</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex gap-4">
-          <div className="flex-1">
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Search & Filter Vehicles</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          {/* Search Input */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Search</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search configurations..."
+                placeholder="Search by stock no, make, model, or plate..."
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="pl-10"
-                onKeyPress={(e) => e.key === "Enter" && onSearch()}
               />
             </div>
           </div>
-          <Button
-            className="bg-blue-500 hover:bg-blue-600 text-white disabled:bg-blue-300"
-            onClick={onSearch}
-            disabled={isLoading || !searchTerm}
-          >
-            <X className="h-4 w-4 mr-2" />
-            Clear
-          </Button>
-          <Select value={statusFilter} onValueChange={onFilterChange}>
-            <SelectTrigger className="w-48">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline">
-            <Filter className="h-4 w-4 mr-2" />
-            More Filters
-          </Button>
+
+          {/* Status Filter */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Status Filter</label>
+            <Select value={statusFilter} onValueChange={onFilterChange}>
+              <SelectTrigger>
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Additional Filters (you can add more here) */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Additional Filters</label>
+            <div className="text-sm text-muted-foreground">
+              More filter options coming soon...
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={onClear}
+              disabled={isLoading || (!searchTerm && statusFilter === "all")}
+              className="flex-1"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Clear All
+            </Button>
+            <Button
+              onClick={() => onOpenChange(false)}
+              className="flex-1 bg-blue-500 hover:bg-blue-600"
+            >
+              Apply Filters
+            </Button>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 };
 

@@ -10,6 +10,7 @@ import {
   Plus,
   ArrowUpDown,
   ArrowUp,
+  SlidersHorizontal,
   ArrowDown,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -153,6 +154,13 @@ const InspectionList = () => {
     }
   };
 
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setPage(1);
+    refetch();
+  };
+
   const getSortIcon = (field) => {
     if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
     return sortOrder === "asc" ? (
@@ -179,18 +187,6 @@ const InspectionList = () => {
   const handleCreateSuccess = () => {
     refetch();
     setIsCreateModalOpen(false);
-  };
-
-  const handleClearSearch = () => {
-    setSearchTerm("");
-    setPage(1);
-    refetch();
-  };
-
-  const handleFilterChange = (value: string) => {
-    setStatusFilter(value);
-    setPage(1);
-    refetch();
   };
 
   const handleRowsPerPageChange = (value: string) => {
@@ -276,6 +272,12 @@ const InspectionList = () => {
   // Prepare action buttons
   const actionButtons = [
     {
+      icon: <SlidersHorizontal className="h-4 w-4" />,
+      tooltip: "Search & Filters",
+      onClick: () => setIsFilterDialogOpen(true),
+      className: "bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200",
+    },
+    {
       icon: <Download className="h-4 w-4" />,
       tooltip: "Export Report",
       onClick: handleExport,
@@ -296,18 +298,6 @@ const InspectionList = () => {
         "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
     },
   ];
-
-  // Prepare filter component
-  const filterComponent = (
-    <ConfigurationSearchmore
-      searchTerm={searchTerm}
-      onSearchChange={setSearchTerm}
-      statusFilter={statusFilter}
-      onFilterChange={handleFilterChange}
-      onSearch={handleClearSearch}
-      isLoading={isLoading}
-    />
-  );
 
   // Render table header
   const renderTableHeader = () => (
@@ -474,10 +464,6 @@ const InspectionList = () => {
         sortOrder={sortOrder}
         onSort={handleSort}
         getSortIcon={getSortIcon}
-        filterComponent={filterComponent}
-        isFilterDialogOpen={isFilterDialogOpen}
-        onFilterDialogChange={setIsFilterDialogOpen}
-        onApplyFilters={refetch}
         renderTableHeader={renderTableHeader}
         renderTableBody={renderTableBody}
         onRefresh={handleRefresh}
@@ -498,6 +484,17 @@ const InspectionList = () => {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateSuccess}
         vehicleType="inspection"
+      />
+
+      <ConfigurationSearchmore
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        statusFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        onClear={handleClearFilters}
+        isLoading={isLoading}
+        isOpen={isFilterDialogOpen}
+        onOpenChange={setIsFilterDialogOpen}
       />
     </>
   );
