@@ -521,6 +521,14 @@ const TradeinList = () => {
         isLoading={isLoading}
         isOpen={isFilterDialogOpen}
         onOpenChange={setIsFilterDialogOpen}
+        filterOptions={[
+        { value: "all", label: "All" },
+        { value: "pending", label: "Pending" },
+        { value: "In Progress", label: "In Progress" },
+        { value: "Offers Made", label: "Offers Made" },
+        { value: "Completed", label: "Completed" },
+      ]}
+      filterLabel="status"
       />
     </>
   );

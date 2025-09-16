@@ -17,6 +17,11 @@ import {
 } from "@/components/ui/select";
 import { Search, Filter, X, SlidersHorizontal } from "lucide-react";
 
+type FilterOption = {
+  value: string;
+  label: string;
+};
+
 interface ConfigurationSearchProps {
   searchTerm: string;
   onSearchChange: (term: string) => void;
@@ -26,6 +31,8 @@ interface ConfigurationSearchProps {
   isLoading: boolean;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  filterOptions: FilterOption[];
+  filterLabel: string;
 }
 
 const ConfigurationSearchmore: React.FC<ConfigurationSearchProps> = ({
@@ -37,6 +44,8 @@ const ConfigurationSearchmore: React.FC<ConfigurationSearchProps> = ({
   isLoading,
   isOpen,
   onOpenChange,
+  filterLabel,
+  filterOptions
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -60,19 +69,20 @@ const ConfigurationSearchmore: React.FC<ConfigurationSearchProps> = ({
           </div>
 
           {/* Status Filter */}
+          {/* Dynamic Filter */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Status Filter</label>
+            <label className="text-sm font-medium">{filterLabel}</label>
             <Select value={statusFilter} onValueChange={onFilterChange}>
               <SelectTrigger>
                 <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by status" />
+                <SelectValue placeholder={`Select ${filterLabel}`} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
+                {filterOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

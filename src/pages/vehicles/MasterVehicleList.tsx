@@ -491,6 +491,14 @@ const MasterVehicleList = () => {
         isLoading={isLoading}
         isOpen={isFilterDialogOpen}
         onOpenChange={setIsFilterDialogOpen}
+        filterOptions={[
+        { value: "all", label: "All" },
+        { value: "pending", label: "Pending" },
+        { value: "processing", label: "Processing" },
+        { value: "completed", label: "Completed" },
+        { value: "failed", label: "Failed" },
+      ]}
+      filterLabel="status"
       />
     </>
   );
