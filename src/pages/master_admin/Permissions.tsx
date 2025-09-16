@@ -1,22 +1,18 @@
-
-import React, { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  ToggleLeft,
-  ToggleRight,
-  X,
-  Filter,
-} from "lucide-react";
-import { toast } from "sonner";
-
+import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -25,34 +21,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import DeleteConfirmationDialog from "@/components/dialogs/DeleteConfirmationDialog";
-import { masterServices } from "@/api/services";
-import DashboardLayout from "@/components/layout/DashboardLayout";
+  Plus,
+  Shield,
+  Trash2,
+  Edit,
+  Eye,
+  Search,
+  SlidersHorizontal,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Download,
+  Upload,
+  RefreshCw,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import apiClient from "@/api/axios";
+import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
+import DataTableLayout from "@/components/common/DataTableLayout";
 
 interface Permission {
   _id: string;
@@ -66,6 +53,7 @@ interface Permission {
     email: string;
   };
   created_at: string;
+  updated_at: string;
 }
 
 interface MasterDropdown {
@@ -75,18 +63,30 @@ interface MasterDropdown {
   is_active: boolean;
 }
 
-const Permissions = () => {
+const MasterPermissions = () => {
   const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [moduleFilter, setModuleFilter] = useState("all");
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [deletingPermission, setDeletingPermission] =
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [paginationEnabled, setPaginationEnabled] = useState(true);
+  const [sortField, setSortField] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  const [deleteDialog, setDeleteDialog] = useState({
+    isOpen: false,
+    permissionId: "",
+    permissionName: "",
+  });
+
+  const [selectedPermission, setSelectedPermission] =
     useState<Permission | null>(null);
-  const [editingPermission, setEditingPermission] = useState<Permission | null>(
-    null
-  );
+  const [editPermission, setEditPermission] = useState<Permission | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const [formData, setFormData] = useState({
     module_name: "",
     internal_name: "",
@@ -97,33 +97,122 @@ const Permissions = () => {
   // Fetch master dropdowns for module selection
   const { data: dropdownsData } = useQuery({
     queryKey: ["master-modules-for-permissions"],
-    queryFn: () =>
-      masterServices
-        .getMasterdropdownvalues({
-          dropdown_name: ["company_superadmin_modules"],
-        })
-        .then((res) => res.data),
+    queryFn: async () => {
+      const response = await apiClient.get("/api/master/dropdowns", {
+        params: { dropdown_name: "company_superadmin_modules" },
+      });
+      return response.data;
+    },
   });
 
-  const { data: permissionsData, isLoading, refetch } = useQuery({
-    queryKey: ["master-permissions", page, search, status],
-    queryFn: () =>
-      masterServices
-        .getPermissions({
+  // Function to fetch all permissions when pagination is disabled
+  const fetchAllPermissions = async () => {
+    try {
+      let allData = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          limit: "100",
+        });
+
+        if (searchTerm) params.append("search", searchTerm);
+        if (statusFilter !== "all") params.append("status", statusFilter);
+        if (moduleFilter !== "all") params.append("module", moduleFilter);
+
+        const response = await apiClient.get(
+          `/api/master/permissions?${params}`
+        );
+        const responseData = response.data;
+
+        allData = [...allData, ...responseData.data];
+
+        if (responseData.data.length < 100) {
+          hasMore = false;
+        } else {
+          currentPage++;
+        }
+      }
+
+      return {
+        data: allData,
+        total: allData.length,
+        stats: {
+          totalPermissions: allData.length,
+          activePermissions: allData.filter((p: Permission) => p.is_active)
+            .length,
+          inactivePermissions: allData.filter((p: Permission) => !p.is_active)
+            .length,
+        },
+      };
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const {
+    data: permissionsResponse,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: paginationEnabled
+      ? [
+          "permissions",
           page,
-          limit: 10,
-          search: search.trim() || undefined,
-          status: status === "all" ? undefined : status,
-        })
-        .then((res) => res.data),
+          searchTerm,
+          statusFilter,
+          moduleFilter,
+          rowsPerPage,
+        ]
+      : ["all-permissions", searchTerm, statusFilter, moduleFilter],
+    queryFn: async () => {
+      if (!paginationEnabled) {
+        return await fetchAllPermissions();
+      }
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: rowsPerPage.toString(),
+      });
+
+      if (searchTerm) params.append("search", searchTerm);
+      if (statusFilter !== "all") params.append("status", statusFilter);
+      if (moduleFilter !== "all") params.append("module", moduleFilter);
+
+      const response = await apiClient.get(`/api/master/permissions?${params}`);
+      return {
+        data: response.data.data,
+        total:
+          response.data.pagination?.total_records || response.data.data.length,
+        stats: {
+          totalPermissions: response.data.data.length,
+          activePermissions: response.data.data.filter(
+            (p: Permission) => p.is_active
+          ).length,
+          inactivePermissions: response.data.data.filter(
+            (p: Permission) => !p.is_active
+          ).length,
+        },
+      };
+    },
   });
 
+  const permissions = permissionsResponse?.data || [];
+  const stats = permissionsResponse?.stats || {};
+
+  // Create permission mutation
   const createMutation = useMutation({
-    mutationFn: masterServices.createPermission,
+    mutationFn: async (data: any) => {
+      const response = await apiClient.post("/api/master/permissions", data);
+      return response.data;
+    },
     onSuccess: () => {
       toast.success("Permission created successfully");
-      queryClient.invalidateQueries({ queryKey: ["master-permissions"] });
-      setIsDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["permissions"] });
+      queryClient.invalidateQueries({ queryKey: ["all-permissions"] });
+      setIsAddDialogOpen(false);
       resetForm();
     },
     onError: (error: any) => {
@@ -133,13 +222,20 @@ const Permissions = () => {
     },
   });
 
+  // Update permission mutation
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
-      masterServices.updatePermission(id, data),
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await apiClient.put(
+        `/api/master/permissions/${id}`,
+        data
+      );
+      return response.data;
+    },
     onSuccess: () => {
       toast.success("Permission updated successfully");
-      queryClient.invalidateQueries({ queryKey: ["master-permissions"] });
-      setIsDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["permissions"] });
+      queryClient.invalidateQueries({ queryKey: ["all-permissions"] });
+      setIsAddDialogOpen(false);
       resetForm();
     },
     onError: (error: any) => {
@@ -149,36 +245,64 @@ const Permissions = () => {
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: masterServices.deletePermission,
-    onSuccess: () => {
-      toast.success("Permission deleted successfully");
-      queryClient.invalidateQueries({ queryKey: ["master-permissions"] });
-      setIsDeleteDialogOpen(false);
-      setDeletingPermission(null);
-    },
-    onError: (error: any) => {
-      toast.error(
-        error.response?.data?.message || "Failed to delete permission"
-      );
-      setIsDeleteDialogOpen(false);
-      setDeletingPermission(null);
-    },
-  });
+  // Get available modules from dropdowns
+  const availableModules = useMemo(() => {
+    return (
+      dropdownsData?.data?.find(
+        (dropdown: any) =>
+          dropdown.dropdown_name === "company_superadmin_modules"
+      )?.values || []
+    );
+  }, [dropdownsData]);
 
-  const toggleStatusMutation = useMutation({
-    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
-      masterServices.togglePermissionStatus(id, { is_active }),
-    onSuccess: () => {
-      toast.success("Permission status updated");
-      queryClient.invalidateQueries({ queryKey: ["master-permissions"] });
-    },
-    onError: (error: any) => {
-      toast.error(
-        error.response?.data?.message || "Failed to update permission status"
-      );
-    },
-  });
+  // Sort permissions when not using pagination
+  const sortedPermissions = useMemo(() => {
+    if (!sortField) return permissions;
+
+    return [...permissions].sort((a: Permission, b: Permission) => {
+      let aValue = a[sortField as keyof Permission];
+      let bValue = b[sortField as keyof Permission];
+
+      // Handle nested properties
+      if (sortField === "created_by") {
+        aValue = a.created_by
+          ? `${a.created_by.first_name} ${a.created_by.last_name}`
+          : "";
+        bValue = b.created_by
+          ? `${b.created_by.first_name} ${b.created_by.last_name}`
+          : "";
+      }
+
+      if (typeof aValue === "string") {
+        aValue = aValue.toLowerCase();
+        bValue = (bValue as string).toLowerCase();
+      }
+
+      if (sortOrder === "asc") {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [permissions, sortField, sortOrder]);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const getSortIcon = (field: string) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
+    return sortOrder === "asc" ? (
+      <ArrowUp className="h-3 w-3 ml-1" />
+    ) : (
+      <ArrowDown className="h-3 w-3 ml-1" />
+    );
+  };
 
   const resetForm = () => {
     setFormData({
@@ -187,262 +311,395 @@ const Permissions = () => {
       description: "",
       is_active: true,
     });
-    setEditingPermission(null);
+    setEditPermission(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (editingPermission) {
-      updateMutation.mutate({ id: editingPermission._id, data: formData });
+    if (editPermission) {
+      updateMutation.mutate({ id: editPermission._id, data: formData });
     } else {
       createMutation.mutate(formData);
     }
   };
 
+  const handleDeletePermission = async () => {
+    setIsDeleting(true);
+    try {
+      await apiClient.delete(
+        `/api/master/permissions/${deleteDialog.permissionId}`
+      );
+      toast.success("Permission deleted successfully");
+      setDeleteDialog({ isOpen: false, permissionId: "", permissionName: "" });
+      refetch();
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.message || "Failed to delete permission"
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleToggleStatus = async (
+    permissionId: string,
+    currentStatus: boolean
+  ) => {
+    try {
+      await apiClient.patch(`/api/master/permissions/${permissionId}/status`, {
+        is_active: !currentStatus,
+      });
+      toast.success("Permission status updated successfully");
+      refetch();
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.message || "Failed to update permission status"
+      );
+    }
+  };
+
+  const handleViewDetails = (permission: Permission) => {
+    setSelectedPermission(permission);
+  };
+
   const handleEdit = (permission: Permission) => {
-    setEditingPermission(permission);
+    setEditPermission(permission);
     setFormData({
       module_name: permission.module_name,
       internal_name: permission.internal_name,
       description: permission.description,
       is_active: permission.is_active,
     });
-    setIsDialogOpen(true);
+    setIsAddDialogOpen(true);
   };
 
-  const handleDeleteClick = (permission: Permission) => {
-    setDeletingPermission(permission);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (deletingPermission) {
-      deleteMutation.mutate(deletingPermission._id);
-    }
-  };
-
-  const handleToggleStatus = (id: string, currentStatus: boolean) => {
-    toggleStatusMutation.mutate({ id, is_active: !currentStatus });
-  };
-
-  const handleModuleSelect = (optionValue: string) => {
-    const selectedModule = availableModules.find(
-      (moduleValue) => moduleValue.option_value === optionValue
-    );
-    if (selectedModule) {
-      setFormData({
-        ...formData,
-        module_name: selectedModule.option_value,
-      });
-    }
-  };
-
-  const handleSearch = () => {
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setModuleFilter("all");
     setPage(1);
     refetch();
   };
 
-  const handleClear = () => {
-    setSearch("");
-    setStatus("all");
+  const handleRowsPerPageChange = (value: string) => {
+    setRowsPerPage(Number(value));
     setPage(1);
   };
 
-  const handleStatusFilter = (value: string) => {
-    setStatus(value);
+  const handlePaginationToggle = (checked: boolean) => {
+    setPaginationEnabled(checked);
     setPage(1);
   };
 
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
+  const openDeleteDialog = (permissionId: string, permissionName: string) => {
+    setDeleteDialog({
+      isOpen: true,
+      permissionId,
+      permissionName,
+    });
   };
 
-  useEffect(() => {
-    setPage(1);
-  }, [search, status]);
+  const closeDeleteDialog = () => {
+    setDeleteDialog({
+      isOpen: false,
+      permissionId: "",
+      permissionName: "",
+    });
+  };
 
-  const availableModules =
-    dropdownsData?.data?.find(
-      (dropdown) => dropdown.dropdown_name === "company_superadmin_modules"
-    )?.values || [];
+  const handleRefresh = () => {
+    refetch();
+    toast.success("Data refreshed");
+  };
 
-  const totalPages = permissionsData?.pagination?.total_pages || 1;
-  const totalRecords = permissionsData?.pagination?.total_records || 0;
-  const currentPage = permissionsData?.pagination?.current_page || 1;
+  const handleExport = () => {
+    toast.success("Export started");
+  };
+
+  const handleAddPermission = () => {
+    resetForm();
+    setIsAddDialogOpen(true);
+  };
+
+  // Calculate counts for chips
+  const totalPermissions = (stats as any)?.totalPermissions || 0;
+  const activePermissions = (stats as any)?.activePermissions || 0;
+  const inactivePermissions = (stats as any)?.inactivePermissions || 0;
+
+  // Prepare stat chips
+  const statChips = [
+    {
+      label: "Total",
+      value: totalPermissions,
+      variant: "outline" as const,
+      bgColor: "bg-gray-100",
+      textColor: "text-gray-800",
+      hoverColor: "hover:bg-gray-100",
+    },
+    {
+      label: "Active",
+      value: activePermissions,
+      variant: "default" as const,
+      bgColor: "bg-green-100",
+      textColor: "text-green-800",
+      hoverColor: "hover:bg-green-100",
+    },
+    {
+      label: "Inactive",
+      value: inactivePermissions,
+      variant: "secondary" as const,
+      bgColor: "bg-red-100",
+      textColor: "text-red-800",
+      hoverColor: "hover:bg-red-100",
+    },
+  ];
+
+  // Prepare action buttons
+  const actionButtons = [
+    {
+      icon: <SlidersHorizontal className="h-4 w-4" />,
+      tooltip: "Search & Filters",
+      onClick: () => setIsFilterDialogOpen(true),
+      className: "bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200",
+    },
+    {
+      icon: <Download className="h-4 w-4" />,
+      tooltip: "Export Permissions",
+      onClick: handleExport,
+      className: "bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200",
+    },
+    {
+      icon: <Plus className="h-4 w-4" />,
+      tooltip: "Add Permission",
+      onClick: handleAddPermission,
+      className:
+        "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
+    },
+    {
+      icon: <Upload className="h-4 w-4" />,
+      tooltip: "Import Permissions",
+      onClick: () => toast.info("Import feature coming soon"),
+      className:
+        "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
+    },
+  ];
+
+  // Render table header
+  const renderTableHeader = () => (
+    <TableRow>
+      <TableHead className="bg-muted/50">S.No</TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("module_name")}
+      >
+        <div className="flex items-center">
+          Module
+          {getSortIcon("module_name")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("internal_name")}
+      >
+        <div className="flex items-center">
+          Internal Name
+          {getSortIcon("internal_name")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("description")}
+      >
+        <div className="flex items-center">
+          Description
+          {getSortIcon("description")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("is_active")}
+      >
+        <div className="flex items-center">
+          Status
+          {getSortIcon("is_active")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("created_by")}
+      >
+        <div className="flex items-center">
+          Created By
+          {getSortIcon("created_by")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("created_at")}
+      >
+        <div className="flex items-center">
+          Created
+          {getSortIcon("created_at")}
+        </div>
+      </TableHead>
+      <TableHead className="bg-muted/50">Actions</TableHead>
+    </TableRow>
+  );
+
+  // Render table body
+  const renderTableBody = () => (
+    <>
+      {sortedPermissions.map((permission: Permission, index: number) => {
+        const moduleDisplayName =
+          availableModules.find(
+            (module: MasterDropdown) =>
+              module.option_value === permission.module_name
+          )?.display_value || permission.module_name;
+
+        return (
+          <TableRow key={permission._id}>
+            <TableCell>
+              {paginationEnabled
+                ? (page - 1) * rowsPerPage + index + 1
+                : index + 1}
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center space-x-2">
+                <Shield className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">{moduleDisplayName}</span>
+              </div>
+            </TableCell>
+            <TableCell>
+              <code className="text-sm bg-muted px-1.5 py-0.5 rounded">
+                {permission.internal_name}
+              </code>
+            </TableCell>
+            <TableCell className="max-w-xs">
+              <p className="truncate" title={permission.description}>
+                {permission.description}
+              </p>
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={permission.is_active}
+                  onCheckedChange={() =>
+                    handleToggleStatus(permission._id, permission.is_active)
+                  }
+                />
+                <Badge variant={permission.is_active ? "default" : "secondary"}>
+                  {permission.is_active ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+            </TableCell>
+            <TableCell>
+              {permission.created_by
+                ? `${permission.created_by.first_name} ${permission.created_by.last_name}`
+                : "System"}
+            </TableCell>
+            <TableCell>
+              {new Date(permission.created_at).toLocaleDateString()}
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleViewDetails(permission)}
+                  title="View Details"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEdit(permission)}
+                  title="Edit Permission"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    openDeleteDialog(permission._id, permission.internal_name)
+                  }
+                  title="Delete Permission"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        );
+      })}
+    </>
+  );
 
   return (
-    <DashboardLayout title="User Permissions">
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Permissions Management</h1>
-            <p className="text-muted-foreground">
-              Manage system permissions and user access controls
-            </p>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Permission
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingPermission ? "Edit Permission" : "Add New Permission"}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="module_name">Module Name</Label>
-                  {editingPermission ? (
-                    <Input
-                      id="module_name"
-                      value={
-                        availableModules.find(
-                          (moduleValue) =>
-                            moduleValue.option_value === formData.module_name
-                        )?.display_value || formData.module_name
-                      }
-                      disabled
-                    />
-                  ) : (
-                    <Select
-                      value={formData.module_name}
-                      onValueChange={handleModuleSelect}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a module" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableModules.map((moduleValue) => (
-                          <SelectItem
-                            key={moduleValue._id}
-                            value={moduleValue.option_value}
-                          >
-                            {moduleValue.display_value}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
+    <>
+      <DataTableLayout
+        title="Permissions Management"
+        data={sortedPermissions}
+        isLoading={isLoading}
+        totalCount={permissionsResponse?.total || 0}
+        statChips={statChips}
+        actionButtons={actionButtons}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        paginationEnabled={paginationEnabled}
+        onPageChange={setPage}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        onPaginationToggle={handlePaginationToggle}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        getSortIcon={getSortIcon}
+        renderTableHeader={renderTableHeader}
+        renderTableBody={renderTableBody}
+        onRefresh={handleRefresh}
+      />
 
-                <div className="space-y-2">
-                  <Label htmlFor="internal_name">Internal Name</Label>
-                  <Input
-                    id="internal_name"
-                    value={formData.internal_name}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        internal_name: e.target.value,
-                      })
-                    }
-                    placeholder="create_user"
-                    required
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Internal permission identifier (lowercase, underscores)
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    placeholder="Ability to create new users"
-                    required
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="is_active"
-                    checked={formData.is_active}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, is_active: checked })
-                    }
-                  />
-                  <Label htmlFor="is_active">Active</Label>
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsDialogOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={
-                      createMutation.isPending || updateMutation.isPending
-                    }
-                  >
-                    {editingPermission ? "Update" : "Create"} Permission
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Search and Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Search & Filter</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search permissions..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10"
-                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                  />
-                  {search && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-                      onClick={handleClear}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <Button onClick={handleSearch} className="bg-blue-600 text-white hover:bg-blue-700">
-                <Search className="h-4 w-4 mr-2" />
-                Search
-              </Button>
-
-              <Button
-                onClick={handleClear}
-                variant="outline"
-                disabled={!search && status === "all"}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Clear
-              </Button>
-
-              <Select value={status} onValueChange={handleStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <Filter className="h-4 w-4 mr-2" />
+      {/* Search & Filter Dialog */}
+      <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Search & Filter Permissions</DialogTitle>
+            <DialogDescription>
+              Search and filter permissions by various criteria
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="search">Search Permissions</Label>
+              <Input
+                id="search"
+                placeholder="Search by module, internal name, or description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="module">Module Filter</Label>
+              <Select value={moduleFilter} onValueChange={setModuleFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by module" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Modules</SelectItem>
+                  {availableModules.map((module: MasterDropdown) => (
+                    <SelectItem key={module._id} value={module.option_value}>
+                      {module.display_value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="status">Status Filter</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -452,207 +709,219 @@ const Permissions = () => {
                 </SelectContent>
               </Select>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClearFilters}
+              >
+                Clear Filters
+              </Button>
+              <Button
+                onClick={() => {
+                  setPage(1);
+                  setIsFilterDialogOpen(false);
+                  refetch();
+                }}
+              >
+                Apply Filters
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        {/* Permissions Table */}
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle>Permissions</CardTitle>
-              <div className="text-sm text-muted-foreground">
-                Total: {totalRecords} permissions
+      {/* Add/Edit Permission Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editPermission ? "Edit Permission" : "Add New Permission"}
+            </DialogTitle>
+            <DialogDescription>
+              {editPermission
+                ? "Update the permission details below"
+                : "Create a new permission for the system"}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="module_name">Module Name</Label>
+              {editPermission ? (
+                <Input
+                  id="module_name"
+                  value={
+                    availableModules.find(
+                      (module: MasterDropdown) =>
+                        module.option_value === formData.module_name
+                    )?.display_value || formData.module_name
+                  }
+                  disabled
+                />
+              ) : (
+                <Select
+                  value={formData.module_name}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, module_name: value })
+                  }
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a module" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableModules.map((module: MasterDropdown) => (
+                      <SelectItem key={module._id} value={module.option_value}>
+                        {module.display_value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="internal_name">Internal Name</Label>
+              <Input
+                id="internal_name"
+                value={formData.internal_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, internal_name: e.target.value })
+                }
+                placeholder="create_user"
+                required
+              />
+              <p className="text-sm text-muted-foreground">
+                Internal permission identifier (lowercase, underscores)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                placeholder="Ability to create new users"
+                required
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="is_active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_active: checked })
+                }
+              />
+              <Label htmlFor="is_active">Active</Label>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsAddDialogOpen(false);
+                  resetForm();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {createMutation.isPending || updateMutation.isPending
+                  ? "Processing..."
+                  : editPermission
+                  ? "Update Permission"
+                  : "Create Permission"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permission Details Dialog */}
+      <Dialog
+        open={!!selectedPermission}
+        onOpenChange={() => setSelectedPermission(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Permission Details</DialogTitle>
+          </DialogHeader>
+          {selectedPermission && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Module</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {availableModules.find(
+                      (module: MasterDropdown) =>
+                        module.option_value === selectedPermission.module_name
+                    )?.display_value || selectedPermission.module_name}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Status</Label>
+                  <Badge
+                    variant={
+                      selectedPermission.is_active ? "default" : "secondary"
+                    }
+                  >
+                    {selectedPermission.is_active ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Internal Name</Label>
+                <code className="text-sm bg-muted px-2 py-1 rounded block">
+                  {selectedPermission.internal_name}
+                </code>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Description</Label>
+                <p className="text-sm text-muted-foreground">
+                  {selectedPermission.description}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Created By</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedPermission.created_by
+                      ? `${selectedPermission.created_by.first_name} ${selectedPermission.created_by.last_name}`
+                      : "System"}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Created Date</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(
+                      selectedPermission.created_at
+                    ).toLocaleDateString()}
+                  </p>
+                </div>
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>S.No</TableHead>
-                      <TableHead>Module Name</TableHead>
-                      <TableHead>Internal Name</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created By</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {permissionsData?.data?.map(
-                      (permission: Permission, index: number) => {
-                        const moduleDisplayName =
-                          availableModules.find(
-                            (moduleValue) =>
-                              moduleValue.option_value === permission.module_name
-                          )?.display_value || permission.module_name;
+          )}
+        </DialogContent>
+      </Dialog>
 
-                        return (
-                          <TableRow key={permission._id}>
-                            <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                            <TableCell className="font-medium">
-                              {moduleDisplayName}
-                            </TableCell>
-                            <TableCell>{permission.internal_name}</TableCell>
-                            <TableCell className="max-w-xs truncate">
-                              {permission.description}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  permission.is_active ? "default" : "secondary"
-                                }
-                              >
-                                {permission.is_active ? "Active" : "Inactive"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {permission.created_by
-                                ? `${permission.created_by.first_name} ${permission.created_by.last_name}`
-                                : "N/A"}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEdit(permission)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleToggleStatus(
-                                      permission._id,
-                                      permission.is_active
-                                    )
-                                  }
-                                >
-                                  {permission.is_active ? (
-                                    <ToggleRight className="h-4 w-4" />
-                                  ) : (
-                                    <ToggleLeft className="h-4 w-4" />
-                                  )}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteClick(permission)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      }
-                    )}
-                  </TableBody>
-                </Table>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="mt-4">
-                    <Pagination>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious
-                            onClick={() =>
-                              handlePageChange(Math.max(1, currentPage - 1))
-                            }
-                            className={
-                              currentPage === 1
-                                ? "pointer-events-none opacity-50"
-                                : "cursor-pointer"
-                            }
-                          />
-                        </PaginationItem>
-
-                        {Array.from(
-                          { length: Math.min(5, totalPages) },
-                          (_, i) => {
-                            let pageNum;
-                            if (totalPages <= 5) {
-                              pageNum = i + 1;
-                            } else if (currentPage <= 3) {
-                              pageNum = i + 1;
-                            } else if (currentPage >= totalPages - 2) {
-                              pageNum = totalPages - 4 + i;
-                            } else {
-                              pageNum = currentPage - 2 + i;
-                            }
-
-                            return (
-                              <PaginationItem key={pageNum}>
-                                <PaginationLink
-                                  onClick={() => handlePageChange(pageNum)}
-                                  isActive={currentPage === pageNum}
-                                  className="cursor-pointer"
-                                >
-                                  {pageNum}
-                                </PaginationLink>
-                              </PaginationItem>
-                            );
-                          }
-                        )}
-
-                        <PaginationItem>
-                          <PaginationNext
-                            onClick={() =>
-                              handlePageChange(
-                                Math.min(totalPages, currentPage + 1)
-                              )
-                            }
-                            className={
-                              currentPage === totalPages
-                                ? "pointer-events-none opacity-50"
-                                : "cursor-pointer"
-                            }
-                          />
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
-                )}
-
-                {/* Show message when no data */}
-                {permissionsData?.data?.length === 0 && (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">
-                      {search || status !== "all"
-                        ? "No permissions found matching your criteria"
-                        : "No permissions found"}
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Delete Confirmation Dialog */}
-        <DeleteConfirmationDialog
-          isOpen={isDeleteDialogOpen}
-          onClose={() => {
-            setIsDeleteDialogOpen(false);
-            setDeletingPermission(null);
-          }}
-          onConfirm={handleDeleteConfirm}
-          title="Delete Permission"
-          description={`Are you sure you want to delete the permission "${deletingPermission?.internal_name}"? This action cannot be undone.`}
-          isLoading={deleteMutation.isPending}
-        />
-      </div>
-    </DashboardLayout>
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDeleteDialog
+        open={deleteDialog.isOpen}
+        onClose={closeDeleteDialog}
+        onConfirm={handleDeletePermission}
+     
+      />
+    </>
   );
 };
 
-export default Permissions;
+export default MasterPermissions;
