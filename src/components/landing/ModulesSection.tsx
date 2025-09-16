@@ -298,7 +298,7 @@ const ModulesSection = () => {
         >
           <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
             <CardContent className="p-8">
-              <h3 className="text-2xl font-bold mb-4">VehicleErp.io Mobile App</h3>
+              <h3 className="text-2xl font-bold mb-4">AutoErp.io Mobile App</h3>
               <p className="text-lg text-muted-foreground mb-6">
                 Dedicated mobile applications for inspection and trade-in modules, 
                 available on App Store and Play Store

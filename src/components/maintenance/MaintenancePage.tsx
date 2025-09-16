@@ -210,7 +210,7 @@ const MaintenancePage: React.FC<MaintenancePageProps> = ({
                     Need immediate assistance? Contact our support team
                   </p>
                   <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                    support@vehicleErp.com
+                    support@autoErp.com
                   </p>
                 </div>
               </CardContent>
@@ -332,7 +332,7 @@ const MaintenancePage: React.FC<MaintenancePageProps> = ({
                     Need immediate assistance? Contact our support team
                   </p>
                   <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                    support@vehicleErp
+                    support@autoErp
                   </p>
                 </div>
               </CardContent>

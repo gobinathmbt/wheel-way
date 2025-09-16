@@ -6,15 +6,15 @@ const server: ServerEnv = "LOCAL";
 
 // Frontend URL map
 const FRONTEND_URLS: Record<ServerEnv, string> = {
-  PROD: "https://dev.apperp.io",
-  TEST: "http://dev.apperp.io",
+  PROD: "https://dev.autoerp.io",
+  TEST: "http://dev.autoerp.io",
   LOCAL: "http://localhost:8080",
 };
 
 // Backend URL map
 const BACKEND_URLS: Record<ServerEnv, string> = {
-  PROD: "https://dev-backend.apperp.io",
-  TEST: "https://dev-backend.apperp.io",
+  PROD: "https://dev-backend.autoerp.io",
+  TEST: "https://dev-backend.autoerp.io",
   LOCAL: "http://localhost:5000",
 };
 
