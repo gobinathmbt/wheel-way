@@ -1,8 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import DashboardLayout from "@/components/layout/DashboardLayout";
 import { supplierServices, companyServices } from "@/api/services";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -43,10 +41,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, ChevronDown, Check, ChevronsUpDown } from "lucide-react";
-import { Search, Plus, Edit, Trash2, Tags, Filter } from "lucide-react";
+import { X, ChevronDown, Check, ChevronsUpDown, Edit, Plus } from "lucide-react";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import DataTableLayout from "@/components/common/DataTableLayout";
 
 interface MultiSelectOption {
   option_value: string;
@@ -158,13 +157,17 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 };
 
 const SupplierManagement = () => {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [paginationEnabled, setPaginationEnabled] = useState(true);
+  const [sortField, setSortField] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -183,12 +186,12 @@ const SupplierManagement = () => {
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ["suppliers", page, search, statusFilter, tagFilter],
+    queryKey: ["suppliers", page, searchTerm, statusFilter, tagFilter, rowsPerPage],
     queryFn: async () => {
       const params = {
         page,
-        limit: 20,
-        ...(search && { search }),
+        limit: rowsPerPage,
+        ...(searchTerm && { search: searchTerm }),
         ...(statusFilter !== "all" && { status: statusFilter }),
         ...(tagFilter.length > 0 && { tags: tagFilter }),
       };
@@ -313,236 +316,256 @@ const SupplierManagement = () => {
   const suppliers = suppliersData?.data || [];
   const pagination = suppliersData?.pagination || {};
 
-  return (
-    <DashboardLayout title="Supplier Management">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold">Supplier Management</h2>
-            <p className="text-muted-foreground">
-              Manage workshop suppliers and service providers
-            </p>
-          </div>
-          <Button onClick={handleCreateSupplier}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Supplier
-          </Button>
+  // Sort suppliers when not using pagination
+  const sortedSuppliers = useMemo(() => {
+    if (!sortField) return suppliers;
+
+    return [...suppliers].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      if (typeof aValue === "string") {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (sortOrder === "asc") {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [suppliers, sortField, sortOrder]);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const getSortIcon = (field: string) => {
+    if (sortField !== field) return <ChevronDown className="h-3 w-3 ml-1" />;
+    return sortOrder === "asc" ? (
+      <ChevronDown className="h-3 w-3 ml-1" />
+    ) : (
+      <ChevronDown className="h-3 w-3 ml-1 transform rotate-180" />
+    );
+  };
+
+  const handleRowsPerPageChange = (value: string) => {
+    setRowsPerPage(Number(value));
+    setPage(1);
+  };
+
+  const handlePaginationToggle = (enabled: boolean) => {
+    setPaginationEnabled(enabled);
+    setPage(1);
+  };
+
+  const handleRefresh = () => {
+    refetch();
+    toast.success("Data refreshed");
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setTagFilter([]);
+    setPage(1);
+  };
+
+  // Calculate counts for chips
+  const totalSuppliers = pagination.total_records || 0;
+  const activeCount = suppliers.filter((s: any) => s.is_active).length;
+  const inactiveCount = suppliers.filter((s: any) => !s.is_active).length;
+
+  // Prepare stat chips
+  const statChips = [
+    {
+      label: "Total",
+      value: totalSuppliers,
+      variant: "outline" as const,
+      bgColor: "bg-gray-100",
+    },
+    {
+      label: "Active",
+      value: activeCount,
+      variant: "default" as const,
+      bgColor: "bg-green-100",
+      textColor: "text-green-800",
+      hoverColor: "hover:bg-green-100",
+    },
+    {
+      label: "Inactive",
+      value: inactiveCount,
+      variant: "secondary" as const,
+      bgColor: "bg-gray-100",
+      textColor: "text-gray-800",
+      hoverColor: "hover:bg-gray-100",
+    },
+  ];
+
+  // Prepare action buttons
+  const actionButtons = [
+    {
+      icon: <Plus className="h-4 w-4" />,
+      tooltip: "Add Supplier",
+      onClick: handleCreateSupplier,
+      className: "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
+    },
+    {
+      icon: <Search className="h-4 w-4" />,
+      tooltip: "Search Suppliers",
+      onClick: () => {
+        // Focus search input or open search panel
+        const searchInput = document.querySelector('input[placeholder*="Search"]');
+        if (searchInput) (searchInput as HTMLInputElement).focus();
+      },
+      className: "bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200",
+    },
+  ];
+
+  // Render table header
+  const renderTableHeader = () => (
+    <TableRow>
+      <TableHead className="bg-muted/50">S.No</TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("name")}
+      >
+        <div className="flex items-center">
+          Supplier Details
+          {getSortIcon("name")}
         </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("email")}
+      >
+        <div className="flex items-center">
+          Contact
+          {getSortIcon("email")}
+        </div>
+      </TableHead>
+      <TableHead className="bg-muted/50">Tags</TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("is_active")}
+      >
+        <div className="flex items-center">
+          Status
+          {getSortIcon("is_active")}
+        </div>
+      </TableHead>
+      <TableHead className="bg-muted/50">Actions</TableHead>
+    </TableRow>
+  );
 
-        {/* Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Search & Filter</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search suppliers by name, email, or shop..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Filter by Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="w-full md:w-48">
-                <MultiSelectDropdown
-                  options={availableTags}
-                  selectedValues={tagFilter}
-                  onSelectionChange={setTagFilter}
-                  placeholder="Filter by Tags"
-                />
-              </div>
+  // Render table body
+  const renderTableBody = () => (
+    <>
+      {sortedSuppliers.map((supplier: any, index: number) => (
+        <TableRow key={supplier._id}>
+          <TableCell>
+            {paginationEnabled
+              ? (page - 1) * rowsPerPage + index + 1
+              : index + 1}
+          </TableCell>
+          <TableCell>
+            <div>
+              <p className="font-medium">{supplier.name}</p>
+              {supplier.supplier_shop_name && (
+                <p className="text-sm text-muted-foreground">
+                  {supplier.supplier_shop_name}
+                </p>
+              )}
             </div>
-          </CardContent>
-        </Card>
+          </TableCell>
+          <TableCell>
+            <div>
+              <p className="text-sm">{supplier.email}</p>
+              {supplier.address && (
+                <p className="text-xs text-muted-foreground truncate max-w-32">
+                  {supplier.address}
+                </p>
+              )}
+            </div>
+          </TableCell>
+          <TableCell>
+            <div className="flex flex-wrap gap-1">
+              {supplier.tags
+                ?.slice(0, 2)
+                .map((tag: string, tagIndex: number) => (
+                  <Badge
+                    key={tagIndex}
+                    variant="secondary"
+                    className="text-xs"
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+              {supplier.tags?.length > 2 && (
+                <Badge variant="outline" className="text-xs">
+                  +{supplier.tags.length - 2} more
+                </Badge>
+              )}
+            </div>
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={supplier.is_active}
+                onCheckedChange={() => handleToggleStatus(supplier)}
+              />
+              <Badge
+                variant={supplier.is_active ? "default" : "secondary"}
+              >
+                {supplier.is_active ? "Active" : "Inactive"}
+              </Badge>
+            </div>
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleEditSupplier(supplier)}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
 
-        {/* Suppliers Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Suppliers List</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>S.No</TableHead>
-                      <TableHead>Supplier Details</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Tags</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {suppliers.map((supplier: any, index: number) => (
-                      <TableRow key={supplier._id}>
-                        <TableCell>{(page - 1) * 20 + index + 1}</TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{supplier.name}</p>
-                            {supplier.supplier_shop_name && (
-                              <p className="text-sm text-muted-foreground">
-                                {supplier.supplier_shop_name}
-                              </p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="text-sm">{supplier.email}</p>
-                            {supplier.address && (
-                              <p className="text-xs text-muted-foreground truncate max-w-32">
-                                {supplier.address}
-                              </p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {supplier.tags
-                              ?.slice(0, 2)
-                              .map((tag: string, tagIndex: number) => (
-                                <Badge
-                                  key={tagIndex}
-                                  variant="secondary"
-                                  className="text-xs"
-                                >
-                                  {tag}
-                                </Badge>
-                              ))}
-                            {supplier.tags?.length > 2 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{supplier.tags.length - 2} more
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={supplier.is_active}
-                              onCheckedChange={() =>
-                                handleToggleStatus(supplier)
-                              }
-                            />
-                            <Badge
-                              variant={
-                                supplier.is_active ? "default" : "secondary"
-                              }
-                            >
-                              {supplier.is_active ? "Active" : "Inactive"}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditSupplier(supplier)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-
-                {/* Pagination */}
-                {pagination.total_pages > 1 && (
-                  <div className="flex justify-between items-center mt-4">
-                    <div className="text-sm text-muted-foreground">
-                      Showing {(page - 1) * 20 + 1} to{" "}
-                      {Math.min(page * 20, pagination.total_records)} of{" "}
-                      {pagination.total_records} entries
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                        disabled={page === 1}
-                      >
-                        Previous
-                      </Button>
-
-                      <div className="flex items-center gap-1">
-                        {Array.from(
-                          { length: Math.min(5, pagination.total_pages) },
-                          (_, i) => {
-                            const pageNum = i + 1;
-                            return (
-                              <Button
-                                key={pageNum}
-                                variant={
-                                  page === pageNum ? "default" : "outline"
-                                }
-                                size="sm"
-                                onClick={() => setPage(pageNum)}
-                              >
-                                {pageNum}
-                              </Button>
-                            );
-                          }
-                        )}
-                        {pagination.total_pages > 5 && (
-                          <>
-                            <span className="px-2">...</span>
-                            <Button
-                              variant={
-                                page === pagination.total_pages
-                                  ? "default"
-                                  : "outline"
-                              }
-                              size="sm"
-                              onClick={() => setPage(pagination.total_pages)}
-                            >
-                              {pagination.total_pages}
-                            </Button>
-                          </>
-                        )}
-                      </div>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage((prev) => prev + 1)}
-                        disabled={page === pagination.total_pages}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+  return (
+    <>
+      <DataTableLayout
+        title="Supplier Management"
+        data={sortedSuppliers}
+        isLoading={isLoading}
+        totalCount={pagination.total_records || 0}
+        statChips={statChips}
+        actionButtons={actionButtons}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        paginationEnabled={paginationEnabled}
+        onPageChange={setPage}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        onPaginationToggle={handlePaginationToggle}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        getSortIcon={getSortIcon}
+        renderTableHeader={renderTableHeader}
+        renderTableBody={renderTableBody}
+        onRefresh={handleRefresh}
+      />
 
       {/* Create/Edit Supplier Modal */}
       <Dialog
@@ -675,7 +698,7 @@ const SupplierManagement = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </>
   );
 };
 
