@@ -3,6 +3,22 @@ import { useQuery } from "@tanstack/react-query";
 import { workshopServices } from "@/api/services";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import {
   Eye,
@@ -14,11 +30,12 @@ import {
   ArrowUp,
   ArrowDown,
   SlidersHorizontal,
+  X,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import DataTableLayout from "@/components/common/DataTableLayout";
-import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
 
 const Workshop = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -42,7 +59,9 @@ const Workshop = () => {
           page: currentPage,
           limit: 100,
           ...(searchTerm && { search: searchTerm }),
-          ...(vehicleTypeFilter !== "all" && { vehicle_type: vehicleTypeFilter }),
+          ...(vehicleTypeFilter !== "all" && {
+            vehicle_type: vehicleTypeFilter,
+          }),
         };
 
         const response = await workshopServices.getWorkshopVehicles(params);
@@ -135,6 +154,12 @@ const Workshop = () => {
     setVehicleTypeFilter("all");
     setPage(1);
     refetch();
+  };
+
+  const applyFilters = () => {
+    setPage(1);
+    refetch();
+    setIsFilterDialogOpen(false);
   };
 
   const getSortIcon = (field: string) => {
@@ -293,10 +318,6 @@ const Workshop = () => {
                 src={vehicle.vehicle_hero_image}
                 alt={vehicle.name}
                 className="h-12 w-20 object-cover rounded"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = "/placeholder-vehicle.png";
-                }}
               />
             </TableCell>
             <TableCell>
@@ -353,11 +374,11 @@ const Workshop = () => {
                 to={`/company/workshop-config/${vehicle.vehicle_stock_id}/${vehicle.vehicle_type}`}
               >
                 <Button
+                  variant="ghost"
                   size="sm"
-                  className="bg-green-600 hover:bg-green-700"
+                  className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
                 >
-                  <Eye className="h-4 w-4 mr-2" />
-                  View
+                  <Eye className="h-4 w-4" />
                 </Button>
               </Link>
             </TableCell>
@@ -404,49 +425,67 @@ const Workshop = () => {
         onRefresh={handleRefresh}
       />
 
-      {/* Search and Filter Modal */}
-      <WorkshopSearchFilter
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        vehicleTypeFilter={vehicleTypeFilter}
-        onVehicleTypeChange={setVehicleTypeFilter}
-        onClear={handleClearFilters}
-        isLoading={isLoading}
-        isOpen={isFilterDialogOpen}
-        onOpenChange={setIsFilterDialogOpen}
-      />
-    </>
-  );
-};
+      {/* Search and Filter Dialog */}
+      <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Search & Filter Vehicles</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsFilterDialogOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
 
-// Workshop-specific search and filter component
-const WorkshopSearchFilter = ({
-  searchTerm,
-  onSearchChange,
-  vehicleTypeFilter,
-  onVehicleTypeChange,
-  onClear,
-  isLoading,
-  isOpen,
-  onOpenChange,
-}) => {
-  return (
-    <ConfigurationSearchmore
-      searchTerm={searchTerm}
-      onSearchChange={onSearchChange}
-      statusFilter={vehicleTypeFilter}
-      onFilterChange={onVehicleTypeChange}
-      onClear={onClear}
-      isLoading={isLoading}
-      isOpen={isOpen}
-      onOpenChange={onOpenChange}
-      filterOptions={[
-        { value: "all", label: "All Types" },
-        { value: "inspection", label: "Inspection" },
-        { value: "tradein", label: "Trade-in" },
-      ]}
-      filterLabel="Vehicle Type"
-    />
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="search">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  type="text"
+                  placeholder="Search by vehicle name, stock ID, or plate number"
+                  className="pl-8"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="vehicle-type">Vehicle Type</Label>
+              <Select
+                value={vehicleTypeFilter}
+                onValueChange={setVehicleTypeFilter}
+              >
+                <SelectTrigger id="vehicle-type">
+                  <SelectValue placeholder="Select vehicle type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="inspection">Inspection</SelectItem>
+                  <SelectItem value="tradein">Trade-in</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleClearFilters}>
+              Clear Filters
+            </Button>
+            <Button onClick={applyFilters} disabled={isLoading}>
+              {isLoading ? "Applying..." : "Apply Filters"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

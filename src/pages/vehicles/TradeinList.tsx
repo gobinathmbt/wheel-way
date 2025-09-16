@@ -322,6 +322,13 @@ const TradeinList = () => {
         "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
     },
   ];
+  const STATUS_FILTER_OPTIONS = [
+    { value: "all", label: "All" },
+    { value: "pending", label: "Pending" },
+    { value: "In Progress", label: "In Progress" },
+    { value: "Offers Made", label: "Offers Made" },
+    { value: "Completed", label: "Completed" },
+  ];
 
   // Render table header
   const renderTableHeader = () => (
@@ -521,14 +528,8 @@ const TradeinList = () => {
         isLoading={isLoading}
         isOpen={isFilterDialogOpen}
         onOpenChange={setIsFilterDialogOpen}
-        filterOptions={[
-        { value: "all", label: "All" },
-        { value: "pending", label: "Pending" },
-        { value: "In Progress", label: "In Progress" },
-        { value: "Offers Made", label: "Offers Made" },
-        { value: "Completed", label: "Completed" },
-      ]}
-      filterLabel="status"
+        filterOptions={STATUS_FILTER_OPTIONS}
+        filterLabel="Status"
       />
     </>
   );

@@ -92,9 +92,9 @@ export default {
         'slide-out': 'slide-out 0.3s ease-out'
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        heading: ['Poppins', 'system-ui', 'sans-serif']
-      }
+        sans: ["Inter", "Roboto", "system-ui", "sans-serif"], // modern body
+        heading: ["Poppins", "Work Sans", "system-ui", "sans-serif"], // clean headings
+      },
     }
   },
   plugins: [require("tailwindcss-animate")],

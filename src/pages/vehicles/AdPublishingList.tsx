@@ -225,9 +225,15 @@ const AdPublishingList = () => {
 
   // Calculate counts for chips
   const totalVehicles = vehiclesData?.total || 0;
-  const pendingCount = vehicles.filter((v: any) => v.status === "pending").length;
-  const publishedCount = vehicles.filter((v: any) => v.status === "published").length;
-  const completedCount = vehicles.filter((v: any) => v.status === "completed").length;
+  const pendingCount = vehicles.filter(
+    (v: any) => v.status === "pending"
+  ).length;
+  const publishedCount = vehicles.filter(
+    (v: any) => v.status === "published"
+  ).length;
+  const completedCount = vehicles.filter(
+    (v: any) => v.status === "completed"
+  ).length;
 
   // Prepare stat chips
   const statChips = [
@@ -281,16 +287,25 @@ const AdPublishingList = () => {
       icon: <Plus className="h-4 w-4" />,
       tooltip: "Create Advertisement",
       onClick: () => setIsCreateModalOpen(true),
-      className: "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
+      className:
+        "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
     },
     {
       icon: <Upload className="h-4 w-4" />,
       tooltip: "Import Vehicles",
       onClick: () => toast.info("Import feature coming soon"),
-      className: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
+      className:
+        "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
     },
   ];
 
+  const STATUS_FILTER_OPTIONS = [
+    { value: "all", label: "All" },
+    { value: "pending", label: "Pending" },
+    { value: "processing", label: "Processing" },
+    { value: "completed", label: "Completed" },
+    { value: "failed", label: "Failed" },
+  ];
   // Render table header
   const renderTableHeader = () => (
     <TableRow>
@@ -485,6 +500,8 @@ const AdPublishingList = () => {
         isLoading={isLoading}
         isOpen={isFilterDialogOpen}
         onOpenChange={setIsFilterDialogOpen}
+        filterOptions={STATUS_FILTER_OPTIONS}
+        filterLabel="Status"
       />
     </>
   );

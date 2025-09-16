@@ -228,9 +228,7 @@ const MasterVehicleList = () => {
   const completedCount = vehicles.filter(
     (v: any) => v.status === "completed"
   ).length;
-  const failedCount = vehicles.filter(
-    (v: any) => v.status === "failed"
-  ).length;
+  const failedCount = vehicles.filter((v: any) => v.status === "failed").length;
 
   // Prepare stat chips
   const statChips = [
@@ -302,6 +300,14 @@ const MasterVehicleList = () => {
       className:
         "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
     },
+  ];
+
+  const STATUS_FILTER_OPTIONS = [
+    { value: "all", label: "All" },
+    { value: "pending", label: "Pending" },
+    { value: "processing", label: "Processing" },
+    { value: "completed", label: "Completed" },
+    { value: "failed", label: "Failed" },
   ];
 
   // Render table header
@@ -491,14 +497,8 @@ const MasterVehicleList = () => {
         isLoading={isLoading}
         isOpen={isFilterDialogOpen}
         onOpenChange={setIsFilterDialogOpen}
-        filterOptions={[
-        { value: "all", label: "All" },
-        { value: "pending", label: "Pending" },
-        { value: "processing", label: "Processing" },
-        { value: "completed", label: "Completed" },
-        { value: "failed", label: "Failed" },
-      ]}
-      filterLabel="status"
+        filterOptions={STATUS_FILTER_OPTIONS}
+        filterLabel="Status"
       />
     </>
   );

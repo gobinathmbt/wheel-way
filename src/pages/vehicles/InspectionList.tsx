@@ -299,6 +299,13 @@ const InspectionList = () => {
     },
   ];
 
+  const STATUS_FILTER_OPTIONS = [
+    { value: "all", label: "All" },
+    { value: "pending", label: "Pending" },
+    { value: "in_progress", label: "In Progress" },
+    { value: "completed", label: "Completed" },
+  ];
+
   // Render table header
   const renderTableHeader = () => (
     <TableRow>
@@ -495,13 +502,8 @@ const InspectionList = () => {
         isLoading={isLoading}
         isOpen={isFilterDialogOpen}
         onOpenChange={setIsFilterDialogOpen}
-        filterOptions={[
-        { value: "all", label: "All" },
-        { value: "pending", label: "Pending" },
-        { value: "In Progress", label: "In Progress" },
-        { value: "Completed", label: "Completed" },
-      ]}
-      filterLabel="status"
+        filterOptions={STATUS_FILTER_OPTIONS}
+        filterLabel="Status"
       />
     </>
   );

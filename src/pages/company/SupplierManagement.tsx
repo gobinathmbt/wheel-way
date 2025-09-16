@@ -13,17 +13,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Popover,
@@ -41,11 +35,26 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, ChevronDown, Check, ChevronsUpDown, Edit, Plus } from "lucide-react";
-import { Search } from "lucide-react";
+import {
+  X,
+  ChevronDown,
+  Check,
+  ChevronsUpDown,
+  Edit,
+  Plus,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import DataTableLayout from "@/components/common/DataTableLayout";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface MultiSelectOption {
   option_value: string;
@@ -162,6 +171,7 @@ const SupplierManagement = () => {
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(20);
@@ -375,6 +385,13 @@ const SupplierManagement = () => {
     setStatusFilter("all");
     setTagFilter([]);
     setPage(1);
+    setIsFilterDialogOpen(false);
+  };
+
+  const applyFilters = () => {
+    setPage(1);
+    refetch();
+    setIsFilterDialogOpen(false);
   };
 
   // Calculate counts for chips
@@ -411,20 +428,16 @@ const SupplierManagement = () => {
   // Prepare action buttons
   const actionButtons = [
     {
+      icon: <SlidersHorizontal className="h-4 w-4" />,
+      tooltip: "Search & Filters",
+      onClick: () => setIsFilterDialogOpen(true),
+      className: "bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200",
+    },
+    {
       icon: <Plus className="h-4 w-4" />,
       tooltip: "Add Supplier",
       onClick: handleCreateSupplier,
       className: "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
-    },
-    {
-      icon: <Search className="h-4 w-4" />,
-      tooltip: "Search Suppliers",
-      onClick: () => {
-        // Focus search input or open search panel
-        const searchInput = document.querySelector('input[placeholder*="Search"]');
-        if (searchInput) (searchInput as HTMLInputElement).focus();
-      },
-      className: "bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200",
     },
   ];
 
@@ -566,6 +579,77 @@ const SupplierManagement = () => {
         renderTableBody={renderTableBody}
         onRefresh={handleRefresh}
       />
+
+      {/* Search and Filter Dialog */}
+      <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Search & Filter Suppliers</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsFilterDialogOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="search">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  type="text"
+                  placeholder="Search by supplier name, email, or shop name"
+                  className="pl-8"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={statusFilter}
+                onValueChange={setStatusFilter}
+              >
+                <SelectTrigger id="status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Tags</Label>
+              <MultiSelectDropdown
+                options={availableTags}
+                selectedValues={tagFilter}
+                onSelectionChange={setTagFilter}
+                placeholder="Filter by tags"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleClearFilters}>
+              Clear Filters
+            </Button>
+            <Button onClick={applyFilters} disabled={isLoading}>
+              {isLoading ? "Applying..." : "Apply Filters"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create/Edit Supplier Modal */}
       <Dialog
