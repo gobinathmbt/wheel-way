@@ -35,6 +35,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import apiClient from "@/api/axios";
 import { subscriptionServices } from "@/api/services";
+import CheckoutModal from "./CheckoutModal";
 
 // Payment Gateway SDKs
 import { loadStripe } from "@stripe/stripe-js";
@@ -106,6 +107,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [pricingConfig, setPricingConfig] = useState(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
   const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Clean up any timers when component unmounts
@@ -391,8 +393,8 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             {/* Configuration and Pricing Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               {/* Configuration Panel */}
-              <Card className="h-fit">
-                <CardHeader>
+              <Card className="h-[600px] flex flex-col">
+                <CardHeader className="flex-shrink-0">
                   <CardTitle className="text-lg sm:text-xl">
                     Subscription Configuration
                   </CardTitle>
@@ -400,8 +402,8 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     Configure your subscription requirements
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <CardContent className="flex-1 flex flex-col space-y-6 overflow-hidden">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-shrink-0">
                     <div className="space-y-2">
                       <Label htmlFor="days" className="text-sm font-medium">
                         Number of Days
@@ -454,11 +456,11 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium">
+                  <div className="flex-1 flex flex-col space-y-4 overflow-hidden">
+                    <Label className="text-sm font-medium flex-shrink-0">
                       Select Modules
                     </Label>
-                    <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                    <div className="flex-1 overflow-y-auto pr-2 space-y-3">
                       {pricingConfig?.modules?.map((module) => {
                         const isSelected =
                           subscriptionData.selected_modules.includes(
@@ -520,81 +522,83 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               </Card>
 
               {/* Pricing Panel */}
-              <Card className="h-fit">
-                <CardHeader>
+              <Card className="h-[600px] flex flex-col">
+                <CardHeader className="flex-shrink-0">
                   <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                     <Calculator className="h-5 w-5" />
                     Pricing Breakdown
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex-1 flex flex-col overflow-hidden">
                   {isCalculating ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="h-8 w-8 animate-spin" />
                     </div>
                   ) : pricing ? (
-                    <div className="space-y-4">
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span>Per User Cost:</span>
-                          <span>${pricing.per_user_cost}/day</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>
-                            Users ({subscriptionData.number_of_users}):
-                          </span>
-                          <span>${pricing.user_cost}/day</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Modules:</span>
-                          <span>${pricing.module_cost}/day</span>
-                        </div>
-                        <div className="flex justify-between font-medium">
-                          <span>Daily Rate:</span>
-                          <span>${pricing.daily_rate}</span>
-                        </div>
-                        {pricing.discount_amount > 0 && (
-                          <div className="flex justify-between text-green-600">
-                            <span>Credit (Remaining Days):</span>
-                            <span>-${pricing.discount_amount}</span>
+                    <div className="flex-1 overflow-y-auto pr-2">
+                      <div className="space-y-4">
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>Per User Cost:</span>
+                            <span>${pricing.per_user_cost}/day</span>
                           </div>
-                        )}
-                        <div className="border-t pt-2">
-                          <div className="flex justify-between text-lg font-bold">
+                          <div className="flex justify-between">
                             <span>
-                              Total (
-                              {pricing.effective_days ||
-                                subscriptionData.number_of_days}{" "}
-                              days):
+                              Users ({subscriptionData.number_of_users}):
                             </span>
-                            <span>${pricing.total_amount}</span>
+                            <span>${pricing.user_cost}/day</span>
                           </div>
-                        </div>
-                      </div>
-
-                      {pricing.module_details &&
-                        pricing.module_details.length > 0 && (
-                          <div className="bg-muted p-4 rounded-lg">
-                            <h4 className="font-semibold mb-2 text-sm">
-                              Selected Modules:
-                            </h4>
-                            <div className="space-y-1">
-                              {pricing.module_details.map((module, index) => (
-                                <div
-                                  key={index}
-                                  className="flex justify-between text-sm"
-                                >
-                                  <span className="truncate mr-2">
-                                    {module.display_value}
-                                  </span>
-                                  <span className="flex-shrink-0">
-                                    ${module.cost}/day
-                                  </span>
-                                </div>
-                              ))}
+                          <div className="flex justify-between">
+                            <span>Modules:</span>
+                            <span>${pricing.module_cost}/day</span>
+                          </div>
+                          <div className="flex justify-between font-medium">
+                            <span>Daily Rate:</span>
+                            <span>${pricing.daily_rate}</span>
+                          </div>
+                          {pricing.discount_amount > 0 && (
+                            <div className="flex justify-between text-green-600">
+                              <span>Credit (Remaining Days):</span>
+                              <span>-${pricing.discount_amount}</span>
+                            </div>
+                          )}
+                          <div className="border-t pt-2">
+                            <div className="flex justify-between text-lg font-bold">
+                              <span>
+                                Total (
+                                {pricing.effective_days ||
+                                  subscriptionData.number_of_days}{" "}
+                                days):
+                              </span>
+                              <span>${pricing.total_amount}</span>
                             </div>
                           </div>
-                        )}
+                        </div>
+
+                        {pricing.module_details &&
+                          pricing.module_details.length > 0 && (
+                            <div className="bg-muted p-4 rounded-lg">
+                              <h4 className="font-semibold mb-2 text-sm">
+                                Selected Modules:
+                              </h4>
+                              <div className="space-y-1">
+                                {pricing.module_details.map((module, index) => (
+                                  <div
+                                    key={index}
+                                    className="flex justify-between text-sm"
+                                  >
+                                    <span className="truncate mr-2">
+                                      {module.display_value}
+                                    </span>
+                                    <span className="flex-shrink-0">
+                                      ${module.cost}/day
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center text-muted-foreground py-8 text-sm">
@@ -605,134 +609,38 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               </Card>
             </div>
 
-            {/* Payment Section */}
             {pricing && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                    <CreditCard className="h-5 w-5" />
-                    Payment Method
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Tabs
-                    value={selectedPaymentMethod}
-                    onValueChange={setSelectedPaymentMethod}
-                  >
-                    <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 gap-1">
-                      <TabsTrigger value="stripe" className="text-sm">
-                        Stripe
-                      </TabsTrigger>
-                      <TabsTrigger value="paypal" className="text-sm">
-                        PayPal
-                      </TabsTrigger>
-                      <TabsTrigger value="razorpay" className="text-sm">
-                        Razorpay
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <div className="mt-4">
-                      <TabsContent value="stripe" className="space-y-4 mt-0">
-                        <div className="bg-muted p-4 rounded-lg mb-4">
-                          <h4 className="font-semibold mb-2 text-sm">
-                            Stripe Checkout
-                          </h4>
-                          <p className="text-sm text-muted-foreground">
-                            You will be redirected to Stripe's secure payment
-                            page to complete your transaction.
-                          </p>
-                        </div>
-                        <div className="text-center space-y-4">
-                          <Button
-                            onClick={handleStripePayment}
-                            disabled={isProcessing || isRedirecting}
-                            className="w-full"
-                            size="lg"
-                          >
-                            {isProcessing ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Redirecting to Stripe...
-                              </>
-                            ) : (
-                              <>
-                                Proceed to Stripe Checkout
-                                <ExternalLink className="ml-2 h-4 w-4" />
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </TabsContent>
-
-                      <TabsContent value="paypal" className="space-y-4 mt-0">
-                        <div className="bg-muted p-4 rounded-lg mb-4">
-                          <h4 className="font-semibold mb-2 text-sm">
-                            PayPal Checkout
-                          </h4>
-                          <p className="text-sm text-muted-foreground">
-                            You will be redirected to PayPal's secure payment
-                            page to complete your transaction.
-                          </p>
-                        </div>
-                        <div className="text-center space-y-4">
-                          <Button
-                            onClick={handleStripePayment}
-                            disabled={isProcessing || isRedirecting}
-                            className="w-full bg-blue-600 hover:bg-blue-700"
-                            size="lg"
-                          >
-                            {isProcessing ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Redirecting to PayPal...
-                              </>
-                            ) : (
-                              <>
-                                Proceed to PayPal Checkout
-                                <ExternalLink className="ml-2 h-4 w-4" />
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </TabsContent>
-
-                      <TabsContent value="razorpay" className="space-y-4 mt-0">
-                        <div className="bg-muted p-4 rounded-lg mb-4">
-                          <h4 className="font-semibold mb-2 text-sm">
-                            Razorpay Checkout
-                          </h4>
-                          <p className="text-sm text-muted-foreground">
-                            Complete your payment securely using Razorpay.
-                          </p>
-                        </div>
-                        <div className="text-center space-y-4">
-                          <Button
-                            onClick={handleRazorpayPayment}
-                            disabled={isProcessing || isRedirecting}
-                            className="w-full bg-green-600 hover:bg-green-700"
-                            size="lg"
-                          >
-                            {isProcessing ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Opening Razorpay...
-                              </>
-                            ) : (
-                              <>
-                                Proceed to Razorpay Checkout
-                                <ExternalLink className="ml-2 h-4 w-4" />
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </TabsContent>
-                    </div>
-                  </Tabs>
-                </CardContent>
-              </Card>
+              <div className="flex justify-center">
+                <Button
+                  onClick={() => setShowCheckout(true)}
+                  disabled={!pricing}
+                  size="lg"
+                  className="w-full max-w-md"
+                >
+                  Proceed to Checkout - ${pricing.total_amount}
+                </Button>
+              </div>
             )}
           </div>
         </div>
+
+        {/* Checkout Modal */}
+        {showCheckout && pricing && (
+          <CheckoutModal
+            isOpen={showCheckout}
+            onClose={() => setShowCheckout(false)}
+            subscriptionData={subscriptionData}
+            pricing={pricing}
+            mode={mode}
+            onSuccess={() => {
+              setShowCheckout(false);
+              onSuccess?.();
+              onClose?.();
+            }}
+            currentSubscription={currentSubscription}
+            userProfile={userProfile}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

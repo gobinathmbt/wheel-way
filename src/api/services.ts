@@ -34,6 +34,16 @@ export const subscriptionServices = {
 
   getCompanySubscriptionInfo: () =>
     apiClient.get("/api/subscription/company-info"),
+
+  // Invoice Services
+  getInvoices: (params = {}) => apiClient.get("/api/invoices", { params }),
+
+  getInvoice: (invoiceId) => apiClient.get(`/api/invoices/${invoiceId}`),
+
+  getInvoiceStats: () => apiClient.get("/api/invoices/stats"),
+
+  updateInvoicePaymentStatus: (invoiceId, data) =>
+    apiClient.patch(`/api/invoices/${invoiceId}/payment-status`, data),
 };
 
 // Master Admin Services

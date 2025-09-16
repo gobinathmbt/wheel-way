@@ -327,7 +327,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, onSave, onC
               <h3 className="font-semibold mb-2">Node Properties</h3>
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm">{selectedNode.data.label}</CardTitle>
+                  <CardTitle className="text-sm">{(selectedNode?.data as any)?.label || 'Node'}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div>

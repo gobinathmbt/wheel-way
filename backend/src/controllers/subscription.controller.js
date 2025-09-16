@@ -139,7 +139,8 @@ const createSubscription = async (req, res) => {
       total_amount,
       payment_method,
       is_upgrade,
-      is_renewal
+      is_renewal,
+      billing_info
     } = req.body;
 
     const companyId = req.user.company_id;
@@ -198,19 +199,28 @@ const createSubscription = async (req, res) => {
 
     await subscription.save();
 
-    // 🔥 Update Company with module access
- const moduleNames = moduleDetails.map(m => m.module_name);
+    // // Generate invoice
+    // const { generateInvoice } = require('./invoice.controller');
+    // try {
+    //   await generateInvoice(subscription._id, billing_info);
+    // } catch (invoiceError) {
+    //   console.error('Failed to generate invoice:', invoiceError);
+    //   // Don't fail the subscription creation if invoice generation fails
+    // }
 
-await Company.findByIdAndUpdate(companyId, {
-  module_access: moduleNames, // store only module names
-  subscription_status: 'active',
-  subscription_start_date: startDate,
-  subscription_end_date: endDate,
-  grace_period_end: gracePeriodEnd,
-  number_of_days,
-  number_of_users,
-  user_limit: number_of_users
-});
+    // Update Company with module access
+    const moduleNames = moduleDetails.map(m => m.module_name);
+
+    await Company.findByIdAndUpdate(companyId, {
+      module_access: moduleNames, // store only module names
+      subscription_status: 'active',
+      subscription_start_date: startDate,
+      subscription_end_date: endDate,
+      grace_period_end: gracePeriodEnd,
+      number_of_days,
+      number_of_users,
+      user_limit: number_of_users
+    });
 
     await logEvent({
       event_type: 'system_operation',
