@@ -1,51 +1,37 @@
 import React, { useState } from "react";
-import DashboardLayout from "@/components/layout/DashboardLayout";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Eye, Download, Upload, Calendar, Car, Plus } from "lucide-react";
+  Eye,
+  Download,
+  Upload,
+  Car,
+  Plus,
+  ArrowUpDown,
+  ArrowUp,
+  SlidersHorizontal,
+  ArrowDown,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { masterVehicleServices, authServices } from "@/api/services";
 import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
 import VehicleDetailSideModal from "@/components/vehicles/VehicleDetailSideModal";
 import CreateVehicleStockModal from "@/components/vehicles/CreateVehicleStockModal";
+import DataTableLayout from "@/components/common/DataTableLayout";
 
 const MasterVehicleList = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const limit = 20;
+  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+  const [paginationEnabled, setPaginationEnabled] = useState(true);
+  const [sortField, setSortField] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   // Fetch current user's permissions
   const { data: userPermissions } = useQuery({
@@ -56,16 +42,60 @@ const MasterVehicleList = () => {
     },
   });
 
+  // Function to fetch all vehicles when pagination is disabled
+  const fetchAllVehicles = async () => {
+    try {
+      let allData = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          limit: "100",
+        });
+
+        if (searchTerm) params.append("search", searchTerm);
+        if (statusFilter !== "all") params.append("status", statusFilter);
+
+        const response = await masterVehicleServices.getMasterVehicles({
+          ...Object.fromEntries(params),
+        });
+
+        allData = [...allData, ...response.data.data];
+
+        if (response.data.data.length < 100) {
+          hasMore = false;
+        } else {
+          currentPage++;
+        }
+      }
+
+      return {
+        data: allData,
+        total: allData.length,
+      };
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const {
     data: vehiclesData,
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ["master-vehicles", page, searchTerm, statusFilter],
+    queryKey: paginationEnabled
+      ? ["master-vehicles", page, searchTerm, statusFilter, rowsPerPage]
+      : ["all-master-vehicles", searchTerm, statusFilter],
     queryFn: async () => {
+      if (!paginationEnabled) {
+        return await fetchAllVehicles();
+      }
+
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: limit.toString(),
+        limit: rowsPerPage.toString(),
       });
 
       if (searchTerm) params.append("search", searchTerm);
@@ -79,7 +109,61 @@ const MasterVehicleList = () => {
   });
 
   const vehicles = vehiclesData?.data || [];
-  const totalPages = Math.ceil((vehiclesData?.total || 0) / limit);
+
+  // Sort vehicles when not using pagination
+  const sortedVehicles = React.useMemo(() => {
+    if (!sortField) return vehicles;
+
+    return [...vehicles].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      // Handle nested properties
+      if (sortField === "vehicle_name") {
+        aValue = `${a.make} ${a.model}`;
+        bValue = `${b.make} ${b.model}`;
+      } else if (sortField === "mileage") {
+        aValue = a.vehicle_odometer?.[0]?.reading || 0;
+        bValue = b.vehicle_odometer?.[0]?.reading || 0;
+      }
+
+      if (typeof aValue === "string") {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (sortOrder === "asc") {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [vehicles, sortField, sortOrder]);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setPage(1);
+    refetch();
+  };
+
+  const getSortIcon = (field) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
+    return sortOrder === "asc" ? (
+      <ArrowUp className="h-3 w-3 ml-1" />
+    ) : (
+      <ArrowDown className="h-3 w-3 ml-1" />
+    );
+  };
 
   const handleViewDetails = async (vehicleId: string) => {
     try {
@@ -95,16 +179,14 @@ const MasterVehicleList = () => {
     setIsCreateModalOpen(false);
   };
 
-  const handleClearSearch = () => {
-    setSearchTerm("");
+  const handleRowsPerPageChange = (value: string) => {
+    setRowsPerPage(Number(value));
     setPage(1);
-    refetch();
   };
 
-  const handleFilterChange = (value: string) => {
-    setStatusFilter(value);
+  const handlePaginationToggle = (checked) => {
+    setPaginationEnabled(checked);
     setPage(1);
-    refetch();
   };
 
   const getStatusColor = (status: string) => {
@@ -122,252 +204,265 @@ const MasterVehicleList = () => {
     }
   };
 
+  const handleRefresh = () => {
+    refetch();
+    toast.success("Data refreshed");
+  };
+
+  const handleExport = () => {
+    toast.success("Export started");
+  };
+
+  const handleImport = () => {
+    toast.info("Import feature coming soon");
+  };
+
+  // Calculate counts for chips
+  const totalVehicles = vehiclesData?.total || 0;
+  const pendingCount = vehicles.filter(
+    (v: any) => v.status === "pending"
+  ).length;
+  const processingCount = vehicles.filter(
+    (v: any) => v.status === "processing"
+  ).length;
+  const completedCount = vehicles.filter(
+    (v: any) => v.status === "completed"
+  ).length;
+  const failedCount = vehicles.filter(
+    (v: any) => v.status === "failed"
+  ).length;
+
+  // Prepare stat chips
+  const statChips = [
+    {
+      label: "Total",
+      value: totalVehicles,
+      variant: "outline" as const,
+      bgColor: "bg-gray-100",
+    },
+    {
+      label: "Pending",
+      value: pendingCount,
+      variant: "secondary" as const,
+      bgColor: "bg-yellow-100",
+      textColor: "text-yellow-800",
+      hoverColor: "hover:bg-yellow-100",
+    },
+    {
+      label: "Processing",
+      value: processingCount,
+      variant: "default" as const,
+      bgColor: "bg-blue-100",
+      textColor: "text-blue-800",
+      hoverColor: "hover:bg-blue-100",
+    },
+    {
+      label: "Completed",
+      value: completedCount,
+      variant: "default" as const,
+      bgColor: "bg-green-100",
+      textColor: "text-green-800",
+      hoverColor: "hover:bg-green-100",
+    },
+    {
+      label: "Failed",
+      value: failedCount,
+      variant: "destructive" as const,
+      bgColor: "bg-red-100",
+      textColor: "text-red-800",
+      hoverColor: "hover:bg-red-100",
+    },
+  ];
+
+  // Prepare action buttons
+  const actionButtons = [
+    {
+      icon: <SlidersHorizontal className="h-4 w-4" />,
+      tooltip: "Search & Filters",
+      onClick: () => setIsFilterDialogOpen(true),
+      className: "bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200",
+    },
+    {
+      icon: <Download className="h-4 w-4" />,
+      tooltip: "Export Report",
+      onClick: handleExport,
+      className: "bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200",
+    },
+    {
+      icon: <Plus className="h-4 w-4" />,
+      tooltip: "Create Master Vehicle",
+      onClick: () => setIsCreateModalOpen(true),
+      className:
+        "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
+    },
+    {
+      icon: <Upload className="h-4 w-4" />,
+      tooltip: "Import Vehicles",
+      onClick: handleImport,
+      className:
+        "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
+    },
+  ];
+
+  // Render table header
+  const renderTableHeader = () => (
+    <TableRow>
+      <TableHead className="bg-muted/50">S.No</TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("vehicle_stock_id")}
+      >
+        <div className="flex items-center">
+          Stock No
+          {getSortIcon("vehicle_stock_id")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("vehicle_name")}
+      >
+        <div className="flex items-center">
+          Vehicle
+          {getSortIcon("vehicle_name")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("plate_no")}
+      >
+        <div className="flex items-center">
+          Registration
+          {getSortIcon("plate_no")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("year")}
+      >
+        <div className="flex items-center">
+          Year
+          {getSortIcon("year")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("mileage")}
+      >
+        <div className="flex items-center">
+          Mileage
+          {getSortIcon("mileage")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("status")}
+      >
+        <div className="flex items-center">
+          Status
+          {getSortIcon("status")}
+        </div>
+      </TableHead>
+      <TableHead className="bg-muted/50">Actions</TableHead>
+    </TableRow>
+  );
+
+  // Render table body
+  const renderTableBody = () => (
+    <>
+      {sortedVehicles.map((vehicle: any, index: number) => (
+        <TableRow key={vehicle._id}>
+          <TableCell>
+            {paginationEnabled
+              ? (page - 1) * rowsPerPage + index + 1
+              : index + 1}
+          </TableCell>
+          <TableCell>
+            <div>
+              <p className="font-medium">{vehicle.vehicle_stock_id}</p>
+            </div>
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                <Car className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-medium">
+                  {vehicle.make} {vehicle.model}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {vehicle.variant}
+                </p>
+              </div>
+            </div>
+          </TableCell>
+          <TableCell>
+            <div>
+              <p className="font-medium">{vehicle.plate_no}</p>
+            </div>
+          </TableCell>
+          <TableCell>{vehicle.year}</TableCell>
+          <TableCell>
+            {vehicle.vehicle_odometer?.[0]?.reading?.toLocaleString()} km
+          </TableCell>
+          <TableCell>
+            <Badge
+              variant={getStatusColor(vehicle.status)}
+              className={
+                vehicle.status === "pending"
+                  ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                  : vehicle.status === "processing"
+                  ? "bg-blue-100 text-blue-800 hover:bg-blue-100"
+                  : vehicle.status === "completed"
+                  ? "bg-green-100 text-green-800 hover:bg-green-100"
+                  : vehicle.status === "failed"
+                  ? "bg-red-100 text-red-800 hover:bg-red-100"
+                  : ""
+              }
+            >
+              {vehicle.status?.replace("_", " ") || "Pending"}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleViewDetails(vehicle.vehicle_stock_id)}
+                className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+
   return (
-    <DashboardLayout title="Master Vehicles">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">
-              Master Vehicles
-            </h2>
-            <p className="text-muted-foreground">
-              Manage master vehicle inventory
-            </p>
-          </div>
-          <div className="flex space-x-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsCreateModalOpen(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Master Vehicle
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Create Master Vehicle</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <Button variant="outline">
-              <Upload className="h-4 w-4 mr-2" />
-              Import Vehicles
-            </Button>
-
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Export Report
-            </Button>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Vehicles
-              </CardTitle>
-              <Car className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {vehiclesData?.total || 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Master vehicle inventory
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {vehicles.filter((v: any) => v.status === "pending").length}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Awaiting processing
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Processing</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {vehicles.filter((v: any) => v.status === "processing").length}
-              </div>
-              <p className="text-xs text-muted-foreground">Being processed</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completed</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {vehicles.filter((v: any) => v.status === "completed").length}
-              </div>
-              <p className="text-xs text-muted-foreground">This month</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <ConfigurationSearchmore
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          statusFilter={statusFilter}
-          onFilterChange={handleFilterChange}
-          onSearch={handleClearSearch}
-          isLoading={isLoading}
-        />
-
-        {/* Vehicles Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Master Vehicles</CardTitle>
-            <CardDescription>
-              Master vehicle inventory management
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>S.No</TableHead>
-                      <TableHead>Stock No</TableHead>
-                      <TableHead>Vehicle</TableHead>
-                      <TableHead>Registration</TableHead>
-                      <TableHead>Year</TableHead>
-                      <TableHead>Mileage</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {vehicles.map((vehicle: any, index: number) => (
-                      <TableRow key={vehicle._id}>
-                        <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">
-                              {vehicle.vehicle_stock_id}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                              <Car className="h-5 w-5 text-muted-foreground" />
-                            </div>
-                            <div>
-                              <p className="font-medium">
-                                {vehicle.make} {vehicle.model}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {vehicle.variant}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{vehicle.plate_no}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>{vehicle.year}</TableCell>
-                        <TableCell>
-                          {vehicle.vehicle_odometer?.[0]?.reading?.toLocaleString()}{" "}
-                          km
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusColor(vehicle.status)}>
-                            {vehicle.status?.replace("_", " ") || "Pending"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                handleViewDetails(vehicle.vehicle_stock_id)
-                              }
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <Pagination className="mt-4">
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={() => page > 1 && setPage(page - 1)}
-                          className={
-                            page <= 1
-                              ? "pointer-events-none opacity-50"
-                              : "cursor-pointer"
-                          }
-                        />
-                      </PaginationItem>
-                      {Array.from(
-                        { length: Math.min(5, totalPages) },
-                        (_, i) => {
-                          const pageNumber = i + 1;
-                          return (
-                            <PaginationItem key={pageNumber}>
-                              <PaginationLink
-                                onClick={() => setPage(pageNumber)}
-                                isActive={page === pageNumber}
-                                className="cursor-pointer"
-                              >
-                                {pageNumber}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        }
-                      )}
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={() => page < totalPages && setPage(page + 1)}
-                          className={
-                            page >= totalPages
-                              ? "pointer-events-none opacity-50"
-                              : "cursor-pointer"
-                          }
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+    <>
+      <DataTableLayout
+        title="Master Vehicles"
+        data={sortedVehicles}
+        isLoading={isLoading}
+        totalCount={vehiclesData?.total || 0}
+        statChips={statChips}
+        actionButtons={actionButtons}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        paginationEnabled={paginationEnabled}
+        onPageChange={setPage}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        onPaginationToggle={handlePaginationToggle}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        getSortIcon={getSortIcon}
+        renderTableHeader={renderTableHeader}
+        renderTableBody={renderTableBody}
+        onRefresh={handleRefresh}
+      />
 
       {/* Vehicle Details Side Modal */}
       <VehicleDetailSideModal
@@ -385,7 +480,19 @@ const MasterVehicleList = () => {
         onSuccess={handleCreateSuccess}
         vehicleType="master"
       />
-    </DashboardLayout>
+
+      {/* Search and Filter Dialog */}
+      <ConfigurationSearchmore
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        statusFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        onClear={handleClearFilters}
+        isLoading={isLoading}
+        isOpen={isFilterDialogOpen}
+        onOpenChange={setIsFilterDialogOpen}
+      />
+    </>
   );
 };
 
