@@ -1,16 +1,10 @@
 import React, { useState } from "react";
-import DashboardLayout from "@/components/layout/DashboardLayout";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -33,28 +27,50 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Eye, Save, FolderPlus } from "lucide-react";
+import {
+  Plus,
+  Eye,
+  Save,
+  FolderPlus,
+  Edit,
+  Trash2,
+  Settings,
+  SlidersHorizontal,
+  Download,
+  Upload,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  X
+} from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import EditCategoryDialog from "@/components/inspection/EditCategoryDialog";
 import { Switch } from "@/components/ui/switch";
-import { Edit } from "lucide-react";
 import { configServices, dropdownServices } from "@/api/services";
 import DeleteConfirmationDialog from "@/components/dialogs/DeleteConfirmationDialog";
 import ConfigPreviewModal from "@/components/inspection/ConfigPreviewModal";
 import FieldEditDialog from "@/components/inspection/FieldEditDialog";
 import DraggableSectionsList from "@/components/inspection/DraggableSectionsList";
-import ConfigurationSearch from "@/components/inspection/ConfigurationSearch";
-import ConfigurationList from "@/components/inspection/ConfigurationList";
+import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
 import AddCategoryDialog from "@/components/inspection/AddCategoryDialog";
 import { Calculator } from "lucide-react";
 import CalculationSettingsDialog from "@/components/inspection/CalculationSettingsDialog";
 import { useAuth } from "@/auth/AuthContext";
+import DataTableLayout from "@/components/common/DataTableLayout";
 
 const InspectionConfig = () => {
-  const {completeUser } = useAuth();
-  console.log(completeUser)
+  const { completeUser } = useAuth();
   const queryClient = useQueryClient();
+
+  // DataTable states
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [paginationEnabled, setPaginationEnabled] = useState(true);
+  const [sortField, setSortField] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  // Main states
   const [selectedConfig, setSelectedConfig] = useState(null);
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -71,18 +87,15 @@ const InspectionConfig = () => {
   const [selectedSection, setSelectedSection] = useState(null);
   const [configToDelete, setConfigToDelete] = useState(null);
   const [configToEdit, setConfigToEdit] = useState(null);
-  const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] =
-    useState(false);
+  const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] = useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState(null);
+  const [isCalculationSettingsOpen, setIsCalculationSettingsOpen] = useState(false);
+  const [selectedCategoryForCalculations, setSelectedCategoryForCalculations] = useState<any>(null);
+  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isCalculationSettingsOpen, setIsCalculationSettingsOpen] =
-    useState(false);
-  const [selectedCategoryForCalculations, setSelectedCategoryForCalculations] =
-    useState<any>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const [configFormData, setConfigFormData] = useState({
     config_name: "",
@@ -117,19 +130,38 @@ const InspectionConfig = () => {
     },
   });
 
-  // Add this function to handle opening calculation settings
-  const handleOpenCalculationSettings = (category: any) => {
-    setSelectedCategoryForCalculations(category);
-    setIsCalculationSettingsOpen(true);
-  };
+  // Function to fetch all configurations when pagination is disabled
+  const fetchAllConfigs = async () => {
+    try {
+      let allData = [];
+      let currentPage = 1;
+      let hasMore = true;
 
-  // Add this function to check if a category has calculation fields
-  const hasCalculationFields = (category: any) => {
-    return category.sections?.some((section: any) =>
-      section.fields?.some(
-        (field: any) => field.field_type === 'number' || field.field_type === 'currency' || field.field_type === 'calculation_field' || field.field_type === 'mutiplier'
-      )
-    );
+      while (hasMore) {
+        const response = await configServices.getInspectionConfigs({
+          page: currentPage,
+          limit: 100,
+          search: searchTerm,
+          status: statusFilter,
+        });
+
+        allData = [...allData, ...response.data.data];
+
+        if (response.data.data.length < 100) {
+          hasMore = false;
+        } else {
+          currentPage++;
+        }
+      }
+
+      return {
+        data: allData,
+        total: allData.length,
+        pagination: { total_items: allData.length }
+      };
+    } catch (error) {
+      throw error;
+    }
   };
 
   // Queries
@@ -138,18 +170,46 @@ const InspectionConfig = () => {
     isLoading: configsLoading,
     refetch,
   } = useQuery({
-    queryKey: ["inspection-configs", currentPage, searchTerm, statusFilter],
+    queryKey: paginationEnabled
+      ? ["inspection-configs", page, searchTerm, statusFilter, rowsPerPage]
+      : ["all-inspection-configs", searchTerm, statusFilter],
     queryFn: async () => {
-      const params = {
-        page: currentPage,
-        limit: 6,
+      if (!paginationEnabled) {
+        return await fetchAllConfigs();
+      }
+
+      const response = await configServices.getInspectionConfigs({
+        page: page,
+        limit: rowsPerPage,
         search: searchTerm,
         status: statusFilter,
-      };
-      const response = await configServices.getInspectionConfigs(params);
+      });
       return response.data;
     },
   });
+
+  const configs = configsData?.data || [];
+
+  // Sort configurations when not using pagination
+  const sortedConfigs = React.useMemo(() => {
+    if (!sortField) return configs;
+
+    return [...configs].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      if (typeof aValue === "string") {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (sortOrder === "asc") {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [configs, sortField, sortOrder]);
 
   const { data: selectedConfigDetails, isLoading: detailsLoading } = useQuery({
     queryKey: ["inspection-config-details", selectedConfig?._id],
@@ -171,6 +231,28 @@ const InspectionConfig = () => {
     },
   });
 
+  // Add functions to check if configurations have calculation fields
+  const hasCalculationFields = (category: any) => {
+    return category.sections?.some((section: any) =>
+      section.fields?.some(
+        (field: any) => field.field_type === 'number' || field.field_type === 'currency' || field.field_type === 'calculation_field' || field.field_type === 'mutiplier'
+      )
+    );
+  };
+
+  const fieldTypes = [
+    { value: "text", label: "Text" },
+    { value: "number", label: "Number" },
+    { value: "currency", label: "Currency" },
+    { value: "video", label: "Video" },
+    { value: "dropdown", label: "Dropdown" },
+    { value: "date", label: "Date" },
+    { value: "boolean", label: "Yes/No" },
+    { value: "calculation_field", label: "Calculation Field" },
+    { value: "mutiplier", label: "Multiply Field" },
+  ];
+
+  // All mutations remain the same as original
   const updateCategoryMutation = useMutation({
     mutationFn: ({
       configId,
@@ -227,7 +309,6 @@ const InspectionConfig = () => {
     },
   });
 
-  // New mutation for adding categories
   const addCategoryMutation = useMutation({
     mutationFn: ({
       configId,
@@ -248,9 +329,6 @@ const InspectionConfig = () => {
     },
   });
 
-  // ... keep existing code (mutations) the same
-
-  // Mutations
   const createConfigMutation = useMutation({
     mutationFn: configServices.createInspectionConfig,
     onSuccess: () => {
@@ -467,6 +545,51 @@ const InspectionConfig = () => {
     },
   });
 
+  // Handler functions
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const getSortIcon = (field) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
+    return sortOrder === "asc" ? (
+      <ArrowUp className="h-3 w-3 ml-1" />
+    ) : (
+      <ArrowDown className="h-3 w-3 ml-1" />
+    );
+  };
+
+  const handleRefresh = () => {
+    refetch();
+    toast.success("Data refreshed");
+  };
+
+  const handleExport = () => {
+    toast.success("Export started");
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setPage(1);
+    refetch();
+  };
+
+  const handleRowsPerPageChange = (value: string) => {
+    setRowsPerPage(Number(value));
+    setPage(1);
+  };
+
+  const handlePaginationToggle = (checked) => {
+    setPaginationEnabled(checked);
+    setPage(1);
+  };
+
   // Handler function for adding categories
   const handleAddCategory = (categoryData: {
     category_name: string;
@@ -483,8 +606,6 @@ const InspectionConfig = () => {
       categoryData,
     });
   };
-
-  // ... keep existing code (handler functions) the same
 
   const handleEditCategory = (category: any) => {
     setCategoryToEdit(category);
@@ -521,7 +642,6 @@ const InspectionConfig = () => {
     });
   };
 
-  // Handler functions
   const handleSaveChanges = async () => {
     if (!selectedConfig || !selectedConfigDetails) {
       toast.error("No configuration selected");
@@ -663,7 +783,6 @@ const InspectionConfig = () => {
         fieldFormData.field_type === "dropdown"
           ? fieldFormData.dropdown_config
           : undefined,
-         
     };
 
     addFieldMutation.mutate({
@@ -673,40 +792,215 @@ const InspectionConfig = () => {
     });
   };
 
-  const handleSearch = () => {
-    setCurrentPage(1);
-    refetch();
+  const handleOpenCalculationSettings = (category: any) => {
+    setSelectedCategoryForCalculations(category);
+    setIsCalculationSettingsOpen(true);
   };
 
-  const handleFilterChange = (value: string) => {
-    setStatusFilter(value);
-    setCurrentPage(1);
-  };
+  // Calculate counts for chips
+  const totalConfigs = configsData?.pagination?.total_items || 0;
+  const activeCount = configs.filter((c: any) => c.is_active).length;
+  const inactiveCount = configs.filter((c: any) => !c.is_active).length;
+  const categoriesCount = selectedConfig 
+    ? selectedConfigDetails?.categories?.length || 0 
+    : configs.reduce((sum: number, config: any) => sum + (config.categories_count || 0), 0);
 
-  const handleClearSearch = () => {
-    setSearchTerm("");
-    setCurrentPage(1);
-    refetch();
-  };
-
-  // ... keep existing code (fieldTypes and configs constants) the same
-
-  const fieldTypes = [
-    { value: "text", label: "Text" },
-    { value: "number", label: "Number" },
-    { value: "currency", label: "Currency" },
-    { value: "video", label: "Video" },
-    { value: "dropdown", label: "Dropdown" },
-    { value: "date", label: "Date" },
-    { value: "boolean", label: "Yes/No" },
-     { value: "calculation_field", label: "Calculation Field" }, // Add this
-     { value: "mutiplier", label: "Multiply Field" }, // Add this
+  // Prepare stat chips
+  const statChips = [
+    {
+      label: "Total",
+      value: totalConfigs,
+      variant: "outline" as const,
+      bgColor: "bg-gray-100",
+    },
+    {
+      label: "Active",
+      value: activeCount,
+      variant: "default" as const,
+      bgColor: "bg-green-100",
+      textColor: "text-green-800",
+      hoverColor: "hover:bg-green-100",
+    },
+    {
+      label: "Inactive",
+      value: inactiveCount,
+      variant: "secondary" as const,
+      bgColor: "bg-gray-100",
+      textColor: "text-gray-800",
+      hoverColor: "hover:bg-gray-100",
+    },
+    {
+      label: "Total Categories",
+      value: categoriesCount,
+      variant: "default" as const,
+      bgColor: "bg-blue-100",
+      textColor: "text-blue-800",
+      hoverColor: "hover:bg-blue-100",
+    },
   ];
 
-  const configs = configsData?.data || [];
-  const pagination = configsData?.pagination;
+  // Prepare action buttons
+  const actionButtons = [
+    {
+      icon: <SlidersHorizontal className="h-4 w-4" />,
+      tooltip: "Search & Filters",
+      onClick: () => setIsFilterDialogOpen(true),
+      className: "bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200",
+    },
+    {
+      icon: <Download className="h-4 w-4" />,
+      tooltip: "Export Configurations",
+      onClick: handleExport,
+      className: "bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200",
+    },
+    {
+      icon: <Plus className="h-4 w-4" />,
+      tooltip: "Create Configuration",
+      onClick: () => setIsConfigDialogOpen(true),
+      className: "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
+    },
+    {
+      icon: <Upload className="h-4 w-4" />,
+      tooltip: "Import Configurations",
+      onClick: () => toast.info("Import feature coming soon"),
+      className: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
+    },
+  ];
 
-  // ... keep existing code (addFieldForm) the same
+  const STATUS_FILTER_OPTIONS = [
+    { value: "all", label: "All" },
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
+  ];
+
+  // Render table header
+  const renderTableHeader = () => (
+    <TableRow>
+      <TableHead className="bg-muted/50">S.No</TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("config_name")}
+      >
+        <div className="flex items-center">
+          Configuration Name
+          {getSortIcon("config_name")}
+        </div>
+      </TableHead>
+      <TableHead className="bg-muted/50">Description</TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("categories_count")}
+      >
+        <div className="flex items-center">
+          Categories
+          {getSortIcon("categories_count")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("is_active")}
+      >
+        <div className="flex items-center">
+          Status
+          {getSortIcon("is_active")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("created_at")}
+      >
+        <div className="flex items-center">
+          Created
+          {getSortIcon("created_at")}
+        </div>
+      </TableHead>
+      <TableHead className="bg-muted/50">Actions</TableHead>
+    </TableRow>
+  );
+
+  // Render table body
+  const renderTableBody = () => (
+    <>
+      {sortedConfigs.map((config: any, index: number) => (
+        <TableRow 
+          key={config._id}
+          className="cursor-pointer hover:bg-muted/50"
+          onClick={() => {
+            setSelectedConfig(config);
+          }}
+        >
+          <TableCell>
+            {paginationEnabled
+              ? (page - 1) * rowsPerPage + index + 1
+              : index + 1}
+          </TableCell>
+          <TableCell>
+            <div>
+              <p className="font-medium">{config.config_name}</p>
+            </div>
+          </TableCell>
+          <TableCell>
+            <p className="text-sm text-muted-foreground">
+              {config.description || "No description"}
+            </p>
+          </TableCell>
+          <TableCell>
+            <Badge variant="outline">
+              {config.categories_count || 0} categories
+            </Badge>
+          </TableCell>
+          <TableCell>
+            <Badge
+              variant={config.is_active ? "default" : "secondary"}
+              className={
+                config.is_active
+                  ? "bg-green-100 text-green-800 hover:bg-green-100"
+                  : "bg-gray-100 text-gray-800 hover:bg-gray-100"
+              }
+            >
+              {config.is_active ? "Active" : "Inactive"}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            <p className="text-sm text-muted-foreground">
+              {new Date(config.created_at).toLocaleDateString()}
+            </p>
+          </TableCell>
+          <TableCell onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedConfig(config)}
+                className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+                title="Configure Categories & Sections"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleEditConfig(config)}
+                className="text-green-600 hover:text-green-800 hover:bg-green-100"
+                title="Edit Basic Info"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDeleteConfig(config)}
+                className="text-red-600 hover:text-red-800 hover:bg-red-100"
+                title="Delete Configuration"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
 
   const addFieldForm = (
     <DialogContent className="max-h-[80vh] overflow-y-auto">
@@ -755,7 +1049,6 @@ const InspectionConfig = () => {
             </SelectContent>
           </Select>
         </div>
-
 
         {/* Dropdown Configuration */}
         {fieldFormData.field_type === "dropdown" && (
@@ -895,560 +1188,538 @@ const InspectionConfig = () => {
   );
 
   return (
-    <DashboardLayout title="Inspection Configuration">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">
-              Inspection Configuration
-            </h2>
-            <p className="text-muted-foreground">
-              Configure dynamic forms for mobile inspections
-            </p>
-          </div>
-          <Dialog
-            open={isConfigDialogOpen}
-            onOpenChange={setIsConfigDialogOpen}
-          >
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Configuration
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create Inspection Configuration</DialogTitle>
-                <DialogDescription>
-                  Create a new configuration template for vehicle inspections
-                </DialogDescription>
+    <>
+      <DataTableLayout
+        title="Inspection Configuration"
+        data={sortedConfigs}
+        isLoading={configsLoading}
+        totalCount={configsData?.pagination?.total_items || 0}
+        statChips={statChips}
+        actionButtons={actionButtons}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        paginationEnabled={paginationEnabled}
+        onPageChange={setPage}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        onPaginationToggle={handlePaginationToggle}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        getSortIcon={getSortIcon}
+        renderTableHeader={renderTableHeader}
+        renderTableBody={renderTableBody}
+        onRefresh={handleRefresh}
+      />
+
+      {/* Configuration Editor */}
+      {selectedConfig && selectedConfigDetails && (
+        <Dialog open={!!selectedConfig} onOpenChange={(open) => !open && setSelectedConfig(null)}>
+          <DialogContent className="max-w-[95vw] max-h-[95vh] w-[95vw] h-[95vh] p-0">
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <DialogHeader className="p-6 border-b">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <DialogTitle className="text-2xl">
+                      Edit Configuration: {selectedConfig?.config_name}
+                    </DialogTitle>
+                    <DialogDescription>
+                      Configure categories, sections, and fields for this inspection
+                    </DialogDescription>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedConfig(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </DialogHeader>
-              <form onSubmit={handleCreateConfig} className="space-y-4">
-                {/* ... keep existing code (create config form) the same */}
-                <div>
-                  <Label htmlFor="config_name">Configuration Name</Label>
-                  <Input
-                    id="config_name"
-                    value={configFormData.config_name}
-                    onChange={(e) =>
-                      setConfigFormData({
-                        ...configFormData,
-                        config_name: e.target.value,
-                      })
-                    }
-                    placeholder="Standard Inspection v1.0"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Input
-                    id="description"
-                    value={configFormData.description}
-                    onChange={(e) =>
-                      setConfigFormData({
-                        ...configFormData,
-                        description: e.target.value,
-                      })
-                    }
-                    placeholder="Standard vehicle inspection configuration"
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is_active"
-                    checked={configFormData.is_active}
-                    onCheckedChange={(checked) =>
-                      setConfigFormData({
-                        ...configFormData,
-                        is_active: checked === true,
-                      })
-                    }
-                  />
-                  <Label htmlFor="is_active">Set as active configuration</Label>
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsConfigDialogOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={createConfigMutation.isPending}
-                  >
-                    {createConfigMutation.isPending
-                      ? "Creating..."
-                      : "Create Configuration"}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
 
-        {/* Search and Filter */}
-        <ConfigurationSearch
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          statusFilter={statusFilter}
-          onFilterChange={handleFilterChange}
-          onSearch={handleClearSearch}
-          isLoading={configsLoading}
-        />
+              {/* Content */}
+              <div className="flex-1 overflow-hidden p-6">
+                {detailsLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : selectedConfigDetails.categories?.length > 0 ? (
+                  <div className="h-full flex flex-col space-y-6">
+                    {/* Action Buttons */}
+                    <div className="flex justify-between items-center">
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsAddCategoryDialogOpen(true)}
+                        >
+                          <FolderPlus className="h-4 w-4 mr-2" />
+                          Add Categories
+                        </Button>
+                        <Button variant="outline" onClick={handlePreview}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Preview
+                        </Button>
+                      </div>
+                      <Button
+                        onClick={handleSaveChanges}
+                        disabled={saveConfigMutation.isPending}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        {saveConfigMutation.isPending ? "Saving..." : "Save Changes"}
+                      </Button>
+                    </div>
 
-        {/* Configuration List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Configurations</CardTitle>
-            <CardDescription>
-              Select a configuration to edit or manage
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ConfigurationList
-              configs={configs}
-              selectedConfig={selectedConfig}
-              onSelectConfig={setSelectedConfig}
-              onEditConfig={handleEditConfig}
-              onDeleteConfig={handleDeleteConfig}
-              pagination={pagination}
-              currentPage={currentPage}
-              onPageChange={setCurrentPage}
-              isLoading={configsLoading}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Configuration Editor */}
-        {selectedConfig && selectedConfigDetails && (
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>
-                    Edit Configuration: {selectedConfig.config_name}
-                  </CardTitle>
-                  <CardDescription>
-                    Configure categories, sections, and fields for this
-                    inspection
-                  </CardDescription>
-                </div>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsAddCategoryDialogOpen(true)}
-                  >
-                    <FolderPlus className="h-4 w-4 mr-2" />
-                    Add Categories
-                  </Button>
-                  <Button variant="outline" onClick={handlePreview}>
-                    <Eye className="h-4 w-4 mr-2" />
-                    Preview
-                  </Button>
-                  <Button
-                    onClick={handleSaveChanges}
-                    disabled={saveConfigMutation.isPending}
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {saveConfigMutation.isPending
-                      ? "Saving..."
-                      : "Save Changes"}
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {detailsLoading ? (
-                <div className="text-center py-8">
-                  Loading configuration details...
-                </div>
-              ) : selectedConfigDetails.categories?.length > 0 ? (
-                <Accordion type="single" collapsible className="space-y-4">
-                  {selectedConfigDetails.categories?.map((category: any) => (
-                    <AccordionItem
-                      key={category.category_id}
-                      value={category.category_id}
-                    >
-                      <AccordionTrigger className="text-left">
-                        <div className="flex items-center justify-between w-full mr-4">
-                          <div>
-                            <h3 className="font-semibold">
-                              {category.category_name}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {category.description}
-                            </p>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Badge variant="outline">
-                              {category.sections?.length || 0} sections
-                            </Badge>
-                            <Switch
-                              checked={category.is_active !== false}
-                              onCheckedChange={(checked) =>
-                                handleToggleCategoryStatus(category, checked)
-                              }
-                              disabled={toggleCategoryStatusMutation.isPending}
-                            />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditCategory(category);
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        {/* ... keep existing code (category content) the same */}
-                        <div className="space-y-4 pl-4">
-                          <div className="flex justify-between items-center">
-                            <h4 className="font-medium">Sections</h4>
-                            {hasCalculationFields(category) && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenCalculationSettings(category);
-                                }}
-                                className="ml-2"
-                              >
-                                <Calculator className="h-4 w-4 mr-1" />
-                                Calculations
-                              </Button>
-                            )}
-                            <Dialog
-                              open={isSectionDialogOpen}
-                              onOpenChange={setIsSectionDialogOpen}
-                            >
-                              <DialogTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() =>
-                                    setSelectedCategory(category.category_id)
-                                  }
+                    {/* Categories List */}
+                    <div className="flex-1 overflow-hidden">
+                      <Card className="h-full">
+                        <CardContent className="h-full p-4">
+                          <div className="h-full overflow-auto">
+                            <Accordion type="single" collapsible className="space-y-4">
+                              {selectedConfigDetails.categories?.map((category: any) => (
+                                <AccordionItem
+                                  key={category.category_id}
+                                  value={category.category_id}
                                 >
-                                  <Plus className="h-4 w-4 mr-2" />
-                                  Add Section
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>
-                                    Add Section to {category.category_name}
-                                  </DialogTitle>
-                                  <DialogDescription>
-                                    Create a new section within this category
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <form
-                                  onSubmit={handleAddSection}
-                                  className="space-y-4"
-                                >
-                                  <div>
-                                    <Label htmlFor="section_name">
-                                      Section Name
-                                    </Label>
-                                    <Input
-                                      id="section_name"
-                                      value={sectionFormData.section_name}
-                                      onChange={(e) =>
-                                        setSectionFormData({
-                                          ...sectionFormData,
-                                          section_name: e.target.value,
-                                        })
-                                      }
-                                      placeholder="Engine Inspection"
-                                      required
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor="section_description">
-                                      Description
-                                    </Label>
-                                    <Input
-                                      id="section_description"
-                                      value={sectionFormData.description}
-                                      onChange={(e) =>
-                                        setSectionFormData({
-                                          ...sectionFormData,
-                                          description: e.target.value,
-                                        })
-                                      }
-                                      placeholder="Check engine components and performance"
-                                    />
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <Checkbox
-                                      id="is_collapsible"
-                                      checked={sectionFormData.is_collapsible}
-                                      onCheckedChange={(checked) =>
-                                        setSectionFormData({
-                                          ...sectionFormData,
-                                          is_collapsible: checked === true,
-                                        })
-                                      }
-                                    />
-                                    <Label htmlFor="is_collapsible">
-                                      Collapsible section
-                                    </Label>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <Checkbox
-                                      id="is_expanded"
-                                      checked={
-                                        sectionFormData.is_expanded_by_default
-                                      }
-                                      onCheckedChange={(checked) =>
-                                        setSectionFormData({
-                                          ...sectionFormData,
-                                          is_expanded_by_default:
-                                            checked === true,
-                                        })
-                                      }
-                                    />
-                                    <Label htmlFor="is_expanded">
-                                      Expanded by default
-                                    </Label>
-                                  </div>
-                                  <div className="flex justify-end space-x-2">
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      onClick={() =>
-                                        setIsSectionDialogOpen(false)
-                                      }
-                                    >
-                                      Cancel
-                                    </Button>
-                                    <Button
-                                      type="submit"
-                                      disabled={addSectionMutation.isPending}
-                                    >
-                                      {addSectionMutation.isPending
-                                        ? "Adding..."
-                                        : "Add Section"}
-                                    </Button>
-                                  </div>
-                                </form>
-                              </DialogContent>
-                            </Dialog>
+                                  <AccordionTrigger className="text-left">
+                                    <div className="flex items-center justify-between w-full mr-4">
+                                      <div>
+                                        <h3 className="font-semibold">
+                                          {category.category_name}
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                          {category.description}
+                                        </p>
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <Badge variant="outline">
+                                          {category.sections?.length || 0} sections
+                                        </Badge>
+                                        <Switch
+                                          checked={category.is_active !== false}
+                                          onCheckedChange={(checked) =>
+                                            handleToggleCategoryStatus(category, checked)
+                                          }
+                                          disabled={toggleCategoryStatusMutation.isPending}
+                                        />
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditCategory(category);
+                                          }}
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </AccordionTrigger>
+                                  <AccordionContent>
+                                    <div className="space-y-4 pl-4">
+                                      <div className="flex justify-between items-center">
+                                        <h4 className="font-medium">Sections</h4>
+                                        <div className="flex space-x-2">
+                                          {hasCalculationFields(category) && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleOpenCalculationSettings(category);
+                                              }}
+                                            >
+                                              <Calculator className="h-4 w-4 mr-1" />
+                                              Calculations
+                                            </Button>
+                                          )}
+                                          <Dialog
+                                            open={isSectionDialogOpen}
+                                            onOpenChange={setIsSectionDialogOpen}
+                                          >
+                                            <DialogTrigger asChild>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() =>
+                                                  setSelectedCategory(category.category_id)
+                                                }
+                                              >
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Add Section
+                                              </Button>
+                                            </DialogTrigger>
+                                          </Dialog>
+                                        </div>
+                                      </div>
+
+                                      {category.sections?.length > 0 ? (
+                                        <DraggableSectionsList
+                                          sections={category.sections}
+                                          configId={selectedConfig._id}
+                                          onDeleteSection={handleDeleteSection}
+                                          onAddField={(section) => setSelectedSection(section)}
+                                          onEditField={handleEditField}
+                                          onDeleteField={handleDeleteField}
+                                          onUpdateSectionsOrder={(sections) =>
+                                            handleUpdateSectionsOrder(
+                                              category.category_id,
+                                              sections
+                                            )
+                                          }
+                                          onUpdateFieldsOrder={handleUpdateFieldsOrder}
+                                          isFieldDialogOpen={isFieldDialogOpen}
+                                          setIsFieldDialogOpen={setIsFieldDialogOpen}
+                                          selectedSection={selectedSection}
+                                          setSelectedSection={setSelectedSection}
+                                          addFieldForm={addFieldForm}
+                                          isDeletingSection={deleteSectionMutation.isPending}
+                                        />
+                                      ) : (
+                                        <p className="text-muted-foreground text-center py-4">
+                                          No sections added yet. Click "Add Section" to get started.
+                                        </p>
+                                      )}
+                                    </div>
+                                  </AccordionContent>
+                                </AccordionItem>
+                              ))}
+                            </Accordion>
                           </div>
-
-                          {category.sections?.length > 0 ? (
-                            <DraggableSectionsList
-                              sections={category.sections}
-                              configId={selectedConfig._id}
-                              onDeleteSection={handleDeleteSection}
-                              onAddField={(section) =>
-                                setSelectedSection(section)
-                              }
-                              onEditField={handleEditField}
-                              onDeleteField={handleDeleteField}
-                              onUpdateSectionsOrder={(sections) =>
-                                handleUpdateSectionsOrder(
-                                  category.category_id,
-                                  sections
-                                )
-                              }
-                              onUpdateFieldsOrder={handleUpdateFieldsOrder}
-                              isFieldDialogOpen={isFieldDialogOpen}
-                              setIsFieldDialogOpen={setIsFieldDialogOpen}
-                              selectedSection={selectedSection}
-                              setSelectedSection={setSelectedSection}
-                              addFieldForm={addFieldForm}
-                              isDeletingSection={
-                                deleteSectionMutation.isPending
-                              }
-                            />
-                          ) : (
-                            <p className="text-muted-foreground text-center py-4">
-                              No sections added yet. Click "Add Section" to get
-                              started.
-                            </p>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">
-                    No categories added yet. Add categories to get started with
-                    this configuration.
-                  </p>
-                  {/* <Button
-                    variant="outline"
-                    onClick={() => setIsAddCategoryDialogOpen(true)}
-                  >
-                    <FolderPlus className="h-4 w-4 mr-2" />
-                    Add Your First Category
-                  </Button> */}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Edit Configuration Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Configuration</DialogTitle>
-              <DialogDescription>
-                Update configuration details and status
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleUpdateConfig} className="space-y-4">
-              {/* ... keep existing code (edit form) the same */}
-              <div>
-                <Label htmlFor="edit_config_name">Configuration Name</Label>
-                <Input
-                  id="edit_config_name"
-                  value={editFormData.config_name}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      config_name: e.target.value,
-                    })
-                  }
-                  placeholder="Configuration name"
-                  required
-                />
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <p className="text-muted-foreground mb-4">
+                        No categories added yet. Add categories to get started with this configuration.
+                      </p>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsAddCategoryDialogOpen(true)}
+                      >
+                        <FolderPlus className="h-4 w-4 mr-2" />
+                        Add Your First Category
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div>
-                <Label htmlFor="edit_description">Description</Label>
-                <Input
-                  id="edit_description"
-                  value={editFormData.description}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder="Configuration description"
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="edit_is_active"
-                  checked={editFormData.is_active}
-                  onCheckedChange={(checked) =>
-                    setEditFormData({
-                      ...editFormData,
-                      is_active: checked === true,
-                    })
-                  }
-                />
-                <Label htmlFor="edit_is_active">Active configuration</Label>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsEditDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={updateConfigMutation.isPending}>
-                  {updateConfigMutation.isPending
-                    ? "Updating..."
-                    : "Update Configuration"}
-                </Button>
-              </div>
-            </form>
+            </div>
           </DialogContent>
         </Dialog>
+      )}
 
-        {/* Add Category Dialog */}
-        <AddCategoryDialog
-          isOpen={isAddCategoryDialogOpen}
-          onClose={() => setIsAddCategoryDialogOpen(false)}
-          onAddCategory={handleAddCategory}
-          isLoading={addCategoryMutation.isPending}
-        />
+      {/* Create Configuration Dialog */}
+      <Dialog open={isConfigDialogOpen} onOpenChange={setIsConfigDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Inspection Configuration</DialogTitle>
+            <DialogDescription>
+              Create a new configuration template for vehicle inspections
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateConfig} className="space-y-4">
+            <div>
+              <Label htmlFor="config_name">Configuration Name</Label>
+              <Input
+                id="config_name"
+                value={configFormData.config_name}
+                onChange={(e) =>
+                  setConfigFormData({
+                    ...configFormData,
+                    config_name: e.target.value,
+                  })
+                }
+                placeholder="Standard Inspection v1.0"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                value={configFormData.description}
+                onChange={(e) =>
+                  setConfigFormData({
+                    ...configFormData,
+                    description: e.target.value,
+                  })
+                }
+                placeholder="Standard vehicle inspection configuration"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="is_active"
+                checked={configFormData.is_active}
+                onCheckedChange={(checked) =>
+                  setConfigFormData({
+                    ...configFormData,
+                    is_active: checked === true,
+                  })
+                }
+              />
+              <Label htmlFor="is_active">Set as active configuration</Label>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsConfigDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createConfigMutation.isPending}>
+                {createConfigMutation.isPending ? "Creating..." : "Create Configuration"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-        {/* ... keep existing code (remaining dialogs) the same */}
+      {/* Edit Configuration Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Configuration</DialogTitle>
+            <DialogDescription>
+              Update configuration details and status
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateConfig} className="space-y-4">
+            <div>
+              <Label htmlFor="edit_config_name">Configuration Name</Label>
+              <Input
+                id="edit_config_name"
+                value={editFormData.config_name}
+                onChange={(e) =>
+                  setEditFormData({
+                    ...editFormData,
+                    config_name: e.target.value,
+                  })
+                }
+                placeholder="Configuration name"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_description">Description</Label>
+              <Input
+                id="edit_description"
+                value={editFormData.description}
+                onChange={(e) =>
+                  setEditFormData({
+                    ...editFormData,
+                    description: e.target.value,
+                  })
+                }
+                placeholder="Configuration description"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="edit_is_active"
+                checked={editFormData.is_active}
+                onCheckedChange={(checked) =>
+                  setEditFormData({
+                    ...editFormData,
+                    is_active: checked === true,
+                  })
+                }
+              />
+              <Label htmlFor="edit_is_active">Active configuration</Label>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateConfigMutation.isPending}>
+                {updateConfigMutation.isPending ? "Updating..." : "Update Configuration"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-        <ConfigPreviewModal
-          isOpen={isPreviewOpen}
-          onClose={() => setIsPreviewOpen(false)}
-          configData={selectedConfigDetails}
-        />
+      {/* Add Section Dialog */}
+      <Dialog open={isSectionDialogOpen} onOpenChange={setIsSectionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Section</DialogTitle>
+            <DialogDescription>
+              Create a new section within the selected category
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddSection} className="space-y-4">
+            <div>
+              <Label htmlFor="section_name">Section Name</Label>
+              <Input
+                id="section_name"
+                value={sectionFormData.section_name}
+                onChange={(e) =>
+                  setSectionFormData({
+                    ...sectionFormData,
+                    section_name: e.target.value,
+                  })
+                }
+                placeholder="Engine Inspection"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="section_description">Description</Label>
+              <Input
+                id="section_description"
+                value={sectionFormData.description}
+                onChange={(e) =>
+                  setSectionFormData({
+                    ...sectionFormData,
+                    description: e.target.value,
+                  })
+                }
+                placeholder="Check engine components and performance"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="is_collapsible"
+                checked={sectionFormData.is_collapsible}
+                onCheckedChange={(checked) =>
+                  setSectionFormData({
+                    ...sectionFormData,
+                    is_collapsible: checked === true,
+                  })
+                }
+              />
+              <Label htmlFor="is_collapsible">Collapsible section</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="is_expanded"
+                checked={sectionFormData.is_expanded_by_default}
+                onCheckedChange={(checked) =>
+                  setSectionFormData({
+                    ...sectionFormData,
+                    is_expanded_by_default: checked === true,
+                  })
+                }
+              />
+              <Label htmlFor="is_expanded">Expanded by default</Label>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsSectionDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addSectionMutation.isPending}>
+                {addSectionMutation.isPending ? "Adding..." : "Add Section"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-        <FieldEditDialog
-          isOpen={isFieldEditDialogOpen}
+      {/* Add Category Dialog */}
+      <AddCategoryDialog
+        isOpen={isAddCategoryDialogOpen}
+        onClose={() => setIsAddCategoryDialogOpen(false)}
+        onAddCategory={handleAddCategory}
+        isLoading={addCategoryMutation.isPending}
+      />
+
+      {/* Preview Modal */}
+      <ConfigPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        configData={selectedConfigDetails}
+      />
+
+      {/* Field Edit Dialog */}
+      <FieldEditDialog
+        isOpen={isFieldEditDialogOpen}
+        onClose={() => {
+          setIsFieldEditDialogOpen(false);
+          setFieldToEdit(null);
+        }}
+        configId={selectedConfig?._id || ""}
+        field={fieldToEdit}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setConfigToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Delete Configuration"
+        description={`Are you sure you want to delete "${configToDelete?.config_name}"? This action cannot be undone.`}
+        isLoading={deleteConfigMutation.isPending}
+      />
+
+      <DeleteConfirmationDialog
+        isOpen={isFieldDeleteDialogOpen}
+        onClose={() => {
+          setIsFieldDeleteDialogOpen(false);
+          setFieldToDelete(null);
+        }}
+        onConfirm={confirmFieldDelete}
+        title="Delete Field"
+        description={`Are you sure you want to delete "${fieldToDelete?.field_name}"? This action cannot be undone.`}
+        isLoading={deleteFieldMutation.isPending}
+      />
+
+      {/* Edit Category Dialog */}
+      <EditCategoryDialog
+        isOpen={isEditCategoryDialogOpen}
+        onClose={() => {
+          setIsEditCategoryDialogOpen(false);
+          setCategoryToEdit(null);
+        }}
+        onUpdateCategory={handleUpdateCategory}
+        category={categoryToEdit}
+        isLoading={updateCategoryMutation.isPending}
+      />
+
+      {/* Calculation Settings Dialog */}
+      {selectedConfig && selectedCategoryForCalculations && (
+        <CalculationSettingsDialog
+          isOpen={isCalculationSettingsOpen}
           onClose={() => {
-            setIsFieldEditDialogOpen(false);
-            setFieldToEdit(null);
+            setIsCalculationSettingsOpen(false);
+            setSelectedCategoryForCalculations(null);
           }}
-          configId={selectedConfig?._id || ""}
-          field={fieldToEdit}
+          configId={selectedConfig._id}
+          categoryId={selectedCategoryForCalculations.category_id}
+          category={selectedCategoryForCalculations}
+          configType="inspection"
         />
+      )}
 
-        {/* Delete Confirmation Dialog */}
-        <DeleteConfirmationDialog
-          isOpen={isDeleteDialogOpen}
-          onClose={() => {
-            setIsDeleteDialogOpen(false);
-            setConfigToDelete(null);
-          }}
-          onConfirm={confirmDelete}
-          title="Delete Configuration"
-          description={`Are you sure you want to delete "${configToDelete?.config_name}"? This action cannot be undone.`}
-          isLoading={deleteConfigMutation.isPending}
-        />
-
-        <DeleteConfirmationDialog
-          isOpen={isFieldDeleteDialogOpen}
-          onClose={() => {
-            setIsFieldDeleteDialogOpen(false);
-            setFieldToDelete(null);
-          }}
-          onConfirm={confirmFieldDelete}
-          title="Delete Field"
-          description={`Are you sure you want to delete "${fieldToDelete?.field_name}"? This action cannot be undone.`}
-          isLoading={deleteFieldMutation.isPending}
-        />
-
-        <EditCategoryDialog
-          isOpen={isEditCategoryDialogOpen}
-          onClose={() => {
-            setIsEditCategoryDialogOpen(false);
-            setCategoryToEdit(null);
-          }}
-          onUpdateCategory={handleUpdateCategory}
-          category={categoryToEdit}
-          isLoading={updateCategoryMutation.isPending}
-        />
-
-        {selectedConfig && selectedCategoryForCalculations && (
-          <CalculationSettingsDialog
-            isOpen={isCalculationSettingsOpen}
-            onClose={() => {
-              setIsCalculationSettingsOpen(false);
-              setSelectedCategoryForCalculations(null);
-            }}
-            configId={selectedConfig._id}
-            categoryId={selectedCategoryForCalculations.category_id}
-            category={selectedCategoryForCalculations}
-            configType="inspection"
-          />
-        )}
-      </div>
-    </DashboardLayout>
+      {/* Search and Filter Dialog */}
+      <ConfigurationSearchmore
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        statusFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        onClear={handleClearFilters}
+        isLoading={configsLoading}
+        isOpen={isFilterDialogOpen}
+        onOpenChange={setIsFilterDialogOpen}
+        filterOptions={STATUS_FILTER_OPTIONS}
+        filterLabel="Status"
+      />
+    </>
   );
 };
 

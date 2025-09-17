@@ -390,7 +390,9 @@ const canRemoveStage = (stageName: string) => {
                     }
                   >
                     <Wrench className="h-4 w-4 mr-2" />
-                    {getWorkshopStatusDisplay()}
+
+                    {vehicle.workshop_progress === "completed"?"Completed": getWorkshopStatusDisplay()}
+               
                   </Button>
 
                   <Button
