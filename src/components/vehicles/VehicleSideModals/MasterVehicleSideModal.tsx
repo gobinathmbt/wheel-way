@@ -33,20 +33,20 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
 // Import section components
-import VehicleOverviewSection from "./sections/VehicleOverviewSection";
-import VehicleGeneralInfoSection from "./sections/VehicleGeneralInfoSection";
-import VehicleSourceSection from "./sections/VehicleSourceSection";
-import VehicleRegistrationSection from "./sections/VehicleRegistrationSection";
-import VehicleImportSection from "./sections/VehicleImportSection";
-import VehicleEngineSection from "./sections/VehicleEngineSection";
-import VehicleSpecificationsSection from "./sections/VehicleSpecificationsSection";
-import VehicleSafetySection from "./sections/VehicleSafetySection";
-import VehicleOdometerSection from "./sections/VehicleOdometerSection";
-import VehicleOwnershipSection from "./sections/VehicleOwnershipSection";
-import VehicleAttachmentsSection from "./sections/VehicleAttachmentsSection";
+import VehicleOverviewSection from "../sections/VehicleOverviewSection";
+import VehicleGeneralInfoSection from "../sections/VehicleGeneralInfoSection";
+import VehicleSourceSection from "../sections/VehicleSourceSection";
+import VehicleRegistrationSection from "../sections/VehicleRegistrationSection";
+import VehicleImportSection from "../sections/VehicleImportSection";
+import VehicleEngineSection from "../sections/VehicleEngineSection";
+import VehicleSpecificationsSection from "../sections/VehicleSpecificationsSection";
+import VehicleSafetySection from "../sections/VehicleSafetySection";
+import VehicleOdometerSection from "../sections/VehicleOdometerSection";
+import VehicleOwnershipSection from "../sections/VehicleOwnershipSection";
+import VehicleAttachmentsSection from "../sections/VehicleAttachmentsSection";
 import WorkshopReportModal from "@/components/workshop/WorkshopReportModal";
 
-interface VehicleDetailSideModalProps {
+interface MasterVehicleSideModalProps {
   vehicle: any;
   vehicleType: "inspection" | "tradein" | "advertisement" | "master";
   isOpen: boolean;
@@ -54,7 +54,7 @@ interface VehicleDetailSideModalProps {
   onUpdate: () => void;
 }
 
-const VehicleDetailSideModal: React.FC<VehicleDetailSideModalProps> = ({
+const MasterVehicleSideModal: React.FC<MasterVehicleSideModalProps> = ({
   vehicle,
   isOpen,
   onClose,
@@ -467,7 +467,6 @@ const canRemoveStage = (stageName: string) => {
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="attachments">Attachments</TabsTrigger>
-              <TabsTrigger value="status">Status</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
@@ -501,33 +500,6 @@ const canRemoveStage = (stageName: string) => {
                 onUpdate={onUpdate}
                 vehicleType={vehicleType}
               />
-            </TabsContent>
-
-            <TabsContent value="status" className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-sm font-medium mb-2">
-                    Processing Status
-                  </h4>
-                  <Badge variant="outline">{vehicle.status}</Badge>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Queue Status</h4>
-                  <Badge variant="outline">{vehicle.queue_status}</Badge>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium mb-2">
-                    Processing Attempts
-                  </h4>
-                  <p className="text-sm">{vehicle.processing_attempts}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Last Updated</h4>
-                  <p className="text-sm">
-                    {new Date(vehicle.updated_at).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
             </TabsContent>
           </Tabs>
         </SheetContent>
@@ -702,4 +674,4 @@ const canRemoveStage = (stageName: string) => {
   );
 };
 
-export default VehicleDetailSideModal;
+export default MasterVehicleSideModal;

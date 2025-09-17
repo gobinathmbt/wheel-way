@@ -17,8 +17,8 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { adPublishingServices, authServices } from "@/api/services";
 import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
-import VehicleDetailSideModal from "@/components/vehicles/VehicleDetailSideModal";
-import CreateVehicleStockModal from "@/components/vehicles/CreateVehicleStockModal";
+import AdvertisementVehicleSideModal from "@/components/vehicles/VehicleSideModals/AdvertisementVehicleSideModal";
+import CreateVehicleAdvertisementModal from "@/components/vehicles/CreateSideModals/CreateVehicleAdvertisementModal";
 import DataTableLayout from "@/components/common/DataTableLayout";
 
 const AdPublishingList = () => {
@@ -475,7 +475,7 @@ const AdPublishingList = () => {
       />
 
       {/* Vehicle Details Side Modal */}
-      <VehicleDetailSideModal
+      <AdvertisementVehicleSideModal
         vehicle={selectedVehicle}
         isOpen={!!selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
@@ -484,7 +484,7 @@ const AdPublishingList = () => {
       />
 
       {/* Create Vehicle Stock Modal */}
-      <CreateVehicleStockModal
+      <CreateVehicleAdvertisementModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateSuccess}

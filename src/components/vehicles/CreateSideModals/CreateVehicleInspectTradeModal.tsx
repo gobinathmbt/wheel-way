@@ -29,19 +29,19 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { vehicleServices } from "@/api/services";
 
-interface CreateVehicleStockModalProps {
+interface CreateVehicleInspectTradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   vehicleType: "inspection" | "tradein" | "advertisement" | "master";
 }
 
-const CreateVehicleStockModal = ({
+const CreateVehicleInspectTradeModal = ({
   isOpen,
   onClose,
   onSuccess,
   vehicleType,
-}: CreateVehicleStockModalProps) => {
+}: CreateVehicleInspectTradeModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [purchaseDate, setPurchaseDate] = useState<Date>();
   const [formData, setFormData] = useState({
@@ -382,4 +382,4 @@ const CreateVehicleStockModal = ({
   );
 };
 
-export default CreateVehicleStockModal;
+export default CreateVehicleInspectTradeModal;
