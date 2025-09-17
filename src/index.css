@@ -85,7 +85,7 @@
    ========================= */
 @layer base {
   html {
-    font-size: 15px; /* default = large screen */
+    font-size: 14px; /* default = large screen */
   }
 
   @media (max-width: 1024px) { /* md */
