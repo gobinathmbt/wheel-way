@@ -1,59 +1,59 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* =========================
+   🎨 Global Theme Variables
+   ========================= */
 @layer base {
   :root {
     /* Automotive Professional Palette */
     --background: 240 6% 97%;
     --foreground: 240 10% 8%;
-    
     --card: 0 0% 100%;
     --card-foreground: 240 10% 8%;
-    
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 8%;
-    
+
     /* Primary - Professional Blue */
     --primary: 218 89% 51%;
     --primary-foreground: 0 0% 100%;
-    
+
     /* Secondary - Steel Gray */
     --secondary: 215 20% 65%;
     --secondary-foreground: 240 10% 8%;
-    
+
     /* Accent - Electric Blue */
     --accent: 205 100% 60%;
     --accent-foreground: 0 0% 100%;
-    
+
     /* Muted */
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
-    
+
     /* Destructive - Warning Red */
     --destructive: 0 85% 60%;
     --destructive-foreground: 0 0% 100%;
-    
+
     /* Success - Professional Green */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
-    
+
     /* Warning - Amber */
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    
+
     /* Borders */
     --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 218 89% 51%;
-    
+
     /* Automotive Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(218, 89%, 51%) 0%, hsl(205, 100%, 60%) 100%);
     --gradient-secondary: linear-gradient(135deg, hsl(215, 20%, 65%) 0%, hsl(220, 14%, 96%) 100%);
     --gradient-hero: linear-gradient(135deg, hsl(240, 10%, 8%) 0%, hsl(218, 89%, 51%) 100%);
     --gradient-card: linear-gradient(145deg, hsl(0, 0%, 100%) 0%, hsl(220, 14%, 96%) 100%);
-    
+
     --radius: 0.75rem;
   }
 
@@ -80,84 +80,111 @@
   }
 }
 
+/* =========================
+   🔤 Responsive Typography
+   ========================= */
 @layer base {
+  html {
+    font-size: 15px; /* default = large screen */
+  }
+
+  @media (max-width: 1024px) { /* md */
+    html {
+      font-size: 13px;
+    }
+  }
+
+  @media (max-width: 640px) { /* sm */
+    html {
+      font-size: 10px;
+    }
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    line-height: 1.5;
+    font-size: 1rem; /* relative to html */
+  }
+
+  h1 {
+    font-size: 2.5rem; /* scales with html size */
+    line-height: 1.2;
+    @apply font-bold tracking-tight;
+  }
+
+  h2 {
+    font-size: 2rem;
+    line-height: 1.3;
+    @apply font-semibold tracking-tight;
+  }
+
+  h3 {
+    font-size: 1.5rem;
+    line-height: 1.35;
+    @apply font-semibold;
+  }
+
+  h4, h5, h6 {
+    font-size: 1.25rem;
+    line-height: 1.4;
+    @apply font-medium;
+  }
+
+  p, span, li, a, button, input, textarea {
+    font-size: 1rem; /* will shrink according to html size */
+    line-height: 1.5;
+  }
+
   * {
     @apply border-border;
   }
-  
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold tracking-tight;
-  }
 }
 
+/* =========================
+   🧩 Custom Components
+   ========================= */
 @layer components {
-  .gradient-primary {
-    background: var(--gradient-primary);
-  }
-  
-  .gradient-secondary {
-    background: var(--gradient-secondary);
-  }
-  
-  .gradient-hero {
-    background: var(--gradient-hero);
-  }
-  
-  .gradient-card {
-    background: var(--gradient-card);
-  }
-  
+  .gradient-primary { background: var(--gradient-primary); }
+  .gradient-secondary { background: var(--gradient-secondary); }
+  .gradient-hero { background: var(--gradient-hero); }
+  .gradient-card { background: var(--gradient-card); }
+
   .glass-effect {
     backdrop-filter: blur(12px);
     background: hsla(0, 0%, 100%, 0.8);
     border: 1px solid hsla(220, 13%, 91%, 0.3);
   }
-  
+
   .automotive-shadow {
     box-shadow: 
       0 1px 3px 0 rgba(0, 0, 0, 0.1),
       0 1px 2px 0 rgba(0, 0, 0, 0.06),
       0 10px 15px -3px rgba(0, 0, 0, 0.1);
   }
-  
+
   .hero-text {
     background: linear-gradient(135deg, hsl(240, 10%, 8%) 0%, hsl(218, 89%, 51%) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
-  }
-  
-  .animate-slide-up {
-    animation: slideUp 0.6s ease-out forwards;
-  }
-  
-  .animate-fade-in {
-    animation: fadeIn 0.8s ease-out forwards;
-  }
+
+  .animate-float { animation: float 3s ease-in-out infinite; }
+  .animate-slide-up { animation: slideUp 0.6s ease-out forwards; }
+  .animate-fade-in { animation: fadeIn 0.8s ease-out forwards; }
 }
 
+/* =========================
+   🎞️ Keyframes
+   ========================= */
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-10px); }
 }
 
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeIn {
@@ -165,7 +192,9 @@
   to { opacity: 1; }
 }
 
-/* Professional scrollbar */
+/* =========================
+   🖱️ Professional Scrollbar
+   ========================= */
 ::-webkit-scrollbar {
   width: 8px;
 }

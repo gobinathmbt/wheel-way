@@ -10,7 +10,7 @@ class MailService {
 
   async init() {
     try {
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
           user: config.GMAIL_USER,
