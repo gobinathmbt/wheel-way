@@ -111,7 +111,6 @@ const CreateVehicleInspectTradeModal = ({
       toast.success(`Vehicle stock created successfully for ${vehicleType}`);
       onSuccess();
       onClose();
-
       setFormData({
         dealership: "",
         status: "",
@@ -233,8 +232,8 @@ const CreateVehicleInspectTradeModal = ({
             />
           </div>
 
-          {/* Vehicle Metadata */}
-          <div className="space-y-2">
+          {/* Vehicle Metadata - Adapted for Modal Layout */}
+          <div className="space-y-4">
             <VehicleMetadataSelector
               selectedMake={selectedMake}
               selectedModel={selectedModel}
@@ -246,7 +245,27 @@ const CreateVehicleInspectTradeModal = ({
               onVariantChange={setSelectedVariant}
               onYearChange={setSelectedYear}
               onBodyChange={setSelectedBody}
+              layout="stacked" // Stack fields vertically in narrow modal
               showLabels={true}
+              makeProps={{
+                required: true,
+                placeholder: "Select vehicle make *"
+              }}
+              modelProps={{
+                required: true,
+                placeholder: "Select vehicle model *"
+              }}
+              yearProps={{
+                required: true,
+                placeholder: "Select year *"
+              }}
+              variantProps={{
+                placeholder: "Select variant (optional)"
+              }}
+              bodyProps={{
+                label: "Body Style",
+                placeholder: "Select body style (optional)"
+              }}
             />
           </div>
 

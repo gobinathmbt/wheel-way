@@ -27,6 +27,7 @@ import {
   Eye,
   Plus,
   Loader2,
+  Play,
 } from "lucide-react";
 import { toast } from "sonner";
 import { vehicleServices, companyServices } from "@/api/services";
@@ -38,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import MediaViewer, { MediaItem } from "@/components/common/MediaViewer";
 
 interface VehicleAttachmentsSectionProps {
   vehicle: any;
@@ -60,6 +62,10 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
   );
   const [s3Config, setS3Config] = useState<S3Config | null>(null);
   const [s3Uploader, setS3Uploader] = useState<S3Uploader | null>(null);
+  
+  // Media viewer states
+  const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
+  const [currentMediaId, setCurrentMediaId] = useState<string>("");
 
   const attachments = vehicle.vehicle_attachments || [];
 
@@ -89,6 +95,38 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
   const fileCategoryOptions =
     dropdownsFileCategoryData?.data?.[0]?.values || [];
 
+  // Helper function to check if file is video
+  const isVideoFile = (mimeType: string) => {
+    return mimeType?.startsWith('video/') || false;
+  };
+
+  // Helper function to check if file is image
+  const isImageFile = (mimeType: string) => {
+    return mimeType?.startsWith('image/') || false;
+  };
+
+  // Prepare media items for MediaViewer
+  const prepareMediaItems = (): MediaItem[] => {
+    return attachments
+      .filter((att: any) => att.type === "image" || isVideoFile(att.mime_type))
+      .map((att: any) => ({
+        id: att._id,
+        url: att.url,
+        type: isVideoFile(att.mime_type) ? "video" as const : "image" as const,
+        title: att.original_filename || att.filename,
+        description: `${getCategoryDisplayName(
+          att.image_category || att.file_category || "other", 
+          att.type === "image" ? "images" : "files"
+        )} • ${formatFileSize(att.size || 0)}`
+      }));
+  };
+
+  // Handle opening media viewer
+  const handleOpenMediaViewer = (attachmentId: string) => {
+    setCurrentMediaId(attachmentId);
+    setMediaViewerOpen(true);
+  };
+
   // Helper function to get category display name
   const getCategoryDisplayName = (
     categoryValue: string,
@@ -116,16 +154,31 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
   // Group attachments by category with dynamic categorization
   const categorizeAttachments = () => {
     const imageAttachments = attachments.filter(
-      (att: any) => att.type === "image"
+      (att: any) => att.type === "image" || isImageFile(att.mime_type)
     );
     const fileAttachments = attachments.filter(
-      (att: any) => att.type === "file"
+      (att: any) => att.type === "file" && !isImageFile(att.mime_type) && !isVideoFile(att.mime_type)
+    );
+    const videoAttachments = attachments.filter(
+      (att: any) => isVideoFile(att.mime_type)
     );
 
     // Group images by categories
     const imageGroups: Record<string, any[]> = {};
     imageAttachments.forEach((att: any) => {
       const category = att.image_category || "other_images";
+      const isValidCategory = isCategoryInDropdown(category, "images");
+      const groupKey = isValidCategory ? category : "other_images";
+
+      if (!imageGroups[groupKey]) {
+        imageGroups[groupKey] = [];
+      }
+      imageGroups[groupKey].push(att);
+    });
+
+    // Group videos with images for now, or create separate video groups if needed
+    videoAttachments.forEach((att: any) => {
+      const category = att.file_category || "other_images";
       const isValidCategory = isCategoryInDropdown(category, "images");
       const groupKey = isValidCategory ? category : "other_images";
 
@@ -333,18 +386,22 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
               {items.map((item: any) => (
                 <Card key={item._id} className="overflow-hidden group">
                   <CardContent className="p-0">
-                    {item.type === "image" ? (
+                    {(item.type === "image" || isImageFile(item.mime_type)) ? (
                       <div className="relative">
                         <img
                           src={item.url}
                           alt={item.original_filename || item.filename}
-                          className="w-full h-32 object-cover"
+                          className="w-full h-32 object-cover cursor-pointer"
+                          onClick={() => handleOpenMediaViewer(item._id)}
                         />
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleViewAttachment(item.url)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenMediaViewer(item._id);
+                            }}
                             className="text-white hover:text-white"
                           >
                             <Eye className="h-4 w-4" />
@@ -352,7 +409,50 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteAttachment(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteAttachment(item);
+                            }}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : isVideoFile(item.mime_type) ? (
+                      <div className="relative">
+                        <div 
+                          className="w-full h-32 bg-gray-900 flex items-center justify-center cursor-pointer relative overflow-hidden"
+                          onClick={() => handleOpenMediaViewer(item._id)}
+                        >
+                          <video
+                            src={item.url}
+                            className="w-full h-full object-cover"
+                            muted
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Play className="h-12 w-12 text-white opacity-80" />
+                          </div>
+                        </div>
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenMediaViewer(item._id);
+                            }}
+                            className="text-white hover:text-white"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteAttachment(item);
+                            }}
                             className="text-red-400 hover:text-red-300"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -451,64 +551,63 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
                   <TabsTrigger value="files">Documents</TabsTrigger>
                 </TabsList>
 
-             <TabsContent value="images" className="space-y-4">
-  <div className="space-y-2">
-    <label className="text-sm font-medium">Image Category</label>
-    <Select value={uploadCategory} onValueChange={setUploadCategory}>
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder="Select an image category" />
-      </SelectTrigger>
-      <SelectContent>
-        {imageCategoryOptions.map((option) => (
-          <SelectItem
-            key={option.option_value}
-            value={option.option_value}
-          >
-            {option.display_value}
-          </SelectItem>
-        ))}
-        <SelectItem value="other_images">Other Images</SelectItem>
-      </SelectContent>
-    </Select>
-  </div>
+                <TabsContent value="images" className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Image Category</label>
+                    <Select value={uploadCategory} onValueChange={setUploadCategory}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select an image category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {imageCategoryOptions.map((option) => (
+                          <SelectItem
+                            key={option.option_value}
+                            value={option.option_value}
+                          >
+                            {option.display_value}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="other_images">Other Images</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-  <FileUpload
-    onFilesSelected={handleFilesSelected}
-    accept="images"
-    multiple={true}
-    maxSize={10 * 1024 * 1024} // 10MB
-  />
-</TabsContent>
+                  <FileUpload
+                    onFilesSelected={handleFilesSelected}
+                    accept="images"
+                    multiple={true}
+                    maxSize={10 * 1024 * 1024} // 10MB
+                  />
+                </TabsContent>
 
-<TabsContent value="files" className="space-y-4">
-  <div className="space-y-2">
-    <label className="text-sm font-medium">File Category</label>
-    <Select value={uploadCategory} onValueChange={setUploadCategory}>
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder="Select a file category" />
-      </SelectTrigger>
-      <SelectContent>
-        {fileCategoryOptions.map((option) => (
-          <SelectItem
-            key={option.option_value}
-            value={option.option_value}
-          >
-            {option.display_value}
-          </SelectItem>
-        ))}
-        <SelectItem value="other_files">Other Files</SelectItem>
-      </SelectContent>
-    </Select>
-  </div>
+                <TabsContent value="files" className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">File Category</label>
+                    <Select value={uploadCategory} onValueChange={setUploadCategory}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a file category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fileCategoryOptions.map((option) => (
+                          <SelectItem
+                            key={option.option_value}
+                            value={option.option_value}
+                          >
+                            {option.display_value}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="other_files">Other Files</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-  <FileUpload
-    onFilesSelected={handleFilesSelected}
-    accept="files"
-    multiple={true}
-    maxSize={25 * 1024 * 1024} // 25MB
-  />
-</TabsContent>
-
+                  <FileUpload
+                    onFilesSelected={handleFilesSelected}
+                    accept="files"
+                    multiple={true}
+                    maxSize={25 * 1024 * 1024} // 25MB
+                  />
+                </TabsContent>
               </Tabs>
 
               {selectedFiles.length > 0 && (
@@ -576,6 +675,14 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
           ))}
         </div>
       )}
+
+      {/* Media Viewer */}
+      <MediaViewer
+        media={prepareMediaItems()}
+        currentMediaId={currentMediaId}
+        isOpen={mediaViewerOpen}
+        onClose={() => setMediaViewerOpen(false)}
+      />
     </div>
   );
 };

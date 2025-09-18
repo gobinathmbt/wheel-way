@@ -25,7 +25,6 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
   onUpdate,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [addEntryLoading, setAddEntryLoading] = useState(false);
 
   // Safe access to nested objects with fallbacks
   const otherDetails = vehicle?.vehicle_other_details?.[0] || {};
@@ -65,48 +64,27 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
   });
 
   // Handler functions for VehicleMetadataSelector
-  const handleMakeChange = (value: string, displayName: string) => {
-    setFormData({ ...formData, make: value });
+  const handleMakeChange = (displayName: string) => {
+    setFormData({ ...formData, make: displayName });
   };
 
-  const handleModelChange = (value: string, displayName: string) => {
-    setFormData({ ...formData, model: value });
+  const handleModelChange = (displayName: string) => {
+    setFormData({ ...formData, model: displayName });
   };
 
-  const handleVariantChange = (value: string, displayName: string) => {
-    setFormData({ ...formData, variant: value });
+  const handleVariantChange = (displayName: string) => {
+    setFormData({ ...formData, variant: displayName });
   };
 
-  const handleYearChange = (value: string, displayName: string) => {
-    setFormData({ ...formData, year: value });
+  const handleYearChange = (displayName: string) => {
+    setFormData({ ...formData, year: displayName });
   };
 
-  const handleBodyChange = (value: string, displayName: string) => {
-    setFormData({ ...formData, body_style: value });
+  const handleBodyChange = (displayName: string) => {
+    setFormData({ ...formData, body_style: displayName });
   };
 
-  // Handler for adding new entries
-  const handleAddEntry = async (type: string, data: any) => {
-    setAddEntryLoading(true);
-    try {
-      // You'll need to implement the actual API call for adding entries
-      // This would typically be something like:
-      // await vehicleMetadataServices.addEntry(type, data);
-      
-      // For now, let's assume you have a generic service method:
-      // await companyServices.addCompanyMetaData(type, data);
-      
-      console.log("Adding entry:", type, data);
-      toast.success(`${type} added successfully`);
-      
-      // The VehicleMetadataSelector will handle refetching the data
-    } catch (error) {
-      console.error("Error adding entry:", error);
-      toast.error(`Failed to add ${type}`);
-    } finally {
-      setAddEntryLoading(false);
-    }
-  };
+
 
   const handleSave = async () => {
     try {
@@ -242,10 +220,7 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
                       onYearChange={handleYearChange}
                       onBodyChange={handleBodyChange}
                       showLabels={true}
-                      disabled={false}
-                      isAdd={true} // Enable Add Entry functionality
-                      onAddEntry={handleAddEntry}
-                      addEntryLoading={addEntryLoading}
+                      layout="grid-3"
                     />
                   </div>
 
