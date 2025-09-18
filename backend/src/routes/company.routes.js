@@ -44,6 +44,12 @@ const {
   getUsersWithPermissions
 } = require('../controllers/userPermission.controller');
 
+const { 
+  createController, 
+  modifyController, 
+  retrieveController 
+} = require('../controllers/vehicleMetadata.controller');
+
 const router = express.Router();
 
 // Apply auth middleware to all routes
@@ -96,6 +102,7 @@ router.post('/settings/test-webhook', authorize('company_super_admin'), testWebh
 router.post('/company_dropdowns/dropdowns/dropdown_values', authorize('company_super_admin','company_admin'), getCompanyMasterdropdownvalues);
 
 router.use('/company/dropdowns', authorize('company_super_admin'), require('./master.dropdown.routes'));
+router.get('/company/meta-data', authorize('company_super_admin'), retrieveController.dropdown);
 
 
 module.exports = router;

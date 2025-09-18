@@ -401,6 +401,30 @@ export const companyServices = {
   toggleUserStatus: (id: string, data: any) =>
     apiClient.patch(`/api/company/users/${id}/status`, data),
 
+  getCompanyMetaData: (type, params = {}) => 
+    apiClient.get("/api/company/company/meta-data", { 
+      params: { type, ...params } 
+    }),
+
+  addMake: (data) => 
+    apiClient.post("/api/company/vehicle-metadata/create/make", data),
+    
+  addModel: (data) => 
+    apiClient.post("/api/company/vehicle-metadata/create/model", data),
+
+  addVariant: (data) => 
+    apiClient.post("/api/company/vehicle-metadata/create/variant", data),
+    
+  addBody: (data) => 
+    apiClient.post("/api/company/vehicle-metadata/create/body", data),
+    
+  addVariantYear: (data) => 
+    apiClient.post("/api/company/vehicle-metadata/create/year", data),
+    
+  addVehicleMetadata: (data) => 
+    apiClient.post("/api/company/vehicle-metadata/create/metadata", data),
+
+
   sendWelcomeEmail: (id: string) =>
     apiClient.post(`/api/company/users/${id}/send-welcome`),
 

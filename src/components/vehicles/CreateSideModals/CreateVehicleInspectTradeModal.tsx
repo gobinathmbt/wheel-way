@@ -28,6 +28,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { vehicleServices } from "@/api/services";
+import VehicleMetadataSelector from "../../common/VehicleMetadataSelector";
 
 interface CreateVehicleInspectTradeModalProps {
   isOpen: boolean;
@@ -44,6 +45,14 @@ const CreateVehicleInspectTradeModal = ({
 }: CreateVehicleInspectTradeModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [purchaseDate, setPurchaseDate] = useState<Date>();
+
+  // State for vehicle metadata (display names instead of IDs)
+  const [selectedMake, setSelectedMake] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [selectedVariant, setSelectedVariant] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedBody, setSelectedBody] = useState("");
+
   const [formData, setFormData] = useState({
     dealership: "",
     status: "",
@@ -68,19 +77,23 @@ const CreateVehicleInspectTradeModal = ({
     }));
   };
 
+  React.useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      make: selectedMake,
+      model: selectedModel,
+      variant: selectedVariant,
+      year: selectedYear,
+      body_style: selectedBody,
+    }));
+  }, [selectedMake, selectedModel, selectedVariant, selectedYear, selectedBody]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // Validate required fields
-      if (
-        !formData.make ||
-        !formData.model ||
-        !formData.year ||
-        !formData.vin ||
-        !formData.plate_no
-      ) {
+      if (!formData.make || !formData.model || !formData.year || !formData.vin || !formData.plate_no) {
         toast.error("Please fill in all required fields");
         return;
       }
@@ -89,9 +102,9 @@ const CreateVehicleInspectTradeModal = ({
         ...formData,
         year: parseInt(formData.year),
         purchase_date: purchaseDate ? purchaseDate.toISOString() : null,
-        chassis_no: formData.vin, // Using VIN as chassis number for now
-        vehicle_hero_image: "https://via.placeholder.com/400x300", // Placeholder image
-        vehicle_type: vehicleType, // Ensure we use the passed vehicleType
+        chassis_no: formData.vin,
+        vehicle_hero_image: "https://via.placeholder.com/400x300",
+        vehicle_type: vehicleType,
       };
 
       await vehicleServices.createVehicleStock(submitData);
@@ -99,7 +112,6 @@ const CreateVehicleInspectTradeModal = ({
       onSuccess();
       onClose();
 
-      // Reset form
       setFormData({
         dealership: "",
         status: "",
@@ -116,6 +128,12 @@ const CreateVehicleInspectTradeModal = ({
         supplier: "",
         purchase_notes: "",
       });
+
+      setSelectedMake("");
+      setSelectedModel("");
+      setSelectedVariant("");
+      setSelectedYear("");
+      setSelectedBody("");
       setPurchaseDate(undefined);
     } catch (error) {
       console.error("Create vehicle stock error:", error);
@@ -155,6 +173,7 @@ const CreateVehicleInspectTradeModal = ({
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-6">
+          {/* Dealership */}
           <div className="space-y-2">
             <Label htmlFor="dealership">Dealership</Label>
             <Input
@@ -165,6 +184,7 @@ const CreateVehicleInspectTradeModal = ({
             />
           </div>
 
+          {/* Status */}
           <div className="space-y-2">
             <Label htmlFor="status">Status</Label>
             <Select
@@ -183,13 +203,12 @@ const CreateVehicleInspectTradeModal = ({
             </Select>
           </div>
 
+          {/* Purchase Type */}
           <div className="space-y-2">
             <Label htmlFor="purchase_type">Purchase Type</Label>
             <Select
               value={formData.purchase_type}
-              onValueChange={(value) =>
-                handleInputChange("purchase_type", value)
-              }
+              onValueChange={(value) => handleInputChange("purchase_type", value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select purchase type" />
@@ -203,6 +222,7 @@ const CreateVehicleInspectTradeModal = ({
             </Select>
           </div>
 
+          {/* Manufacture */}
           <div className="space-y-2">
             <Label htmlFor="manufacture">Manufacture</Label>
             <Input
@@ -213,74 +233,26 @@ const CreateVehicleInspectTradeModal = ({
             />
           </div>
 
+          {/* Vehicle Metadata */}
           <div className="space-y-2">
-            <Label htmlFor="make">Make *</Label>
-            <Input
-              id="make"
-              value={formData.make}
-              onChange={(e) => handleInputChange("make", e.target.value)}
-              placeholder="Enter make"
-              required
+            <VehicleMetadataSelector
+              selectedMake={selectedMake}
+              selectedModel={selectedModel}
+              selectedVariant={selectedVariant}
+              selectedYear={selectedYear}
+              selectedBody={selectedBody}
+              onMakeChange={setSelectedMake}
+              onModelChange={setSelectedModel}
+              onVariantChange={setSelectedVariant}
+              onYearChange={setSelectedYear}
+              onBodyChange={setSelectedBody}
+              showLabels={true}
             />
           </div>
 
+          {/* VIN */}
           <div className="space-y-2">
-            <Label htmlFor="year">Year *</Label>
-            <Input
-              id="year"
-              type="number"
-              value={formData.year}
-              onChange={(e) => handleInputChange("year", e.target.value)}
-              placeholder="Enter year"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="model">Model *</Label>
-            <Input
-              id="model"
-              value={formData.model}
-              onChange={(e) => handleInputChange("model", e.target.value)}
-              placeholder="Enter model"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="variant">Variant</Label>
-            <Input
-              id="variant"
-              value={formData.variant}
-              onChange={(e) => handleInputChange("variant", e.target.value)}
-              placeholder="Enter variant"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="body_style">Body Style</Label>
-            <Select
-              value={formData.body_style}
-              onValueChange={(value) => handleInputChange("body_style", value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select body style" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sedan">Sedan</SelectItem>
-                <SelectItem value="hatchback">Hatchback</SelectItem>
-                <SelectItem value="suv">SUV</SelectItem>
-                <SelectItem value="wagon">Wagon</SelectItem>
-                <SelectItem value="coupe">Coupe</SelectItem>
-                <SelectItem value="convertible">Convertible</SelectItem>
-                <SelectItem value="truck">Truck</SelectItem>
-                <SelectItem value="van">Van</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="vin">VIN *</Label>
+            <Label htmlFor="vin" className="required">VIN *</Label>
             <Input
               id="vin"
               value={formData.vin}
@@ -290,6 +262,7 @@ const CreateVehicleInspectTradeModal = ({
             />
           </div>
 
+          {/* Vehicle Type (disabled) */}
           <div className="space-y-2">
             <Label htmlFor="vehicle_type">Vehicle Type</Label>
             <Select value={vehicleType} disabled>
@@ -299,12 +272,15 @@ const CreateVehicleInspectTradeModal = ({
               <SelectContent>
                 <SelectItem value="inspection">Inspection</SelectItem>
                 <SelectItem value="tradein">Trade-in</SelectItem>
+                <SelectItem value="advertisement">Advertisement</SelectItem>
+                <SelectItem value="master">Master</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
+          {/* Registration No */}
           <div className="space-y-2">
-            <Label htmlFor="plate_no">Registration No *</Label>
+            <Label htmlFor="plate_no" className="required">Registration No *</Label>
             <Input
               id="plate_no"
               value={formData.plate_no}
@@ -314,6 +290,7 @@ const CreateVehicleInspectTradeModal = ({
             />
           </div>
 
+          {/* Supplier */}
           <div className="space-y-2">
             <Label htmlFor="supplier">Supplier</Label>
             <Input
@@ -324,6 +301,7 @@ const CreateVehicleInspectTradeModal = ({
             />
           </div>
 
+          {/* Purchase Date */}
           <div className="space-y-2">
             <Label>Purchase Date</Label>
             <Popover>
@@ -350,26 +328,21 @@ const CreateVehicleInspectTradeModal = ({
             </Popover>
           </div>
 
+          {/* Purchase Notes */}
           <div className="space-y-2">
             <Label htmlFor="purchase_notes">Purchase Notes</Label>
             <Textarea
               id="purchase_notes"
               value={formData.purchase_notes}
-              onChange={(e) =>
-                handleInputChange("purchase_notes", e.target.value)
-              }
+              onChange={(e) => handleInputChange("purchase_notes", e.target.value)}
               placeholder="Enter any additional notes"
               rows={3}
             />
           </div>
 
+          {/* Buttons */}
           <div className="flex gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="flex-1"
-            >
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading} className="flex-1">
