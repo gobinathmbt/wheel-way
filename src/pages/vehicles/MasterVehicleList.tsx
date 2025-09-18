@@ -15,11 +15,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { masterVehicleServices, authServices } from "@/api/services";
+import { masterVehicleServices, authServices, dealershipServices } from "@/api/services";
 import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
 import MasterVehicleSideModal from "@/components/vehicles/VehicleSideModals/MasterVehicleSideModal";
 import CreateVehicleMasterModal from "@/components/vehicles/CreateSideModals/CreateVehicleMasterModal";
 import DataTableLayout from "@/components/common/DataTableLayout";
+import { useAuth } from "@/auth/AuthContext";
+
 
 const MasterVehicleList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,6 +35,8 @@ const MasterVehicleList = () => {
   const [sortField, setSortField] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
+    const { completeUser } = useAuth();
+
   // Fetch current user's permissions
   const { data: userPermissions } = useQuery({
     queryKey: ["user-permissions"],
@@ -41,6 +45,26 @@ const MasterVehicleList = () => {
       return response.data;
     },
   });
+
+    const { data: dealerships } = useQuery({
+      queryKey: ["dealerships-dropdown", completeUser?.is_primary_admin],
+      queryFn: async () => {
+        const response = await dealershipServices.getDealershipsDropdown();
+  
+        if (!completeUser?.is_primary_admin && completeUser?.dealership_ids) {
+          const userDealershipIds = completeUser.dealership_ids.map((d: any) =>
+            typeof d === "object" ? d._id : d
+          );
+          return response.data.data.filter((dealership: any) =>
+            userDealershipIds.includes(dealership._id)
+          );
+        }
+  
+        return response.data.data;
+      },
+      enabled: !!completeUser,
+    });
+  
 
   // Function to fetch all vehicles when pagination is disabled
   const fetchAllVehicles = async () => {
@@ -156,7 +180,14 @@ const MasterVehicleList = () => {
     refetch();
   };
 
-  const getSortIcon = (field) => {
+    const getDealershipName = (dealershipId: string) => {
+    const dealership = dealerships?.find(
+      (dealer: any) => dealer._id === dealershipId
+    );
+    return dealership ? dealership.dealership_name : "Unknown";
+  };
+
+   const getSortIcon = (field: string) => {
     if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
     return sortOrder === "asc" ? (
       <ArrowUp className="h-3 w-3 ml-1" />
@@ -341,6 +372,15 @@ const MasterVehicleList = () => {
           {getSortIcon("plate_no")}
         </div>
       </TableHead>
+           <TableHead
+              className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+              onClick={() => handleSort("dealership_id")}
+            >
+              <div className="flex items-center">
+                Dealership
+                {getSortIcon("dealership_id")}
+              </div>
+            </TableHead>
       <TableHead
         className="bg-muted/50 cursor-pointer hover:bg-muted/70"
         onClick={() => handleSort("year")}
@@ -389,8 +429,16 @@ const MasterVehicleList = () => {
           </TableCell>
           <TableCell>
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                <Car className="h-5 w-5 text-muted-foreground" />
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                {vehicle.vehicle_hero_image ? (
+                  <img
+                    src={vehicle.vehicle_hero_image}
+                    alt={`${vehicle.make} ${vehicle.model}`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Car className="h-5 w-5 text-muted-foreground" />
+                )}
               </div>
               <div>
                 <p className="font-medium">
@@ -405,6 +453,13 @@ const MasterVehicleList = () => {
           <TableCell>
             <div>
               <p className="font-medium">{vehicle.plate_no}</p>
+            </div>
+          </TableCell>
+          <TableCell>
+            <div className="flex flex-wrap gap-1">
+              <Badge className="ml-2 bg-orange-500 text-white hover:bg-orange-600">
+                {getDealershipName(vehicle?.dealership_id)}
+              </Badge>
             </div>
           </TableCell>
           <TableCell>{vehicle.year}</TableCell>

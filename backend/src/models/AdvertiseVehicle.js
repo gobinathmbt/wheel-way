@@ -329,4 +329,4 @@ VehicleSchema.pre("save", function (next) {
   next();
 });
 
-module.exports = mongoose.model("Vehicle", VehicleSchema);
+module.exports = mongoose.model("AdvertiseVehicle", VehicleSchema);

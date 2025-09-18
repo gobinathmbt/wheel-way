@@ -46,7 +46,7 @@ import VehicleOwnershipSection from "../sections/VehicleOwnershipSection";
 import VehicleAttachmentsSection from "../sections/VehicleAttachmentsSection";
 import WorkshopReportModal from "@/components/workshop/WorkshopReportModal";
 
-interface VehicleInspectTradeSideModalProps {
+interface VehicleTradeSideModalProps {
   vehicle: any;
   vehicleType: "inspection" | "tradein" | "advertisement" | "master";
   isOpen: boolean;
@@ -54,7 +54,7 @@ interface VehicleInspectTradeSideModalProps {
   onUpdate: () => void;
 }
 
-const VehicleInspectTradeSideModal: React.FC<VehicleInspectTradeSideModalProps> = ({
+const VehicleTradeSideModal: React.FC<VehicleTradeSideModalProps> = ({
   vehicle,
   isOpen,
   onClose,
@@ -676,4 +676,4 @@ const canRemoveStage = (stageName: string) => {
   );
 };
 
-export default VehicleInspectTradeSideModal;
+export default VehicleTradeSideModal;

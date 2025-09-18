@@ -15,11 +15,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { vehicleServices, tradeinServices, authServices } from "@/api/services";
+import { vehicleServices, tradeinServices, authServices, dealershipServices } from "@/api/services";
 import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
-import VehicleInspectTradeSideModal from "@/components/vehicles/VehicleSideModals/VehicleInspectTradeSideModal";
-import CreateVehicleInspectTradeModal from "@/components/vehicles/CreateSideModals/CreateVehicleInspectTradeModal";
+import VehicleTradeSideModal from "@/components/vehicles/VehicleSideModals/VehicleTradeSideModal";
+import CreateVehicleTradeModal from "@/components/vehicles/CreateSideModals/CreateVehicleTradeModal";
 import DataTableLayout from "@/components/common/DataTableLayout";
+import { useAuth } from "@/auth/AuthContext";
+
 
 const TradeinList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -32,6 +34,9 @@ const TradeinList = () => {
   const [paginationEnabled, setPaginationEnabled] = useState(true);
   const [sortField, setSortField] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+    const { completeUser } = useAuth();
+
   // Fetch current user's permissions
   const { data: userPermissions } = useQuery({
     queryKey: ["user-permissions"],
@@ -40,6 +45,27 @@ const TradeinList = () => {
       return response.data;
     },
   });
+
+
+    const { data: dealerships } = useQuery({
+      queryKey: ["dealerships-dropdown", completeUser?.is_primary_admin],
+      queryFn: async () => {
+        const response = await dealershipServices.getDealershipsDropdown();
+  
+        if (!completeUser?.is_primary_admin && completeUser?.dealership_ids) {
+          const userDealershipIds = completeUser.dealership_ids.map((d: any) =>
+            typeof d === "object" ? d._id : d
+          );
+          return response.data.data.filter((dealership: any) =>
+            userDealershipIds.includes(dealership._id)
+          );
+        }
+  
+        return response.data.data;
+      },
+      enabled: !!completeUser,
+    });
+  
 
   // Function to fetch all vehicles when pagination is disabled
   const fetchAllVehicles = async () => {
@@ -150,7 +176,7 @@ const TradeinList = () => {
     }
   };
 
-  const getSortIcon = (field) => {
+ const getSortIcon = (field: string) => {
     if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
     return sortOrder === "asc" ? (
       <ArrowUp className="h-3 w-3 ml-1" />
@@ -191,6 +217,13 @@ const TradeinList = () => {
     refetch();
   };
 
+    const getDealershipName = (dealershipId: string) => {
+    const dealership = dealerships?.find(
+      (dealer: any) => dealer._id === dealershipId
+    );
+    return dealership ? dealership.dealership_name : "Unknown";
+  };
+
   const handleRowsPerPageChange = (value: string) => {
     setRowsPerPage(Number(value));
     setPage(1);
@@ -229,12 +262,6 @@ const TradeinList = () => {
     toast.success("Export started");
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount || 0);
-  };
 
   // Calculate counts for chips
   const totalVehicles = vehiclesData?.total || 0;
@@ -361,6 +388,15 @@ const TradeinList = () => {
           {getSortIcon("plate_no")}
         </div>
       </TableHead>
+           <TableHead
+              className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+              onClick={() => handleSort("dealership_id")}
+            >
+              <div className="flex items-center">
+                Dealership
+                {getSortIcon("dealership_id")}
+              </div>
+            </TableHead>
       <TableHead
         className="bg-muted/50 cursor-pointer hover:bg-muted/70"
         onClick={() => handleSort("year")}
@@ -407,10 +443,18 @@ const TradeinList = () => {
               <p className="font-medium">{vehicle.vehicle_stock_id}</p>
             </div>
           </TableCell>
-          <TableCell>
+           <TableCell>
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                <Car className="h-5 w-5 text-muted-foreground" />
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                {vehicle.vehicle_hero_image ? (
+                  <img
+                    src={vehicle.vehicle_hero_image}
+                    alt={`${vehicle.make} ${vehicle.model}`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Car className="h-5 w-5 text-muted-foreground" />
+                )}
               </div>
               <div>
                 <p className="font-medium">
@@ -425,6 +469,13 @@ const TradeinList = () => {
           <TableCell>
             <div>
               <p className="font-medium">{vehicle.plate_no}</p>
+            </div>
+          </TableCell>
+          <TableCell>
+            <div className="flex flex-wrap gap-1">
+              <Badge className="ml-2 bg-orange-500 text-white hover:bg-orange-600">
+                {getDealershipName(vehicle?.dealership_id)}
+              </Badge>
             </div>
           </TableCell>
           <TableCell>{vehicle.year}</TableCell>
@@ -505,7 +556,7 @@ const TradeinList = () => {
       />
 
       {/* Vehicle Details Side Modal */}
-      <VehicleInspectTradeSideModal
+      <VehicleTradeSideModal
         vehicle={selectedVehicle}
         isOpen={!!selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
@@ -514,7 +565,7 @@ const TradeinList = () => {
       />
 
       {/* Create Vehicle Stock Modal */}
-      <CreateVehicleInspectTradeModal
+      <CreateVehicleTradeModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}

@@ -168,7 +168,7 @@ const createVehicleStock = async (req, res) => {
     // Generate new vehicle stock ID
     const lastVehicle = await Vehicle.findOne({
       company_id: req.user.company_id,
-      vehicle_type: vehicle_type || "tradein",
+      vehicle_type: vehicle_type,
     })
       .sort({ vehicle_stock_id: -1 })
       .limit(1);

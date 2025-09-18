@@ -37,19 +37,19 @@ import { useQuery } from "@tanstack/react-query";
 import { S3Uploader, S3Config } from "@/lib/s3-client";
 import { useAuth } from "@/auth/AuthContext";
 
-interface CreateVehicleInspectTradeModalProps {
+interface CreateVehicleInspectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   vehicleType: "inspection" | "tradein" | "advertisement" | "master";
 }
 
-const CreateVehicleInspectTradeModal = ({
+const CreateVehicleInspectModal = ({
   isOpen,
   onClose,
   onSuccess,
   vehicleType,
-}: CreateVehicleInspectTradeModalProps) => {
+}: CreateVehicleInspectModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [purchaseDate, setPurchaseDate] = useState<Date>();
   const [heroImage, setHeroImage] = useState<File | null>(null);
@@ -286,8 +286,7 @@ const CreateVehicleInspectTradeModal = ({
         year: parseInt(formData.year),
         purchase_date: purchaseDate ? purchaseDate.toISOString() : null,
         chassis_no: formData.vin,
-        vehicle_hero_image:
-          heroImageUrl || "https://via.placeholder.com/400x300",
+        vehicle_hero_image: heroImageUrl,
         vehicle_type: vehicleType,
         dealership: formData.dealership_id,
       };
@@ -666,4 +665,4 @@ const CreateVehicleInspectTradeModal = ({
   );
 };
 
-export default CreateVehicleInspectTradeModal;
+export default CreateVehicleInspectModal;

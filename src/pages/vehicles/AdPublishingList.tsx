@@ -15,11 +15,16 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { adPublishingServices, authServices } from "@/api/services";
+import {
+  adPublishingServices,
+  authServices,
+  dealershipServices,
+} from "@/api/services";
 import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
 import AdvertisementVehicleSideModal from "@/components/vehicles/VehicleSideModals/AdvertisementVehicleSideModal";
 import CreateVehicleAdvertisementModal from "@/components/vehicles/CreateSideModals/CreateVehicleAdvertisementModal";
 import DataTableLayout from "@/components/common/DataTableLayout";
+import { useAuth } from "@/auth/AuthContext";
 
 const AdPublishingList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,6 +38,8 @@ const AdPublishingList = () => {
   const [sortField, setSortField] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
+  const { completeUser } = useAuth();
+
   // Fetch current user's permissions
   const { data: userPermissions } = useQuery({
     queryKey: ["user-permissions"],
@@ -40,6 +47,25 @@ const AdPublishingList = () => {
       const response = await authServices.getCurrentUserPermissions();
       return response.data;
     },
+  });
+
+  const { data: dealerships } = useQuery({
+    queryKey: ["dealerships-dropdown", completeUser?.is_primary_admin],
+    queryFn: async () => {
+      const response = await dealershipServices.getDealershipsDropdown();
+
+      if (!completeUser?.is_primary_admin && completeUser?.dealership_ids) {
+        const userDealershipIds = completeUser.dealership_ids.map((d: any) =>
+          typeof d === "object" ? d._id : d
+        );
+        return response.data.data.filter((dealership: any) =>
+          userDealershipIds.includes(dealership._id)
+        );
+      }
+
+      return response.data.data;
+    },
+    enabled: !!completeUser,
   });
 
   // Function to fetch all vehicles when pagination is disabled
@@ -154,6 +180,13 @@ const AdPublishingList = () => {
     setStatusFilter("all");
     setPage(1);
     refetch();
+  };
+
+  const getDealershipName = (dealershipId: string) => {
+    const dealership = dealerships?.find(
+      (dealer: any) => dealer._id === dealershipId
+    );
+    return dealership ? dealership.dealership_name : "Unknown";
   };
 
   const getSortIcon = (field: string) => {
@@ -339,6 +372,15 @@ const AdPublishingList = () => {
       </TableHead>
       <TableHead
         className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("dealership_id")}
+      >
+        <div className="flex items-center">
+          Dealership
+          {getSortIcon("dealership_id")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
         onClick={() => handleSort("year")}
       >
         <div className="flex items-center">
@@ -385,8 +427,16 @@ const AdPublishingList = () => {
           </TableCell>
           <TableCell>
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                <Globe className="h-5 w-5 text-muted-foreground" />
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                {vehicle.vehicle_hero_image ? (
+                  <img
+                    src={vehicle.vehicle_hero_image}
+                    alt={`${vehicle.make} ${vehicle.model}`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Globe className="h-5 w-5 text-muted-foreground" />
+                )}
               </div>
               <div>
                 <p className="font-medium">
@@ -401,6 +451,13 @@ const AdPublishingList = () => {
           <TableCell>
             <div>
               <p className="font-medium">{vehicle.plate_no}</p>
+            </div>
+          </TableCell>
+          <TableCell>
+            <div className="flex flex-wrap gap-1">
+              <Badge className="ml-2 bg-orange-500 text-white hover:bg-orange-600">
+                {getDealershipName(vehicle?.dealership_id)}
+              </Badge>
             </div>
           </TableCell>
           <TableCell>{vehicle.year}</TableCell>

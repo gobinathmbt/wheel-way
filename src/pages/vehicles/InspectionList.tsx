@@ -19,10 +19,11 @@ import {
   vehicleServices,
   inspectionServices,
   authServices,
+  dealershipServices,
 } from "@/api/services";
 import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
-import VehicleInspectTradeSideModal from "@/components/vehicles/VehicleSideModals/VehicleInspectTradeSideModal";
-import CreateVehicleInspectTradeModal from "@/components/vehicles/CreateSideModals/CreateVehicleInspectTradeModal";
+import VehicleInspectSideModal from "@/components/vehicles/VehicleSideModals/VehicleInspectSideModal";
+import CreateVehicleInspectModal from "@/components/vehicles/CreateSideModals/CreateVehicleInspectModal";
 import DataTableLayout from "@/components/common/DataTableLayout";
 import { useAuth } from "@/auth/AuthContext";
 
@@ -49,6 +50,24 @@ const InspectionList = () => {
     },
   });
 
+  const { data: dealerships } = useQuery({
+    queryKey: ["dealerships-dropdown", completeUser?.is_primary_admin],
+    queryFn: async () => {
+      const response = await dealershipServices.getDealershipsDropdown();
+
+      if (!completeUser?.is_primary_admin && completeUser?.dealership_ids) {
+        const userDealershipIds = completeUser.dealership_ids.map((d: any) =>
+          typeof d === "object" ? d._id : d
+        );
+        return response.data.data.filter((dealership: any) =>
+          userDealershipIds.includes(dealership._id)
+        );
+      }
+
+      return response.data.data;
+    },
+    enabled: !!completeUser,
+  });
   // Function to fetch all vehicles when pagination is disabled
   const fetchAllVehicles = async () => {
     try {
@@ -166,8 +185,8 @@ const InspectionList = () => {
   };
 
   const getDealershipName = (dealershipId: string) => {
-    const dealership = completeUser?.dealership_ids?.find(
-      (dealer) => dealer._id === dealershipId
+    const dealership = dealerships?.find(
+      (dealer: any) => dealer._id === dealershipId
     );
     return dealership ? dealership.dealership_name : "Unknown";
   };
@@ -405,29 +424,29 @@ const InspectionList = () => {
               <p className="font-medium">{vehicle.vehicle_stock_id}</p>
             </div>
           </TableCell>
-        <TableCell>
-  <div className="flex items-center space-x-3">
-    <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
-      {vehicle.vehicle_hero_image ? (
-        <img
-          src={vehicle.vehicle_hero_image}
-          alt={`${vehicle.make} ${vehicle.model}`}
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <Car className="h-5 w-5 text-muted-foreground" />
-      )}
-    </div>
-    <div>
-      <p className="font-medium">
-        {vehicle.make} {vehicle.model}
-      </p>
-      <p className="text-sm text-muted-foreground">
-        {vehicle.variant}
-      </p>
-    </div>
-  </div>
-</TableCell>
+          <TableCell>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                {vehicle.vehicle_hero_image ? (
+                  <img
+                    src={vehicle.vehicle_hero_image}
+                    alt={`${vehicle.make} ${vehicle.model}`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Car className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+              <div>
+                <p className="font-medium">
+                  {vehicle.make} {vehicle.model}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {vehicle.variant}
+                </p>
+              </div>
+            </div>
+          </TableCell>
 
           <TableCell>
             <div>
@@ -523,7 +542,7 @@ const InspectionList = () => {
       />
 
       {/* Vehicle Details Side Modal */}
-      <VehicleInspectTradeSideModal
+      <VehicleInspectSideModal
         vehicle={selectedVehicle}
         isOpen={!!selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
@@ -532,7 +551,7 @@ const InspectionList = () => {
       />
 
       {/* Create Vehicle Stock Modal */}
-      <CreateVehicleInspectTradeModal
+      <CreateVehicleInspectModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateSuccess}

@@ -28,7 +28,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
-  adPublishingServices,
+  vehicleServices,
   dealershipServices,
   companyServices,
 } from "@/api/services";
@@ -37,19 +37,19 @@ import { useQuery } from "@tanstack/react-query";
 import { S3Uploader, S3Config } from "@/lib/s3-client";
 import { useAuth } from "@/auth/AuthContext";
 
-interface CreateVehicleAdvertisementModalProps {
+interface CreateVehicleTradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   vehicleType: "inspection" | "tradein" | "advertisement" | "master";
 }
 
-const CreateVehicleAdvertisementModal = ({
+const CreateVehicleTradeModal = ({
   isOpen,
   onClose,
   onSuccess,
   vehicleType,
-}: CreateVehicleAdvertisementModalProps) => {
+}: CreateVehicleTradeModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [purchaseDate, setPurchaseDate] = useState<Date>();
   const [heroImage, setHeroImage] = useState<File | null>(null);
@@ -291,7 +291,7 @@ const CreateVehicleAdvertisementModal = ({
         dealership: formData.dealership_id,
       };
 
-      await adPublishingServices.createAdVehicle(submitData);
+      await vehicleServices.createVehicleStock(submitData);
       toast.success(`Vehicle stock created successfully for ${vehicleType}`);
       onSuccess();
       onClose();
@@ -665,4 +665,4 @@ const CreateVehicleAdvertisementModal = ({
   );
 };
 
-export default CreateVehicleAdvertisementModal;
+export default CreateVehicleTradeModal;
