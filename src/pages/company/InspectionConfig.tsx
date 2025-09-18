@@ -1209,6 +1209,8 @@ const InspectionConfig = () => {
         renderTableHeader={renderTableHeader}
         renderTableBody={renderTableBody}
         onRefresh={handleRefresh}
+        cookieName="inspectionconfig_pagination_enabled" // Custom cookie name
+        cookieMaxAge={60 * 60 * 24 * 30} // 30 days
       />
 
       {/* Configuration Editor */}

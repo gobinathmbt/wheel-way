@@ -423,6 +423,8 @@ const Workshop = () => {
         renderTableHeader={renderTableHeader}
         renderTableBody={renderTableBody}
         onRefresh={handleRefresh}
+        cookieName="workshop_pagination_enabled" // Custom cookie name
+        cookieMaxAge={60 * 60 * 24 * 30} // 30 days
       />
 
       {/* Search and Filter Dialog */}

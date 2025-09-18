@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
+  Select as ShadcnSelect,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import Select from "react-select";
 
 interface AddEntryDialogProps {
   makes: any[];
@@ -39,13 +40,20 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
     modelIds: [] as string[],
     variantId: "",
     year: "",
-    bodyType: "",
+    bodyId: "",
+    yearId: "",
     fuelType: "",
     transmission: "",
+    engineCapacity: "",
+    power: "",
+    torque: "",
+    seatingCapacity: "",
   });
 
   const [availableModels, setAvailableModels] = useState<any[]>([]);
   const [availableVariants, setAvailableVariants] = useState<any[]>([]);
+  const [availableBodyTypes, setAvailableBodyTypes] = useState<any[]>([]);
+  const [availableYears, setAvailableYears] = useState<any[]>([]);
 
   const resetAddForm = () => {
     setAddFormData({
@@ -55,25 +63,43 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
       modelId: "",
       modelIds: [],
       variantId: "",
-      bodyType: "",
+      bodyId: "",
+      yearId: "",
       fuelType: "",
       transmission: "",
+      engineCapacity: "",
+      power: "",
+      torque: "",
+      seatingCapacity: "",
     });
     setAvailableModels([]);
     setAvailableVariants([]);
+    setAvailableBodyTypes([]);
+    setAvailableYears([]);
   };
 
   // Fetch models when make is selected for variant or year
   useEffect(() => {
-    if ((addDialogType === "variant" || addDialogType === "year") && addFormData.makeId) {
+    if (
+      (addDialogType === "variant" ||
+        addDialogType === "year" ||
+        addDialogType === "metadata") &&
+      addFormData.makeId
+    ) {
       import("@/api/services").then(({ vehicleMetadataServices }) => {
-        vehicleMetadataServices.getDropdownData("models", { makeId: addFormData.makeId })
-          .then(response => {
+        vehicleMetadataServices
+          .getDropdownData("models", { makeId: addFormData.makeId })
+          .then((response) => {
             setAvailableModels(response.data?.data || []);
             // Reset dependent fields when make changes
-            if (addDialogType === "year") {
-              setAddFormData(prev => ({ ...prev, modelId: "", variantId: "" }));
+            if (addDialogType === "year" || addDialogType === "metadata") {
+              setAddFormData((prev) => ({
+                ...prev,
+                modelId: "",
+                variantId: "",
+              }));
               setAvailableVariants([]);
+              setAvailableYears([]);
             }
           })
           .catch(console.error);
@@ -84,21 +110,88 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
     }
   }, [addDialogType, addFormData.makeId]);
 
-  // Fetch variants when model is selected for year
+  // Fetch body types for metadata form
   useEffect(() => {
-    if (addDialogType === "year" && addFormData.modelId) {
+    if (addDialogType === "metadata") {
       import("@/api/services").then(({ vehicleMetadataServices }) => {
-        vehicleMetadataServices.getDropdownData("variants", { modelId: addFormData.modelId })
-          .then(response => {
-            setAvailableVariants(response.data?.data || []);
-            // Reset variant when model changes
-            setAddFormData(prev => ({ ...prev, variantId: "" }));
+        vehicleMetadataServices
+          .getDropdownData("bodies")
+          .then((response) => {
+            setAvailableBodyTypes(response.data?.data || []);
           })
           .catch(console.error);
       });
-    } else if (addDialogType === "year" && !addFormData.modelId) {
+    }
+  }, [addDialogType]);
+
+  // Fetch years based on model and variant selection
+  useEffect(() => {
+    if (
+      addDialogType === "metadata" &&
+      (addFormData.modelId || addFormData.variantId)
+    ) {
+      const params: any = {};
+
+      if (addFormData.modelId) {
+        params.modelId = addFormData.modelId;
+      }
+
+      if (addFormData.variantId) {
+        params.variantId = addFormData.variantId;
+      }
+
+      import("@/api/services").then(({ vehicleMetadataServices }) => {
+        vehicleMetadataServices
+          .getDropdownData("years", params)
+          .then((response) => {
+            setAvailableYears(response.data?.data || []);
+          })
+          .catch(console.error);
+      });
+    } else if (addDialogType === "metadata") {
+      setAvailableYears([]);
+    }
+  }, [addDialogType, addFormData.modelId, addFormData.variantId]);
+
+  // Automatically select the model if there's only one available
+  useEffect(() => {
+    if (
+      addDialogType === "variant" &&
+      availableModels.length === 1 &&
+      addFormData.modelIds.length === 0
+    ) {
+      const singleModelId = availableModels[0]._id;
+      setAddFormData((prev) => ({
+        ...prev,
+        modelIds: [singleModelId],
+      }));
+    }
+  }, [availableModels, addDialogType, addFormData.modelIds.length]);
+
+  // Fetch variants when model is selected for year or metadata
+  useEffect(() => {
+    if (
+      (addDialogType === "year" || addDialogType === "metadata") &&
+      addFormData.modelId
+    ) {
+      import("@/api/services").then(({ vehicleMetadataServices }) => {
+        vehicleMetadataServices
+          .getDropdownData("variants", { modelId: addFormData.modelId })
+          .then((response) => {
+            setAvailableVariants(response.data?.data || []);
+            // Reset variant when model changes
+            setAddFormData((prev) => ({ ...prev, variantId: "" }));
+            setAvailableYears([]);
+          })
+          .catch(console.error);
+      });
+    } else if (
+      (addDialogType === "year" || addDialogType === "metadata") &&
+      !addFormData.modelId
+    ) {
       setAvailableVariants([]);
-      setAddFormData(prev => ({ ...prev, variantId: "" }));
+      setAddFormData((prev) => ({ ...prev, variantId: "" }));
+      setAvailableYears([]);
     }
   }, [addDialogType, addFormData.modelId]);
 
@@ -108,7 +201,11 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
       return;
     }
 
-    if (!addFormData.displayName && addDialogType !== "year") {
+    if (
+      !addFormData.displayName &&
+      addDialogType !== "year" &&
+      addDialogType !== "metadata"
+    ) {
       toast.error("Display name is required");
       return;
     }
@@ -118,12 +215,42 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
       return;
     }
 
-    if (addDialogType === "variant" && (!addFormData.displayName || addFormData.modelIds.length === 0)) {
+    if (
+      addDialogType === "variant" &&
+      (!addFormData.displayName || addFormData.modelIds.length === 0)
+    ) {
       toast.error("Variant name and at least one model are required");
       return;
     }
 
-    if (addDialogType === "year" && !addFormData.modelId && !addFormData.variantId) {
+    if (addDialogType === "metadata") {
+      if (!addFormData.makeId) {
+        toast.error("Make is required");
+        return;
+      }
+      if (!addFormData.modelId) {
+        toast.error("Model is required");
+        return;
+      }
+      if (!addFormData.variantId) {
+        toast.error("Variant is required");
+        return;
+      }
+      if (!addFormData.bodyId) {
+        toast.error("Body Type is required");
+        return;
+      }
+      if (!addFormData.yearId) {
+        toast.error("Year is required");
+        return;
+      }
+    }
+
+    if (
+      addDialogType === "year" &&
+      !addFormData.modelId &&
+      !addFormData.variantId
+    ) {
       toast.error("Either model or variant must be selected for the year");
       return;
     }
@@ -149,19 +276,29 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
         year: parseInt(addFormData.year),
         displayName: addFormData.year,
       };
-      
+
       // Add model if selected
       if (addFormData.modelId) {
         data.modelId = addFormData.modelId;
       }
-      
+
       // Add variant if selected
       if (addFormData.variantId) {
         data.variantId = addFormData.variantId;
       }
     } else if (addDialogType === "metadata") {
       data = {
-        ...addFormData,
+        makeId: addFormData.makeId,
+        modelId: addFormData.modelId,
+        variantId: addFormData.variantId,
+        bodyId: addFormData.bodyId,
+        yearId: addFormData.yearId,
+        fuelType: addFormData.fuelType || "",
+        transmission: addFormData.transmission || "",
+        engineCapacity: addFormData.engineCapacity || "",
+        power: addFormData.power || "",
+        torque: addFormData.torque || "",
+        seatingCapacity: addFormData.seatingCapacity || "",
       };
     }
 
@@ -169,6 +306,25 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
     setShowAddDialog(false);
     resetAddForm();
   };
+
+  // Prepare options for react-select
+  const modelOptions = availableModels.map((model) => ({
+    value: model._id,
+    label: model.displayName,
+  }));
+
+  // Handle model selection change
+  const handleModelChange = (selectedOptions: any) => {
+    const selectedModelIds = selectedOptions
+      ? selectedOptions.map((option: any) => option.value)
+      : [];
+    setAddFormData({ ...addFormData, modelIds: selectedModelIds });
+  };
+
+  // Get selected values for react-select
+  const selectedModels = modelOptions.filter((option) =>
+    addFormData.modelIds.includes(option.value)
+  );
 
   return (
     <Dialog
@@ -184,14 +340,17 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
           Add Entry
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Entry</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
             <Label>Type</Label>
-            <Select value={addDialogType} onValueChange={setAddDialogType}>
+            <ShadcnSelect
+              value={addDialogType}
+              onValueChange={setAddDialogType}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -203,7 +362,7 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
                 <SelectItem value="year">Variant Year</SelectItem>
                 <SelectItem value="metadata">Vehicle Metadata</SelectItem>
               </SelectContent>
-            </Select>
+            </ShadcnSelect>
           </div>
 
           {/* Form fields based on selected type */}
@@ -227,7 +386,7 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
             <>
               <div>
                 <Label>Make</Label>
-                <Select
+                <ShadcnSelect
                   value={addFormData.makeId}
                   onValueChange={(value) =>
                     setAddFormData({ ...addFormData, makeId: value })
@@ -243,7 +402,7 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </Select>
+                </ShadcnSelect>
               </div>
               <div>
                 <Label>Model Name</Label>
@@ -265,10 +424,14 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
             <>
               <div>
                 <Label>Make (for filtering models)</Label>
-                <Select
+                <ShadcnSelect
                   value={addFormData.makeId}
                   onValueChange={(value) =>
-                    setAddFormData({ ...addFormData, makeId: value, modelIds: [] })
+                    setAddFormData({
+                      ...addFormData,
+                      makeId: value,
+                      modelIds: [],
+                    })
                   }
                 >
                   <SelectTrigger>
@@ -281,7 +444,7 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </Select>
+                </ShadcnSelect>
               </div>
               <div>
                 <Label>Variant Name</Label>
@@ -298,33 +461,33 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
               </div>
               <div>
                 <Label>Select Models (Multiple)</Label>
-                <div className="space-y-2 max-h-32 overflow-y-auto border rounded p-2">
-                  {availableModels.map((model: any) => (
-                    <div key={model._id} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={model._id}
-                        checked={addFormData.modelIds.includes(model._id)}
-                        onChange={(e) => {
-                          const modelIds = e.target.checked
-                            ? [...addFormData.modelIds, model._id]
-                            : addFormData.modelIds.filter(id => id !== model._id);
-                          setAddFormData({ ...addFormData, modelIds });
-                        }}
-                        className="rounded"
-                      />
-                      <label htmlFor={model._id} className="text-sm">
-                        {model.displayName}
-                      </label>
-                    </div>
-                  ))}
-                  {availableModels.length === 0 && addFormData.makeId && (
-                    <p className="text-sm text-muted-foreground">No models found for selected make</p>
-                  )}
-                  {!addFormData.makeId && (
-                    <p className="text-sm text-muted-foreground">Select a make first to see models</p>
-                  )}
-                </div>
+                <Select
+                  isMulti
+                  options={modelOptions}
+                  value={selectedModels}
+                  onChange={handleModelChange}
+                  className="basic-multi-select"
+                  classNamePrefix="select"
+                  placeholder="Select models..."
+                  isDisabled={
+                    !addFormData.makeId || availableModels.length === 0
+                  }
+                />
+                {availableModels.length === 0 && addFormData.makeId && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    No models found for selected make
+                  </p>
+                )}
+                {!addFormData.makeId && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Select a make first to see models
+                  </p>
+                )}
+                {availableModels.length === 1 && (
+                  <p className="text-sm text-blue-600 mt-1">
+                    Only one model available - automatically selected
+                  </p>
+                )}
               </div>
             </>
           )}
@@ -363,11 +526,11 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
                   max={new Date().getFullYear() + 1}
                 />
               </div>
-              
+
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <Label>Make (Optional - for filtering)</Label>
-                  <Select
+                  <ShadcnSelect
                     value={addFormData.makeId}
                     onValueChange={(value) =>
                       setAddFormData({ ...addFormData, makeId: value })
@@ -384,12 +547,12 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
                         </SelectItem>
                       ))}
                     </SelectContent>
-                  </Select>
+                  </ShadcnSelect>
                 </div>
-                
+
                 <div>
                   <Label>Model (Either model OR variant required)</Label>
-                  <Select
+                  <ShadcnSelect
                     value={addFormData.modelId}
                     onValueChange={(value) =>
                       setAddFormData({ ...addFormData, modelId: value })
@@ -407,15 +570,17 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
                         </SelectItem>
                       ))}
                     </SelectContent>
-                  </Select>
+                  </ShadcnSelect>
                   {!addFormData.makeId && (
-                    <p className="text-xs text-muted-foreground mt-1">Select a make first to see models</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Select a make first to see models
+                    </p>
                   )}
                 </div>
-                
+
                 <div>
                   <Label>Variant (Either model OR variant required)</Label>
-                  <Select
+                  <ShadcnSelect
                     value={addFormData.variantId}
                     onValueChange={(value) =>
                       setAddFormData({ ...addFormData, variantId: value })
@@ -433,28 +598,32 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
                         </SelectItem>
                       ))}
                     </SelectContent>
-                  </Select>
+                  </ShadcnSelect>
                   {!addFormData.modelId && (
-                    <p className="text-xs text-muted-foreground mt-1">Select a model first to see variants</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Select a model first to see variants
+                    </p>
                   )}
                 </div>
               </div>
-              
+
               <div className="p-3 bg-blue-50 rounded-md">
                 <p className="text-sm text-blue-700">
-                  <strong>Note:</strong> You must select either a Model OR a Variant (or both). 
-                  This helps organize years by specific vehicle configurations.
+                  <strong>Note:</strong> You must select either a Model OR a
+                  Variant (or both). This helps organize years by specific
+                  vehicle configurations.
                 </p>
               </div>
             </div>
           )}
 
           {addDialogType === "metadata" && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Primary Vehicle Details */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Make</Label>
-                  <Select
+                  <Label>Make *</Label>
+                  <ShadcnSelect
                     value={addFormData.makeId}
                     onValueChange={(value) =>
                       setAddFormData({ ...addFormData, makeId: value })
@@ -470,90 +639,164 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
                         </SelectItem>
                       ))}
                     </SelectContent>
-                  </Select>
+                  </ShadcnSelect>
                 </div>
                 <div>
-                  <Label>Model</Label>
-                  <Input
-                    value={addFormData.displayName}
-                    onChange={(e) =>
-                      setAddFormData({
-                        ...addFormData,
-                        displayName: e.target.value,
-                      })
+                  <Label>Model *</Label>
+                  <ShadcnSelect
+                    value={addFormData.modelId}
+                    onValueChange={(value) =>
+                      setAddFormData({ ...addFormData, modelId: value })
                     }
-                    placeholder="Model name"
-                  />
+                    disabled={!addFormData.makeId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableModels.map((model: any) => (
+                        <SelectItem key={model._id} value={model._id}>
+                          {model.displayName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </ShadcnSelect>
+                  {!addFormData.makeId && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Select a make first to see models
+                    </p>
+                  )}
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Body Type (Optional)</Label>
-                  <Input
-                    value={addFormData.bodyType || ""}
-                    onChange={(e) =>
-                      setAddFormData({
-                        ...addFormData,
-                        bodyType: e.target.value,
-                      })
+                  <Label>Variant *</Label>
+                  <ShadcnSelect
+                    value={addFormData.variantId}
+                    onValueChange={(value) =>
+                      setAddFormData({ ...addFormData, variantId: value })
                     }
-                    placeholder="e.g., Sedan"
-                  />
+                    disabled={!addFormData.modelId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Variant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableVariants.map((variant: any) => (
+                        <SelectItem key={variant._id} value={variant._id}>
+                          {variant.displayName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </ShadcnSelect>
+                  {!addFormData.modelId && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Select a model first to see variants
+                    </p>
+                  )}
                 </div>
                 <div>
-                  <Label>Year (Optional)</Label>
-                  <Input
-                    type="number"
-                    value={addFormData.year}
-                    onChange={(e) =>
-                      setAddFormData({
-                        ...addFormData,
-                        year: e.target.value,
-                      })
+                  <Label>Body Type *</Label>
+                  <ShadcnSelect
+                    value={addFormData.bodyId}
+                    onValueChange={(value) =>
+                      setAddFormData({ ...addFormData, bodyId: value })
                     }
-                    placeholder="e.g., 2023"
-                    min="1900"
-                    max={new Date().getFullYear() + 1}
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Body Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableBodyTypes.map((bodyType: any) => (
+                        <SelectItem key={bodyType._id} value={bodyType._id}>
+                          {bodyType.displayName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </ShadcnSelect>
+                  {availableBodyTypes.length === 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      No body types available
+                    </p>
+                  )}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Fuel Type (Optional)</Label>
-                  <Input
-                    value={addFormData.fuelType || ""}
-                    onChange={(e) =>
-                      setAddFormData({
-                        ...addFormData,
-                        fuelType: e.target.value,
-                      })
-                    }
-                    placeholder="e.g., Petrol"
-                  />
-                </div>
-                <div>
-                  <Label>Transmission (Optional)</Label>
-                  <Input
-                    value={addFormData.transmission || ""}
-                    onChange={(e) =>
-                      setAddFormData({
-                        ...addFormData,
-                        transmission: e.target.value,
-                      })
-                    }
-                    placeholder="e.g., Manual"
-                  />
-                </div>
+
+              <div>
+                <Label>Year *</Label>
+                <ShadcnSelect
+                  value={addFormData.yearId}
+                  onValueChange={(value) =>
+                    setAddFormData({ ...addFormData, yearId: value })
+                  }
+                  disabled={availableYears.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableYears.map((year: any) => (
+                      <SelectItem key={year._id} value={year._id}>
+                        {year.year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </ShadcnSelect>
+                {availableYears.length === 0 &&
+                  (addFormData.modelId || addFormData.variantId) && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      No years found for selected model/variant
+                    </p>
+                  )}
+                {!(addFormData.modelId || addFormData.variantId) && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Select a model or variant first to see years
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label>Fuel Type</Label>
+                <Input
+                  value={addFormData.fuelType || ""}
+                  onChange={(e) =>
+                    setAddFormData({
+                      ...addFormData,
+                      fuelType: e.target.value,
+                    })
+                  }
+                  placeholder="e.g., Petrol, Diesel, Electric"
+                />
+              </div>
+              <div>
+                <Label>Transmission</Label>
+                <Input
+                  value={addFormData.transmission || ""}
+                  onChange={(e) =>
+                    setAddFormData({
+                      ...addFormData,
+                      transmission: e.target.value,
+                    })
+                  }
+                  placeholder="e.g., Manual, Automatic, CVT"
+                />
+              </div>
+
+              <div className="p-4 bg-blue-50 rounded-md">
+                <p className="text-sm text-blue-700">
+                  <strong>Note:</strong> All fields marked with * are required.
+                </p>
               </div>
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-4 border-t">
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>
               Cancel
             </Button>
             <Button onClick={handleAddEntry} disabled={isLoading}>
-              {isLoading ? "Adding..." : "Add"}
+              {isLoading ? "Adding..." : "Add Entry"}
             </Button>
           </div>
         </div>

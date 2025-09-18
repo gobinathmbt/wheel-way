@@ -197,7 +197,7 @@ const VehicleMetadata = () => {
     queryKey: ["vehicle-metadata-counts"],
     queryFn: async () => {
       const response = await vehicleMetadataServices.getCounts();
-      return response.data; // unwrap here
+      return response.data;
     },
   });
 
@@ -252,6 +252,95 @@ const VehicleMetadata = () => {
     }
   }, [currentTabData]);
 
+  // Helper function to update cache with new/updated data
+  const updateCacheData = (
+    operation: 'create' | 'update' | 'delete',
+    entityType: string,
+    data?: any,
+    itemId?: string
+  ) => {
+    const targetTab = entityType === "metadata" ? "metadata" : `${entityType}s`;
+    
+    // Update current tab data
+    const queryKey = [
+      `vehicle-metadata-${targetTab}`,
+      filters,
+      pagination.page,
+      pagination.limit,
+      searchTerm,
+    ];
+
+    queryClient.setQueryData(queryKey, (oldData: any) => {
+      if (!oldData?.data?.data) return oldData;
+
+      const currentData = [...oldData.data.data];
+      let newTotal = oldData.data.pagination?.total || 0;
+
+      switch (operation) {
+        case 'create':
+          // Add new item to the beginning
+          currentData.unshift(data);
+          if (currentData.length > pagination.limit) {
+            currentData.pop();
+          }
+          newTotal += 1;
+          break;
+
+        case 'update':
+          // Update existing item
+          const updateIndex = currentData.findIndex(item => item._id === itemId);
+          if (updateIndex !== -1) {
+            currentData[updateIndex] = { ...currentData[updateIndex], ...data };
+          }
+          break;
+
+        case 'delete':
+          // Remove item
+          const deleteIndex = currentData.findIndex(item => item._id === itemId);
+          if (deleteIndex !== -1) {
+            currentData.splice(deleteIndex, 1);
+            newTotal -= 1;
+          }
+          break;
+      }
+
+      return {
+        ...oldData,
+        data: {
+          ...oldData.data,
+          data: currentData,
+          pagination: {
+            ...oldData.data.pagination,
+            total: newTotal,
+            pages: Math.ceil(newTotal / pagination.limit),
+          },
+        },
+      };
+    });
+
+    // Update counts for create/delete operations
+    if (operation === 'create' || operation === 'delete') {
+      queryClient.setQueryData(['vehicle-metadata-counts'], (oldCounts: any) => {
+        if (!oldCounts?.data) return oldCounts;
+        
+        const countKey = entityType === 'body' ? 'bodies' : 
+                        entityType === 'year' ? 'years' : 
+                        `${entityType}s`;
+        
+        const change = operation === 'create' ? 1 : -1;
+        
+        return {
+          ...oldCounts,
+          data: {
+            ...oldCounts.data,
+            [countKey]: Math.max(0, (oldCounts.data[countKey] || 0) + change),
+          },
+        };
+      });
+    }
+  };
+
+  // CREATE MUTATION
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       const { type, ...formData } = data;
@@ -291,6 +380,7 @@ const VehicleMetadata = () => {
           return vehicleMetadataServices.addVehicleMetadata({
             make: formData.makeId,
             model: formData.modelId,
+            variant: formData.variantId,
             body: formData.bodyId,
             variantYear: formData.yearId,
             fuelType: formData.fuelType,
@@ -304,17 +394,41 @@ const VehicleMetadata = () => {
           throw new Error("Invalid type");
       }
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (response, variables) => {
+      const newData = response.data;
+      const entityType = variables.type;
+      
       toast.success(
-        `${
-          variables.type.charAt(0).toUpperCase() + variables.type.slice(1)
-        } added successfully`
+        `${entityType.charAt(0).toUpperCase() + entityType.slice(1)} added successfully`
       );
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata"] });
-      queryClient.invalidateQueries({ queryKey: ["dropdown"] });
+      
+      // Determine target tab
+      const targetTab = entityType === "metadata" ? "metadata" : `${entityType}s`;
+      const wasTabSwitched = currentTab !== targetTab;
+      
+      // Switch to appropriate tab
+      if (wasTabSwitched) {
+        setCurrentTab(targetTab);
+      }
+      
+      // Reset pagination to first page
+      const newPagination = { ...pagination, page: 1 };
+      setPagination(newPagination);
+      
+      // Clear search to ensure new item is visible
+      setSearchTerm("");
+      
+      // Update cache immediately
+      updateCacheData('create', entityType, newData);
+      
+      // Invalidate dropdown queries for filters
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["dropdown"] });
+        queryClient.invalidateQueries({ queryKey: [`vehicle-metadata-${targetTab}`] });
+      }, 100);
     },
     onError: (error: any, variables) => {
+      console.error("Creation error:", error);
       toast.error(
         `Failed to add ${variables.type}: ${
           error.response?.data?.message || error.message
@@ -323,6 +437,7 @@ const VehicleMetadata = () => {
     },
   });
 
+  // UPDATE MUTATION
   const updateMutation = useMutation({
     mutationFn: async ({
       type,
@@ -350,10 +465,24 @@ const VehicleMetadata = () => {
           throw new Error("Invalid type");
       }
     },
-    onSuccess: () => {
+    onSuccess: (response, variables) => {
+      const updatedData = response.data;
+      const entityType = variables.type;
+      
       toast.success("Item updated successfully");
-      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata"] });
+      
+      // Update cache immediately
+      updateCacheData('update', entityType, updatedData, variables.id);
+      
+      // Close edit dialog
       setEditItem(null);
+      
+      // Invalidate related queries for consistency
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["dropdown"] });
+        const targetTab = entityType === "metadata" ? "metadata" : `${entityType}s`;
+        queryClient.invalidateQueries({ queryKey: [`vehicle-metadata-${targetTab}`] });
+      }, 100);
     },
     onError: (error: any) => {
       toast.error("Failed to update item");
@@ -361,6 +490,7 @@ const VehicleMetadata = () => {
     },
   });
 
+  // DELETE MUTATION
   const deleteMutation = useMutation({
     mutationFn: async ({ type, id }: { type: string; id: string }) => {
       switch (type) {
@@ -380,11 +510,24 @@ const VehicleMetadata = () => {
           throw new Error("Invalid type");
       }
     },
-    onSuccess: () => {
+    onSuccess: (response, variables) => {
+      const entityType = variables.type;
+      
       toast.success("Item deleted successfully");
-      queryClient.invalidateQueries({ queryKey: ["vehicle-metadata"] });
+      
+      // Update cache immediately
+      updateCacheData('delete', entityType, null, variables.id);
+      
+      // Close delete dialog
       setShowDeleteDialog(false);
       setDeleteItem(null);
+      
+      // Invalidate related queries for consistency
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["dropdown"] });
+        const targetTab = entityType === "metadata" ? "metadata" : `${entityType}s`;
+        queryClient.invalidateQueries({ queryKey: [`vehicle-metadata-${targetTab}`] });
+      }, 100);
     },
     onError: (error: any) => {
       toast.error(
@@ -434,10 +577,6 @@ const VehicleMetadata = () => {
     if ("make" in item && item.make) return "model";
     return currentTab.slice(0, -1); // Remove 's' from plural
   };
-
-  // ============================================================================
-  // RENDER HELPERS
-  // ============================================================================
 
   const PaginationControls = () => (
     <div className="flex items-center justify-between mt-4">
