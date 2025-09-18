@@ -125,7 +125,6 @@ const createVehicleStock = async (req, res) => {
       dealership,
       status,
       purchase_type,
-      manufacture,
       make,
       model,
       variant,
@@ -141,16 +140,35 @@ const createVehicleStock = async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!make || !model || !year || !vin || !plate_no) {
+    const requiredFields = {
+      make: "Make",
+      model: "Model", 
+      year: "Year",
+      vin: "VIN",
+      plate_no: "Registration number",
+      dealership: "Dealership",
+      status: "Status",
+      purchase_type: "Purchase type"
+    };
+
+    const missingFields = [];
+    for (const [field, name] of Object.entries(requiredFields)) {
+      if (!req.body[field]) {
+        missingFields.push(name);
+      }
+    }
+
+    if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Make, model, year, VIN, and registration number are required",
+        message: `Missing required fields: ${missingFields.join(", ")}`,
       });
     }
 
     // Generate new vehicle stock ID
     const lastVehicle = await Vehicle.findOne({
       company_id: req.user.company_id,
+      vehicle_type: vehicle_type || "tradein",
     })
       .sort({ vehicle_stock_id: -1 })
       .limit(1);
@@ -177,19 +195,19 @@ const createVehicleStock = async (req, res) => {
     const vehicleData = {
       vehicle_stock_id: nextStockId,
       company_id: req.user.company_id,
+      dealership_id: dealership,
       vehicle_type: vehicle_type || "tradein",
-      vehicle_hero_image:
-        vehicle_hero_image || "https://via.placeholder.com/400x300",
+      vehicle_hero_image: vehicle_hero_image || "https://via.placeholder.com/400x300",
       vin,
       plate_no,
       make,
       model,
       year: parseInt(year),
-      chassis_no: vin, // Using VIN as chassis number
+      chassis_no: vin,
       variant,
       body_style,
       status: "pending",
-      queue_status: "processed", // Skip queue processing for manually created vehicles
+      queue_status: "processed",
     };
 
     // Add vehicle source information
@@ -204,15 +222,20 @@ const createVehicleStock = async (req, res) => {
       ];
     }
 
-    // Add other details if provided
-    if (status) {
-      vehicleData.vehicle_other_details = [
-        {
-          status,
-          trader_acquisition: dealership,
-        },
-      ];
-    }
+    // Add vehicle other details with status
+    vehicleData.vehicle_other_details = [
+      {
+        status,
+        trader_acquisition: dealership,
+        purchase_price: 0,
+        exact_expenses: 0,
+        estimated_expenses: 0,
+        gst_inclusive: false,
+        retail_price: 0,
+        sold_price: 0,
+        included_in_exports: true,
+      },
+    ];
 
     const newVehicle = new Vehicle(vehicleData);
     await newVehicle.save();
@@ -232,6 +255,7 @@ const createVehicleStock = async (req, res) => {
         year,
         vin,
         plate_no,
+        vehicle_type: vehicle_type,
       },
     });
 

@@ -24,6 +24,7 @@ import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearch
 import VehicleInspectTradeSideModal from "@/components/vehicles/VehicleSideModals/VehicleInspectTradeSideModal";
 import CreateVehicleInspectTradeModal from "@/components/vehicles/CreateSideModals/CreateVehicleInspectTradeModal";
 import DataTableLayout from "@/components/common/DataTableLayout";
+import { useAuth } from "@/auth/AuthContext";
 
 const InspectionList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -36,6 +37,9 @@ const InspectionList = () => {
   const [paginationEnabled, setPaginationEnabled] = useState(true);
   const [sortField, setSortField] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  const { completeUser } = useAuth();
+
   // Fetch current user's permissions
   const { data: userPermissions } = useQuery({
     queryKey: ["user-permissions"],
@@ -161,7 +165,14 @@ const InspectionList = () => {
     refetch();
   };
 
-  const getSortIcon = (field) => {
+  const getDealershipName = (dealershipId: string) => {
+    const dealership = completeUser?.dealership_ids?.find(
+      (dealer) => dealer._id === dealershipId
+    );
+    return dealership ? dealership.dealership_name : "Unknown";
+  };
+
+  const getSortIcon = (field: any) => {
     if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
     return sortOrder === "asc" ? (
       <ArrowUp className="h-3 w-3 ml-1" />
@@ -175,9 +186,12 @@ const InspectionList = () => {
     return;
   };
 
-  const handleViewDetails = async (vehicleId: string,vehicleType: string,) => {
+  const handleViewDetails = async (vehicleId: string, vehicleType: string) => {
     try {
-      const response = await vehicleServices.getVehicleDetail(vehicleId,vehicleType);
+      const response = await vehicleServices.getVehicleDetail(
+        vehicleId,
+        vehicleType
+      );
       setSelectedVehicle(response.data.data);
     } catch (error) {
       toast.error("Failed to load vehicle details");
@@ -339,6 +353,15 @@ const InspectionList = () => {
       </TableHead>
       <TableHead
         className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("dealership_id")}
+      >
+        <div className="flex items-center">
+          Dealership
+          {getSortIcon("dealership_id")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
         onClick={() => handleSort("year")}
       >
         <div className="flex items-center">
@@ -367,7 +390,6 @@ const InspectionList = () => {
       <TableHead className="bg-muted/50">Actions</TableHead>
     </TableRow>
   );
-
   // Render table body
   const renderTableBody = () => (
     <>
@@ -383,26 +405,43 @@ const InspectionList = () => {
               <p className="font-medium">{vehicle.vehicle_stock_id}</p>
             </div>
           </TableCell>
-          <TableCell>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                <Car className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-medium">
-                  {vehicle.make} {vehicle.model}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {vehicle.variant}
-                </p>
-              </div>
-            </div>
-          </TableCell>
+        <TableCell>
+  <div className="flex items-center space-x-3">
+    <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+      {vehicle.vehicle_hero_image ? (
+        <img
+          src={vehicle.vehicle_hero_image}
+          alt={`${vehicle.make} ${vehicle.model}`}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <Car className="h-5 w-5 text-muted-foreground" />
+      )}
+    </div>
+    <div>
+      <p className="font-medium">
+        {vehicle.make} {vehicle.model}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        {vehicle.variant}
+      </p>
+    </div>
+  </div>
+</TableCell>
+
           <TableCell>
             <div>
               <p className="font-medium">{vehicle.plate_no}</p>
             </div>
           </TableCell>
+          <TableCell>
+            <div className="flex flex-wrap gap-1">
+              <Badge className="ml-2 bg-orange-500 text-white hover:bg-orange-600">
+                {getDealershipName(vehicle?.dealership_id)}
+              </Badge>
+            </div>
+          </TableCell>
+
           <TableCell>{vehicle.year}</TableCell>
           <TableCell>
             {vehicle.vehicle_odometer?.[0]?.reading?.toLocaleString()} km
@@ -428,7 +467,12 @@ const InspectionList = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleViewDetails(vehicle.vehicle_stock_id,vehicle.vehicle_type)}
+                onClick={() =>
+                  handleViewDetails(
+                    vehicle.vehicle_stock_id,
+                    vehicle.vehicle_type
+                  )
+                }
                 className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
               >
                 <Eye className="h-4 w-4" />

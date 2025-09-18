@@ -107,15 +107,6 @@ const WorkshopConfig = () => {
     },
   });
 
-  // Fetch company settings for S3 config
-  const { data: s3Config } = useQuery({
-    queryKey: ["s3-config"],
-    queryFn: async () => {
-      const response = await configServices.getS3Config();
-      return response.data.data;
-    },
-  });
-
   // Add this useEffect to check if all fields are completed
   useEffect(() => {
     if (vehicleData) {

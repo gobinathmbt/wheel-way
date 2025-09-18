@@ -38,8 +38,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import MediaViewer, { MediaItem } from "@/components/common/MediaViewer";
+import { useAuth } from "@/auth/AuthContext";
 
 interface VehicleAttachmentsSectionProps {
   vehicle: any;
@@ -62,7 +63,8 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
   );
   const [s3Config, setS3Config] = useState<S3Config | null>(null);
   const [s3Uploader, setS3Uploader] = useState<S3Uploader | null>(null);
-  
+  const { completeUser } = useAuth();
+
   // Media viewer states
   const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
   const [currentMediaId, setCurrentMediaId] = useState<string>("");
@@ -97,12 +99,12 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
 
   // Helper function to check if file is video
   const isVideoFile = (mimeType: string) => {
-    return mimeType?.startsWith('video/') || false;
+    return mimeType?.startsWith("video/") || false;
   };
 
   // Helper function to check if file is image
   const isImageFile = (mimeType: string) => {
-    return mimeType?.startsWith('image/') || false;
+    return mimeType?.startsWith("image/") || false;
   };
 
   // Prepare media items for MediaViewer
@@ -112,12 +114,14 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
       .map((att: any) => ({
         id: att._id,
         url: att.url,
-        type: isVideoFile(att.mime_type) ? "video" as const : "image" as const,
+        type: isVideoFile(att.mime_type)
+          ? ("video" as const)
+          : ("image" as const),
         title: att.original_filename || att.filename,
         description: `${getCategoryDisplayName(
-          att.image_category || att.file_category || "other", 
+          att.image_category || att.file_category || "other",
           att.type === "image" ? "images" : "files"
-        )} • ${formatFileSize(att.size || 0)}`
+        )} • ${formatFileSize(att.size || 0)}`,
       }));
   };
 
@@ -157,10 +161,13 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
       (att: any) => att.type === "image" || isImageFile(att.mime_type)
     );
     const fileAttachments = attachments.filter(
-      (att: any) => att.type === "file" && !isImageFile(att.mime_type) && !isVideoFile(att.mime_type)
+      (att: any) =>
+        att.type === "file" &&
+        !isImageFile(att.mime_type) &&
+        !isVideoFile(att.mime_type)
     );
-    const videoAttachments = attachments.filter(
-      (att: any) => isVideoFile(att.mime_type)
+    const videoAttachments = attachments.filter((att: any) =>
+      isVideoFile(att.mime_type)
     );
 
     // Group images by categories
@@ -238,10 +245,7 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
 
   const loadS3Config = async () => {
     try {
-      const response = await companyServices.getS3Config();
-      console.log("S3 config response:", response);
-      const config = response.data.data;
-
+      const config = completeUser.company_id.s3_config;
       if (config && config.bucket && config.access_key) {
         const s3ConfigMapped: S3Config = {
           region: config.region,
@@ -386,7 +390,7 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
               {items.map((item: any) => (
                 <Card key={item._id} className="overflow-hidden group">
                   <CardContent className="p-0">
-                    {(item.type === "image" || isImageFile(item.mime_type)) ? (
+                    {item.type === "image" || isImageFile(item.mime_type) ? (
                       <div className="relative">
                         <img
                           src={item.url}
@@ -421,7 +425,7 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
                       </div>
                     ) : isVideoFile(item.mime_type) ? (
                       <div className="relative">
-                        <div 
+                        <div
                           className="w-full h-32 bg-gray-900 flex items-center justify-center cursor-pointer relative overflow-hidden"
                           onClick={() => handleOpenMediaViewer(item._id)}
                         >
@@ -553,8 +557,13 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
 
                 <TabsContent value="images" className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Image Category</label>
-                    <Select value={uploadCategory} onValueChange={setUploadCategory}>
+                    <label className="text-sm font-medium">
+                      Image Category
+                    </label>
+                    <Select
+                      value={uploadCategory}
+                      onValueChange={setUploadCategory}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select an image category" />
                       </SelectTrigger>
@@ -567,7 +576,9 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
                             {option.display_value}
                           </SelectItem>
                         ))}
-                        <SelectItem value="other_images">Other Images</SelectItem>
+                        <SelectItem value="other_images">
+                          Other Images
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -583,7 +594,10 @@ const VehicleAttachmentsSection: React.FC<VehicleAttachmentsSectionProps> = ({
                 <TabsContent value="files" className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">File Category</label>
-                    <Select value={uploadCategory} onValueChange={setUploadCategory}>
+                    <Select
+                      value={uploadCategory}
+                      onValueChange={setUploadCategory}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a file category" />
                       </SelectTrigger>

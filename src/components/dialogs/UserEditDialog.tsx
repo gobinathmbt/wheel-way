@@ -16,8 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { dealershipServices } from "@/api/services";
@@ -59,7 +57,6 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({
   });
   const [isLoading, setIsLoading] = useState(false);
   const { completeUser } = useAuth();
-  
 
   useEffect(() => {
     if (user) {

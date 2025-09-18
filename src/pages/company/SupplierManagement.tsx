@@ -223,7 +223,7 @@ const SupplierManagement = () => {
 
   const availableTags =
     tradieTagsData?.data?.find(
-      (dropdown) => dropdown.dropdown_name === "tradie_tags"
+      (dropdown:any) => dropdown.dropdown_name === "tradie_tags"
     )?.values || [];
 
   // Create supplier mutation
