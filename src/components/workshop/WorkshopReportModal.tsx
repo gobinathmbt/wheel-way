@@ -37,11 +37,11 @@ import {
   Video,
   File,
   ZoomIn,
+  Play,
 } from "lucide-react";
 import { workshopServices } from "@/api/services";
 import { toast } from "sonner";
-import ImageGallery from "react-image-gallery";
-import "react-image-gallery/styles/css/image-gallery.css";
+import MediaViewer, { MediaItem } from "@/components/common/MediaViewer";
 
 interface WorkshopReportModalProps {
   isOpen: boolean;
@@ -189,9 +189,11 @@ const WorkshopReportModal: React.FC<WorkshopReportModalProps> = ({
   const [selectedReport, setSelectedReport] = useState<WorkshopReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
-  const [galleryOpen, setGalleryOpen] = useState(false);
-  const [galleryImages, setGalleryImages] = useState<{ original: string; thumbnail: string; description?: string }[]>([]);
   const [activeTab, setActiveTab] = useState("work_details");
+  
+  // Media viewer states
+  const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
+  const [currentMediaId, setCurrentMediaId] = useState<string>("");
 
   useEffect(() => {
     if (isOpen) {
@@ -226,19 +228,70 @@ const WorkshopReportModal: React.FC<WorkshopReportModalProps> = ({
     }
   };
 
-  const fetchReportDetails = async (reportId: string) => {
-    setReportLoading(true);
-    try {
-      const response = await workshopServices.getWorkshopReport(reportId);
-      if (response.data.success) {
-        setSelectedReport(response.data.data);
-      }
-    } catch (error) {
-      console.error("Error fetching report details:", error);
-      toast.error("Failed to fetch report details");
-    } finally {
-      setReportLoading(false);
-    }
+
+  // Prepare media items from all quotes for MediaViewer
+  const prepareAllMediaItems = (): MediaItem[] => {
+    if (!selectedReport) return [];
+
+    const allMedia: MediaItem[] = [];
+
+    selectedReport.quotes_data.forEach((quote, quoteIndex) => {
+      // Add work images
+      quote.work_details?.work_images?.forEach((img, imgIndex) => {
+        allMedia.push({
+          id: `work-${quote.field_id}-${img._id}`,
+          url: img.url,
+          type: "image",
+          title: `${quote.field_name} - Work Image ${imgIndex + 1}`,
+          description: `Work completed image for ${quote.field_name}`
+        });
+      });
+
+      // Add field images
+      quote.field_images?.forEach((url, imgIndex) => {
+        allMedia.push({
+          id: `field-${quote.field_id}-${imgIndex}`,
+          url: url,
+          type: "image",
+          title: `${quote.field_name} - Field Image ${imgIndex + 1}`,
+          description: `Field image for ${quote.field_name}`
+        });
+      });
+
+      // Add field videos
+      quote.field_videos?.forEach((url, videoIndex) => {
+        allMedia.push({
+          id: `video-${quote.field_id}-${videoIndex}`,
+          url: url,
+          type: "video",
+          title: `${quote.field_name} - Video ${videoIndex + 1}`,
+          description: `Field video for ${quote.field_name}`
+        });
+      });
+    });
+
+    // Add communication images
+    selectedReport.communications.forEach((comm) => {
+      comm.messages?.forEach((msg, msgIndex) => {
+        if (msg.message_type === 'image' && msg.file_url) {
+          allMedia.push({
+            id: `comm-${comm.conversation_id}-${msgIndex}`,
+            url: msg.file_url,
+            type: "image",
+            title: `${comm.field_name} - Communication Image`,
+            description: `Message from ${msg.sender_name}`
+          });
+        }
+      });
+    });
+
+    return allMedia;
+  };
+
+  // Handle opening media viewer
+  const handleOpenMediaViewer = (mediaId: string) => {
+    setCurrentMediaId(mediaId);
+    setMediaViewerOpen(true);
   };
 
   const formatCurrency = (amount: number) => {
@@ -293,21 +346,16 @@ const WorkshopReportModal: React.FC<WorkshopReportModalProps> = ({
     return grouped;
   };
 
-  const openGallery = (images: string[], description?: string) => {
-    const galleryItems = images.map((url) => ({
-      original: url,
-      thumbnail: url,
-      description: description || "",
-    }));
-    setGalleryImages(galleryItems);
-    setGalleryOpen(true);
-  };
-
-  const MediaGallery = ({ images, videos, pdfs }: { images: string[], videos: string[], pdfs: string[] }) => {
+  const MediaGallery = ({ images, videos, pdfs, fieldId }: { 
+    images: string[], 
+    videos: string[], 
+    pdfs: string[],
+    fieldId: string 
+  }) => {
     const allMedia = [
-      ...images.map(url => ({ type: 'image', url })),
-      ...videos.map(url => ({ type: 'video', url })),
-      ...pdfs.map(url => ({ type: 'pdf', url }))
+      ...images.map((url, idx) => ({ type: 'image' as const, url, id: `${fieldId}-img-${idx}` })),
+      ...videos.map((url, idx) => ({ type: 'video' as const, url, id: `${fieldId}-vid-${idx}` })),
+      ...pdfs.map((url, idx) => ({ type: 'pdf' as const, url, id: `${fieldId}-pdf-${idx}` }))
     ];
 
     if (allMedia.length === 0) return null;
@@ -321,10 +369,7 @@ const WorkshopReportModal: React.FC<WorkshopReportModalProps> = ({
               {media.type === 'image' && (
                 <div 
                   className="w-16 h-16 bg-gray-100 rounded border cursor-pointer overflow-hidden"
-                  onClick={() => openGallery(
-                    allMedia.filter(m => m.type === 'image').map(m => m.url),
-                    "Work Images"
-                  )}
+                  onClick={() => handleOpenMediaViewer(media.id)}
                 >
                   <img 
                     src={media.url} 
@@ -342,8 +387,14 @@ const WorkshopReportModal: React.FC<WorkshopReportModalProps> = ({
                 </div>
               )}
               {media.type === 'video' && (
-                <div className="w-16 h-16 bg-gray-100 rounded border flex items-center justify-center cursor-pointer">
-                  <Video className="h-6 w-6 text-gray-600" />
+                <div 
+                  className="w-16 h-16 bg-gray-900 rounded border flex items-center justify-center cursor-pointer relative overflow-hidden"
+                  onClick={() => handleOpenMediaViewer(media.id)}
+                >
+                  <video src={media.url} className="w-full h-full object-cover" muted />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Play className="h-6 w-6 text-white opacity-80" />
+                  </div>
                 </div>
               )}
               {media.type === 'pdf' && (
@@ -362,9 +413,9 @@ const WorkshopReportModal: React.FC<WorkshopReportModalProps> = ({
             <div 
               className="w-16 h-16 bg-gray-100 rounded border flex items-center justify-center text-xs cursor-pointer"
               onClick={() => {
-                const imageUrls = allMedia.filter(m => m.type === 'image').map(m => m.url);
-                if (imageUrls.length > 0) {
-                  openGallery(imageUrls, "All Images");
+                const firstImageId = allMedia.find(m => m.type === 'image')?.id;
+                if (firstImageId) {
+                  handleOpenMediaViewer(firstImageId);
                 }
               }}
             >
@@ -498,7 +549,8 @@ const WorkshopReportModal: React.FC<WorkshopReportModalProps> = ({
                   </div>
 
                   {/* Main Content Tabs */}
-                 <Tabs defaultValue="work_details" className="flex-1 flex flex-col overflow-hidden px-6 pb-6" value={activeTab} onValueChange={setActiveTab}>   <TabsList className="grid w-full grid-cols-4">
+                 <Tabs defaultValue="work_details" className="flex-1 flex flex-col overflow-hidden px-6 pb-6" value={activeTab} onValueChange={setActiveTab}>
+                    <TabsList className="grid w-full grid-cols-4">
                       <TabsTrigger value="work_details">Work Details</TabsTrigger>
                       <TabsTrigger value="communications">Communications</TabsTrigger>
                       <TabsTrigger value="statistics">Statistics</TabsTrigger>
@@ -567,6 +619,7 @@ const WorkshopReportModal: React.FC<WorkshopReportModalProps> = ({
                                               ]}
                                               videos={quote.field_videos}
                                               pdfs={quote.work_details?.invoice_pdf_url ? [quote.work_details.invoice_pdf_url] : []}
+                                              fieldId={quote.field_id}
                                             />
                                           </CardContent>
                                         </Card>
@@ -608,7 +661,7 @@ const WorkshopReportModal: React.FC<WorkshopReportModalProps> = ({
                                                 src={msg.file_url || ''} 
                                                 alt="Message attachment" 
                                                 className="w-32 h-32 object-cover rounded cursor-pointer"
-                                                onClick={() => openGallery([msg.file_url || ''], "Message Image")}
+                                                onClick={() => handleOpenMediaViewer(`comm-${comm.conversation_id}-${msgIdx}`)}
                                                 onError={(e) => {
                                                   (e.target as HTMLImageElement).style.display = 'none';
                                                   (e.target as HTMLImageElement).parentElement!.innerHTML = 
@@ -780,37 +833,13 @@ const WorkshopReportModal: React.FC<WorkshopReportModalProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Image Gallery Modal */}
-      {galleryOpen && (
-        <div className="fixed inset-0 z-[100] bg-black bg-opacity-90 flex items-center justify-center p-4">
-          <div className="relative w-full max-w-4xl h-full max-h-[80vh]">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 text-white hover:bg-opacity-70"
-              onClick={() => setGalleryOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            <ImageGallery
-              items={galleryImages}
-              showThumbnails={true}
-              showFullscreenButton={true}
-              showPlayButton={false}
-              showBullets={galleryImages.length > 1}
-              showIndex={true}
-              autoPlay={false}
-              slideDuration={300}
-              slideInterval={3000}
-              onScreenChange={(fullScreenElement) => {
-                if (!fullScreenElement) {
-                  setGalleryOpen(false);
-                }
-              }}
-            />
-          </div>
-        </div>
-      )}
+      {/* Media Viewer */}
+      <MediaViewer
+        media={prepareAllMediaItems()}
+        currentMediaId={currentMediaId}
+        isOpen={mediaViewerOpen}
+        onClose={() => setMediaViewerOpen(false)}
+      />
     </>
   );
 };
