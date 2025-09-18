@@ -254,13 +254,13 @@ const VehicleMetadata = () => {
 
   // Helper function to update cache with new/updated data
   const updateCacheData = (
-    operation: 'create' | 'update' | 'delete',
+    operation: "create" | "update" | "delete",
     entityType: string,
     data?: any,
     itemId?: string
   ) => {
     const targetTab = entityType === "metadata" ? "metadata" : `${entityType}s`;
-    
+
     // Update current tab data
     const queryKey = [
       `vehicle-metadata-${targetTab}`,
@@ -277,7 +277,7 @@ const VehicleMetadata = () => {
       let newTotal = oldData.data.pagination?.total || 0;
 
       switch (operation) {
-        case 'create':
+        case "create":
           // Add new item to the beginning
           currentData.unshift(data);
           if (currentData.length > pagination.limit) {
@@ -286,17 +286,21 @@ const VehicleMetadata = () => {
           newTotal += 1;
           break;
 
-        case 'update':
+        case "update":
           // Update existing item
-          const updateIndex = currentData.findIndex(item => item._id === itemId);
+          const updateIndex = currentData.findIndex(
+            (item) => item._id === itemId
+          );
           if (updateIndex !== -1) {
             currentData[updateIndex] = { ...currentData[updateIndex], ...data };
           }
           break;
 
-        case 'delete':
+        case "delete":
           // Remove item
-          const deleteIndex = currentData.findIndex(item => item._id === itemId);
+          const deleteIndex = currentData.findIndex(
+            (item) => item._id === itemId
+          );
           if (deleteIndex !== -1) {
             currentData.splice(deleteIndex, 1);
             newTotal -= 1;
@@ -319,28 +323,34 @@ const VehicleMetadata = () => {
     });
 
     // Update counts for create/delete operations
-    if (operation === 'create' || operation === 'delete') {
-      queryClient.setQueryData(['vehicle-metadata-counts'], (oldCounts: any) => {
-        if (!oldCounts?.data) return oldCounts;
-        
-        const countKey = entityType === 'body' ? 'bodies' : 
-                        entityType === 'year' ? 'years' : 
-                        `${entityType}s`;
-        
-        const change = operation === 'create' ? 1 : -1;
-        
-        return {
-          ...oldCounts,
-          data: {
-            ...oldCounts.data,
-            [countKey]: Math.max(0, (oldCounts.data[countKey] || 0) + change),
-          },
-        };
-      });
+    if (operation === "create" || operation === "delete") {
+      queryClient.setQueryData(
+        ["vehicle-metadata-counts"],
+        (oldCounts: any) => {
+          if (!oldCounts?.data) return oldCounts;
+
+          const countKey =
+            entityType === "body"
+              ? "bodies"
+              : entityType === "year"
+              ? "years"
+              : `${entityType}s`;
+
+          const change = operation === "create" ? 1 : -1;
+
+          return {
+            ...oldCounts,
+            data: {
+              ...oldCounts.data,
+              [countKey]: Math.max(0, (oldCounts.data[countKey] || 0) + change),
+            },
+          };
+        }
+      );
     }
   };
 
-  // CREATE MUTATION
+  // CREATE MUTATION - Modified to handle errors without closing dialog
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       const { type, ...formData } = data;
@@ -397,43 +407,46 @@ const VehicleMetadata = () => {
     onSuccess: async (response, variables) => {
       const newData = response.data;
       const entityType = variables.type;
-      
+
       toast.success(
-        `${entityType.charAt(0).toUpperCase() + entityType.slice(1)} added successfully`
+        `${
+          entityType.charAt(0).toUpperCase() + entityType.slice(1)
+        } added successfully`
       );
-      
+
       // Determine target tab
-      const targetTab = entityType === "metadata" ? "metadata" : `${entityType}s`;
+      const targetTab =
+        entityType === "metadata" ? "metadata" : `${entityType}s`;
       const wasTabSwitched = currentTab !== targetTab;
-      
+
       // Switch to appropriate tab
       if (wasTabSwitched) {
         setCurrentTab(targetTab);
       }
-      
+
       // Reset pagination to first page
       const newPagination = { ...pagination, page: 1 };
       setPagination(newPagination);
-      
+
       // Clear search to ensure new item is visible
       setSearchTerm("");
-      
+
       // Update cache immediately
-      updateCacheData('create', entityType, newData);
-      
+      updateCacheData("create", entityType, newData);
+
       // Invalidate dropdown queries for filters
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["dropdown"] });
-        queryClient.invalidateQueries({ queryKey: [`vehicle-metadata-${targetTab}`] });
+        queryClient.invalidateQueries({
+          queryKey: [`vehicle-metadata-${targetTab}`],
+        });
       }, 100);
     },
     onError: (error: any, variables) => {
       console.error("Creation error:", error);
-      toast.error(
-        `Failed to add ${variables.type}: ${
-          error.response?.data?.message || error.message
-        }`
-      );
+      // Don't show toast here as AddEntryDialog will handle it
+      // Just throw the error to be caught by the dialog
+      throw error;
     },
   });
 
@@ -468,20 +481,23 @@ const VehicleMetadata = () => {
     onSuccess: (response, variables) => {
       const updatedData = response.data;
       const entityType = variables.type;
-      
+
       toast.success("Item updated successfully");
-      
+
       // Update cache immediately
-      updateCacheData('update', entityType, updatedData, variables.id);
-      
+      updateCacheData("update", entityType, updatedData, variables.id);
+
       // Close edit dialog
       setEditItem(null);
-      
+
       // Invalidate related queries for consistency
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["dropdown"] });
-        const targetTab = entityType === "metadata" ? "metadata" : `${entityType}s`;
-        queryClient.invalidateQueries({ queryKey: [`vehicle-metadata-${targetTab}`] });
+        const targetTab =
+          entityType === "metadata" ? "metadata" : `${entityType}s`;
+        queryClient.invalidateQueries({
+          queryKey: [`vehicle-metadata-${targetTab}`],
+        });
       }, 100);
     },
     onError: (error: any) => {
@@ -512,21 +528,24 @@ const VehicleMetadata = () => {
     },
     onSuccess: (response, variables) => {
       const entityType = variables.type;
-      
+
       toast.success("Item deleted successfully");
-      
+
       // Update cache immediately
-      updateCacheData('delete', entityType, null, variables.id);
-      
+      updateCacheData("delete", entityType, null, variables.id);
+
       // Close delete dialog
       setShowDeleteDialog(false);
       setDeleteItem(null);
-      
+
       // Invalidate related queries for consistency
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["dropdown"] });
-        const targetTab = entityType === "metadata" ? "metadata" : `${entityType}s`;
-        queryClient.invalidateQueries({ queryKey: [`vehicle-metadata-${targetTab}`] });
+        const targetTab =
+          entityType === "metadata" ? "metadata" : `${entityType}s`;
+        queryClient.invalidateQueries({
+          queryKey: [`vehicle-metadata-${targetTab}`],
+        });
       }, 100);
     },
     onError: (error: any) => {
@@ -565,8 +584,14 @@ const VehicleMetadata = () => {
     });
   };
 
-  const handleAddEntry = (type: string, data: any) => {
-    createMutation.mutate({ type, ...data });
+  // Modified handleAddEntry to properly handle errors
+  const handleAddEntry = async (type: string, data: any) => {
+    try {
+      await createMutation.mutateAsync({ type, ...data });
+    } catch (error) {
+      // Re-throw the error so AddEntryDialog can catch it
+      throw error;
+    }
   };
 
   // Helper function to determine item type
@@ -615,6 +640,7 @@ const VehicleMetadata = () => {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>S.No</TableHead>
             <TableHead>Make</TableHead>
             <TableHead>Model</TableHead>
             <TableHead>Variant</TableHead>
@@ -626,8 +652,11 @@ const VehicleMetadata = () => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {currentTabData?.data?.data?.map((item: VehicleMetadataItem) => (
+          {currentTabData?.data?.data?.map((item: VehicleMetadataItem, index: number) => (
             <TableRow key={item._id}>
+              <TableCell>
+                {(pagination.page - 1) * pagination.limit + index + 1}
+              </TableCell>
               <TableCell>{item.make?.displayName}</TableCell>
               <TableCell>{item.model?.displayName}</TableCell>
               <TableCell>{item.variant?.displayName || "-"}</TableCell>

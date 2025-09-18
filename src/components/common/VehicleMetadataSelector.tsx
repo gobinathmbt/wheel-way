@@ -11,6 +11,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 interface DropdownItem {
   _id: string;
@@ -47,6 +49,13 @@ interface VehicleMetadataSelectorProps {
   onYearChange: (displayName: string) => void;
   onBodyChange: (displayName: string) => void;
 
+  // Plus button handlers (optional)
+  onMakePlusClick?: () => void;
+  onModelPlusClick?: () => void;
+  onVariantPlusClick?: () => void;
+  onYearPlusClick?: () => void;
+  onBodyPlusClick?: () => void;
+
   // Layout customization props
   layout?: LayoutVariant;
   containerClassName?: string; // Custom container classes
@@ -58,6 +67,13 @@ interface VehicleMetadataSelectorProps {
   showVariant?: boolean;
   showYear?: boolean;
   showBody?: boolean;
+  
+  // Plus button visibility
+  showMakePlus?: boolean;
+  showModelPlus?: boolean;
+  showVariantPlus?: boolean;
+  showYearPlus?: boolean;
+  showBodyPlus?: boolean;
   
   // Field ordering
   fieldOrder?: Array<'make' | 'model' | 'variant' | 'year' | 'body'>;
@@ -106,6 +122,11 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
   onVariantChange,
   onYearChange,
   onBodyChange,
+  onMakePlusClick,
+  onModelPlusClick,
+  onVariantPlusClick,
+  onYearPlusClick,
+  onBodyPlusClick,
   layout = "grid-5",
   containerClassName,
   fieldClassName = "",
@@ -114,6 +135,11 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
   showVariant = true,
   showYear = true,
   showBody = true,
+  showMakePlus = true,
+  showModelPlus = true,
+  showVariantPlus = true,
+  showYearPlus = true,
+  showBodyPlus = true,
   fieldOrder = ['make', 'model', 'variant', 'year', 'body'],
   className = "",
   showLabels = true,
@@ -347,7 +373,9 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       label?: string;
       placeholder?: string;
       required?: boolean;
-    }
+    },
+    showPlusButton: boolean = false,
+    onPlusClick?: () => void
   ) => {
     const finalLabel = fieldProps?.label || label;
     const finalPlaceholder = fieldProps?.placeholder || placeholder;
@@ -360,51 +388,66 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
             {finalLabel}{isRequired && " *"}
           </Label>
         )}
-        {isLoading ? (
-          <Skeleton className="h-10 w-full" />
-        ) : error ? (
-          <div className="h-10 w-full border border-red-300 rounded-md flex items-center px-3 bg-red-50">
-            <span className="text-sm text-red-600">
-              Error loading {label.toLowerCase()}
-            </span>
-          </div>
-        ) : (
-          <Select
-            value={value || ""}
-            onValueChange={(selectedDisplayName) => {
-              if (selectedDisplayName !== "placeholder") {
-                onChange(selectedDisplayName);
-              }
-            }}
-            disabled={disabled || disabledCondition}
-            required={isRequired}
-          >
-            <SelectTrigger id={fieldKey} className="w-full">
-              <SelectValue placeholder={finalPlaceholder}>
-                {value || finalPlaceholder}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="placeholder" disabled>
-                {finalPlaceholder}
-              </SelectItem>
-              {options?.map((item: DropdownItem) => {
-                const itemDisplay =
-                  label === "Year"
-                    ? item.year
-                      ? item.year.toString()
-                      : item.displayName
-                    : item.displayName;
+        <div className="flex items-center gap-2">
+          {isLoading ? (
+            <Skeleton className="h-10 w-full" />
+          ) : error ? (
+            <div className="h-10 w-full border border-red-300 rounded-md flex items-center px-3 bg-red-50">
+              <span className="text-sm text-red-600">
+                Error loading {label.toLowerCase()}
+              </span>
+            </div>
+          ) : (
+            <Select
+              value={value || ""}
+              onValueChange={(selectedDisplayName) => {
+                if (selectedDisplayName !== "placeholder") {
+                  onChange(selectedDisplayName);
+                }
+              }}
+              disabled={disabled || disabledCondition}
+              required={isRequired}
+            >
+              <SelectTrigger id={fieldKey} className="w-full">
+                <SelectValue placeholder={finalPlaceholder}>
+                  {value || finalPlaceholder}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="placeholder" disabled>
+                  {finalPlaceholder}
+                </SelectItem>
+                {options?.map((item: DropdownItem) => {
+                  const itemDisplay =
+                    label === "Year"
+                      ? item.year
+                        ? item.year.toString()
+                        : item.displayName
+                      : item.displayName;
 
-                return (
-                  <SelectItem key={item._id} value={itemDisplay}>
-                    {itemDisplay}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        )}
+                  return (
+                    <SelectItem key={item._id} value={itemDisplay}>
+                      {itemDisplay}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          )}
+          {showPlusButton && onPlusClick && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-10 w-10 p-0 shrink-0"
+              onClick={onPlusClick}
+              disabled={disabled}
+              title={`Add new ${label.toLowerCase()}`}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
     );
   };
@@ -428,6 +471,8 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       error: makesError,
       fieldProps: makeProps,
       show: showMake,
+      showPlusButton: showMakePlus,
+      onPlusClick: onMakePlusClick,
     },
     model: {
       key: "model",
@@ -445,6 +490,8 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       error: modelsError,
       fieldProps: modelProps,
       show: showModel,
+      showPlusButton: showModelPlus,
+      onPlusClick: onModelPlusClick,
     },
     variant: {
       key: "variant",
@@ -458,6 +505,8 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       error: variantsError,
       fieldProps: variantProps,
       show: showVariant,
+      showPlusButton: showVariantPlus,
+      onPlusClick: onVariantPlusClick,
     },
     year: {
       key: "year",
@@ -471,6 +520,8 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       error: yearsError,
       fieldProps: yearProps,
       show: showYear,
+      showPlusButton: showYearPlus,
+      onPlusClick: onYearPlusClick,
     },
     body: {
       key: "body",
@@ -484,6 +535,8 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       error: bodiesError,
       fieldProps: bodyProps,
       show: showBody,
+      showPlusButton: showBodyPlus,
+      onPlusClick: onBodyPlusClick,
     },
   };
 
@@ -503,7 +556,9 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
           config.placeholder,
           config.disabledCondition,
           config.error,
-          config.fieldProps
+          config.fieldProps,
+          config.showPlusButton,
+          config.onPlusClick
         );
       });
   };

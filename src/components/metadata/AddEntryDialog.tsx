@@ -16,7 +16,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import Select from "react-select";
 
@@ -33,6 +34,7 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
 }) => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [addDialogType, setAddDialogType] = useState("make");
+  const [error, setError] = useState<string | null>(null);
   const [addFormData, setAddFormData] = useState({
     displayName: "",
     makeId: "",
@@ -76,7 +78,22 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
     setAvailableVariants([]);
     setAvailableBodyTypes([]);
     setAvailableYears([]);
+    setError(null);
   };
+
+  // Reset to default "make" type when dialog is closed
+  const handleCloseDialog = () => {
+    setShowAddDialog(false);
+    setAddDialogType("make"); // Reset to default type
+    resetAddForm();
+  };
+
+  // Clear error when form data changes
+  useEffect(() => {
+    if (error) {
+      setError(null);
+    }
+  }, [addFormData, addDialogType]);
 
   // Fetch models when make is selected for variant or year
   useEffect(() => {
@@ -195,9 +212,13 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
     }
   }, [addDialogType, addFormData.modelId]);
 
-  const handleAddEntry = () => {
+  const handleAddEntry = async () => {
+    // Clear any existing errors
+    setError(null);
+
+    // Validation
     if (addDialogType === "year" && !addFormData.year) {
-      toast.error("Year is required");
+      setError("Year is required");
       return;
     }
 
@@ -206,12 +227,12 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
       addDialogType !== "year" &&
       addDialogType !== "metadata"
     ) {
-      toast.error("Display name is required");
+      setError("Display name is required");
       return;
     }
 
     if (addDialogType === "model" && !addFormData.makeId) {
-      toast.error("Make is required for models");
+      setError("Make is required for models");
       return;
     }
 
@@ -219,29 +240,29 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
       addDialogType === "variant" &&
       (!addFormData.displayName || addFormData.modelIds.length === 0)
     ) {
-      toast.error("Variant name and at least one model are required");
+      setError("Variant name and at least one model are required");
       return;
     }
 
     if (addDialogType === "metadata") {
       if (!addFormData.makeId) {
-        toast.error("Make is required");
+        setError("Make is required");
         return;
       }
       if (!addFormData.modelId) {
-        toast.error("Model is required");
+        setError("Model is required");
         return;
       }
       if (!addFormData.variantId) {
-        toast.error("Variant is required");
+        setError("Variant is required");
         return;
       }
       if (!addFormData.bodyId) {
-        toast.error("Body Type is required");
+        setError("Body Type is required");
         return;
       }
       if (!addFormData.yearId) {
-        toast.error("Year is required");
+        setError("Year is required");
         return;
       }
     }
@@ -251,7 +272,7 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
       !addFormData.modelId &&
       !addFormData.variantId
     ) {
-      toast.error("Either model or variant must be selected for the year");
+      setError("Either model or variant must be selected for the year");
       return;
     }
 
@@ -302,9 +323,27 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
       };
     }
 
-    onAddEntry(addDialogType, { ...data, isActive: true });
-    setShowAddDialog(false);
-    resetAddForm();
+    try {
+      await onAddEntry(addDialogType, { ...data, isActive: true });
+      // Only close dialog if successful (no error thrown)
+      handleCloseDialog();
+    } catch (error: any) {
+      // Handle the error without closing the dialog
+      const errorMessage = error?.response?.data?.message || error?.message || "An error occurred";
+      
+      // Check if it's a duplicate error
+      if (errorMessage.toLowerCase().includes('duplicate') || 
+          errorMessage.toLowerCase().includes('already exists') ||
+          errorMessage.toLowerCase().includes('unique constraint') ||
+          error?.response?.status === 409) {
+        setError(`Duplicate entry: ${errorMessage}`);
+      } else {
+        setError(errorMessage);
+      }
+      
+      // Also show toast for user feedback
+      toast.error(errorMessage);
+    }
   };
 
   // Prepare options for react-select
@@ -331,7 +370,9 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
       open={showAddDialog}
       onOpenChange={(open) => {
         setShowAddDialog(open);
-        if (!open) resetAddForm();
+        if (!open) {
+          handleCloseDialog();
+        }
       }}
     >
       <DialogTrigger asChild>
@@ -345,6 +386,14 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
           <DialogTitle>Add New Entry</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
           <div>
             <Label>Type</Label>
             <ShadcnSelect
@@ -792,7 +841,7 @@ const AddEntryDialog: React.FC<AddEntryDialogProps> = ({
           )}
 
           <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+            <Button variant="outline" onClick={handleCloseDialog}>
               Cancel
             </Button>
             <Button onClick={handleAddEntry} disabled={isLoading}>
