@@ -38,6 +38,8 @@ const WorkflowManagement = () => {
     }),
   });
 
+  console.log(workflowsData)
+
   // Get workflow statistics
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['workflow-stats'],
@@ -154,7 +156,7 @@ const WorkflowManagement = () => {
         </div>
 
         {/* Statistics Cards */}
-        <WorkflowStatsCards stats={statsData?.data} isLoading={statsLoading} />
+        <WorkflowStatsCards stats={statsData?.data.data} isLoading={statsLoading} />
 
         {/* Filters */}
         <Card>
@@ -204,7 +206,7 @@ const WorkflowManagement = () => {
         <div className="grid gap-4">
           {workflowsLoading ? (
             <div className="text-center py-8">Loading workflows...</div>
-          ) : !workflowsData?.data?.workflows?.length ? (
+          ) : !workflowsData?.data?.data?.workflows?.length ? (
             <Card>
               <CardContent className="text-center py-8">
                 <p className="text-muted-foreground">No workflows found</p>
@@ -217,7 +219,7 @@ const WorkflowManagement = () => {
               </CardContent>
             </Card>
           ) : (
-            workflowsData.data.workflows.map((workflow: any) => (
+            workflowsData.data.data?.workflows.map((workflow: any) => (
               <Card key={workflow._id}>
                 <CardHeader>
                   <div className="flex justify-between items-start">

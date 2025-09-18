@@ -36,29 +36,15 @@ const WorkflowSchema = new mongoose.Schema({
   },
   
   // React Flow Data
-  flow_data: {
-    nodes: [{
-      id: String,
-      type: String,
-      position: {
-        x: Number,
-        y: Number
-      },
-      data: mongoose.Schema.Types.Mixed
-    }],
-    edges: [{
-      id: String,
-      source: String,
-      target: String,
-      type: String,
-      data: mongoose.Schema.Types.Mixed
-    }],
-    viewport: {
-      x: Number,
-      y: Number,
-      zoom: Number
-    }
-  },
+// Alternative schema approach
+flow_data: {
+  type: mongoose.Schema.Types.Mixed,
+  default: {
+    nodes: [],
+    edges: [],
+    viewport: { x: 0, y: 0, zoom: 1 }
+  }
+},
   
   // Workflow Configuration based on type
   config: {

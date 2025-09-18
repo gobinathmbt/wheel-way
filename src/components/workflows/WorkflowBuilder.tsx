@@ -33,6 +33,12 @@ import ActionNode from './nodes/ActionNode';
 import ConditionNode from './nodes/ConditionNode';
 import EmailNode from './nodes/EmailNode';
 import WebhookNode from './nodes/WebhookNode';
+import EndpointNode from './nodes/EndpointNode';
+import AuthenticationNode from './nodes/AuthenticationNode';
+import DataMappingNode from './nodes/DataMappingNode';
+import EnhancedConditionNode from './nodes/EnhancedConditionNode';
+import EnhancedEmailNode from './nodes/EnhancedEmailNode';
+import EndNode from './nodes/EndNode';
 
 const nodeTypes = {
   triggerNode: TriggerNode,
@@ -40,20 +46,118 @@ const nodeTypes = {
   conditionNode: ConditionNode,
   emailNode: EmailNode,
   webhookNode: WebhookNode,
+  endpointNode: EndpointNode,
+  authenticationNode: AuthenticationNode,
+  dataMappingNode: DataMappingNode,
+  enhancedConditionNode: EnhancedConditionNode,
+  enhancedEmailNode: EnhancedEmailNode,
+  endNode: EndNode,
 };
 
-const initialNodes: Node[] = [
-  {
-    id: 'trigger-1',
-    type: 'triggerNode',
-    position: { x: 100, y: 100 },
-    data: {
-      label: 'Start Trigger',
-      triggerType: 'vehicle_inbound',
-      config: {}
-    }
+const getInitialNodesForWorkflowType = (workflowType: string): Node[] => {
+  if (workflowType === 'vehicle_inbound') {
+    return [
+      {
+        id: 'endpoint-1',
+        type: 'endpointNode',
+        position: { x: 100, y: 100 },
+        data: {
+          label: 'Vehicle Inbound Endpoint',
+          config: {}
+        }
+      },
+      {
+        id: 'auth-1',
+        type: 'authenticationNode',
+        position: { x: 400, y: 100 },
+        data: {
+          label: 'Authentication',
+          config: { type: 'none' }
+        }
+      },
+      {
+        id: 'mapping-1',
+        type: 'dataMappingNode',
+        position: { x: 700, y: 100 },
+        data: {
+          label: 'Data Mapping',
+          config: { mappings: [], sample_json: '' }
+        }
+      },
+      {
+        id: 'condition-1',
+        type: 'enhancedConditionNode',
+        position: { x: 1000, y: 100 },
+        data: {
+          label: 'Response Condition',
+          config: { 
+            conditions: [{ 
+              field: 'response.status', 
+              operator: 'equals', 
+              value: '200',
+              logic: 'AND'
+            }] 
+          }
+        }
+      },
+      {
+        id: 'email-success-1',
+        type: 'enhancedEmailNode',
+        position: { x: 1300, y: 50 },
+        data: {
+          label: 'Success Email',
+          config: {}
+        }
+      },
+      {
+        id: 'email-error-1',
+        type: 'enhancedEmailNode',
+        position: { x: 1300, y: 200 },
+        data: {
+          label: 'Error Email',
+          config: {}
+        }
+      },
+      {
+        id: 'end-1',
+        type: 'endNode',
+        position: { x: 1600, y: 100 },
+        data: {
+          label: 'End Workflow'
+        }
+      }
+    ];
   }
-];
+  
+  // Default nodes for other workflow types
+  return [
+    {
+      id: 'trigger-1',
+      type: 'triggerNode',
+      position: { x: 100, y: 100 },
+      data: {
+        label: 'Start Trigger',
+        triggerType: workflowType,
+        config: {}
+      }
+    }
+  ];
+};
+
+const getInitialEdgesForWorkflowType = (workflowType: string): Edge[] => {
+  if (workflowType === 'vehicle_inbound') {
+    return [
+      { id: 'e1-2', source: 'endpoint-1', target: 'auth-1' },
+      { id: 'e2-3', source: 'auth-1', target: 'mapping-1' },
+      { id: 'e3-4', source: 'mapping-1', target: 'condition-1' },
+      { id: 'e4-5', source: 'condition-1', target: 'email-success-1', sourceHandle: 'true' },
+      { id: 'e4-6', source: 'condition-1', target: 'email-error-1', sourceHandle: 'false' },
+      { id: 'e5-7', source: 'email-success-1', target: 'end-1' },
+      { id: 'e6-7', source: 'email-error-1', target: 'end-1' }
+    ];
+  }
+  return [];
+};
 
 interface WorkflowBuilderProps {
   workflow?: any;
@@ -62,11 +166,15 @@ interface WorkflowBuilderProps {
 }
 
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, onSave, onCancel }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState(workflow?.flow_data?.nodes || initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(workflow?.flow_data?.edges || []);
+  const [workflowType, setWorkflowType] = useState(workflow?.workflow_type || 'vehicle_inbound');
+  const [nodes, setNodes, onNodesChange] = useNodesState(
+    workflow?.flow_data?.nodes || getInitialNodesForWorkflowType(workflowType)
+  );
+  const [edges, setEdges, onEdgesChange] = useEdgesState(
+    workflow?.flow_data?.edges || getInitialEdgesForWorkflowType(workflowType)
+  );
   const [workflowName, setWorkflowName] = useState(workflow?.name || '');
   const [workflowDescription, setWorkflowDescription] = useState(workflow?.description || '');
-  const [workflowType, setWorkflowType] = useState(workflow?.workflow_type || 'vehicle_inbound');
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
   const { toast } = useToast();
@@ -134,14 +242,32 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, onSave, onC
 
   const addNode = (type: string) => {
     const nodeId = `${type}-${Date.now()}`;
+    let nodeData: any = {
+      label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+      config: {}
+    };
+
+    // Set specific defaults based on node type
+    if (type === 'authentication') {
+      nodeData.config = { type: 'none' };
+    } else if (type === 'dataMapping') {
+      nodeData.config = { mappings: [], sample_json: '' };
+    } else if (type === 'enhancedCondition') {
+      nodeData.config = { 
+        conditions: [{ 
+          field: 'response.status', 
+          operator: 'equals', 
+          value: '200',
+          logic: 'AND'
+        }] 
+      };
+    }
+
     const newNode: Node = {
       id: nodeId,
       type: `${type}Node`,
-      position: { x: Math.random() * 400, y: Math.random() * 400 },
-      data: {
-        label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
-        config: {}
-      }
+      position: { x: Math.random() * 400 + 200, y: Math.random() * 400 + 100 },
+      data: nodeData
     };
     setNodes((nds) => [...nds, newNode]);
   };
@@ -152,6 +278,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, onSave, onC
         node.id === nodeId ? { ...node, data: { ...node.data, ...newData } } : node
       )
     );
+  };
+
+  // Handle workflow type changes
+  const handleWorkflowTypeChange = (newType: string) => {
+    setWorkflowType(newType);
+    if (!workflow) { // Only reset nodes if creating new workflow
+      setNodes(getInitialNodesForWorkflowType(newType));
+      setEdges(getInitialEdgesForWorkflowType(newType));
+    }
   };
 
   const deleteNode = (nodeId: string) => {
@@ -225,7 +360,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, onSave, onC
               </div>
               <div>
                 <Label htmlFor="workflow-type">Workflow Type</Label>
-                <Select value={workflowType} onValueChange={setWorkflowType}>
+                <Select value={workflowType} onValueChange={handleWorkflowTypeChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
@@ -279,44 +414,103 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, onSave, onC
         <div className="w-64 border-r p-4 space-y-4">
           <div>
             <h3 className="font-semibold mb-2">Add Nodes</h3>
-            <div className="space-y-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => addNode('action')}
-                className="w-full justify-start"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Action Node
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => addNode('condition')}
-                className="w-full justify-start"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Condition Node
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => addNode('email')}
-                className="w-full justify-start"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Email Node
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => addNode('webhook')}
-                className="w-full justify-start"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Webhook Node
-              </Button>
-            </div>
+            {workflowType === 'vehicle_inbound' ? (
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addNode('endpoint')}
+                  className="w-full justify-start"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Endpoint Node
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addNode('authentication')}
+                  className="w-full justify-start"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Authentication Node
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addNode('dataMapping')}
+                  className="w-full justify-start"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Data Mapping Node
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addNode('enhancedCondition')}
+                  className="w-full justify-start"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Condition Node
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addNode('enhancedEmail')}
+                  className="w-full justify-start"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Email Node
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addNode('end')}
+                  className="w-full justify-start"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  End Node
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addNode('action')}
+                  className="w-full justify-start"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Action Node
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addNode('condition')}
+                  className="w-full justify-start"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Condition Node
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addNode('email')}
+                  className="w-full justify-start"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Email Node
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addNode('webhook')}
+                  className="w-full justify-start"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Webhook Node
+                </Button>
+              </div>
+            )}
           </div>
 
           <Separator />
@@ -358,6 +552,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, onSave, onC
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
             fitView
+            onNodeDoubleClick={(event, node) => {
+              // Handle node configuration on double click
+              setSelectedNode(node);
+            }}
+            nodesDraggable={true}
+            nodesConnectable={true}
+            elementsSelectable={true}
           >
             <Controls />
             <MiniMap />
