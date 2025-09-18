@@ -578,6 +578,8 @@ const SupplierManagement = () => {
         renderTableHeader={renderTableHeader}
         renderTableBody={renderTableBody}
         onRefresh={handleRefresh}
+        cookieName="supplier_pagination_enabled" // Custom cookie name
+        cookieMaxAge={60 * 60 * 24 * 30} // 30 days
       />
 
       {/* Search and Filter Dialog */}

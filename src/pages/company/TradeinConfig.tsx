@@ -714,6 +714,8 @@ const TradeinConfig = () => {
         renderTableHeader={renderTableHeader}
         renderTableBody={renderTableBody}
         onRefresh={handleRefresh}
+        cookieName="tradeinconfig_pagination_enabled" // Custom cookie name
+        cookieMaxAge={60 * 60 * 24 * 30} // 30 days
       />
 
       {/* Create Configuration Dialog */}

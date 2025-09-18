@@ -500,6 +500,8 @@ const TradeinList = () => {
         renderTableHeader={renderTableHeader}
         renderTableBody={renderTableBody}
         onRefresh={handleRefresh}
+        cookieName="trade_pagination_enabled" // Custom cookie name
+        cookieMaxAge={60 * 60 * 24 * 30} // 30 days
       />
 
       {/* Vehicle Details Side Modal */}

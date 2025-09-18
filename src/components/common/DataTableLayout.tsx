@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -109,7 +109,29 @@ interface DataTableLayoutProps {
 
   // Refresh
   onRefresh: () => void;
+
+  // Cookie props (new)
+  cookieName?: string;
+  cookieMaxAge?: number;
 }
+
+// Cookie utilities
+const setCookie = (name: string, value: string, days: number = 30) => {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+};
+
+const getCookie = (name: string): string | null => {
+  const nameEQ = name + "=";
+  const ca = document.cookie.split(';');
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+  }
+  return null;
+};
 
 const DataTableLayout: React.FC<DataTableLayoutProps> = ({
   title,
@@ -131,7 +153,22 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
   renderTableHeader,
   renderTableBody,
   onRefresh,
+  cookieName = "pagination_enabled",
+  cookieMaxAge = 60 * 60 * 24 * 30, // 30 days
 }) => {
+  // Load pagination state from cookie on component mount
+  useEffect(() => {
+    const savedPaginationState = getCookie(cookieName);
+    if (savedPaginationState !== null) {
+      onPaginationToggle(savedPaginationState === "true");
+    }
+  }, [cookieName, onPaginationToggle]);
+
+  const handlePaginationToggle = (checked: boolean) => {
+    onPaginationToggle(checked);
+    setCookie(cookieName, checked.toString(), cookieMaxAge / (24 * 60 * 60)); // Convert seconds to days
+  };
+
   const totalPages = paginationEnabled
     ? Math.ceil(totalCount / rowsPerPage)
     : 1;
@@ -327,7 +364,9 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
                 <Checkbox
                   id="pagination"
                   checked={paginationEnabled}
-                  onCheckedChange={onPaginationToggle}
+                  onCheckedChange={(checked) => 
+                    handlePaginationToggle(checked as boolean)
+                  }
                 />
                 <Label
                   htmlFor="pagination"
