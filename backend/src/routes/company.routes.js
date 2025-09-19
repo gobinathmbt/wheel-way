@@ -99,6 +99,9 @@ router.put('/settings/callback', authorize('company_super_admin'), updateCallbac
 router.post('/settings/test-s3', authorize('company_super_admin'), testS3Connection);
 router.post('/settings/test-webhook', authorize('company_super_admin'), testWebhook);
 
+router.post('/create/:type', authorize('company_super_admin' , 'company_admin'), createController.create);
+
+
 router.post('/company_dropdowns/dropdowns/dropdown_values', authorize('company_super_admin','company_admin'), getCompanyMasterdropdownvalues);
 
 router.use('/company/dropdowns', authorize('company_super_admin'), require('./master.dropdown.routes'));

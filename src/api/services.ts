@@ -121,167 +121,160 @@ export const masterServices = {
     apiClient.put("/api/master/maintenance", data),
 
   // Public maintenance settings (no auth required)
-  getPublicMaintenanceSettings: () => apiClient.get("/api/master/maintenance/public"),
+  getPublicMaintenanceSettings: () =>
+    apiClient.get("/api/master/maintenance/public"),
 };
 
 // Vehicle Metadata Services
 export const vehicleMetadataServices = {
   
   // Get list data for tables
-  getMakes: (params = {}) => 
+  getMakes: (params = {}) =>
     apiClient.get("/api/master/vehicle-metadata/list/makes", { params }),
-    
-  getModels: (params = {}) => 
+
+  getModels: (params = {}) =>
     apiClient.get("/api/master/vehicle-metadata/list/models", { params }),
-    
-  getModelsByMake: (makeId, params = {}) => 
-    apiClient.get("/api/master/vehicle-metadata/list/models", { 
-      params: { ...params, makeId } 
+
+  getModelsByMake: (makeId, params = {}) =>
+    apiClient.get("/api/master/vehicle-metadata/list/models", {
+      params: { ...params, makeId },
     }),
 
-  getVariants: (params = {}) => 
+  getVariants: (params = {}) =>
     apiClient.get("/api/master/vehicle-metadata/list/variants", { params }),
-    
-  getVariantsByModel: (modelId, params = {}) => 
-    apiClient.get("/api/master/vehicle-metadata/list/variants", { 
-      params: { ...params, modelId } 
+
+  getVariantsByModel: (modelId, params = {}) =>
+    apiClient.get("/api/master/vehicle-metadata/list/variants", {
+      params: { ...params, modelId },
     }),
-    
-  getBodies: (params = {}) => 
+
+  getBodies: (params = {}) =>
     apiClient.get("/api/master/vehicle-metadata/list/bodies", { params }),
-    
-  getVariantYears: (params = {}) => 
+
+  getVariantYears: (params = {}) =>
     apiClient.get("/api/master/vehicle-metadata/list/years", { params }),
-    
-  getVehicleMetadata: (params = {}) => 
+
+  getVehicleMetadata: (params = {}) =>
     apiClient.get("/api/master/vehicle-metadata/list/metadata", { params }),
 
   // Get dropdown data
-  getDropdownData: (type, params = {}) => 
-    apiClient.get("/api/master/vehicle-metadata/dropdown", { 
-      params: { type, ...params } 
+  getDropdownData: (type, params = {}) =>
+    apiClient.get("/api/master/vehicle-metadata/dropdown", {
+      params: { type, ...params },
     }),
 
   // Get counts for dashboard
-  getCounts: () => 
-    apiClient.get("/api/master/vehicle-metadata/counts"),
+  getCounts: () => apiClient.get("/api/master/vehicle-metadata/counts"),
 
   // Get schema fields
-  getSchemaFields: () => 
+  getSchemaFields: () =>
     apiClient.get("/api/master/vehicle-metadata/schema-fields"),
 
   // Create single entries
-  addMake: (data) => 
+  addMake: (data) =>
     apiClient.post("/api/master/vehicle-metadata/create/make", data),
-    
-  addModel: (data) => 
+
+  addModel: (data) =>
     apiClient.post("/api/master/vehicle-metadata/create/model", data),
 
-  addVariant: (data) => 
+  addVariant: (data) =>
     apiClient.post("/api/master/vehicle-metadata/create/variant", data),
-    
-  addBody: (data) => 
+
+  addBody: (data) =>
     apiClient.post("/api/master/vehicle-metadata/create/body", data),
-    
-  addVariantYear: (data) => 
+
+  addVariantYear: (data) =>
     apiClient.post("/api/master/vehicle-metadata/create/year", data),
-    
-  addVehicleMetadata: (data) => 
+
+  addVehicleMetadata: (data) =>
     apiClient.post("/api/master/vehicle-metadata/create/metadata", data),
 
   // Bulk create
-  bulkCreate: (type, items) => 
+  bulkCreate: (type, items) =>
     apiClient.post("/api/master/vehicle-metadata/bulk-create", { type, items }),
 
   // Update entries
-  updateMake: (id, data) => 
+  updateMake: (id, data) =>
     apiClient.put(`/api/master/vehicle-metadata/update/make/${id}`, data),
-    
-  updateModel: (id, data) => 
+
+  updateModel: (id, data) =>
     apiClient.put(`/api/master/vehicle-metadata/update/model/${id}`, data),
 
-  updateVariant: (id, data) => 
+  updateVariant: (id, data) =>
     apiClient.put(`/api/master/vehicle-metadata/update/variant/${id}`, data),
-    
-  updateBody: (id, data) => 
+
+  updateBody: (id, data) =>
     apiClient.put(`/api/master/vehicle-metadata/update/body/${id}`, data),
-    
-  updateVariantYear: (id, data) => 
+
+  updateVariantYear: (id, data) =>
     apiClient.put(`/api/master/vehicle-metadata/update/year/${id}`, data),
-    
-  updateVehicleMetadata: (id, data) => 
+
+  updateVehicleMetadata: (id, data) =>
     apiClient.put(`/api/master/vehicle-metadata/update/metadata/${id}`, data),
 
   // Delete entries
-  deleteMake: (id) => 
+  deleteMake: (id) =>
     apiClient.delete(`/api/master/vehicle-metadata/delete/make/${id}`),
-    
-  deleteModel: (id) => 
+
+  deleteModel: (id) =>
     apiClient.delete(`/api/master/vehicle-metadata/delete/model/${id}`),
 
-  deleteVariant: (id) => 
+  deleteVariant: (id) =>
     apiClient.delete(`/api/master/vehicle-metadata/delete/variant/${id}`),
-    
-  deleteBody: (id) => 
+
+  deleteBody: (id) =>
     apiClient.delete(`/api/master/vehicle-metadata/delete/body/${id}`),
-    
-  deleteVariantYear: (id) => 
+
+  deleteVariantYear: (id) =>
     apiClient.delete(`/api/master/vehicle-metadata/delete/year/${id}`),
-    
-  deleteVehicleMetadata: (id) => 
+
+  deleteVehicleMetadata: (id) =>
     apiClient.delete(`/api/master/vehicle-metadata/delete/metadata/${id}`),
 
   // Get years by variant or model
-  getVariantYearsByVariant: (variantId, params = {}) => 
-    apiClient.get("/api/master/vehicle-metadata/list/years", { 
-      params: { ...params, variantId } 
+  getVariantYearsByVariant: (variantId, params = {}) =>
+    apiClient.get("/api/master/vehicle-metadata/list/years", {
+      params: { ...params, variantId },
     }),
 
-  getYearsByModel: (modelId, params = {}) => 
-    apiClient.get("/api/master/vehicle-metadata/list/years", { 
-      params: { ...params, modelId } 
+  getYearsByModel: (modelId, params = {}) =>
+    apiClient.get("/api/master/vehicle-metadata/list/years", {
+      params: { ...params, modelId },
     }),
 
-  getYearsByModelAndVariant: (modelId, variantId, params = {}) => 
-    apiClient.get("/api/master/vehicle-metadata/list/years", { 
-      params: { ...params, modelId, variantId } 
+  getYearsByModelAndVariant: (modelId, variantId, params = {}) =>
+    apiClient.get("/api/master/vehicle-metadata/list/years", {
+      params: { ...params, modelId, variantId },
     }),
 };
-
 
 // Workflow Services
 export const workflowServices = {
   // Get all workflows
-  getWorkflows: (params?: any) =>
-    apiClient.get("/api/workflows", { params }),
+  getWorkflows: (params?: any) => apiClient.get("/api/workflows", { params }),
 
   // Get workflow by ID
-  getWorkflow: (id: string) =>
-    apiClient.get(`/api/workflows/${id}`),
+  getWorkflow: (id: string) => apiClient.get(`/api/workflows/${id}`),
 
   // Create workflow
-  createWorkflow: (data: any) =>
-    apiClient.post("/api/workflows", data),
+  createWorkflow: (data: any) => apiClient.post("/api/workflows", data),
 
   // Update workflow
   updateWorkflow: (id: string, data: any) =>
     apiClient.put(`/api/workflows/${id}`, data),
 
   // Delete workflow
-  deleteWorkflow: (id: string) =>
-    apiClient.delete(`/api/workflows/${id}`),
+  deleteWorkflow: (id: string) => apiClient.delete(`/api/workflows/${id}`),
 
   // Toggle workflow status
   toggleWorkflowStatus: (id: string, data: any) =>
     apiClient.patch(`/api/workflows/${id}/status`, data),
 
   // Get workflow statistics
-  getWorkflowStats: () =>
-    apiClient.get("/api/workflows/stats"),
+  getWorkflowStats: () => apiClient.get("/api/workflows/stats"),
 
   // Get vehicle schema fields for mapping
-  getVehicleSchemaFields: () =>
-    apiClient.get("/api/workflows/vehicle-schema"),
+  getVehicleSchemaFields: () => apiClient.get("/api/workflows/vehicle-schema"),
 
   // Test workflow configuration
   testWorkflow: (id: string, data: any) =>
@@ -401,29 +394,17 @@ export const companyServices = {
   toggleUserStatus: (id: string, data: any) =>
     apiClient.patch(`/api/company/users/${id}/status`, data),
 
-  getCompanyMetaData: (type, params = {}) => 
-    apiClient.get("/api/company/company/meta-data", { 
-      params: { type, ...params } 
+  getCompanyMetaData: (type, params = {}) =>
+    apiClient.get("/api/company/company/meta-data", {
+      params: { type, ...params },
     }),
 
-  addMake: (data) => 
-    apiClient.post("/api/company/vehicle-metadata/create/make", data),
-    
-  addModel: (data) => 
-    apiClient.post("/api/company/vehicle-metadata/create/model", data),
-
-  addVariant: (data) => 
-    apiClient.post("/api/company/vehicle-metadata/create/variant", data),
-    
-  addBody: (data) => 
-    apiClient.post("/api/company/vehicle-metadata/create/body", data),
-    
-  addVariantYear: (data) => 
-    apiClient.post("/api/company/vehicle-metadata/create/year", data),
-    
-  addVehicleMetadata: (data) => 
-    apiClient.post("/api/company/vehicle-metadata/create/metadata", data),
-
+  createMake: (data: any) => apiClient.post("/api/company/create/make", data),
+  createModel: (data: any) => apiClient.post("/api/company/create/model", data),
+  createVariant: (data: any) =>
+    apiClient.post("/api/company/create/variant", data),
+  createBodyType: (data: any) => apiClient.post("/api/company/create/body", data),
+  createYear: (data: any) => apiClient.post("/api/company/create/year", data),
 
   sendWelcomeEmail: (id: string) =>
     apiClient.post(`/api/company/users/${id}/send-welcome`),
@@ -750,7 +731,7 @@ export const vehicleServices = {
   getVehicleStock: (params?: any) =>
     apiClient.get("/api/vehicle/stock", { params }),
 
-  getVehicleDetail: (vehicleId: string,vehicleType: string,) =>
+  getVehicleDetail: (vehicleId: string, vehicleType: string) =>
     apiClient.get(`/api/vehicle/detail/${vehicleId}/${vehicleType}`),
 
   createVehicleStock: (data: any) =>
@@ -759,55 +740,99 @@ export const vehicleServices = {
   bulkImportVehicles: (data: any) =>
     apiClient.post("/api/vehicle/bulk-import", data),
 
-  updateVehicle: (id: string,vehicleType: string, data: any) =>
+  updateVehicle: (id: string, vehicleType: string, data: any) =>
     apiClient.put(`/api/vehicle/${id}/${vehicleType}`, data),
 
   deleteVehicle: (id: string) => apiClient.delete(`/api/vehicle/${id}`),
 
   // Vehicle Section Updates
-  updateVehicleOverview: (vehicleId: string,vehicleType: string, data: any) =>
+  updateVehicleOverview: (vehicleId: string, vehicleType: string, data: any) =>
     apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/overview`, data),
 
-  updateVehicleGeneralInfo: (vehicleId: string,vehicleType: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/general-info`, data),
+  updateVehicleGeneralInfo: (
+    vehicleId: string,
+    vehicleType: string,
+    data: any
+  ) =>
+    apiClient.put(
+      `/api/vehicle/${vehicleId}/${vehicleType}/general-info`,
+      data
+    ),
 
-  updateVehicleSource: (vehicleId: string,vehicleType: string, data: any) =>
+  updateVehicleSource: (vehicleId: string, vehicleType: string, data: any) =>
     apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/source`, data),
 
-  updateVehicleRegistration: (vehicleId: string,vehicleType: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/registration`, data),
+  updateVehicleRegistration: (
+    vehicleId: string,
+    vehicleType: string,
+    data: any
+  ) =>
+    apiClient.put(
+      `/api/vehicle/${vehicleId}/${vehicleType}/registration`,
+      data
+    ),
 
-  updateVehicleImport: (vehicleId: string,vehicleType: string, data: any) =>
+  updateVehicleImport: (vehicleId: string, vehicleType: string, data: any) =>
     apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/import`, data),
 
-  updateVehicleEngine: (vehicleId: string,vehicleType: string, data: any) =>
+  updateVehicleEngine: (vehicleId: string, vehicleType: string, data: any) =>
     apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/engine`, data),
 
-  updateVehicleSpecifications: (vehicleId: string,vehicleType: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/specifications`, data),
+  updateVehicleSpecifications: (
+    vehicleId: string,
+    vehicleType: string,
+    data: any
+  ) =>
+    apiClient.put(
+      `/api/vehicle/${vehicleId}/${vehicleType}/specifications`,
+      data
+    ),
 
-  updateVehicleSafetyFeatures: (vehicleId: string,vehicleType: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/safety`, data),
+  updateVehicleSafetyFeatures: (
+    vehicleId: string,
+    vehicleType: string,
+    data: any
+  ) => apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/safety`, data),
 
-  updateVehicleOdometer: (vehicleId: string,vehicleType: string, data: any) =>
+  updateVehicleOdometer: (vehicleId: string, vehicleType: string, data: any) =>
     apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/odometer`, data),
 
-  updateVehicleOwnership: (vehicleId: string,vehicleType: string, data: any) =>
+  updateVehicleOwnership: (vehicleId: string, vehicleType: string, data: any) =>
     apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/ownership`, data),
 
   // Vehicle Attachments
-  getVehicleAttachments: (vehicleId: string,vehicleType: string,) =>
+  getVehicleAttachments: (vehicleId: string, vehicleType: string) =>
     apiClient.get(`/api/vehicle/${vehicleId}/${vehicleType}/attachments`),
 
-  uploadVehicleAttachment: (vehicleId: string,vehicleType: string, data: any) =>
-    apiClient.post(`/api/vehicle/${vehicleId}/${vehicleType}/attachments`, data),
+  uploadVehicleAttachment: (
+    vehicleId: string,
+    vehicleType: string,
+    data: any
+  ) =>
+    apiClient.post(
+      `/api/vehicle/${vehicleId}/${vehicleType}/attachments`,
+      data
+    ),
 
-  deleteVehicleAttachment: (vehicleId: string,vehicleType: string,  attachmentId: string) =>
-    apiClient.delete(`/api/vehicle/${vehicleId}/${vehicleType}/attachments/${attachmentId}`),
+  deleteVehicleAttachment: (
+    vehicleId: string,
+    vehicleType: string,
+    attachmentId: string
+  ) =>
+    apiClient.delete(
+      `/api/vehicle/${vehicleId}/${vehicleType}/attachments/${attachmentId}`
+    ),
 
   // Workshop Status
-  updateVehicleWorkshopStatus: (vehicleId: string,vehicleType: string, data: any) =>
-    apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/workshop-status`, data),
+  updateVehicleWorkshopStatus: (
+    vehicleId: string,
+    vehicleType: string,
+    data: any
+  ) =>
+    apiClient.put(
+      `/api/vehicle/${vehicleId}/${vehicleType}/workshop-status`,
+      data
+    ),
 };
 
 // Inspection Services
@@ -834,7 +859,7 @@ export const inspectionServices = {
 export const tradeinServices = {
   getTadeins: (params?: any) => apiClient.get("/api/tradein", { params }),
 
-  startAppraisal: (vehicleId: string,vehicleType: string,) =>
+  startAppraisal: (vehicleId: string, vehicleType: string) =>
     apiClient.post(`/api/tradein/start/${vehicleId}/${vehicleType}`),
 
   getTradein: (id: string) => apiClient.get(`/api/tradein/${id}`),
@@ -1021,10 +1046,10 @@ export const logServices = {
       timeout: 30000, // 30 second timeout
     }),
 
-getDailyAnalytics: (queryString: string) =>
-  apiClient.get(`/api/logs/analytics/daily?${queryString}`, {
-    timeout: 15000, // 15 second timeout for daily analytics
-  }),
+  getDailyAnalytics: (queryString: string) =>
+    apiClient.get(`/api/logs/analytics/daily?${queryString}`, {
+      timeout: 15000, // 15 second timeout for daily analytics
+    }),
 
   // Cached user and company lookups
   getLogUsers: (params?: any) =>

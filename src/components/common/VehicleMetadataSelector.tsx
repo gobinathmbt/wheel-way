@@ -13,6 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import AddsingleEntryDialog from "../metadata/AddsingleEntrydialog"; // Changed import name
+import { toast } from "sonner";
 
 interface DropdownItem {
   _id: string;
@@ -48,13 +50,6 @@ interface VehicleMetadataSelectorProps {
   onVariantChange: (displayName: string) => void;
   onYearChange: (displayName: string) => void;
   onBodyChange: (displayName: string) => void;
-
-  // Plus button handlers (optional)
-  onMakePlusClick?: () => void;
-  onModelPlusClick?: () => void;
-  onVariantPlusClick?: () => void;
-  onYearPlusClick?: () => void;
-  onBodyPlusClick?: () => void;
 
   // Layout customization props
   layout?: LayoutVariant;
@@ -122,11 +117,6 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
   onVariantChange,
   onYearChange,
   onBodyChange,
-  onMakePlusClick,
-  onModelPlusClick,
-  onVariantPlusClick,
-  onYearPlusClick,
-  onBodyPlusClick,
   layout = "grid-5",
   containerClassName,
   fieldClassName = "",
@@ -158,6 +148,11 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
     year: "",
     body: "",
   });
+
+  // State for AddEntryDialog
+  const [showAddEntryDialog, setShowAddEntryDialog] = useState(false);
+  const [addingEntry, setAddingEntry] = useState(false);
+  const [defaultEntryType, setDefaultEntryType] = useState<string>("");
 
   // Reset dependent fields when parent field changes
   useEffect(() => {
@@ -207,6 +202,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
     data: allMakes,
     isLoading: allMakesLoading,
     error: makesError,
+    refetch: refetchMakes,
   } = useQuery({
     queryKey: ["dropdown-makes-global"],
     queryFn: () => companyServices.getCompanyMetaData("makes"),
@@ -218,6 +214,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
     data: allModels,
     isLoading: allModelsLoading,
     error: modelsError,
+    refetch: refetchModels,
   } = useQuery({
     queryKey: ["dropdown-models-global", selectedIds.make],
     queryFn: () =>
@@ -233,6 +230,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
     data: allVariants,
     isLoading: allVariantsLoading,
     error: variantsError,
+    refetch: refetchVariants,
   } = useQuery({
     queryKey: ["dropdown-variants-global", selectedIds.model],
     queryFn: () =>
@@ -248,6 +246,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
     data: allYears,
     isLoading: allYearsLoading,
     error: yearsError,
+    refetch: refetchYears,
   } = useQuery({
     queryKey: ["dropdown-years-global", selectedIds.model, selectedIds.variant],
     queryFn: () =>
@@ -264,6 +263,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
     data: allBodies,
     isLoading: allBodiesLoading,
     error: bodiesError,
+    refetch: refetchBodies,
   } = useQuery({
     queryKey: ["dropdown-bodies-global"],
     queryFn: () => companyServices.getCompanyMetaData("bodies"),
@@ -336,6 +336,102 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       setSelectedIds((prev) => ({ ...prev, body: "" }));
     }
   }, [allBodies, selectedBody]);
+
+  // Handle plus button click with default type
+  const handleMakePlusClick = () => {
+    setDefaultEntryType("make");
+    setShowAddEntryDialog(true);
+  };
+
+  const handleModelPlusClick = () => {
+    setDefaultEntryType("model");
+    setShowAddEntryDialog(true);
+  };
+
+  const handleBodyPlusClick = () => {
+    setDefaultEntryType("body");
+    setShowAddEntryDialog(true);
+  };
+
+  const handleYearPlusClick = () => {
+    setDefaultEntryType("year");
+    setShowAddEntryDialog(true);
+  };
+
+  const handleVariantPlusClick = () => {
+    setDefaultEntryType("variant");
+    setShowAddEntryDialog(true);
+  };
+
+  // Handle adding a new entry
+  const handleAddEntry = async (type: string, data: any) => {
+    setAddingEntry(true);
+    try {
+      let response;
+      switch (type) {
+        case "make":
+          response = await companyServices.createMake(data);
+          await refetchMakes(); // Refresh makes dropdown
+          break;
+        case "model":
+          response = await companyServices.createModel(data);
+          await refetchModels(); // Refresh models dropdown
+          break;
+        case "variant":
+          response = await companyServices.createVariant(data);
+          await refetchVariants(); // Refresh variants dropdown
+          break;
+        case "body":
+          response = await companyServices.createBodyType(data);
+          await refetchBodies(); // Refresh body styles dropdown
+          break;
+        case "year":
+          response = await companyServices.createYear(data);
+          await refetchYears(); // Refresh years dropdown
+          break;
+        default:
+          throw new Error(`Unknown type: ${type}`);
+      }
+
+      toast.success(`${type} added successfully`);
+
+      // Auto-select the newly added item
+      if (response?.data?.data?._id) {
+        const newItem = response.data.data;
+        switch (type) {
+          case "make":
+            onMakeChange(newItem.displayName);
+            break;
+          case "model":
+            onModelChange(newItem.displayName);
+            break;
+          case "variant":
+            onVariantChange(newItem.displayName);
+            break;
+          case "body":
+            onBodyChange(newItem.displayName);
+            break;
+          case "year":
+            onYearChange(newItem.year ? newItem.year.toString() : newItem.displayName);
+            break;
+        }
+      }
+
+      return response?.data?.data; // Return the created item
+    } catch (error: any) {
+      console.error(`Error adding ${type}:`, error);
+      toast.error(`Failed to add ${type}: ${error.response?.data?.message || error.message}`);
+      throw error;
+    } finally {
+      setAddingEntry(false);
+    }
+  };
+
+  // Close AddEntryDialog and reset default type
+  const handleCloseAddEntryDialog = () => {
+    setShowAddEntryDialog(false);
+    setDefaultEntryType("");
+  };
 
   // Get container classes based on layout
   const getContainerClasses = () => {
@@ -472,7 +568,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       fieldProps: makeProps,
       show: showMake,
       showPlusButton: showMakePlus,
-      onPlusClick: onMakePlusClick,
+      onPlusClick: handleMakePlusClick,
     },
     model: {
       key: "model",
@@ -491,7 +587,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       fieldProps: modelProps,
       show: showModel,
       showPlusButton: showModelPlus,
-      onPlusClick: onModelPlusClick,
+      onPlusClick: handleModelPlusClick,
     },
     variant: {
       key: "variant",
@@ -506,7 +602,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       fieldProps: variantProps,
       show: showVariant,
       showPlusButton: showVariantPlus,
-      onPlusClick: onVariantPlusClick,
+      onPlusClick: handleVariantPlusClick,
     },
     year: {
       key: "year",
@@ -521,7 +617,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       fieldProps: yearProps,
       show: showYear,
       showPlusButton: showYearPlus,
-      onPlusClick: onYearPlusClick,
+      onPlusClick: handleYearPlusClick,
     },
     body: {
       key: "body",
@@ -536,7 +632,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       fieldProps: bodyProps,
       show: showBody,
       showPlusButton: showBodyPlus,
-      onPlusClick: onBodyPlusClick,
+      onPlusClick: handleBodyPlusClick,
     },
   };
 
@@ -573,6 +669,17 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       <div className={getContainerClasses()}>
         {renderFields()}
       </div>
+
+      {/* AddEntryDialog with default type and uneditable */}
+      <AddsingleEntryDialog
+        makes={allMakes?.data?.data || []}
+        onAddEntry={handleAddEntry}
+        isLoading={addingEntry}
+        isOpen={showAddEntryDialog}
+        onClose={handleCloseAddEntryDialog}
+        defaultType={defaultEntryType}
+        typeEditable={false}
+      />
     </div>
   );
 };
