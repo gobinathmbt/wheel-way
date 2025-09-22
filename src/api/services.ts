@@ -728,6 +728,9 @@ export const configServices = {
 
 // Vehicle Services
 export const vehicleServices = {
+
+  getTadeins: (params?: any) => apiClient.get("/api/tradein", { params }),
+  
   getVehicleStock: (params?: any) =>
     apiClient.get("/api/vehicle/stock", { params }),
 

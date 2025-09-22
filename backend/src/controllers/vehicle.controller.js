@@ -25,6 +25,17 @@ const getVehicleStock = async (req, res) => {
     // Build filter with company_id first for index usage
     let filter = { company_id: req.user.company_id };
 
+    // Handle dealership-based access for non-primary company_super_admin
+    if (req.user.role === 'company_super_admin' && !req.user.is_primary_admin &&
+      req.user.dealership_ids && req.user.dealership_ids.length > 0) {
+
+      // Extract dealership ObjectIds from the user's dealership_ids array
+      const dealershipObjectIds = req.user.dealership_ids.map(dealer => dealer._id);
+
+      // Add dealership filter to only show vehicles from authorized dealerships
+      filter.dealership_id = { $in: dealershipObjectIds };
+    }
+
     if (vehicle_type) {
       filter.vehicle_type = vehicle_type;
     }
@@ -93,7 +104,7 @@ const getVehicleDetail = async (req, res) => {
     const vehicle = await Vehicle.findOne({
       vehicle_stock_id: req.params.vehicleId,
       company_id: req.user.company_id,
-       vehicle_type: req.params.vehicleType,
+      vehicle_type: req.params.vehicleType,
     });
 
     if (!vehicle) {
@@ -142,7 +153,7 @@ const createVehicleStock = async (req, res) => {
     // Validate required fields
     const requiredFields = {
       make: "Make",
-      model: "Model", 
+      model: "Model",
       year: "Year",
       vin: "VIN",
       plate_no: "Registration number",
@@ -647,7 +658,7 @@ const processQueueManually = async (req, res) => {
 const updateVehicleOverview = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
+      { _id: req.params.id, company_id: req.user.company_id, vehicle_type: req.params.vehicleType, },
       {
         make: req.body.make,
         model: req.body.model,
@@ -688,7 +699,7 @@ const updateVehicleOverview = async (req, res) => {
 const updateVehicleGeneralInfo = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
+      { _id: req.params.id, company_id: req.user.company_id, vehicle_type: req.params.vehicleType, },
       { vehicle_other_details: req.body.vehicle_other_details },
       { new: true, runValidators: true }
     );
@@ -719,7 +730,7 @@ const updateVehicleGeneralInfo = async (req, res) => {
 const updateVehicleSource = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
+      { _id: req.params.id, company_id: req.user.company_id, vehicle_type: req.params.vehicleType, },
       { vehicle_source: req.body.vehicle_source },
       { new: true, runValidators: true }
     );
@@ -750,7 +761,7 @@ const updateVehicleSource = async (req, res) => {
 const updateVehicleRegistration = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
+      { _id: req.params.id, company_id: req.user.company_id, vehicle_type: req.params.vehicleType, },
       { vehicle_registration: req.body.vehicle_registration },
       { new: true, runValidators: true }
     );
@@ -781,7 +792,7 @@ const updateVehicleRegistration = async (req, res) => {
 const updateVehicleImport = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
+      { _id: req.params.id, company_id: req.user.company_id, vehicle_type: req.params.vehicleType, },
       { vehicle_import_details: req.body.vehicle_import_details },
       { new: true, runValidators: true }
     );
@@ -812,7 +823,7 @@ const updateVehicleImport = async (req, res) => {
 const updateVehicleEngine = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
+      { _id: req.params.id, company_id: req.user.company_id, vehicle_type: req.params.vehicleType, },
       { vehicle_eng_transmission: req.body.vehicle_eng_transmission },
       { new: true, runValidators: true }
     );
@@ -843,7 +854,7 @@ const updateVehicleEngine = async (req, res) => {
 const updateVehicleSpecifications = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
+      { _id: req.params.id, company_id: req.user.company_id, vehicle_type: req.params.vehicleType, },
       { vehicle_specifications: req.body.vehicle_specifications },
       { new: true, runValidators: true }
     );
@@ -874,7 +885,7 @@ const updateVehicleSpecifications = async (req, res) => {
 const updateVehicleSafetyFeatures = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
+      { _id: req.params.id, company_id: req.user.company_id, vehicle_type: req.params.vehicleType, },
       { vehicle_safety_features: req.body.vehicle_safety_features },
       { new: true, runValidators: true }
     );
@@ -905,7 +916,7 @@ const updateVehicleSafetyFeatures = async (req, res) => {
 const updateVehicleOdometer = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
+      { _id: req.params.id, company_id: req.user.company_id, vehicle_type: req.params.vehicleType, },
       { vehicle_odometer: req.body.vehicle_odometer },
       { new: true, runValidators: true }
     );
@@ -936,7 +947,7 @@ const updateVehicleOdometer = async (req, res) => {
 const updateVehicleOwnership = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id,vehicle_type: req.params.vehicleType, },
+      { _id: req.params.id, company_id: req.user.company_id, vehicle_type: req.params.vehicleType, },
       { vehicle_ownership: req.body.vehicle_ownership },
       { new: true, runValidators: true }
     );
@@ -1088,7 +1099,7 @@ const updateVehicleWorkshopStatus = async (req, res) => {
     }
 
     if (vehicle.vehicle_type === "inspection" && stages && Array.isArray(stages)) {
-      
+
       // Ensure arrays are properly initialized (handle case where they might be false)
       if (!Array.isArray(vehicle.is_workshop)) {
         vehicle.is_workshop = [];
@@ -1109,7 +1120,7 @@ const updateVehicleWorkshopStatus = async (req, res) => {
       if (workshop_action === 'push') {
         stages.forEach(stageName => {
           console.log(`Processing stage: ${stageName}`);
-          
+
           // Check if stage already exists in workshop
           const existingWorkshopIndex = vehicle.is_workshop.findIndex(
             item => item.stage_name === stageName
@@ -1172,16 +1183,16 @@ const updateVehicleWorkshopStatus = async (req, res) => {
             console.log(`Preparing entry already exists for ${stageName}`);
           }
         });
-      } 
+      }
       else if (workshop_action === 'remove') {
         stages.forEach(stageName => {
           console.log(`Removing stage: ${stageName}`);
-          
+
           // Check if stage is in progress - cannot remove if in progress
           const progressIndex = vehicle.workshop_progress.findIndex(
             item => item.stage_name === stageName
           );
-          
+
           if (progressIndex !== -1 && vehicle.workshop_progress[progressIndex].progress === "in_progress") {
             console.log(`Cannot remove ${stageName} - stage is in progress`);
             return;
@@ -1229,10 +1240,10 @@ const updateVehicleWorkshopStatus = async (req, res) => {
     } else {
       // Handle single workshop status for tradein
       const { is_workshop, workshop_progress } = req.body;
-      
+
       vehicle.is_workshop = is_workshop;
       vehicle.workshop_progress = workshop_progress;
-      
+
       if (!vehicle.workshop_report_preparing) {
         vehicle.workshop_report_preparing = false;
       }
@@ -1245,8 +1256,8 @@ const updateVehicleWorkshopStatus = async (req, res) => {
     // Log the event
     await logEvent({
       event_type: "vehicle_operation",
-      event_action: vehicle.vehicle_type === "inspection" 
-        ? `stages_${workshop_action}_workshop` 
+      event_action: vehicle.vehicle_type === "inspection"
+        ? `stages_${workshop_action}_workshop`
         : "vehicle_pushed_to_workshop",
       event_description: `Vehicle/stages ${workshop_action} workshop: ${vehicle.make} ${vehicle.model}`,
       user_id: req.user.id,

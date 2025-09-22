@@ -84,7 +84,7 @@ const TradeinList = () => {
         if (searchTerm) params.append("search", searchTerm);
         if (statusFilter !== "all") params.append("status", statusFilter);
 
-        const response = await vehicleServices.getVehicleStock({
+        const response = await vehicleServices.getTadeins({
           ...Object.fromEntries(params),
         });
 
@@ -128,7 +128,7 @@ const TradeinList = () => {
       if (searchTerm) params.append("search", searchTerm);
       if (statusFilter !== "all") params.append("status", statusFilter);
 
-      const response = await vehicleServices.getVehicleStock({
+      const response = await vehicleServices.getTadeins({
         ...Object.fromEntries(params),
       });
       return response.data;

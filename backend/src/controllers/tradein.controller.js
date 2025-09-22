@@ -7,41 +7,82 @@ const { logEvent } = require('./logs.controller');
 // @access  Private (Company Admin/Super Admin)
 const getTadeins = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
+    const { page = 1, limit = 20, search, vehicle_type, status } = req.query;
+
     const skip = (page - 1) * limit;
+    const numericLimit = parseInt(limit);
+    const numericPage = parseInt(page);
 
-    let filter = { 
-      company_id: req.user.company_id,
-      vehicle_type: 'tradein'
-    };
+    // Build filter with company_id first for index usage
+    let filter = { company_id: req.user.company_id };
 
-    if (status) {
-      filter.tradein_status = status;
+    // Handle dealership-based access for non-primary company_super_admin
+    if (req.user.role === 'company_super_admin' && !req.user.is_primary_admin &&
+      req.user.dealership_ids && req.user.dealership_ids.length > 0) {
+
+      // Extract dealership ObjectIds from the user's dealership_ids array
+      const dealershipObjectIds = req.user.dealership_ids.map(dealer => dealer._id);
+
+      // Add dealership filter to only show vehicles from authorized dealerships
+      filter.dealership_id = { $in: dealershipObjectIds };
     }
 
-    const tradeins = await Vehicle.find(filter)
-      .sort({ created_at: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    if (vehicle_type) {
+      filter.vehicle_type = vehicle_type;
+    }
 
-    const total = await Vehicle.countDocuments(filter);
+    if (status) {
+      filter.status = status;
+    }
+
+    // Use text search if available, otherwise use regex fallback
+    if (search) {
+      if (search.trim().length > 0) {
+        filter.$text = { $search: search };
+      }
+    }
+
+    // Define the fields to exclude (from vehicle_category to vehicle_odometer)
+    const excludedFields = {
+      inspection_result: 0,
+      trade_in_result: 0,
+      vehicle_other_details: 0,
+      vehicle_source: 0,
+      vehicle_registration: 0,
+      vehicle_import_details: 0,
+      vehicle_attachments: 0,
+      vehicle_eng_transmission: 0,
+      vehicle_specifications: 0,
+      vehicle_safety_features: 0,
+      vehicle_odometer: 0,
+    };
+
+    // Use parallel execution for count and data retrieval
+    const [vehicles, total] = await Promise.all([
+      Vehicle.find(filter, excludedFields)
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(numericLimit)
+        .lean(), // Use lean for faster queries
+      Vehicle.countDocuments(filter),
+    ]);
 
     res.status(200).json({
       success: true,
-      data: tradeins,
+      data: vehicles,
+      total,
       pagination: {
-        current_page: parseInt(page),
-        total_pages: Math.ceil(total / limit),
+        current_page: numericPage,
+        total_pages: Math.ceil(total / numericLimit),
         total_records: total,
-        per_page: parseInt(limit)
-      }
+        per_page: numericLimit,
+      },
     });
-
   } catch (error) {
-    console.error('Get trade-ins error:', error);
+    console.error("Get vehicle stock error:", error);
     res.status(500).json({
       success: false,
-      message: 'Error retrieving trade-ins'
+      message: "Error retrieving vehicle stock",
     });
   }
 };
@@ -52,12 +93,12 @@ const getTadeins = async (req, res) => {
 const startAppraisal = async (req, res) => {
   try {
     const vehicle = await Vehicle.findOneAndUpdate(
-      { 
+      {
         vehicle_stock_id: req.params.vehicleId,
-        company_id: req.user.company_id ,
-         vehicle_type: req.params.vehicleType,
+        company_id: req.user.company_id,
+        vehicle_type: req.params.vehicleType,
       },
-      { 
+      {
         tradein_status: 'in_progress',
         appraisal_started_at: new Date(),
         appraisal_started_by: req.user.id
@@ -135,7 +176,7 @@ const getTradein = async (req, res) => {
 const updateTradein = async (req, res) => {
   try {
     const tradein = await Vehicle.findOneAndUpdate(
-      { 
+      {
         _id: req.params.id,
         company_id: req.user.company_id,
         vehicle_type: 'tradein'
@@ -171,7 +212,7 @@ const updateTradein = async (req, res) => {
 const completeAppraisal = async (req, res) => {
   try {
     const { appraisal_data, market_value, condition_rating } = req.body;
-    
+
     // Calculate offer value based on market value and condition
     const conditionMultipliers = {
       'excellent': 1.0,
@@ -179,16 +220,16 @@ const completeAppraisal = async (req, res) => {
       'fair': 0.8,
       'poor': 0.6
     };
-    
+
     const offerValue = market_value * (conditionMultipliers[condition_rating] || 0.8);
 
     const tradein = await Vehicle.findOneAndUpdate(
-      { 
+      {
         _id: req.params.id,
         company_id: req.user.company_id,
         vehicle_type: 'tradein'
       },
-      { 
+      {
         tradein_status: 'offer_made',
         appraisal_completed_at: new Date(),
         appraisal_completed_by: req.user.id,
@@ -214,10 +255,10 @@ const completeAppraisal = async (req, res) => {
       user_id: req.user.id,
       company_id: req.user.company_id,
       user_role: req.user.role,
-      metadata: { 
+      metadata: {
         vehicle_stock_id: tradein.vehicle_stock_id,
         offer_value: offerValue,
-        market_value 
+        market_value
       }
     });
 
@@ -244,12 +285,12 @@ const makeOffer = async (req, res) => {
     const { offer_value, offer_notes } = req.body;
 
     const tradein = await Vehicle.findOneAndUpdate(
-      { 
+      {
         _id: req.params.id,
         company_id: req.user.company_id,
         vehicle_type: 'tradein'
       },
-      { 
+      {
         tradein_status: 'offer_made',
         offer_value,
         offer_notes,
@@ -273,9 +314,9 @@ const makeOffer = async (req, res) => {
       user_id: req.user.id,
       company_id: req.user.company_id,
       user_role: req.user.role,
-      metadata: { 
+      metadata: {
         vehicle_stock_id: tradein.vehicle_stock_id,
-        offer_value 
+        offer_value
       }
     });
 
