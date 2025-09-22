@@ -19,6 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import Select from "react-select";
+import { companyServices } from "@/api/services";
 
 interface AddsingleEntryDialogProps {
   makes: any[];
@@ -128,30 +129,28 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
       addFormData.makeId
     ) {
       setIsLoadingModels(true);
-      import("@/api/services").then(({ companyServices }) => {
-        companyServices
-          .getCompanyMetaData("models", { makeId: addFormData.makeId })
-          .then((response) => {
-            setAvailableModels(response.data?.data || []);
-            // Reset dependent fields when make changes
-            if (addDialogType === "year" || addDialogType === "metadata") {
-              setAddFormData((prev) => ({
-                ...prev,
-                modelId: "",
-                variantId: "",
-              }));
-              setAvailableVariants([]);
-              setAvailableYears([]);
-            }
-          })
-          .catch((error) => {
-            console.error("Error fetching models:", error);
-            setAvailableModels([]);
-          })
-          .finally(() => {
-            setIsLoadingModels(false);
-          });
-      });
+      companyServices
+        .getCompanyMetaData("models", { makeId: addFormData.makeId })
+        .then((response) => {
+          setAvailableModels(response.data?.data || []);
+          // Reset dependent fields when make changes
+          if (addDialogType === "year" || addDialogType === "metadata") {
+            setAddFormData((prev) => ({
+              ...prev,
+              modelId: "",
+              variantId: "",
+            }));
+            setAvailableVariants([]);
+            setAvailableYears([]);
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching models:", error);
+          setAvailableModels([]);
+        })
+        .finally(() => {
+          setIsLoadingModels(false);
+        });
     } else {
       setAvailableModels([]);
       setAvailableVariants([]);
@@ -161,14 +160,12 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
   // Fetch body types for metadata form
   useEffect(() => {
     if (addDialogType === "metadata") {
-      import("@/api/services").then(({ companyServices }) => {
-        companyServices
-          .getCompanyMetaData("bodies")
-          .then((response) => {
-            setAvailableBodyTypes(response.data?.data || []);
-          })
-          .catch(console.error);
-      });
+      companyServices
+        .getCompanyMetaData("bodies")
+        .then((response) => {
+          setAvailableBodyTypes(response.data?.data || []);
+        })
+        .catch(console.error);
     }
   }, [addDialogType]);
 
@@ -179,27 +176,20 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
       (addFormData.modelId || addFormData.variantId)
     ) {
       setIsLoadingYears(true);
+
       const params: any = {};
+      if (addFormData.modelId) params.modelId = addFormData.modelId;
+      if (addFormData.variantId) params.variantId = addFormData.variantId;
 
-      if (addFormData.modelId) {
-        params.modelId = addFormData.modelId;
-      }
-
-      if (addFormData.variantId) {
-        params.variantId = addFormData.variantId;
-      }
-
-      import("@/api/services").then(({ companyServices }) => {
-        companyServices
-          .getCompanyMetaData("years", params)
-          .then((response) => {
-            setAvailableYears(response.data?.data || []);
-          })
-          .catch(console.error)
-          .finally(() => {
-            setIsLoadingYears(false);
-          });
-      });
+      companyServices
+        .getCompanyMetaData("years", params)
+        .then((response) => {
+          setAvailableYears(response.data?.data || []);
+        })
+        .catch(console.error)
+        .finally(() => {
+          setIsLoadingYears(false);
+        });
     } else if (addDialogType === "metadata") {
       setAvailableYears([]);
     }
@@ -207,11 +197,7 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
 
   // Automatically select the model if there's only one available
   useEffect(() => {
-    if (
-      addDialogType === "variant" &&
-      availableModels.length === 1 &&
-      addFormData.modelIds.length === 0
-    ) {
+    if (addDialogType === "variant" && availableModels.length === 1) {
       const singleModelId = availableModels[0]._id;
       setAddFormData((prev) => ({
         ...prev,
@@ -227,20 +213,19 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
       addFormData.modelId
     ) {
       setIsLoadingVariants(true);
-      import("@/api/services").then(({ companyServices }) => {
-        companyServices
-          .getCompanyMetaData("variants", { modelId: addFormData.modelId })
-          .then((response) => {
-            setAvailableVariants(response.data?.data || []);
-            // Reset variant when model changes
-            setAddFormData((prev) => ({ ...prev, variantId: "" }));
-            setAvailableYears([]);
-          })
-          .catch(console.error)
-          .finally(() => {
-            setIsLoadingVariants(false);
-          });
-      });
+
+      companyServices
+        .getCompanyMetaData("variants", { modelId: addFormData.modelId })
+        .then((response) => {
+          setAvailableVariants(response.data?.data || []);
+          // Reset variant when model changes
+          setAddFormData((prev) => ({ ...prev, variantId: "" }));
+          setAvailableYears([]);
+        })
+        .catch(console.error)
+        .finally(() => {
+          setIsLoadingVariants(false);
+        });
     } else if (
       (addDialogType === "year" || addDialogType === "metadata") &&
       !addFormData.modelId
@@ -368,18 +353,21 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
       handleCloseDialog();
     } catch (error: any) {
       // Handle the error without closing the dialog
-      const errorMessage = error?.response?.data?.message || error?.message || "An error occurred";
-      
+      const errorMessage =
+        error?.response?.data?.message || error?.message || "An error occurred";
+
       // Check if it's a duplicate error
-      if (errorMessage.toLowerCase().includes('duplicate') || 
-          errorMessage.toLowerCase().includes('already exists') ||
-          errorMessage.toLowerCase().includes('unique constraint') ||
-          error?.response?.status === 409) {
+      if (
+        errorMessage.toLowerCase().includes("duplicate") ||
+        errorMessage.toLowerCase().includes("already exists") ||
+        errorMessage.toLowerCase().includes("unique constraint") ||
+        error?.response?.status === 409
+      ) {
         setError(`Duplicate entry: ${errorMessage}`);
       } else {
         setError(errorMessage);
       }
-      
+
       // Also show toast for user feedback
       toast.error(errorMessage);
     }
@@ -447,7 +435,9 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
             <div className="space-y-2">
               <Label>Type</Label>
               <Input
-                value={addDialogType.charAt(0).toUpperCase() + addDialogType.slice(1)}
+                value={
+                  addDialogType.charAt(0).toUpperCase() + addDialogType.slice(1)
+                }
                 disabled
                 className="bg-gray-100"
               />
@@ -497,9 +487,11 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
                 disabled={!addFormData.makeId || isLoadingModels}
               >
                 <SelectTrigger id="model-select">
-                  <SelectValue placeholder={
-                    isLoadingModels ? "Loading models..." : "Select model"
-                  } />
+                  <SelectValue
+                    placeholder={
+                      isLoadingModels ? "Loading models..." : "Select model"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {availableModels.map((model) => (
@@ -507,11 +499,13 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
                       {model.displayName}
                     </SelectItem>
                   ))}
-                  {availableModels.length === 0 && addFormData.makeId && !isLoadingModels && (
-                    <SelectItem value="no-models" disabled>
-                      No models found for this make
-                    </SelectItem>
-                  )}
+                  {availableModels.length === 0 &&
+                    addFormData.makeId &&
+                    !isLoadingModels && (
+                      <SelectItem value="no-models" disabled>
+                        No models found for this make
+                      </SelectItem>
+                    )}
                 </SelectContent>
               </ShadcnSelect>
             </div>
@@ -531,9 +525,13 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
                 disabled={!addFormData.modelId || isLoadingVariants}
               >
                 <SelectTrigger id="variant-select">
-                  <SelectValue placeholder={
-                    isLoadingVariants ? "Loading variants..." : "Select variant"
-                  } />
+                  <SelectValue
+                    placeholder={
+                      isLoadingVariants
+                        ? "Loading variants..."
+                        : "Select variant"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {availableVariants.map((variant) => (
@@ -541,11 +539,13 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
                       {variant.displayName}
                     </SelectItem>
                   ))}
-                  {availableVariants.length === 0 && addFormData.modelId && !isLoadingVariants && (
-                    <SelectItem value="no-variants" disabled>
-                      No variants found for this model
-                    </SelectItem>
-                  )}
+                  {availableVariants.length === 0 &&
+                    addFormData.modelId &&
+                    !isLoadingVariants && (
+                      <SelectItem value="no-variants" disabled>
+                        No variants found for this model
+                      </SelectItem>
+                    )}
                 </SelectContent>
               </ShadcnSelect>
             </div>
@@ -588,12 +588,17 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
                 onValueChange={(value) =>
                   setAddFormData({ ...addFormData, yearId: value })
                 }
-                disabled={!addFormData.modelId && !addFormData.variantId || isLoadingYears}
+                disabled={
+                  (!addFormData.modelId && !addFormData.variantId) ||
+                  isLoadingYears
+                }
               >
                 <SelectTrigger id="year-select">
-                  <SelectValue placeholder={
-                    isLoadingYears ? "Loading years..." : "Select year"
-                  } />
+                  <SelectValue
+                    placeholder={
+                      isLoadingYears ? "Loading years..." : "Select year"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {availableYears.map((year) => (
@@ -602,7 +607,8 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
                     </SelectItem>
                   ))}
                   {availableYears.length === 0 &&
-                    (addFormData.modelId || addFormData.variantId) && !isLoadingYears && (
+                    (addFormData.modelId || addFormData.variantId) &&
+                    !isLoadingYears && (
                       <SelectItem value="no-years" disabled>
                         No years found
                       </SelectItem>
@@ -664,7 +670,11 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
                 options={modelOptions}
                 value={selectedModels}
                 onChange={handleModelChange}
-                placeholder={isLoadingModels ? "Loading models..." : "Select models for this variant"}
+                placeholder={
+                  isLoadingModels
+                    ? "Loading models..."
+                    : "Select models for this variant"
+                }
                 className="react-select-container"
                 classNamePrefix="react-select"
                 isDisabled={!addFormData.makeId || isLoadingModels}
@@ -785,11 +795,7 @@ const AddsingleEntryDialog: React.FC<AddsingleEntryDialogProps> = ({
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              onClick={handleAddEntry}
-              disabled={isLoading}
-            >
+            <Button type="button" onClick={handleAddEntry} disabled={isLoading}>
               {isLoading ? "Adding..." : "Add Entry"}
             </Button>
           </div>
