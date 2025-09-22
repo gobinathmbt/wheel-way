@@ -10,8 +10,10 @@ const getWorkshopVehicles = async (req, res) => {
   try {
     const { page = 1, limit = 20, search, vehicle_type } = req.query;
     const skip = (page - 1) * limit;
+    const numericLimit = parseInt(limit);
+    const numericPage = parseInt(page);
 
-    // Create a filter that handles both string and array formats for workshop_progress
+    // Build filter with company_id first for index usage
     let filter = {
       company_id: req.user.company_id,
       $or: [
@@ -19,6 +21,17 @@ const getWorkshopVehicles = async (req, res) => {
         { "workshop_progress.progress": "in_progress" }, // Array of objects format
       ],
     };
+
+    // Handle dealership-based access for non-primary company_super_admin
+    if (!req.user.is_primary_admin &&
+      req.user.dealership_ids && req.user.dealership_ids.length > 0) {
+
+      // Extract dealership ObjectIds from the user's dealership_ids array
+      const dealershipObjectIds = req.user.dealership_ids.map(dealer => dealer._id);
+
+      // Add dealership filter to only show vehicles from authorized dealerships
+      filter.dealership_id = { $in: dealershipObjectIds };
+    }
 
     if (vehicle_type) {
       filter.vehicle_type = vehicle_type;
@@ -37,25 +50,41 @@ const getWorkshopVehicles = async (req, res) => {
       });
     }
 
-    const vehicles = await Vehicle.find(filter)
-      .select(
-        "vehicle_stock_id make model year plate_no vehicle_type vin name vehicle_hero_image created_at dealership_id"
-      )
-      .sort({ created_at: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    // Define the fields to select
+    const selectedFields = {
+      vehicle_stock_id: 1,
+      make: 1,
+      model: 1,
+      year: 1,
+      plate_no: 1,
+      vehicle_type: 1,
+      vin: 1,
+      name: 1,
+      vehicle_hero_image: 1,
+      created_at: 1,
+      dealership_id: 1
+    };
 
-    const total = await Vehicle.countDocuments(filter);
+    // Use parallel execution for count and data retrieval
+    const [vehicles, total] = await Promise.all([
+      Vehicle.find(filter)
+        .select(selectedFields)
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(numericLimit)
+        .lean(), // Use lean for faster queries
+      Vehicle.countDocuments(filter),
+    ]);
 
     res.status(200).json({
       success: true,
       data: vehicles,
       total,
       pagination: {
-        current_page: parseInt(page),
-        total_pages: Math.ceil(total / limit),
+        current_page: numericPage,
+        total_pages: Math.ceil(total / numericLimit),
         total_records: total,
-        per_page: parseInt(limit),
+        per_page: numericLimit,
       },
     });
   } catch (error) {
