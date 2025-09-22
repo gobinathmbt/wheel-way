@@ -1,34 +1,46 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { TableCell, TableHead, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  Search, 
-  Edit, 
-  Trash2, 
-  Database, 
-  Settings, 
-  Plus, 
-  X, 
-  Filter,
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Search,
+  Edit,
+  Trash2,
+  Database,
+  Settings,
+  Plus,
+  X,
   SlidersHorizontal,
   Download,
   Upload,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
-import { dropdownServices } from '@/api/services';
+  ArrowDown,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { dropdownServices } from "@/api/services";
 import ValueManagementDialog from "../../components/dropdown/ValueManagementDialog";
-import DataTableLayout from '@/components/common/DataTableLayout';
+import DataTableLayout from "@/components/common/DataTableLayout";
+import { useAuth } from "@/auth/AuthContext";
 
 const DropdownMaster = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -37,8 +49,8 @@ const DropdownMaster = () => {
   const [isValueDialogOpen, setIsValueDialogOpen] = useState(false);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDropdown, setSelectedDropdown] = useState(null);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(20);
@@ -47,12 +59,18 @@ const DropdownMaster = () => {
   const [sortField, setSortField] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
+  // Get user info from auth context
+  const { completeUser } = useAuth();
+  const isPrimaryAdmin = completeUser?.is_primary_admin;
+  const userDealerships = completeUser?.dealership_ids || [];
+
   const [formData, setFormData] = useState({
-    dropdown_name: '',
-    display_name: '',
-    description: '',
+    dropdown_name: "",
+    display_name: "",
+    description: "",
     allow_multiple_selection: false,
-    is_required: false
+    is_required: false,
+    dealership_id: isPrimaryAdmin ? "" : userDealerships[0]?._id || "", // Set default dealership if not primary admin
   });
 
   // Function to fetch all dropdowns when pagination is disabled
@@ -67,7 +85,7 @@ const DropdownMaster = () => {
           page: currentPage,
           limit: 100,
           search: searchTerm,
-          status: statusFilter !== 'all' ? statusFilter : undefined
+          status: statusFilter !== "all" ? statusFilter : undefined,
         };
 
         const response = await dropdownServices.getDropdowns(params);
@@ -89,10 +107,14 @@ const DropdownMaster = () => {
     }
   };
 
-  const { data: dropdownsData, isLoading, refetch } = useQuery({
+  const {
+    data: dropdownsData,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: paginationEnabled
-      ? ['dropdowns', page, searchTerm, statusFilter, rowsPerPage]
-      : ['all-dropdowns', searchTerm, statusFilter],
+      ? ["dropdowns", page, searchTerm, statusFilter, rowsPerPage]
+      : ["all-dropdowns", searchTerm, statusFilter],
     queryFn: async () => {
       if (!paginationEnabled) {
         return await fetchAllDropdowns();
@@ -102,10 +124,10 @@ const DropdownMaster = () => {
         page: page,
         limit: rowsPerPage,
         search: searchTerm,
-        status: statusFilter !== 'all' ? statusFilter : undefined
+        status: statusFilter !== "all" ? statusFilter : undefined,
       });
       return response.data;
-    }
+    },
   });
 
   const dropdowns = dropdownsData?.data || [];
@@ -146,7 +168,7 @@ const DropdownMaster = () => {
     }
   };
 
-  const getSortIcon = (field) => {
+  const getSortIcon = (field:any) => {
     if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
     return sortOrder === "asc" ? (
       <ArrowUp className="h-3 w-3 ml-1" />
@@ -155,45 +177,58 @@ const DropdownMaster = () => {
     );
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e:any) => {
     e.preventDefault();
     try {
-      await dropdownServices.createDropdown(formData);
-      toast.success('Dropdown created successfully');
+      // Only include dealership_id if user is not primary admin
+      const submitData = isPrimaryAdmin
+        ? formData
+        : { ...formData, dealership_id: formData.dealership_id };
+
+      await dropdownServices.createDropdown(submitData);
+      toast.success("Dropdown created successfully");
       setIsDialogOpen(false);
       setFormData({
-        dropdown_name: '',
-        display_name: '',
-        description: '',
+        dropdown_name: "",
+        display_name: "",
+        description: "",
         allow_multiple_selection: false,
-        is_required: false
+        is_required: false,
+        dealership_id: isPrimaryAdmin ? "" : userDealerships[0]?._id || "",
       });
       refetch();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to create dropdown');
+      toast.error(error.response?.data?.message || "Failed to create dropdown");
     }
   };
 
-  const handleEditSubmit = async (e) => {
+  const handleEditSubmit = async (e:any) => {
     e.preventDefault();
     try {
-      await dropdownServices.updateDropdown(editDropdown._id, editDropdown);
-      toast.success('Dropdown updated successfully');
+      // Only include dealership_id if user is not primary admin
+      const submitData = isPrimaryAdmin
+        ? editDropdown
+        : { ...editDropdown, dealership_id: editDropdown.dealership_id };
+
+      await dropdownServices.updateDropdown(editDropdown._id, submitData);
+      toast.success("Dropdown updated successfully");
       setIsEditDialogOpen(false);
       setEditDropdown(null);
       refetch();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update dropdown');
+      toast.error(error.response?.data?.message || "Failed to update dropdown");
     }
   };
 
   const handleToggleStatus = async (dropdownId, currentStatus) => {
     try {
-      await dropdownServices.updateDropdown(dropdownId, { is_active: !currentStatus });
-      toast.success('Status updated successfully');
+      await dropdownServices.updateDropdown(dropdownId, {
+        is_active: !currentStatus,
+      });
+      toast.success("Status updated successfully");
       refetch();
     } catch (error) {
-      toast.error('Failed to update status');
+      toast.error("Failed to update status");
     }
   };
 
@@ -205,10 +240,10 @@ const DropdownMaster = () => {
   const handleDeleteDropdown = async () => {
     try {
       await dropdownServices.deleteDropdown(deleteTargetId);
-      toast.success('Dropdown deleted successfully');
+      toast.success("Dropdown deleted successfully");
       refetch();
     } catch (error) {
-      toast.error('Failed to delete dropdown');
+      toast.error("Failed to delete dropdown");
     } finally {
       setIsDeleteDialogOpen(false);
       setDeleteTargetId(null);
@@ -245,7 +280,9 @@ const DropdownMaster = () => {
   const totalDropdowns = dropdownsData?.pagination?.total || 0;
   const activeCount = dropdowns.filter((d: any) => d.is_active).length;
   const inactiveCount = dropdowns.filter((d: any) => !d.is_active).length;
-  const multiSelectCount = dropdowns.filter((d: any) => d.allow_multiple_selection).length;
+  const multiSelectCount = dropdowns.filter(
+    (d: any) => d.allow_multiple_selection
+  ).length;
 
   // Prepare stat chips
   const statChips = [
@@ -299,17 +336,20 @@ const DropdownMaster = () => {
       icon: <Database className="h-4 w-4" />,
       tooltip: "Create Dropdown",
       onClick: () => setIsDialogOpen(true),
-      className: "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
+      className:
+        "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
     },
     {
       icon: <Upload className="h-4 w-4" />,
       tooltip: "Import Dropdowns",
       onClick: () => toast.info("Import feature coming soon"),
-      className: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
+      className:
+        "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
     },
   ];
 
   // Render table header
+  // Add dealership column to table header
   const renderTableHeader = () => (
     <TableRow>
       <TableHead className="bg-muted/50">S.No</TableHead>
@@ -340,6 +380,7 @@ const DropdownMaster = () => {
           {getSortIcon("values_count")}
         </div>
       </TableHead>
+      <TableHead className="bg-muted/50">Dealership</TableHead>
       <TableHead className="bg-muted/50">Settings</TableHead>
       <TableHead
         className="bg-muted/50 cursor-pointer hover:bg-muted/70"
@@ -354,7 +395,7 @@ const DropdownMaster = () => {
     </TableRow>
   );
 
-  // Render table body
+  // Update table body to show dealership info
   const renderTableBody = () => (
     <>
       {sortedDropdowns.map((dropdown: any, index: number) => (
@@ -367,7 +408,9 @@ const DropdownMaster = () => {
           <TableCell>
             <div>
               <p className="font-medium">{dropdown.dropdown_name}</p>
-              <p className="text-sm text-muted-foreground">{dropdown.description}</p>
+              <p className="text-sm text-muted-foreground">
+                {dropdown.description}
+              </p>
             </div>
           </TableCell>
           <TableCell>{dropdown.display_name}</TableCell>
@@ -398,12 +441,21 @@ const DropdownMaster = () => {
             </div>
           </TableCell>
           <TableCell>
+            <Badge className="ml-2 bg-orange-500 text-white hover:bg-orange-600">
+              {dropdown.dealership_id?.dealership_name || "Primary"}
+            </Badge>
+          </TableCell>
+          <TableCell>
             <div className="flex gap-1">
               {dropdown.allow_multiple_selection && (
-                <Badge variant="outline" className="text-xs">Multi</Badge>
+                <Badge variant="outline" className="text-xs">
+                  Multi
+                </Badge>
               )}
               {dropdown.is_required && (
-                <Badge variant="outline" className="text-xs">Required</Badge>
+                <Badge variant="outline" className="text-xs">
+                  Required
+                </Badge>
               )}
             </div>
           </TableCell>
@@ -411,11 +463,17 @@ const DropdownMaster = () => {
             <div className="flex items-center space-x-2">
               <Switch
                 checked={dropdown.is_active}
-                onCheckedChange={() => handleToggleStatus(dropdown._id, dropdown.is_active)}
+                onCheckedChange={() =>
+                  handleToggleStatus(dropdown._id, dropdown.is_active)
+                }
               />
-              <Badge 
-                variant={dropdown.is_active ? "default" : "secondary"} 
-                className={dropdown.is_active ? "bg-green-100 text-green-800 hover:bg-green-100" : "bg-gray-100 text-gray-800 hover:bg-gray-100"}
+              <Badge
+                variant={dropdown.is_active ? "default" : "secondary"}
+                className={
+                  dropdown.is_active
+                    ? "bg-green-100 text-green-800 hover:bg-green-100"
+                    : "bg-gray-100 text-gray-800 hover:bg-gray-100"
+                }
               >
                 {dropdown.is_active ? "Active" : "Inactive"}
               </Badge>
@@ -423,8 +481,8 @@ const DropdownMaster = () => {
           </TableCell>
           <TableCell>
             <div className="flex items-center space-x-2">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={() => {
                   setSelectedDropdown(dropdown);
@@ -435,8 +493,8 @@ const DropdownMaster = () => {
               >
                 <Settings className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={() => {
                   setEditDropdown(dropdown);
@@ -447,8 +505,8 @@ const DropdownMaster = () => {
               >
                 <Edit className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={() => confirmDeleteDropdown(dropdown._id)}
                 className="text-red-600 hover:text-red-800 hover:bg-red-100"
@@ -548,23 +606,60 @@ const DropdownMaster = () => {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Show dealership dropdown for non-primary admins */}
+            {!isPrimaryAdmin && userDealerships.length > 0 && (
+              <div>
+                <Label htmlFor="dealership_id">Dealership</Label>
+                <Select
+                  value={formData.dealership_id}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, dealership_id: value })
+                  }
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select dealership" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userDealerships.map((dealership) => (
+                      <SelectItem key={dealership._id} value={dealership._id}>
+                        {dealership.dealership_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label htmlFor="dropdown_name">Dropdown Name</Label>
               <Input
                 id="dropdown_name"
                 value={formData.dropdown_name}
-                onChange={(e) => setFormData({ ...formData, dropdown_name: e.target.value })}
+                disabled
                 placeholder="vehicle_condition"
                 required
               />
-              <p className="text-sm text-muted-foreground">Used internally (lowercase, no spaces)</p>
+              <p className="text-sm text-muted-foreground">
+                Auto-generated from Display Name (lowercase, spaces →
+                underscores)
+              </p>
             </div>
             <div>
               <Label htmlFor="display_name">Display Name</Label>
               <Input
                 id="display_name"
                 value={formData.display_name}
-                onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                onChange={(e) => {
+                  const displayName = e.target.value;
+                  setFormData({
+                    ...formData,
+                    display_name: displayName,
+                    dropdown_name: displayName
+                      .toLowerCase()
+                      .replace(/\s+/g, "_") // spaces → underscores
+                      .replace(/[^a-z0-9_]/g, ""), // remove special chars (optional)
+                  });
+                }}
                 placeholder="Vehicle Condition"
                 required
               />
@@ -574,7 +669,9 @@ const DropdownMaster = () => {
               <Input
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 placeholder="Condition options for vehicles"
               />
             </div>
@@ -582,7 +679,12 @@ const DropdownMaster = () => {
               <Checkbox
                 id="allow_multiple"
                 checked={formData.allow_multiple_selection}
-                onCheckedChange={(checked) => setFormData({ ...formData, allow_multiple_selection: checked === true })}
+                onCheckedChange={(checked) =>
+                  setFormData({
+                    ...formData,
+                    allow_multiple_selection: checked === true,
+                  })
+                }
               />
               <Label htmlFor="allow_multiple">Allow multiple selections</Label>
             </div>
@@ -590,12 +692,18 @@ const DropdownMaster = () => {
               <Checkbox
                 id="is_required"
                 checked={formData.is_required}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_required: checked === true })}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_required: checked === true })
+                }
               />
               <Label htmlFor="is_required">Required field</Label>
             </div>
             <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit">Create Dropdown</Button>
@@ -617,18 +725,45 @@ const DropdownMaster = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Dropdown</DialogTitle>
-            <DialogDescription>Update details for this dropdown</DialogDescription>
+            <DialogDescription>
+              Update details for this dropdown
+            </DialogDescription>
           </DialogHeader>
           {editDropdown && (
             <form onSubmit={handleEditSubmit} className="space-y-4">
+              {/* Show dealership dropdown for non-primary admins */}
+              {!isPrimaryAdmin && userDealerships.length > 0 && (
+                <div>
+                  <Label htmlFor="edit_dealership_id">Dealership</Label>
+                  <Select
+                    value={editDropdown.dealership_id?._id || ""}
+                    onValueChange={(value) =>
+                      setEditDropdown({
+                        ...editDropdown,
+                        dealership_id: { _id: value }, // keep it consistent
+                      })
+                    }
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select dealership" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {userDealerships.map((dealership) => (
+                        <SelectItem key={dealership._id} value={dealership._id}>
+                          {dealership.dealership_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label htmlFor="edit_dropdown_name">Dropdown Name</Label>
                 <Input
                   id="edit_dropdown_name"
                   value={editDropdown.dropdown_name}
-                  onChange={(e) =>
-                    setEditDropdown({ ...editDropdown, dropdown_name: e.target.value })
-                  }
+                  disabled
                   required
                 />
               </div>
@@ -637,9 +772,17 @@ const DropdownMaster = () => {
                 <Input
                   id="edit_display_name"
                   value={editDropdown.display_name}
-                  onChange={(e) =>
-                    setEditDropdown({ ...editDropdown, display_name: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const displayName = e.target.value;
+                    setEditDropdown({
+                      ...editDropdown,
+                      display_name: displayName,
+                      dropdown_name: displayName
+                        .toLowerCase()
+                        .replace(/\s+/g, "_")
+                        .replace(/[^a-z0-9_]/g, ""),
+                    });
+                  }}
                   required
                 />
               </div>
@@ -649,7 +792,10 @@ const DropdownMaster = () => {
                   id="edit_description"
                   value={editDropdown.description}
                   onChange={(e) =>
-                    setEditDropdown({ ...editDropdown, description: e.target.value })
+                    setEditDropdown({
+                      ...editDropdown,
+                      description: e.target.value,
+                    })
                   }
                 />
               </div>
@@ -658,23 +804,35 @@ const DropdownMaster = () => {
                   id="edit_allow_multiple"
                   checked={editDropdown.allow_multiple_selection}
                   onCheckedChange={(checked) =>
-                    setEditDropdown({ ...editDropdown, allow_multiple_selection: checked === true })
+                    setEditDropdown({
+                      ...editDropdown,
+                      allow_multiple_selection: checked === true,
+                    })
                   }
                 />
-                <Label htmlFor="edit_allow_multiple">Allow multiple selections</Label>
+                <Label htmlFor="edit_allow_multiple">
+                  Allow multiple selections
+                </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="edit_is_required"
                   checked={editDropdown.is_required}
                   onCheckedChange={(checked) =>
-                    setEditDropdown({ ...editDropdown, is_required: checked === true })
+                    setEditDropdown({
+                      ...editDropdown,
+                      is_required: checked === true,
+                    })
                   }
                 />
                 <Label htmlFor="edit_is_required">Required field</Label>
               </div>
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button type="submit">Update Dropdown</Button>
@@ -690,11 +848,15 @@ const DropdownMaster = () => {
           <DialogHeader>
             <DialogTitle>Delete Confirmation</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this dropdown? This action cannot be undone.
+              Are you sure you want to delete this dropdown? This action cannot
+              be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end space-x-2 mt-4">
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDeleteDropdown}>

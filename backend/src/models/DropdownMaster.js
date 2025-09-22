@@ -45,6 +45,10 @@ const DropdownMasterSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  dealership_id: {
+    type: String,
+    ref: "Dealership",
+  },
   description: String,
   company_id: {
     type: mongoose.Schema.Types.ObjectId,

@@ -7,13 +7,23 @@ const { logEvent } = require('./logs.controller');
 // @access  Private (Company Admin/Super Admin)
 const getDropdowns = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '', status = 'all' } = req.query;
+    const { page = 1, limit = 10, search = '', status = 'all', dealership_id } = req.query;
     const skip = (page - 1) * limit;
 
     // Build search query
     let searchQuery = {
       company_id: req.user.company_id
     };
+
+    // If user is not primary admin, filter by their dealership
+    if (!req.user.is_primary_admin && req.user.dealership_id) {
+      searchQuery.dealership_id = req.user.dealership_id;
+    }
+
+    // If dealership_id is explicitly provided in query, use it
+    if (dealership_id && dealership_id !== 'all') {
+      searchQuery.dealership_id = dealership_id;
+    }
 
     // Filter by status
     if (status !== 'all') {
@@ -29,6 +39,7 @@ const getDropdowns = async (req, res) => {
     }
 
     const dropdowns = await DropdownMaster.find(searchQuery)
+      .populate('dealership_id', 'dealership_name') // Populate dealership name
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -60,14 +71,27 @@ const getDropdowns = async (req, res) => {
 // @access  Private (Company Super Admin)
 const createDropdown = async (req, res) => {
   try {
-    // Check for duplicate dropdown_name or display_name within company
-    const existingDropdown = await DropdownMaster.findOne({
+    // Build search query for duplicates
+    let duplicateQuery = {
       company_id: req.user.company_id,
       $or: [
         { dropdown_name: req.body.dropdown_name },
         { display_name: req.body.display_name }
       ]
-    });
+    };
+
+    // If user is not primary admin, check duplicates within their dealership
+    if (!req.user.is_primary_admin && req.user.dealership_id) {
+      duplicateQuery.dealership_id = req.user.dealership_id;
+    }
+
+    // If dealership_id is provided in request, include it in duplicate check
+    if (req.body.dealership_id) {
+      duplicateQuery.dealership_id = req.body.dealership_id;
+    }
+
+    // Check for duplicate dropdown_name or display_name
+    const existingDropdown = await DropdownMaster.findOne(duplicateQuery);
 
     if (existingDropdown) {
       return res.status(400).json({
@@ -81,6 +105,11 @@ const createDropdown = async (req, res) => {
       company_id: req.user.company_id,
       created_by: req.user.id
     });
+
+    // If user is not primary admin, assign their dealership
+    if (!req.user.is_primary_admin && req.user.dealership_id) {
+      dropdown.dealership_id = req.user.dealership_id;
+    }
 
     await dropdown.save();
 
@@ -208,10 +237,10 @@ const addValue = async (req, res) => {
 
     // Check for duplicate option_value or display_value
     const existingValue = dropdown.values.find(
-      value => 
+      value =>
         value.option_value.toLowerCase() === req.body.option_value.toLowerCase() ||
-        (req.body.display_value && value.display_value && 
-         value.display_value.toLowerCase() === req.body.display_value.toLowerCase())
+        (req.body.display_value && value.display_value &&
+          value.display_value.toLowerCase() === req.body.display_value.toLowerCase())
     );
 
     if (existingValue) {
@@ -222,7 +251,7 @@ const addValue = async (req, res) => {
     }
 
     // Set display_order to highest + 1
-    const maxDisplayOrder = dropdown.values.reduce((max, value) => 
+    const maxDisplayOrder = dropdown.values.reduce((max, value) =>
       Math.max(max, value.display_order || 0), 0
     );
 
@@ -277,11 +306,11 @@ const updateValue = async (req, res) => {
     // Check for duplicate option_value or display_value (excluding current value)
     if (req.body.option_value || req.body.display_value) {
       const existingValue = dropdown.values.find(
-        v => v._id.toString() !== req.params.valueId && 
-        (
-          (req.body.option_value && v.option_value.toLowerCase() === req.body.option_value.toLowerCase()) ||
-          (req.body.display_value && v.display_value && v.display_value.toLowerCase() === req.body.display_value.toLowerCase())
-        )
+        v => v._id.toString() !== req.params.valueId &&
+          (
+            (req.body.option_value && v.option_value.toLowerCase() === req.body.option_value.toLowerCase()) ||
+            (req.body.display_value && v.display_value && v.display_value.toLowerCase() === req.body.display_value.toLowerCase())
+          )
       );
 
       if (existingValue) {
