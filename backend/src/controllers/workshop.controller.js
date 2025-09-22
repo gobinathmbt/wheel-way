@@ -16,8 +16,8 @@ const getWorkshopVehicles = async (req, res) => {
       company_id: req.user.company_id,
       $or: [
         { workshop_progress: "in_progress" }, // String format
-        { "workshop_progress.progress": "in_progress" } // Array of objects format
-      ]
+        { "workshop_progress.progress": "in_progress" }, // Array of objects format
+      ],
     };
 
     if (vehicle_type) {
@@ -33,13 +33,13 @@ const getWorkshopVehicles = async (req, res) => {
           { plate_no: { $regex: search, $options: "i" } },
           { vin: { $regex: search, $options: "i" } },
           { name: { $regex: search, $options: "i" } },
-        ]
+        ],
       });
     }
 
     const vehicles = await Vehicle.find(filter)
       .select(
-        "vehicle_stock_id make model year plate_no vehicle_type vin name vehicle_hero_image created_at"
+        "vehicle_stock_id make model year plate_no vehicle_type vin name vehicle_hero_image created_at dealership_id"
       )
       .sort({ created_at: -1 })
       .skip(skip)
@@ -89,9 +89,9 @@ const getWorkshopVehicleDetails = async (req, res) => {
     if (vehicle.vehicle_type === "inspection" && vehicle.inspection_result) {
       // Get the stage names that are currently in progress in workshop
       const inProgressStages = [];
-      
+
       if (Array.isArray(vehicle.workshop_progress)) {
-        vehicle.workshop_progress.forEach(stage => {
+        vehicle.workshop_progress.forEach((stage) => {
           if (stage.progress === "in_progress") {
             inProgressStages.push(stage.stage_name);
           }
@@ -99,7 +99,7 @@ const getWorkshopVehicleDetails = async (req, res) => {
       }
 
       // Filter inspection_result to only include in-progress stages
-      vehicle.inspection_result = vehicle.inspection_result.filter(category => 
+      vehicle.inspection_result = vehicle.inspection_result.filter((category) =>
         inProgressStages.includes(category.category_name)
       );
     }
@@ -142,7 +142,7 @@ const createQuote = async (req, res) => {
       quote_description,
       selected_suppliers,
       images, // Add images from request
-      videos  // Add videos from request
+      videos, // Add videos from request
     } = req.body;
     // Validate required fields
     if (
@@ -192,7 +192,7 @@ const createQuote = async (req, res) => {
       existingQuote.selected_suppliers.push(...newSuppliers);
       existingQuote.quote_amount = quote_amount;
       existingQuote.quote_description = quote_description;
-      
+
       // Update media references if provided
       if (images) {
         existingQuote.images = images;
@@ -254,7 +254,7 @@ const createQuote = async (req, res) => {
       created_by: req.user.id,
       // Store field images and videos for reference
       field_images: images || [],
-      field_videos: videos || []
+      field_videos: videos || [],
     });
 
     await quote.save();

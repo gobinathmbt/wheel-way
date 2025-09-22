@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { workshopServices } from "@/api/services";
+import { dealershipServices, workshopServices } from "@/api/services";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ import {
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import DataTableLayout from "@/components/common/DataTableLayout";
+import { useAuth } from "@/auth/AuthContext";
 
 const Workshop = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -46,7 +47,7 @@ const Workshop = () => {
   const [paginationEnabled, setPaginationEnabled] = useState(true);
   const [sortField, setSortField] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-
+  const { completeUser } = useAuth();
   // Function to fetch all vehicles when pagination is disabled
   const fetchAllVehicles = async () => {
     try {
@@ -82,6 +83,25 @@ const Workshop = () => {
       throw error;
     }
   };
+
+  const { data: dealerships } = useQuery({
+    queryKey: ["dealerships-dropdown", completeUser?.is_primary_admin],
+    queryFn: async () => {
+      const response = await dealershipServices.getDealershipsDropdown();
+
+      if (!completeUser?.is_primary_admin && completeUser?.dealership_ids) {
+        const userDealershipIds = completeUser.dealership_ids.map((d: any) =>
+          typeof d === "object" ? d._id : d
+        );
+        return response.data.data.filter((dealership: any) =>
+          userDealershipIds.includes(dealership._id)
+        );
+      }
+
+      return response.data.data;
+    },
+    enabled: !!completeUser,
+  });
 
   const {
     data: vehiclesData,
@@ -147,6 +167,13 @@ const Workshop = () => {
       setSortField(field);
       setSortOrder("asc");
     }
+  };
+
+  const getDealershipName = (dealershipId: string) => {
+    const dealership = dealerships?.find(
+      (dealer: any) => dealer._id === dealershipId
+    );
+    return dealership ? dealership.dealership_name : "Unknown";
   };
 
   const handleClearFilters = () => {
@@ -273,6 +300,15 @@ const Workshop = () => {
       </TableHead>
       <TableHead
         className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("dealership_id")}
+      >
+        <div className="flex items-center">
+          Dealership
+          {getSortIcon("dealership_id")}
+        </div>
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
         onClick={() => handleSort("plate_no")}
       >
         <div className="flex items-center">
@@ -336,6 +372,13 @@ const Workshop = () => {
             <TableCell>
               <div>
                 <p className="font-medium">{vehicle.vehicle_stock_id}</p>
+              </div>
+            </TableCell>
+            <TableCell>
+              <div className="flex flex-wrap gap-1">
+                <Badge className="ml-2 bg-orange-500 text-white hover:bg-orange-600">
+                  {getDealershipName(vehicle?.dealership_id)}
+                </Badge>
               </div>
             </TableCell>
             <TableCell>
