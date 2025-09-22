@@ -1119,6 +1119,16 @@ export const adPublishingServices = {
     apiClient.post(`/api/adpublishing/${id}/publish`),
 };
 
+
+// Common Vehicle Services
+export const commonVehicleServices = {
+  updateVehicleDealership: (data: any) =>
+    apiClient.put("/api/common-vehicle/update-dealership", data),
+
+  getVehiclesForBulkOperations: (params?: any) =>
+    apiClient.get("/api/common-vehicle/bulk-operations", { params }),
+};
+
 export default {
   auth: authServices,
   subscription: subscriptionServices,
@@ -1139,4 +1149,5 @@ export default {
   masterInspectionServices: masterInspectionServices,
   masterVehicle: masterVehicleServices,
   adPublishing: adPublishingServices,
+  commonVehicle:commonVehicleServices,
 };
