@@ -8,11 +8,25 @@ const getAdVehicles = async (req, res) => {
   try {
     const { page = 1, limit = 20, status, search } = req.query;
     const skip = (page - 1) * limit;
+    const numericLimit = parseInt(limit);
+    const numericPage = parseInt(page);
 
-    let filter = { 
+    // Build filter with company_id first for index usage
+    let filter = {
       company_id: req.user.company_id,
       vehicle_type: 'advertisement'
     };
+
+    // Handle dealership-based access for non-primary company_super_admin
+    if (!req.user.is_primary_admin &&
+      req.user.dealership_ids && req.user.dealership_ids.length > 0) {
+
+      // Extract dealership ObjectIds from the user's dealership_ids array
+      const dealershipObjectIds = req.user.dealership_ids.map(dealer => dealer._id);
+
+      // Add dealership filter to only show vehicles from authorized dealerships
+      filter.dealership_id = { $in: dealershipObjectIds };
+    }
 
     if (status && status !== 'all') {
       filter.status = status;
@@ -27,22 +41,25 @@ const getAdVehicles = async (req, res) => {
       ];
     }
 
-    const adVehicles = await Vehicle.find(filter)
-      .sort({ created_at: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await Vehicle.countDocuments(filter);
+    // Use parallel execution for count and data retrieval
+    const [adVehicles, total] = await Promise.all([
+      Vehicle.find(filter)
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(numericLimit)
+        .lean(), // Use lean for faster queries
+      Vehicle.countDocuments(filter),
+    ]);
 
     res.status(200).json({
       success: true,
       data: adVehicles,
       total,
       pagination: {
-        current_page: parseInt(page),
-        total_pages: Math.ceil(total / limit),
+        current_page: numericPage,
+        total_pages: Math.ceil(total / numericLimit),
         total_records: total,
-        per_page: parseInt(limit)
+        per_page: numericLimit
       }
     });
 
@@ -113,7 +130,7 @@ const createAdVehicle = async (req, res) => {
     // Validate required fields
     const requiredFields = {
       make: "Make",
-      model: "Model", 
+      model: "Model",
       year: "Year",
       vin: "VIN",
       plate_no: "Registration number",
@@ -250,7 +267,7 @@ const createAdVehicle = async (req, res) => {
 const updateAdVehicle = async (req, res) => {
   try {
     const adVehicle = await Vehicle.findOneAndUpdate(
-      { 
+      {
         vehicle_stock_id: req.params.id,
         company_id: req.user.company_id,
         vehicle_type: 'advertisement'
@@ -339,12 +356,12 @@ const deleteAdVehicle = async (req, res) => {
 const publishAdVehicle = async (req, res) => {
   try {
     const adVehicle = await Vehicle.findOneAndUpdate(
-      { 
+      {
         vehicle_stock_id: req.params.id,
         company_id: req.user.company_id,
         vehicle_type: 'advertisement'
       },
-      { 
+      {
         status: 'published',
         published_at: new Date(),
         published_by: req.user.id

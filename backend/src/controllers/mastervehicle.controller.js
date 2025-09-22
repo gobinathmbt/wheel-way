@@ -8,10 +8,22 @@ const getMasterVehicles = async (req, res) => {
   try {
     const { page = 1, limit = 20, status, search } = req.query;
     const skip = (page - 1) * limit;
+    const numericLimit = parseInt(limit);
+    const numericPage = parseInt(page);
 
-    let filter = {
-      company_id: req.user.company_id,
-    };
+    // Build filter with company_id first for index usage
+    let filter = { company_id: req.user.company_id };
+
+    // Handle dealership-based access for non-primary company_super_admin
+    if (!req.user.is_primary_admin &&
+      req.user.dealership_ids && req.user.dealership_ids.length > 0) {
+
+      // Extract dealership ObjectIds from the user's dealership_ids array
+      const dealershipObjectIds = req.user.dealership_ids.map(dealer => dealer._id);
+
+      // Add dealership filter to only show vehicles from authorized dealerships
+      filter.dealership_id = { $in: dealershipObjectIds };
+    }
 
     if (status && status !== "all") {
       filter.status = status;
@@ -26,22 +38,25 @@ const getMasterVehicles = async (req, res) => {
       ];
     }
 
-    const masterVehicles = await MasterVehicle.find(filter)
-      .sort({ created_at: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await MasterVehicle.countDocuments(filter);
+    // Use parallel execution for count and data retrieval
+    const [masterVehicles, total] = await Promise.all([
+      MasterVehicle.find(filter)
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(numericLimit)
+        .lean(), // Use lean for faster queries
+      MasterVehicle.countDocuments(filter),
+    ]);
 
     res.status(200).json({
       success: true,
       data: masterVehicles,
       total,
       pagination: {
-        current_page: parseInt(page),
-        total_pages: Math.ceil(total / limit),
+        current_page: numericPage,
+        total_pages: Math.ceil(total / numericLimit),
         total_records: total,
-        per_page: parseInt(limit),
+        per_page: numericLimit,
       },
     });
   } catch (error) {
