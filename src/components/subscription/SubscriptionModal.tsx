@@ -16,61 +16,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Calendar,
   Users,
-  CreditCard,
   Package,
   Calculator,
   Loader2,
   X,
   AlertTriangle,
-  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-
-import apiClient from "@/api/axios";
 import { subscriptionServices } from "@/api/services";
 import CheckoutModal from "./CheckoutModal";
-
-// Payment Gateway SDKs
-import { loadStripe } from "@stripe/stripe-js";
-
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
-
-// Initialize Stripe
-const stripePromise = loadStripe(
-  "AdmdZhVfn9jAuMfulR8ILafs_d1rpHI5ZU_Rm7H1L7MUH_vXYW9flVDc-dDGbIX4ndjvURjkMRsvdTAa"
-);
-
-// Razorpay script loader
-const loadRazorpay = () => {
-  return new Promise((resolve) => {
-    // Check if already loaded
-    if (window.Razorpay) {
-      resolve(window.Razorpay);
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => {
-      resolve(window.Razorpay);
-    };
-    script.onerror = () => {
-      resolve(null);
-    };
-    document.body.appendChild(script);
-  });
-};
 
 interface SubscriptionModalProps {
   isOpen: boolean;
@@ -102,11 +62,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   });
   const [pricing, setPricing] = useState(null);
   const [isCalculating, setIsCalculating] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] =
-    useState("razorpay");
-  const [isProcessing, setIsProcessing] = useState(false);
   const [pricingConfig, setPricingConfig] = useState(null);
-  const [isRedirecting, setIsRedirecting] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -173,8 +129,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     }
   }, [subscriptionData, pricingConfig, mode]);
 
-  const handleModuleToggle = (moduleValue, checked) => {
-    // For upgrade mode, don't allow deselecting already active modules
+  const handleModuleToggle = (moduleValue: any, checked: boolean) => {
     if (
       mode === "upgrade" &&
       currentSubscription?.module_access?.includes(moduleValue) &&
@@ -189,129 +144,6 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         ? [...prev.selected_modules, moduleValue]
         : prev.selected_modules.filter((m) => m !== moduleValue),
     }));
-  };
-
-  // Create subscription using subscriptionServices from code 1
-  const createSubscription = async (paymentMethod) => {
-    try {
-      const response = await subscriptionServices.createSubscription({
-        ...subscriptionData,
-        total_amount: pricing.total_amount,
-        payment_method: paymentMethod,
-        is_upgrade: mode === "upgrade",
-        is_renewal: mode === "renewal",
-      });
-      return response.data.data;
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  // Function to close modal with a slight delay for better UX
-  const closeModalWithDelay = () => {
-    if (redirectTimerRef.current) {
-      clearTimeout(redirectTimerRef.current);
-    }
-
-    redirectTimerRef.current = setTimeout(() => {
-      if (onClose) onClose();
-      setIsRedirecting(false);
-    }, 500); // Small delay to allow the UI to update
-  };
-
-  const handleStripePayment = async () => {
-    if (!pricing) return;
-
-    setIsProcessing(true);
-    try {
-      const stripe = await stripePromise;
-      if (!stripe) {
-        toast.error("Stripe failed to initialize");
-        setIsProcessing(false);
-        return;
-      }
-
-      const { error } = await stripe.redirectToCheckout({
-        lineItems: [
-          {
-            price: "price_12345", // Replace with your Stripe Price ID
-            quantity: 1,
-          },
-        ],
-        mode: "payment",
-        successUrl: window.location.origin + "/payment-success",
-        cancelUrl: window.location.origin + "/payment-cancel",
-      });
-
-      if (error) {
-        toast.error(error.message);
-      }
-    } catch (error) {
-      console.error("Stripe Error:", error);
-      toast.error("Failed to start Stripe Checkout");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Razorpay Payment Handler - Complete implementation
-  const handleRazorpayPayment = async () => {
-    if (!pricing) return;
-
-    setIsProcessing(true);
-    try {
-      // First create the subscription on your backend
-      const subscription = await createSubscription("razorpay");
-
-      // Load Razorpay script
-      const RazorpayInstance = await loadRazorpay();
-      if (!RazorpayInstance) {
-        toast.error("Failed to load Razorpay");
-        setIsProcessing(false);
-        return;
-      }
-
-      const options = {
-        key: "rzp_test_z6CO9LKvjNQKsS", // Your Razorpay key
-        amount: pricing.total_amount * 100, // Convert to paise
-        currency: "INR",
-        name: "Secure Gateway",
-        description: `${
-          mode === "upgrade" ? "Upgrade" : mode === "renewal" ? "Renew" : "New"
-        } Subscription`,
-        order_id: subscription.razorpay_order_id, // Get this from your backend
-        handler: async function (response) {
-          console.log(response)
-        },
-        prefill: {
-          name: userProfile?.name || "Customer",
-          email: userProfile?.email || "customer@example.com",
-          contact: userProfile?.phone || "9000000000",
-        },
-        notes: {
-          subscription_id: subscription.id,
-          mode: mode,
-        },
-        theme: {
-          color: "#2563eb",
-        },
-        modal: {
-          ondismiss: function () {
-            setIsProcessing(false);
-          },
-        },
-      };
-
-      const razorpay = new (RazorpayInstance as any)(options);
-      razorpay.open();
-
-      // Close our modal since Razorpay opens its own modal
-      if (onClose) onClose();
-    } catch (error) {
-      console.error("Error with Razorpay payment:", error);
-      toast.error("Failed to initialize Razorpay payment");
-      setIsProcessing(false);
-    }
   };
 
   const getModalTitle = () => {
@@ -337,10 +169,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   };
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={canClose && !isRedirecting ? onClose : undefined}
-    >
+    <Dialog open={isOpen} onOpenChange={canClose ? onClose : undefined}>
       <DialogContent
         className={
           fullScreen
@@ -365,7 +194,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   {getModalDescription()}
                 </p>
               </div>
-              {canClose && !isRedirecting && (
+              {canClose && (
                 <Button variant="ghost" size="sm" onClick={onClose}>
                   <X className="h-4 w-4" />
                 </Button>
