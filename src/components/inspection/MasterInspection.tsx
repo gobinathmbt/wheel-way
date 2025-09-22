@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -58,16 +57,9 @@ import PdfReportGenerator from "./PdfReportGenerator";
 import ConfigurationSelectionDialog from "./ConfigurationSelectionDialog";
 import { masterInspectionServices } from "@/api/services";
 import InsertWorkshopFieldModal from "../workshop/InsertWorkshopFieldModal";
+import MediaViewer, { MediaItem } from "@/components/common/MediaViewer";
 
 interface MasterInspectionProps {}
-
-interface Configuration {
-  _id: string;
-  config_name: string;
-  description: string;
-  version: string;
-  created_at: string;
-}
 
 const MasterInspection: React.FC<MasterInspectionProps> = () => {
   const { company_id, vehicle_stock_id, vehicle_type, mode } = useParams();
@@ -98,23 +90,14 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
   const [validationErrors, setValidationErrors] = useState<{
     [key: string]: boolean;
   }>({});
-  const [imageModal, setImageModal] = useState<{
+  const [mediaViewer, setMediaViewer] = useState<{
     open: boolean;
-    images: string[];
-    title: string;
+    media: MediaItem[];
+    currentMediaId?: string;
   }>({
     open: false,
-    images: [],
-    title: "",
-  });
-  const [videoModal, setVideoModal] = useState<{
-    open: boolean;
-    videoUrl: string;
-    title: string;
-  }>({
-    open: false,
-    videoUrl: "",
-    title: "",
+    media: [],
+    currentMediaId: undefined,
   });
   const [inspectorId] = useState<string>("68a405a06c25cd6de3e5619b"); // This should come from authentication
   const handlePdfUploaded = (pdfUrl: string) => {
@@ -131,6 +114,14 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
       loadVehicleData();
     }
   }, [company_id, vehicle_type]);
+
+  const openMediaViewer = (media: MediaItem[], currentMediaId?: string) => {
+    setMediaViewer({
+      open: true,
+      media,
+      currentMediaId,
+    });
+  };
 
   const loadConfiguration = async (configId?: string) => {
     try {
@@ -1224,15 +1215,23 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
                                     variant="secondary"
                                     size="icon"
                                     className="rounded-full h-10 w-10"
-                                    onClick={() =>
-                                      setVideoModal({
-                                        open: true,
-                                        videoUrl,
-                                        title: `${field.field_name} Video ${
-                                          index + 1
-                                        }`,
-                                      })
-                                    }
+                                    onClick={() => {
+                                      const mediaItems: MediaItem[] =
+                                        videos.map(
+                                          (videoUrl: string, idx: number) => ({
+                                            id: `${fieldId}_video_${idx}`,
+                                            url: videoUrl,
+                                            type: "video" as const,
+                                            title: `${field.field_name} Video ${
+                                              idx + 1
+                                            }`,
+                                          })
+                                        );
+                                      openMediaViewer(
+                                        mediaItems,
+                                        `${fieldId}_video_${index}`
+                                      );
+                                    }}
                                   >
                                     <Play className="h-5 w-5 ml-1" />
                                   </Button>
@@ -1347,74 +1346,90 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
               {/* Image Grid */}
               {images.length > 0 && (
                 <div className="grid grid-cols-5 gap-4">
-                  {images
-                    .slice(0, 10)
-                    .map((imageUrl: string, index: number) => (
-                      <div
-                        key={index}
-                        className="relative group w-[200px] h-[200px] rounded-lg overflow-hidden border"
-                      >
-                        <img
-                          src={imageUrl}
-                          alt={`${field.field_name} ${index + 1}`}
-                          className="w-full h-full object-cover cursor-pointer"
-                          onClick={() =>
-                            setImageModal({
-                              open: true,
-                              images,
-                              title: `${field.field_name} Images`,
+                  {images.slice(0, 4).map((imageUrl: string, index: number) => (
+                    <div
+                      key={index}
+                      className="relative group w-[200px] h-[200px] rounded-lg overflow-hidden border"
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={`${field.field_name} ${index + 1}`}
+                        className="w-full h-full object-cover cursor-pointer"
+                        onClick={() => {
+                          const mediaItems: MediaItem[] = images.map(
+                            (imageUrl: string, idx: number) => ({
+                              id: `${fieldId}_image_${idx}`,
+                              url: imageUrl,
+                              type: "image" as const,
+                              title: `${field.field_name} Image ${idx + 1}`,
                             })
-                          }
-                        />
+                          );
+                          openMediaViewer(
+                            mediaItems,
+                            `${fieldId}_image_${index}`
+                          );
+                        }}
+                      />
 
-                        {/* Hover Zoom Button */}
-                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Button
-                            variant="secondary"
-                            size="icon"
-                            className="rounded-full h-8 w-8"
-                            onClick={() =>
-                              setImageModal({
-                                open: true,
-                                images,
-                                title: `${field.field_name} Images`,
+                      {/* Hover Zoom Button */}
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          className="rounded-full h-8 w-8"
+                          onClick={() => {
+                            const mediaItems: MediaItem[] = images.map(
+                              (imageUrl: string, idx: number) => ({
+                                id: `${fieldId}_image_${idx}`,
+                                url: imageUrl,
+                                type: "image" as const,
+                                title: `${field.field_name} Image ${idx + 1}`,
                               })
-                            }
-                          >
-                            <Maximize className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        {/* Delete Button */}
-                        {!disabled && (
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => removeImage(fieldId, imageUrl)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        )}
+                            );
+                            openMediaViewer(
+                              mediaItems,
+                              `${fieldId}_image_${index}`
+                            );
+                          }}
+                        >
+                          <Maximize className="h-4 w-4" />
+                        </Button>
                       </div>
-                    ))}
+
+                      {/* Delete Button */}
+                      {!disabled && (
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => removeImage(fieldId, imageUrl)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
 
                   {/* +More Images */}
-                  {images.length > 10 && (
+                  {images.length > 4 && (
                     <div
                       className="border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center cursor-pointer hover:border-muted-foreground/50 hover:bg-muted/30 transition-colors w-[120px] h-[120px]"
-                      onClick={() =>
-                        setImageModal({
-                          open: true,
-                          images,
-                          title: `${field.field_name} Images`,
-                        })
-                      }
+                      onClick={() => {
+                        const mediaItems: MediaItem[] = images.map(
+                          (imageUrl: string, idx: number) => ({
+                            id: `${fieldId}_image_${idx}`,
+                            url: imageUrl,
+                            type: "image" as const,
+                            title: `${field.field_name} Image ${idx + 1}`,
+                          })
+                        );
+                        openMediaViewer(mediaItems);
+                      }}
                     >
                       <div className="text-center p-4">
                         <Plus className="h-6 w-6 mx-auto text-muted-foreground mb-1" />
                         <p className="text-xs text-muted-foreground">
-                          +{images.length - 10} more
+                          +{images.length - 4} more
                         </p>
                       </div>
                     </div>
@@ -1850,63 +1865,6 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         )}
       </div>
 
-      {/* Image Modal */}
-      <Dialog
-        open={imageModal.open}
-        onOpenChange={(open) => setImageModal((prev) => ({ ...prev, open }))}
-      >
-        <DialogContent className="max-w-4xl w-full sm:max-h-[90vh] p-0">
-          <DialogHeader className="px-6 py-4 border-b">
-            <DialogTitle className="flex items-center space-x-2">
-              <ImageIcon className="h-5 w-5" />
-              <span>{imageModal.title}</span>
-            </DialogTitle>
-          </DialogHeader>
-
-          {/* Scrollable Section */}
-          <div className="p-6 max-h-[70vh] overflow-y-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {imageModal.images.map((image: string, index: number) => (
-                <div
-                  key={index}
-                  className="relative group aspect-square rounded-lg overflow-hidden border"
-                >
-                  <img
-                    src={image}
-                    alt={`Image ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Video Modal */}
-      <Dialog
-        open={videoModal.open}
-        onOpenChange={(open) => setVideoModal((prev) => ({ ...prev, open }))}
-      >
-        <DialogContent className="max-w-4xl w-full h-full sm:h-auto sm:max-h-[90vh] p-0 overflow-hidden">
-          <DialogHeader className="px-6 py-4 border-b">
-            <DialogTitle className="flex items-center space-x-2">
-              <VideoIcon className="h-5 w-5" />
-              <span>{videoModal.title}</span>
-            </DialogTitle>
-          </DialogHeader>
-          <div className="h-full overflow-auto p-6">
-            <div className="aspect-video bg-black rounded-lg overflow-hidden">
-              <video
-                src={videoModal.videoUrl}
-                controls
-                autoPlay
-                className="w-full h-full"
-              />
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
       <PdfReportGenerator
         isOpen={reportDialogOpen}
         onClose={() => setReportDialogOpen(false)}
@@ -1933,6 +1891,14 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         />
       )}
 
+      <MediaViewer
+        media={mediaViewer.media}
+        currentMediaId={mediaViewer.currentMediaId}
+        isOpen={mediaViewer.open}
+        onClose={() =>
+          setMediaViewer({ open: false, media: [], currentMediaId: undefined })
+        }
+      />
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <DialogContent className="max-w-md">
