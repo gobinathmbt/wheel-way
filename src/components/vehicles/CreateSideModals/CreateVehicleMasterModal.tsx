@@ -443,7 +443,7 @@ const CreateVehicleMasterModal = ({
           </div>
 
           {/* Vehicle Metadata - Third Field */}
-          <div className="space-y-4">
+       <div className="space-y-4">
             <VehicleMetadataSelector
               selectedMake={selectedMake}
               selectedModel={selectedModel}
@@ -473,11 +473,6 @@ const CreateVehicleMasterModal = ({
                 label: "Body Style",
                 placeholder: "Select body style (optional)",
               }}
-              onMakePlusClick={() => console.log("Add new make")}
-              onModelPlusClick={() => console.log("Add new model")}
-              onVariantPlusClick={() => console.log("Add new variant")}
-              onYearPlusClick={() => console.log("Add new year")}
-              onBodyPlusClick={() => console.log("Add new body type")}
             />
             {(errors.make || errors.model || errors.year) && (
               <div className="text-red-500 text-sm">

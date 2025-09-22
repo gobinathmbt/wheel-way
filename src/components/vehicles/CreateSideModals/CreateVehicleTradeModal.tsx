@@ -473,11 +473,6 @@ const CreateVehicleTradeModal = ({
                 label: "Body Style",
                 placeholder: "Select body style (optional)",
               }}
-              onMakePlusClick={() => console.log("Add new make")}
-              onModelPlusClick={() => console.log("Add new model")}
-              onVariantPlusClick={() => console.log("Add new variant")}
-              onYearPlusClick={() => console.log("Add new year")}
-              onBodyPlusClick={() => console.log("Add new body type")}
             />
             {(errors.make || errors.model || errors.year) && (
               <div className="text-red-500 text-sm">
