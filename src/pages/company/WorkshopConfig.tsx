@@ -38,6 +38,8 @@ import {
   Plus,
   Settings,
   X,
+  ZoomIn,
+  Video, // <-- Added for video icon
 } from "lucide-react";
 import { toast } from "sonner";
 import QuoteModal from "@/components/workshop/QuoteModal";
@@ -48,6 +50,7 @@ import DraggableWorkshopCategoriesList from "@/components/workshop/DraggableWork
 import InsertWorkshopFieldModal from "@/components/workshop/InsertWorkshopFieldModal";
 import { useAuth } from "@/auth/AuthContext";
 import { Input } from "@/components/ui/input";
+import MediaViewer, { MediaItem } from "@/components/common/MediaViewer";
 
 const WorkshopConfig = () => {
   const { vehicleId, vehicleType } = useParams();
@@ -82,6 +85,9 @@ const WorkshopConfig = () => {
     useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [canCompleteWorkshop, setCanCompleteWorkshop] = useState(false);
+  const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
+  const [currentMediaItems, setCurrentMediaItems] = useState<MediaItem[]>([]);
+  const [currentMediaId, setCurrentMediaId] = useState<string>("");
 
   const { data: vehicleData, isLoading: vehicleLoading } = useQuery({
     queryKey: ["workshop-vehicle-details", vehicleId],
@@ -470,6 +476,40 @@ const WorkshopConfig = () => {
       toast.error(error.message || "Failed to update workshop field");
     },
   });
+
+  const handleOpenMediaViewer = (field: any, selectedMediaId: string) => {
+    const mediaItems: MediaItem[] = [];
+
+    // Add images
+    field.images?.forEach((image: string, index: number) => {
+      mediaItems.push({
+        id: `${field.field_id}-image-${index}`,
+        url: image,
+        type: "image",
+        title: `${field.field_name} - Image ${index + 1}`,
+        description: field.field_value
+          ? `Value: ${field.field_value}`
+          : undefined,
+      });
+    });
+
+    // Add videos
+    field.videos?.forEach((video: string, index: number) => {
+      mediaItems.push({
+        id: `${field.field_id}-video-${index}`,
+        url: video,
+        type: "video",
+        title: `${field.field_name} - Video ${index + 1}`,
+        description: field.field_value
+          ? `Value: ${field.field_value}`
+          : undefined,
+      });
+    });
+
+    setCurrentMediaItems(mediaItems);
+    setCurrentMediaId(selectedMediaId);
+    setMediaViewerOpen(true);
+  };
 
   // Update vehicle inspection order mutation
   const updateOrderMutation = useMutation({
@@ -1387,30 +1427,56 @@ const WorkshopConfig = () => {
           </div>
         )}
 
-        {field.images && field.images.length > 0 && (
-          <div className="grid grid-cols-3 gap-2 mt-2">
-            {field.images.map((image: string, imgIndex: number) => (
-              <img
-                key={imgIndex}
-                src={image}
-                alt={`${field.field_name} image ${imgIndex + 1}`}
-                className="w-full h-20 object-cover rounded"
-              />
-            ))}
-          </div>
-        )}
-        {field.videos && field.videos.length > 0 && (
-          <div className="grid grid-cols-3 gap-2 mt-2">
-            {field.videos.map((video: string, vidIndex: number) => (
-              <video
-                key={vidIndex}
-                src={video}
-                controls
-                className="w-full h-20 object-cover rounded"
-              >
-                Your browser does not support the video tag.
-              </video>
-            ))}
+        {(field.images?.length > 0 || field.videos?.length > 0) && (
+          <div className="grid grid-cols-6 gap-2 mt-2">
+            {/* Render Images */}
+            {field.images?.map((image: string, imgIndex: number) => {
+              const mediaId = `${field.field_id}-image-${imgIndex}`;
+              return (
+                <div
+                  key={imgIndex}
+                  className="relative group cursor-pointer"
+                  onClick={() => handleOpenMediaViewer(field, mediaId)}
+                >
+                  <img
+                    src={image}
+                    alt={`${field.field_name} image ${imgIndex + 1}`}
+                    className="w-full h-20 object-cover rounded transition-all duration-200 group-hover:opacity-80 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded transition-all duration-200 flex items-center justify-center">
+                    <div className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      {/* Replace svg with Lucide Icon */}
+                      <ZoomIn className="w-4 h-4 text-gray-700" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Render Videos */}
+            {field.videos?.map((video: string, vidIndex: number) => {
+              const mediaId = `${field.field_id}-video-${vidIndex}`;
+              return (
+                <div
+                  key={vidIndex}
+                  className="relative group cursor-pointer"
+                  onClick={() => handleOpenMediaViewer(field, mediaId)}
+                >
+                  <video
+                    src={video}
+                    className="w-full h-20 object-cover rounded transition-all duration-200 group-hover:opacity-80 group-hover:scale-105"
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded transition-all duration-200 flex items-center justify-center">
+                    <div className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      {/* Replace svg with Lucide Icon */}
+                      <Video className="w-4 h-4 text-gray-700" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </>
@@ -1931,6 +1997,17 @@ const WorkshopConfig = () => {
           />
         )}
       </div>
+
+      <MediaViewer
+        media={currentMediaItems}
+        currentMediaId={currentMediaId}
+        isOpen={mediaViewerOpen}
+        onClose={() => {
+          setMediaViewerOpen(false);
+          setCurrentMediaItems([]);
+          setCurrentMediaId("");
+        }}
+      />
     </DashboardLayout>
   );
 };
