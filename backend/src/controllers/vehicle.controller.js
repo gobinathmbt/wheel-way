@@ -26,7 +26,7 @@ const getVehicleStock = async (req, res) => {
     let filter = { company_id: req.user.company_id };
 
     // Handle dealership-based access for non-primary company_super_admin
-    if (req.user.role === 'company_super_admin' && !req.user.is_primary_admin &&
+    if (!req.user.is_primary_admin &&
       req.user.dealership_ids && req.user.dealership_ids.length > 0) {
 
       // Extract dealership ObjectIds from the user's dealership_ids array
