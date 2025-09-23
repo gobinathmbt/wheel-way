@@ -135,6 +135,8 @@ const MasterVehicleList = () => {
       });
       return response.data;
     },
+    refetchOnWindowFocus: false,
+    staleTime: 0,
   });
 
   const vehicles = vehiclesData?.data || [];
@@ -220,9 +222,12 @@ const MasterVehicleList = () => {
     setPage(1);
   };
 
-  const handlePaginationToggle = (checked) => {
+  const handlePaginationToggle = (checked: any) => {
     setPaginationEnabled(checked);
     setPage(1);
+    setTimeout(() => {
+      refetch();
+    }, 100);
   };
 
   const getStatusColor = (status: string) => {

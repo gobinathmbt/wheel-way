@@ -2,11 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableHeader,
-} from "@/components/ui/table";
+import { Table, TableBody, TableHeader } from "@/components/ui/table";
 import {
   Pagination,
   PaginationContent,
@@ -30,9 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  RefreshCw,
-} from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 
 interface StatChip {
@@ -107,20 +101,20 @@ const setCookie = (name: string, value: string, days: number = 30) => {
     document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
     console.log(`Cookie set: ${name}=${value}`); // Debug log
   } catch (error) {
-    console.error('Error setting cookie:', error);
+    console.error("Error setting cookie:", error);
   }
 };
 
 const getCookie = (name: string): string | null => {
   try {
-    if (typeof document === 'undefined') return null;
-    
+    if (typeof document === "undefined") return null;
+
     const nameEQ = name + "=";
-    const ca = document.cookie.split(';');
-    
+    const ca = document.cookie.split(";");
+
     for (let i = 0; i < ca.length; i++) {
       let c = ca[i];
-      while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+      while (c.charAt(0) === " ") c = c.substring(1, c.length);
       if (c.indexOf(nameEQ) === 0) {
         const value = c.substring(nameEQ.length, c.length);
         console.log(`Cookie retrieved: ${name}=${value}`); // Debug log
@@ -130,7 +124,7 @@ const getCookie = (name: string): string | null => {
     console.log(`Cookie not found: ${name}`); // Debug log
     return null;
   } catch (error) {
-    console.error('Error getting cookie:', error);
+    console.error("Error getting cookie:", error);
     return null;
   }
 };
@@ -162,13 +156,13 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
 
   // Load pagination state from cookie on component mount
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isInitialized) {
+    if (typeof window !== "undefined" && !isInitialized) {
       const savedPaginationState = getCookie(cookieName);
-      console.log('Loading cookie on mount:', savedPaginationState); // Debug log
-      
+      console.log("Loading cookie on mount:", savedPaginationState); // Debug log
+
       if (savedPaginationState !== null) {
         const shouldEnablePagination = savedPaginationState === "true";
-        console.log('Setting pagination from cookie:', shouldEnablePagination); // Debug log
+        console.log("Setting pagination from cookie:", shouldEnablePagination); // Debug log
         onPaginationToggle(shouldEnablePagination);
       }
       setIsInitialized(true);
@@ -176,24 +170,25 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
   }, [cookieName, onPaginationToggle, isInitialized]);
 
   const handlePaginationToggle = (checked: boolean) => {
-    console.log('Pagination toggle clicked:', checked); // Debug log
-    
+    console.log("Pagination toggle clicked:", checked); // Debug log
+
     // Update the parent state first
     onPaginationToggle(checked);
-    
+
     // Then save to cookie
     const daysToExpire = Math.ceil(cookieMaxAge / (24 * 60 * 60));
     setCookie(cookieName, checked.toString(), daysToExpire);
-    
+
     // Reset to first page when toggling pagination
     if (checked) {
       onPageChange(1);
     }
   };
 
-  const totalPages = paginationEnabled && totalCount > 0
-    ? Math.ceil(totalCount / rowsPerPage)
-    : 1;
+  const totalPages =
+    paginationEnabled && totalCount > 0
+      ? Math.ceil(totalCount / rowsPerPage)
+      : 1;
 
   // Generate pagination items with first, last, and nearby pages
   const getPaginationItems = () => {
@@ -285,13 +280,13 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
   };
 
   // Debug information
-  console.log('DataTableLayout render:', {
+  console.log("DataTableLayout render:", {
     paginationEnabled,
     totalCount,
     totalPages,
     page,
     rowsPerPage,
-    cookieName
+    cookieName,
   });
 
   return (
@@ -395,7 +390,7 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
                 <Checkbox
                   id="pagination"
                   checked={paginationEnabled}
-                  onCheckedChange={(checked) => 
+                  onCheckedChange={(checked) =>
                     handlePaginationToggle(checked as boolean)
                   }
                 />
@@ -403,15 +398,13 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
                   htmlFor="pagination"
                   className="text-sm text-muted-foreground cursor-pointer"
                 >
-                  Enable Pagination
+                  Pagination
                 </Label>
               </div>
 
               {paginationEnabled && (
                 <div className="flex items-center space-x-2">
-                  <Label className="text-sm text-muted-foreground">
-                    Rows per page:
-                  </Label>
+                  <Label className="text-sm text-muted-foreground">Rows:</Label>
                   <Select
                     value={rowsPerPage.toString()}
                     onValueChange={onRowsPerPageChange}
@@ -467,9 +460,7 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
             <div className="flex items-center space-x-4">
               {paginationEnabled && totalPages > 0 && (
                 <div className="flex items-center space-x-2">
-                  <Label className="text-sm text-muted-foreground">
-                    Go to page:
-                  </Label>
+                  <Label className="text-sm text-muted-foreground">Go:</Label>
                   <Select
                     value={page.toString()}
                     onValueChange={(value) => onPageChange(parseInt(value))}
@@ -481,15 +472,6 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
                   </Select>
                 </div>
               )}
-              
-              {/* Show total count */}
-              <div className="text-sm text-muted-foreground">
-                {paginationEnabled ? (
-                  `Showing ${((page - 1) * rowsPerPage) + 1}-${Math.min(page * rowsPerPage, totalCount)} of ${totalCount}`
-                ) : (
-                  `Showing all ${totalCount} items`
-                )}
-              </div>
             </div>
           </div>
         </div>

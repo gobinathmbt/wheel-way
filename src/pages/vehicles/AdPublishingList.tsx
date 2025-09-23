@@ -135,6 +135,8 @@ const AdPublishingList = () => {
       });
       return response.data;
     },
+    refetchOnWindowFocus: false,
+    staleTime: 0,
   });
 
   const vehicles = vehiclesData?.data || [];
@@ -233,6 +235,9 @@ const AdPublishingList = () => {
   const handlePaginationToggle = (checked: boolean) => {
     setPaginationEnabled(checked);
     setPage(1);
+    setTimeout(() => {
+      refetch();
+    }, 100);
   };
 
   const handleRefresh = () => {
