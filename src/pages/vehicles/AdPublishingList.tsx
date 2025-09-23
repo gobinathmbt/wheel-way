@@ -25,6 +25,8 @@ import AdvertisementVehicleSideModal from "@/components/vehicles/VehicleSideModa
 import CreateVehicleAdvertisementModal from "@/components/vehicles/CreateSideModals/CreateVehicleAdvertisementModal";
 import DataTableLayout from "@/components/common/DataTableLayout";
 import { useAuth } from "@/auth/AuthContext";
+import { MoveHorizontal } from "lucide-react";
+import BulkOperationsDialog from "@/components/common/BulkOperationsDialog";
 
 const AdPublishingList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,6 +39,7 @@ const AdPublishingList = () => {
   const [paginationEnabled, setPaginationEnabled] = useState(true);
   const [sortField, setSortField] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
 
   const { completeUser } = useAuth();
 
@@ -305,6 +308,13 @@ const AdPublishingList = () => {
   // Prepare action buttons
   const actionButtons = [
     {
+      icon: <MoveHorizontal className="h-4 w-4" />,
+      tooltip: "Bulk Operations",
+      onClick: () => setIsBulkDialogOpen(true),
+      className:
+        "bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200",
+    },
+    {
       icon: <SlidersHorizontal className="h-4 w-4" />,
       tooltip: "Search & Filters",
       onClick: () => setIsFilterDialogOpen(true),
@@ -548,6 +558,13 @@ const AdPublishingList = () => {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateSuccess}
         vehicleType="advertisement"
+      />
+
+      <BulkOperationsDialog
+        isOpen={isBulkDialogOpen}
+        onOpenChange={setIsBulkDialogOpen}
+        vehicleType="advertisement"
+        onSuccess={refetch}
       />
 
       <ConfigurationSearchmore

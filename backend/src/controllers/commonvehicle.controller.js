@@ -129,11 +129,18 @@ const getVehiclesForBulkOperations = async (req, res) => {
     const VehicleModel = getVehicleModel(vehicle_type);
 
     // Build filter with company_id first for index usage
-    let filter = { company_id: req.user.company_id };
+    let filter = {
+      company_id: req.user.company_id,
+      vehicle_type: vehicle_type,
+    };
 
     // Handle dealership-based access for non-primary company_super_admin
-    if (!req.user.is_primary_admin && req.user.dealership_ids && req.user.dealership_ids.length > 0) {
-      const dealershipObjectIds = req.user.dealership_ids.map(dealer => 
+    if (
+      !req.user.is_primary_admin &&
+      req.user.dealership_ids &&
+      req.user.dealership_ids.length > 0
+    ) {
+      const dealershipObjectIds = req.user.dealership_ids.map((dealer) =>
         typeof dealer === "object" ? dealer._id : dealer
       );
       filter.dealership_id = { $in: dealershipObjectIds };

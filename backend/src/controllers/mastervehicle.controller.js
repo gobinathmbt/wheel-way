@@ -12,7 +12,7 @@ const getMasterVehicles = async (req, res) => {
     const numericPage = parseInt(page);
 
     // Build filter with company_id first for index usage
-    let filter = { company_id: req.user.company_id };
+    let filter = { company_id: req.user.company_id ,vehicle_type: 'master'};
 
     // Handle dealership-based access for non-primary company_super_admin
     if (!req.user.is_primary_admin &&
@@ -76,6 +76,7 @@ const getMasterVehicle = async (req, res) => {
     const masterVehicle = await MasterVehicle.findOne({
       vehicle_stock_id: req.params.id,
       company_id: req.user.company_id,
+      vehicle_type: 'master'
     });
 
     if (!masterVehicle) {

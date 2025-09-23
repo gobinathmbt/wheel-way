@@ -15,13 +15,19 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { vehicleServices, tradeinServices, authServices, dealershipServices } from "@/api/services";
+import {
+  vehicleServices,
+  tradeinServices,
+  authServices,
+  dealershipServices,
+} from "@/api/services";
 import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
 import VehicleTradeSideModal from "@/components/vehicles/VehicleSideModals/VehicleTradeSideModal";
 import CreateVehicleTradeModal from "@/components/vehicles/CreateSideModals/CreateVehicleTradeModal";
 import DataTableLayout from "@/components/common/DataTableLayout";
 import { useAuth } from "@/auth/AuthContext";
-
+import { MoveHorizontal } from "lucide-react";
+import BulkOperationsDialog from "@/components/common/BulkOperationsDialog";
 
 const TradeinList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,8 +40,9 @@ const TradeinList = () => {
   const [paginationEnabled, setPaginationEnabled] = useState(true);
   const [sortField, setSortField] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
 
-    const { completeUser } = useAuth();
+  const { completeUser } = useAuth();
 
   // Fetch current user's permissions
   const { data: userPermissions } = useQuery({
@@ -46,26 +53,24 @@ const TradeinList = () => {
     },
   });
 
+  const { data: dealerships } = useQuery({
+    queryKey: ["dealerships-dropdown", completeUser?.is_primary_admin],
+    queryFn: async () => {
+      const response = await dealershipServices.getDealershipsDropdown();
 
-    const { data: dealerships } = useQuery({
-      queryKey: ["dealerships-dropdown", completeUser?.is_primary_admin],
-      queryFn: async () => {
-        const response = await dealershipServices.getDealershipsDropdown();
-  
-        if (!completeUser?.is_primary_admin && completeUser?.dealership_ids) {
-          const userDealershipIds = completeUser.dealership_ids.map((d: any) =>
-            typeof d === "object" ? d._id : d
-          );
-          return response.data.data.filter((dealership: any) =>
-            userDealershipIds.includes(dealership._id)
-          );
-        }
-  
-        return response.data.data;
-      },
-      enabled: !!completeUser,
-    });
-  
+      if (!completeUser?.is_primary_admin && completeUser?.dealership_ids) {
+        const userDealershipIds = completeUser.dealership_ids.map((d: any) =>
+          typeof d === "object" ? d._id : d
+        );
+        return response.data.data.filter((dealership: any) =>
+          userDealershipIds.includes(dealership._id)
+        );
+      }
+
+      return response.data.data;
+    },
+    enabled: !!completeUser,
+  });
 
   // Function to fetch all vehicles when pagination is disabled
   const fetchAllVehicles = async () => {
@@ -176,7 +181,7 @@ const TradeinList = () => {
     }
   };
 
- const getSortIcon = (field: string) => {
+  const getSortIcon = (field: string) => {
     if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
     return sortOrder === "asc" ? (
       <ArrowUp className="h-3 w-3 ml-1" />
@@ -185,9 +190,12 @@ const TradeinList = () => {
     );
   };
 
-  const handleStartAppraisal = async (vehicleId: string,vehicleType: string,) => {
+  const handleStartAppraisal = async (
+    vehicleId: string,
+    vehicleType: string
+  ) => {
     try {
-      await tradeinServices.startAppraisal(vehicleId,vehicleType);
+      await tradeinServices.startAppraisal(vehicleId, vehicleType);
       toast.success("Trade-in appraisal started successfully");
       refetch();
     } catch (error) {
@@ -195,9 +203,12 @@ const TradeinList = () => {
     }
   };
 
-  const handleViewDetails = async (vehicleId: string,vehicleType: string,) => {
+  const handleViewDetails = async (vehicleId: string, vehicleType: string) => {
     try {
-      const response = await vehicleServices.getVehicleDetail(vehicleId,vehicleType);
+      const response = await vehicleServices.getVehicleDetail(
+        vehicleId,
+        vehicleType
+      );
       setSelectedVehicle(response.data.data);
     } catch (error) {
       toast.error("Failed to load vehicle details");
@@ -217,7 +228,7 @@ const TradeinList = () => {
     refetch();
   };
 
-    const getDealershipName = (dealershipId: string) => {
+  const getDealershipName = (dealershipId: string) => {
     const dealership = dealerships?.find(
       (dealer: any) => dealer._id === dealershipId
     );
@@ -261,7 +272,6 @@ const TradeinList = () => {
   const handleExport = () => {
     toast.success("Export started");
   };
-
 
   // Calculate counts for chips
   const totalVehicles = vehiclesData?.total || 0;
@@ -322,6 +332,13 @@ const TradeinList = () => {
 
   // Prepare action buttons
   const actionButtons = [
+    {
+      icon: <MoveHorizontal className="h-4 w-4" />,
+      tooltip: "Bulk Operations",
+      onClick: () => setIsBulkDialogOpen(true),
+      className:
+        "bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200",
+    },
     {
       icon: <SlidersHorizontal className="h-4 w-4" />,
       tooltip: "Search & Filters",
@@ -388,15 +405,15 @@ const TradeinList = () => {
           {getSortIcon("plate_no")}
         </div>
       </TableHead>
-           <TableHead
-              className="bg-muted/50 cursor-pointer hover:bg-muted/70"
-              onClick={() => handleSort("dealership_id")}
-            >
-              <div className="flex items-center">
-                Dealership
-                {getSortIcon("dealership_id")}
-              </div>
-            </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("dealership_id")}
+      >
+        <div className="flex items-center">
+          Dealership
+          {getSortIcon("dealership_id")}
+        </div>
+      </TableHead>
       <TableHead
         className="bg-muted/50 cursor-pointer hover:bg-muted/70"
         onClick={() => handleSort("year")}
@@ -443,7 +460,7 @@ const TradeinList = () => {
               <p className="font-medium">{vehicle.vehicle_stock_id}</p>
             </div>
           </TableCell>
-           <TableCell>
+          <TableCell>
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
                 {vehicle.vehicle_hero_image ? (
@@ -507,7 +524,12 @@ const TradeinList = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleViewDetails(vehicle.vehicle_stock_id,vehicle.vehicle_type)}
+                onClick={() =>
+                  handleViewDetails(
+                    vehicle.vehicle_stock_id,
+                    vehicle.vehicle_type
+                  )
+                }
                 className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
               >
                 <Eye className="h-4 w-4" />
@@ -516,7 +538,12 @@ const TradeinList = () => {
               {vehicle.tradein_status === "pending" && (
                 <Button
                   size="sm"
-                  onClick={() => handleStartAppraisal(vehicle.vehicle_stock_id,vehicle.vehicle_type)}
+                  onClick={() =>
+                    handleStartAppraisal(
+                      vehicle.vehicle_stock_id,
+                      vehicle.vehicle_type
+                    )
+                  }
                   className="bg-green-600 hover:bg-green-700"
                 >
                   Start Appraisal
@@ -570,6 +597,12 @@ const TradeinList = () => {
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}
         vehicleType="tradein"
+      />
+      <BulkOperationsDialog
+        isOpen={isBulkDialogOpen}
+        onOpenChange={setIsBulkDialogOpen}
+        vehicleType="tradein"
+        onSuccess={refetch}
       />
 
       <ConfigurationSearchmore

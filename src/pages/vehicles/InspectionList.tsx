@@ -116,9 +116,9 @@ const InspectionList = () => {
     refetch,
   } = useQuery({
     queryKey: paginationEnabled
-      ? ["inspection-vehicles", page, searchTerm, statusFilter, rowsPerPage]
-      : ["all-inspection-vehicles", searchTerm, statusFilter],
-    queryFn: async () => {
+      ? ["inspection-vehicles-paginated", page, searchTerm, statusFilter, rowsPerPage]
+      : ["inspection-vehicles-all", searchTerm, statusFilter],
+    queryFn: async () => {      
       if (!paginationEnabled) {
         return await fetchAllVehicles();
       }
@@ -137,6 +137,8 @@ const InspectionList = () => {
       });
       return response.data;
     },
+    refetchOnWindowFocus: false,
+    staleTime: 0, // Consider data stale immediately
   });
 
   const vehicles = vehiclesData?.data || [];
@@ -227,12 +229,15 @@ const InspectionList = () => {
 
   const handleRowsPerPageChange = (value: string) => {
     setRowsPerPage(Number(value));
-    setPage(1);
+    setPage(1); // Reset to first page when changing rows per page
   };
 
-  const handlePaginationToggle = (checked) => {
+  const handlePaginationToggle = (checked: boolean) => {
     setPaginationEnabled(checked);
-    setPage(1);
+    setPage(1); // Reset to first page when toggling
+    setTimeout(() => {
+      refetch();
+    }, 100);
   };
 
   const getStatusColor = (status: string) => {
@@ -419,7 +424,7 @@ const InspectionList = () => {
       <TableHead className="bg-muted/50">Actions</TableHead>
     </TableRow>
   );
-  // Render table body
+
   const renderTableBody = () => (
     <>
       {sortedVehicles.map((vehicle: any, index: number) => (
@@ -591,4 +596,4 @@ const InspectionList = () => {
   );
 };
 
-export default InspectionList;
+export default InspectionList
