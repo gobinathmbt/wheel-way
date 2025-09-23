@@ -27,17 +27,27 @@ const getInspectionConfigs = async (req, res) => {
 
     const configs = await InspectionConfig.find(searchQuery)
       .select(
-        "config_name description version is_active is_default created_at updated_at"
+        "config_name description version is_active is_default created_at updated_at dealership_id"
       )
+      .populate('dealership_id', 'dealership_name dealership_id')
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit));
+
+    // Add categories_count to each config
+    const configsWithCount = await Promise.all(
+      configs.map(async (config) => {
+        const configObj = config.toObject();
+        configObj.categories_count = config.categories ? config.categories.length : 0;
+        return configObj;
+      })
+    );
 
     const total = await InspectionConfig.countDocuments(searchQuery);
 
     res.status(200).json({
       success: true,
-      data: configs,
+      data: configsWithCount,
       pagination: {
         current_page: parseInt(page),
         total_pages: Math.ceil(total / limit),
@@ -802,17 +812,28 @@ const getTradeinConfigs = async (req, res) => {
 
     const configs = await TradeinConfig.find(searchQuery)
       .select(
-        "config_name description version is_active is_default created_at updated_at"
+        "config_name description version is_active is_default created_at updated_at dealership_id"
       )
+      .populate("dealership_id", "dealership_name dealership_id")
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit));
+
+    // Add vehicles_count (or similar) to each config
+    const configsWithCount = await Promise.all(
+      configs.map(async (config) => {
+        const configObj = config.toObject();
+        // Assuming TradeinConfig has an array like `vehicles` or `items`
+        configObj.vehicles_count = config.vehicles ? config.vehicles.length : 0;
+        return configObj;
+      })
+    );
 
     const total = await TradeinConfig.countDocuments(searchQuery);
 
     res.status(200).json({
       success: true,
-      data: configs,
+      data: configsWithCount,
       pagination: {
         current_page: parseInt(page),
         total_pages: Math.ceil(total / limit),

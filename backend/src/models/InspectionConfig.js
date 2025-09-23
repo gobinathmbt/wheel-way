@@ -146,6 +146,10 @@ const InspectionConfigSchema = new mongoose.Schema({
     type: String,
     default: '1.0'
   },
+  dealership_id: {
+    type: String,
+    ref: "Dealership",
+  },
   is_active: {
     type: Boolean,
     default: true

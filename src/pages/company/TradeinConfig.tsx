@@ -50,6 +50,7 @@ import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearch
 import { Calculator } from "lucide-react";
 import CalculationSettingsDialog from "@/components/inspection/CalculationSettingsDialog";
 import DataTableLayout from "@/components/common/DataTableLayout";
+import { useAuth } from "@/auth/AuthContext";
 
 const TradeinConfig = () => {
   const [selectedConfig, setSelectedConfig] = useState<any>(null);
@@ -57,13 +58,15 @@ const TradeinConfig = () => {
   const [isSectionDialogOpen, setIsSectionDialogOpen] = useState(false);
   const [isFieldDialogOpen, setIsFieldDialogOpen] = useState(false);
   const [isEditConfigDialogOpen, setIsEditConfigDialogOpen] = useState(false);
-  const [isEditBasicInfoDialogOpen, setIsEditBasicInfoDialogOpen] = useState(false);
+  const [isEditBasicInfoDialogOpen, setIsEditBasicInfoDialogOpen] =
+    useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [configToDelete, setConfigToDelete] = useState<any>(null);
   const [selectedSection, setSelectedSection] = useState<any>(null);
   const [editingField, setEditingField] = useState<any>(null);
-  const [isCalculationSettingsOpen, setIsCalculationSettingsOpen] = useState(false);
+  const [isCalculationSettingsOpen, setIsCalculationSettingsOpen] =
+    useState(false);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
 
   // DataTable states
@@ -76,17 +79,25 @@ const TradeinConfig = () => {
   // Search and pagination states
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [dealershipFilter, setDealershipFilter] = useState("all");
+
+  // Get user info from auth context
+  const { completeUser } = useAuth();
+  const isPrimaryAdmin = completeUser?.is_primary_admin;
+  const userDealerships = completeUser?.dealership_ids || [];
 
   const [configFormData, setConfigFormData] = useState({
     config_name: "",
     description: "",
     is_active: false,
+    dealership_id: isPrimaryAdmin ? "" : userDealerships[0]?._id || "",
   });
 
   const [editConfigFormData, setEditConfigFormData] = useState({
     config_name: "",
     description: "",
     is_active: false,
+    dealership_id: "",
   });
 
   const [sectionFormData, setSectionFormData] = useState({
@@ -120,12 +131,19 @@ const TradeinConfig = () => {
       let hasMore = true;
 
       while (hasMore) {
-        const response = await configServices.getTradeinConfigs({
+        const params: any = {
           page: currentPage,
           limit: 100,
           search: searchTerm,
-          status: statusFilter,
-        });
+          status: statusFilter !== "all" ? statusFilter : undefined,
+        };
+
+        // Add dealership filter if not primary admin and not "all"
+        if (!isPrimaryAdmin && dealershipFilter !== "all") {
+          params.dealership_id = dealershipFilter;
+        }
+
+        const response = await configServices.getTradeinConfigs(params);
 
         allData = [...allData, ...response.data.data];
 
@@ -139,7 +157,7 @@ const TradeinConfig = () => {
       return {
         data: allData,
         total: allData.length,
-        pagination: { total_items: allData.length }
+        pagination: { total_items: allData.length },
       };
     } catch (error) {
       throw error;
@@ -152,19 +170,33 @@ const TradeinConfig = () => {
     refetch,
   } = useQuery({
     queryKey: paginationEnabled
-      ? ["tradein-configs", page, searchTerm, statusFilter, rowsPerPage]
-      : ["all-tradein-configs", searchTerm, statusFilter],
+      ? [
+          "tradein-configs",
+          page,
+          searchTerm,
+          statusFilter,
+          dealershipFilter,
+          rowsPerPage,
+        ]
+      : ["all-tradein-configs", searchTerm, statusFilter, dealershipFilter],
     queryFn: async () => {
       if (!paginationEnabled) {
         return await fetchAllConfigs();
       }
 
-      const response = await configServices.getTradeinConfigs({
+      const params: any = {
         page: page,
         limit: rowsPerPage,
         search: searchTerm,
-        status: statusFilter,
-      });
+        status: statusFilter !== "all" ? statusFilter : undefined,
+      };
+
+      // Add dealership filter if not primary admin and not "all"
+      if (!isPrimaryAdmin && dealershipFilter !== "all") {
+        params.dealership_id = dealershipFilter;
+      }
+
+      const response = await configServices.getTradeinConfigs(params);
       return response.data;
     },
   });
@@ -178,6 +210,12 @@ const TradeinConfig = () => {
     return [...configs].sort((a, b) => {
       let aValue = a[sortField];
       let bValue = b[sortField];
+
+      // Handle nested properties
+      if (sortField === "dealership_name") {
+        aValue = a.dealership_id?.dealership_name || "Primary";
+        bValue = b.dealership_id?.dealership_name || "Primary";
+      }
 
       if (typeof aValue === "string") {
         aValue = aValue.toLowerCase();
@@ -217,7 +255,11 @@ const TradeinConfig = () => {
   const hasCalculationFields = (config: any) => {
     return config.sections?.some((section: any) =>
       section.fields?.some(
-        (field: any) => field.field_type === 'number' || field.field_type === 'currency' || field.field_type === 'calculation_field' || field.field_type === 'mutiplier'
+        (field: any) =>
+          field.field_type === "number" ||
+          field.field_type === "currency" ||
+          field.field_type === "calculation_field" ||
+          field.field_type === "mutiplier"
       )
     );
   };
@@ -273,13 +315,19 @@ const TradeinConfig = () => {
   const handleCreateConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await configServices.createTradeinConfig(configFormData);
+      // Only include dealership_id if user is not primary admin
+      const submitData = isPrimaryAdmin
+        ? configFormData
+        : { ...configFormData, dealership_id: configFormData.dealership_id };
+
+      await configServices.createTradeinConfig(submitData);
       toast.success("Trade-in configuration created successfully");
       setIsConfigDialogOpen(false);
       setConfigFormData({
         config_name: "",
         description: "",
         is_active: false,
+        dealership_id: isPrimaryAdmin ? "" : userDealerships[0]?._id || "",
       });
       refetch();
     } catch (error: any) {
@@ -305,6 +353,7 @@ const TradeinConfig = () => {
       config_name: config.config_name,
       description: config.description,
       is_active: config.is_active,
+      dealership_id: config.dealership_id?._id || "",
     });
     setIsEditBasicInfoDialogOpen(true);
   };
@@ -312,10 +361,15 @@ const TradeinConfig = () => {
   const handleEditConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await configServices.updateTradeinConfig(
-        selectedConfig._id,
-        editConfigFormData
-      );
+      // Only include dealership_id if user is not primary admin
+      const submitData = isPrimaryAdmin
+        ? editConfigFormData
+        : {
+            ...editConfigFormData,
+            dealership_id: editConfigFormData.dealership_id,
+          };
+
+      await configServices.updateTradeinConfig(selectedConfig._id, submitData);
       toast.success("Configuration updated successfully");
       setIsEditBasicInfoDialogOpen(false);
       refetch();
@@ -475,6 +529,7 @@ const TradeinConfig = () => {
   const handleClearFilters = () => {
     setSearchTerm("");
     setStatusFilter("all");
+    setDealershipFilter("all");
     setPage(1);
     refetch();
   };
@@ -493,9 +548,22 @@ const TradeinConfig = () => {
   const totalConfigs = configsData?.pagination?.total_items || 0;
   const activeCount = configs.filter((c: any) => c.is_active).length;
   const inactiveCount = configs.filter((c: any) => !c.is_active).length;
-  const sectionsCount = selectedConfig 
-    ? configDetails?.sections?.length || 0 
-    : configs.reduce((sum: number, config: any) => sum + (config.sections_count || 0), 0);
+  const sectionsCount = selectedConfig
+    ? configDetails?.sections?.length || 0
+    : configs.reduce(
+        (sum: number, config: any) => sum + (config.sections_count || 0),
+        0
+      );
+
+  // Calculate dealership-specific counts
+  const dealershipCounts = {};
+  if (!isPrimaryAdmin && userDealerships.length > 0) {
+    userDealerships.forEach((dealership) => {
+      dealershipCounts[dealership._id] = configs.filter(
+        (c: any) => c.dealership_id?._id === dealership._id
+      ).length;
+    });
+  }
 
   // Prepare stat chips
   const statChips = [
@@ -529,6 +597,7 @@ const TradeinConfig = () => {
       textColor: "text-blue-800",
       hoverColor: "hover:bg-blue-100",
     },
+    
   ];
 
   // Prepare action buttons
@@ -549,13 +618,15 @@ const TradeinConfig = () => {
       icon: <Plus className="h-4 w-4" />,
       tooltip: "Create Configuration",
       onClick: () => setIsConfigDialogOpen(true),
-      className: "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
+      className:
+        "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
     },
     {
       icon: <Upload className="h-4 w-4" />,
       tooltip: "Import Configurations",
       onClick: () => toast.info("Import feature coming soon"),
-      className: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
+      className:
+        "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
     },
   ];
 
@@ -588,6 +659,15 @@ const TradeinConfig = () => {
           {getSortIcon("sections_count")}
         </div>
       </TableHead>
+        <TableHead
+          className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+          onClick={() => handleSort("dealership_name")}
+        >
+          <div className="flex items-center">
+            Dealership
+            {getSortIcon("dealership_name")}
+          </div>
+        </TableHead>
       <TableHead
         className="bg-muted/50 cursor-pointer hover:bg-muted/70"
         onClick={() => handleSort("is_active")}
@@ -614,7 +694,7 @@ const TradeinConfig = () => {
   const renderTableBody = () => (
     <>
       {sortedConfigs.map((config: any, index: number) => (
-        <TableRow 
+        <TableRow
           key={config._id}
           className="cursor-pointer hover:bg-muted/50"
           onClick={() => handleEditConfigClick(config)}
@@ -639,6 +719,11 @@ const TradeinConfig = () => {
               {config.sections_count || 0} sections
             </Badge>
           </TableCell>
+            <TableCell>
+              <Badge className="bg-orange-500 text-white hover:bg-orange-600">
+                {config.dealership_id?.dealership_name || "Primary"}
+              </Badge>
+            </TableCell>
           <TableCell>
             <Badge
               variant={config.is_active ? "default" : "secondary"}
@@ -714,15 +799,12 @@ const TradeinConfig = () => {
         renderTableHeader={renderTableHeader}
         renderTableBody={renderTableBody}
         onRefresh={handleRefresh}
-        cookieName="tradeinconfig_pagination_enabled" // Custom cookie name
-        cookieMaxAge={60 * 60 * 24 * 30} // 30 days
+        cookieName="tradeinconfig_pagination_enabled"
+        cookieMaxAge={60 * 60 * 24 * 30}
       />
 
       {/* Create Configuration Dialog */}
-      <Dialog
-        open={isConfigDialogOpen}
-        onOpenChange={setIsConfigDialogOpen}
-      >
+      <Dialog open={isConfigDialogOpen} onOpenChange={setIsConfigDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Create Trade-in Configuration</DialogTitle>
@@ -732,6 +814,33 @@ const TradeinConfig = () => {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateConfig} className="space-y-6">
+            {/* Show dealership dropdown for non-primary admins */}
+            {!isPrimaryAdmin && userDealerships.length > 0 && (
+              <div>
+                <Label htmlFor="dealership_id">Dealership</Label>
+                <Select
+                  value={configFormData.dealership_id}
+                  onValueChange={(value) =>
+                    setConfigFormData({
+                      ...configFormData,
+                      dealership_id: value,
+                    })
+                  }
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select dealership" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userDealerships.map((dealership) => (
+                      <SelectItem key={dealership._id} value={dealership._id}>
+                        {dealership.dealership_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label htmlFor="config_name">Configuration Name</Label>
               <Input
@@ -772,9 +881,7 @@ const TradeinConfig = () => {
                   })
                 }
               />
-              <Label htmlFor="is_active">
-                Make this configuration active
-              </Label>
+              <Label htmlFor="is_active">Make this configuration active</Label>
             </div>
             <div className="flex justify-end space-x-2">
               <Button
@@ -803,6 +910,33 @@ const TradeinConfig = () => {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditConfig} className="space-y-4">
+            {/* Show dealership dropdown for non-primary admins */}
+            {!isPrimaryAdmin && userDealerships.length > 0 && (
+              <div>
+                <Label htmlFor="edit_dealership_id">Dealership</Label>
+                <Select
+                  value={editConfigFormData.dealership_id}
+                  onValueChange={(value) =>
+                    setEditConfigFormData({
+                      ...editConfigFormData,
+                      dealership_id: value,
+                    })
+                  }
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select dealership" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userDealerships.map((dealership) => (
+                      <SelectItem key={dealership._id} value={dealership._id}>
+                        {dealership.dealership_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label htmlFor="edit_config_name">Configuration Name</Label>
               <Input
@@ -856,13 +990,85 @@ const TradeinConfig = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Search and Filter Dialog */}
+      <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Search & Filter</DialogTitle>
+            <DialogDescription>
+              Search and filter trade-in configurations
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="search">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  placeholder="Search configurations..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="status-filter">Status Filter</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Dealership filter for non-primary admins */}
+            {!isPrimaryAdmin && userDealerships.length > 0 && (
+              <div>
+                <Label htmlFor="dealership-filter">Dealership Filter</Label>
+                <Select
+                  value={dealershipFilter}
+                  onValueChange={setDealershipFilter}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by dealership" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Dealerships</SelectItem>
+                    {userDealerships.map((dealership) => (
+                      <SelectItem key={dealership._id} value={dealership._id}>
+                        {dealership.dealership_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={handleClearFilters}>
+                <X className="h-4 w-4 mr-2" />
+                Clear
+              </Button>
+              <Button onClick={() => setIsFilterDialogOpen(false)}>
+                Apply Filters
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rest of the dialogs remain the same */}
       <Dialog
         open={isEditConfigDialogOpen}
         onOpenChange={setIsEditConfigDialogOpen}
       >
         <DialogContent className="max-w-[95vw] max-h-[95vh] w-[95vw] h-[95vh] p-0">
           <div className="flex flex-col h-full">
-            {/* Header */}
             <DialogHeader className="p-6 border-b">
               <div className="flex items-center justify-between">
                 <div>
@@ -883,11 +1089,9 @@ const TradeinConfig = () => {
               </div>
             </DialogHeader>
 
-            {/* Content */}
             <div className="flex-1 overflow-hidden p-6">
               {configDetails ? (
                 <div className="h-full flex flex-col space-y-6">
-                  {/* Action Buttons */}
                   <div className="flex justify-between items-center">
                     <div className="flex space-x-2">
                       <Dialog
@@ -895,12 +1099,100 @@ const TradeinConfig = () => {
                         onOpenChange={setIsSectionDialogOpen}
                       >
                         <DialogTrigger asChild>
-                          <Button variant="outline">
+                          <Button>
                             <Plus className="h-4 w-4 mr-2" />
                             Add Section
                           </Button>
                         </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Add New Section</DialogTitle>
+                            <DialogDescription>
+                              Create a new section for the configuration
+                            </DialogDescription>
+                          </DialogHeader>
+                          <form
+                            onSubmit={handleAddSection}
+                            className="space-y-4"
+                          >
+                            <div>
+                              <Label htmlFor="section_name">Section Name</Label>
+                              <Input
+                                id="section_name"
+                                value={sectionFormData.section_name}
+                                onChange={(e) =>
+                                  setSectionFormData({
+                                    ...sectionFormData,
+                                    section_name: e.target.value,
+                                  })
+                                }
+                                required
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="section_description">
+                                Description
+                              </Label>
+                              <Input
+                                id="section_description"
+                                value={sectionFormData.description}
+                                onChange={(e) =>
+                                  setSectionFormData({
+                                    ...sectionFormData,
+                                    description: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="is_collapsible"
+                                  checked={sectionFormData.is_collapsible}
+                                  onCheckedChange={(checked) =>
+                                    setSectionFormData({
+                                      ...sectionFormData,
+                                      is_collapsible: checked as boolean,
+                                    })
+                                  }
+                                />
+                                <Label htmlFor="is_collapsible">
+                                  Collapsible Section
+                                </Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="is_expanded_by_default"
+                                  checked={
+                                    sectionFormData.is_expanded_by_default
+                                  }
+                                  onCheckedChange={(checked) =>
+                                    setSectionFormData({
+                                      ...sectionFormData,
+                                      is_expanded_by_default:
+                                        checked as boolean,
+                                    })
+                                  }
+                                />
+                                <Label htmlFor="is_expanded_by_default">
+                                  Expanded by Default
+                                </Label>
+                              </div>
+                            </div>
+                            <div className="flex justify-end space-x-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsSectionDialogOpen(false)}
+                              >
+                                Cancel
+                              </Button>
+                              <Button type="submit">Add Section</Button>
+                            </div>
+                          </form>
+                        </DialogContent>
                       </Dialog>
+
                       <Button
                         variant="outline"
                         onClick={() => setIsPreviewOpen(true)}
@@ -908,17 +1200,26 @@ const TradeinConfig = () => {
                         <Eye className="h-4 w-4 mr-2" />
                         Preview
                       </Button>
-                    </div>
-                    <div className="flex space-x-2">
+
                       {hasCalculationFields(configDetails) && (
                         <Button
                           variant="outline"
                           onClick={() => setIsCalculationSettingsOpen(true)}
                         >
                           <Calculator className="h-4 w-4 mr-2" />
-                          Calculations
+                          Calculation Settings
                         </Button>
                       )}
+                    </div>
+
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsEditBasicInfoDialogOpen(true)}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Info
+                      </Button>
                       <Button onClick={handleSaveChanges}>
                         <Save className="h-4 w-4 mr-2" />
                         Save Changes
@@ -926,162 +1227,42 @@ const TradeinConfig = () => {
                     </div>
                   </div>
 
-                  {/* Sections List */}
-                  <div className="flex-1 overflow-hidden">
-                    <Card className="h-full">
-                      <CardContent className="h-full p-4">
-                        {configDetails.sections?.length > 0 ? (
-                          <div className="h-full overflow-auto">
-                            <DraggableTradeinSectionsList
-                              sections={configDetails.sections.sort(
-                                (a: any, b: any) =>
-                                  (a.display_order || 0) - (b.display_order || 0)
-                              )}
-                              selectedConfig={selectedConfig}
-                              onAddField={(section) => {
-                                setSelectedSection(section);
-                                setEditingField(null);
-                                resetFieldForm();
-                                setIsFieldDialogOpen(true);
-                              }}
-                              onEditField={openEditFieldDialog}
-                              onDeleteField={handleDeleteField}
-                              dropdowns={dropdowns}
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center h-full">
-                            <div className="text-center">
-                              <p className="text-muted-foreground mb-4">
-                                No sections configured yet. Add your first section to get started.
-                              </p>
-                              <Button
-                                onClick={() => setIsSectionDialogOpen(true)}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add First Section
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
+                  <DraggableTradeinSectionsList
+                    sections={configDetails.sections.sort(
+                      (a: any, b: any) =>
+                        (a.display_order || 0) - (b.display_order || 0)
+                    )}
+                    selectedConfig={selectedConfig}
+                    onAddField={(section) => {
+                      setSelectedSection(section);
+                      setEditingField(null);
+                      resetFieldForm();
+                      setIsFieldDialogOpen(true);
+                    }}
+                    onEditField={openEditFieldDialog}
+                    onDeleteField={handleDeleteField}
+                    dropdowns={dropdowns}
+                  />
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-full">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
+                <div>Loading configuration details...</div>
               )}
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Add Section Dialog */}
-      <Dialog
-        open={isSectionDialogOpen}
-        onOpenChange={setIsSectionDialogOpen}
-      >
+      {/* Field Dialog */}
+      <Dialog open={isFieldDialogOpen} onOpenChange={setIsFieldDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Evaluation Section</DialogTitle>
-            <DialogDescription>
-              Create a new section for the trade-in evaluation form
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleAddSection} className="space-y-4">
-            <div>
-              <Label htmlFor="section_name">Section Name</Label>
-              <Input
-                id="section_name"
-                value={sectionFormData.section_name}
-                onChange={(e) =>
-                  setSectionFormData({
-                    ...sectionFormData,
-                    section_name: e.target.value,
-                  })
-                }
-                placeholder="Vehicle Condition"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="section_description">Description</Label>
-              <Input
-                id="section_description"
-                value={sectionFormData.description}
-                onChange={(e) =>
-                  setSectionFormData({
-                    ...sectionFormData,
-                    description: e.target.value,
-                  })
-                }
-                placeholder="Assess overall vehicle condition"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="is_collapsible"
-                checked={sectionFormData.is_collapsible}
-                onCheckedChange={(checked) =>
-                  setSectionFormData({
-                    ...sectionFormData,
-                    is_collapsible: checked as boolean,
-                  })
-                }
-              />
-              <Label htmlFor="is_collapsible">Collapsible section</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="is_expanded"
-                checked={sectionFormData.is_expanded_by_default}
-                onCheckedChange={(checked) =>
-                  setSectionFormData({
-                    ...sectionFormData,
-                    is_expanded_by_default: checked as boolean,
-                  })
-                }
-              />
-              <Label htmlFor="is_expanded">Expanded by default</Label>
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsSectionDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit">Add Section</Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add/Edit Field Dialog */}
-      <Dialog
-        open={isFieldDialogOpen}
-        onOpenChange={(open) => {
-          setIsFieldDialogOpen(open);
-          if (!open) {
-            setEditingField(null);
-            resetFieldForm();
-          }
-        }}
-      >
-        <DialogContent className="max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
             <DialogTitle>
-              {editingField
-                ? "Edit Field"
-                : `Add Field to ${selectedSection?.section_name}`}
+              {editingField ? "Edit Field" : "Add New Field"}
             </DialogTitle>
             <DialogDescription>
               {editingField
-                ? "Update the field details"
-                : "Create a new field within this section"}
+                ? "Update the field configuration"
+                : "Add a new field to the section"}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -1099,7 +1280,6 @@ const TradeinConfig = () => {
                     field_name: e.target.value,
                   })
                 }
-                placeholder="Overall Condition"
                 required
               />
             </div>
@@ -1115,7 +1295,7 @@ const TradeinConfig = () => {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select field type" />
                 </SelectTrigger>
                 <SelectContent>
                   {fieldTypes.map((type) => (
@@ -1126,42 +1306,24 @@ const TradeinConfig = () => {
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Dropdown Configuration */}
             {fieldFormData.field_type === "dropdown" && (
-              <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-                <h4 className="font-medium">Dropdown Configuration</h4>
-                <div>
-                  <Label htmlFor="dropdown_name">Select Dropdown</Label>
-                  <Select
-                    value={fieldFormData.dropdown_config.dropdown_name}
-                    onValueChange={(value) =>
-                      setFieldFormData({
-                        ...fieldFormData,
-                        dropdown_config: {
-                          ...fieldFormData.dropdown_config,
-                          dropdown_name: value,
-                        },
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a dropdown" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {dropdowns?.map((dropdown: any) => (
-                        <SelectItem
-                          key={dropdown._id}
-                          value={dropdown.dropdown_name}
-                        >
-                          {dropdown.display_name} ({dropdown.dropdown_name})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center space-x-2">
+              <div>
+                <Label htmlFor="dropdown_name">Dropdown Name</Label>
+                <Input
+                  id="dropdown_name"
+                  value={fieldFormData.dropdown_config.dropdown_name}
+                  onChange={(e) =>
+                    setFieldFormData({
+                      ...fieldFormData,
+                      dropdown_config: {
+                        ...fieldFormData.dropdown_config,
+                        dropdown_name: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="Enter dropdown name"
+                />
+                <div className="flex items-center space-x-2 mt-2">
                   <Checkbox
                     id="allow_multiple"
                     checked={fieldFormData.dropdown_config.allow_multiple}
@@ -1175,10 +1337,53 @@ const TradeinConfig = () => {
                       })
                     }
                   />
-                  <Label htmlFor="allow_multiple">Allow multiple selection</Label>
+                  <Label htmlFor="allow_multiple">
+                    Allow multiple selections
+                  </Label>
                 </div>
               </div>
             )}
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="is_required"
+                  checked={fieldFormData.is_required}
+                  onCheckedChange={(checked) =>
+                    setFieldFormData({
+                      ...fieldFormData,
+                      is_required: checked as boolean,
+                    })
+                  }
+                />
+                <Label htmlFor="is_required">Required Field</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="has_image"
+                  checked={fieldFormData.has_image}
+                  onCheckedChange={(checked) =>
+                    setFieldFormData({
+                      ...fieldFormData,
+                      has_image: checked as boolean,
+                    })
+                  }
+                />
+                <Label htmlFor="has_image">Allow Image Upload</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="has_notes"
+                  checked={fieldFormData.has_notes}
+                  onCheckedChange={(checked) =>
+                    setFieldFormData({
+                      ...fieldFormData,
+                      has_notes: checked as boolean,
+                    })
+                  }
+                />
+                <Label htmlFor="has_notes">Allow Notes</Label>
+              </div>
+            </div>
             <div>
               <Label htmlFor="placeholder">Placeholder Text</Label>
               <Input
@@ -1190,7 +1395,6 @@ const TradeinConfig = () => {
                     placeholder: e.target.value,
                   })
                 }
-                placeholder="Select condition"
               />
             </div>
             <div>
@@ -1204,53 +1408,16 @@ const TradeinConfig = () => {
                     help_text: e.target.value,
                   })
                 }
-                placeholder="Rate the overall condition of the vehicle"
               />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="is_required"
-                checked={fieldFormData.is_required}
-                onCheckedChange={(checked) =>
-                  setFieldFormData({
-                    ...fieldFormData,
-                    is_required: checked as boolean,
-                  })
-                }
-              />
-              <Label htmlFor="is_required">Required field</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="has_image"
-                checked={fieldFormData.has_image}
-                onCheckedChange={(checked) =>
-                  setFieldFormData({
-                    ...fieldFormData,
-                    has_image: checked as boolean,
-                  })
-                }
-              />
-              <Label htmlFor="has_image">Include image capture</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="has_notes"
-                checked={fieldFormData.has_notes}
-                onCheckedChange={(checked) =>
-                  setFieldFormData({
-                    ...fieldFormData,
-                    has_notes: checked as boolean,
-                  })
-                }
-              />
-              <Label htmlFor="has_notes">Allow To Enter Notes</Label>
             </div>
             <div className="flex justify-end space-x-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setIsFieldDialogOpen(false)}
+                onClick={() => {
+                  setIsFieldDialogOpen(false);
+                  setEditingField(null);
+                }}
               >
                 Cancel
               </Button>
@@ -1270,7 +1437,6 @@ const TradeinConfig = () => {
         dropdowns={dropdowns}
       />
 
-      {/* Calculation Settings Dialog */}
       {selectedConfig && configDetails && (
         <CalculationSettingsDialog
           isOpen={isCalculationSettingsOpen}
@@ -1291,11 +1457,9 @@ const TradeinConfig = () => {
         }}
         onConfirm={confirmDeleteConfig}
         title="Delete Configuration"
-        description={`Are you sure you want to delete "${configToDelete?.config_name}"? This action cannot be undone.`}
-        isLoading={deleteConfigMutation.isPending}
+        description={`Are you sure you want to delete the configuration "${configToDelete?.config_name}"? This action cannot be undone.`}
       />
 
-      {/* Search and Filter Dialog */}
       <ConfigurationSearchmore
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}

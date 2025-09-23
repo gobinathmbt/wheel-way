@@ -61,7 +61,12 @@ import DataTableLayout from "@/components/common/DataTableLayout";
 
 const InspectionConfig = () => {
   const { completeUser } = useAuth();
+  console.log(completeUser)
   const queryClient = useQueryClient();
+
+  // Get user info from auth context
+  const isPrimaryAdmin = completeUser?.is_primary_admin;
+  const userDealerships = completeUser?.dealership_ids || [];
 
   // DataTable states
   const [page, setPage] = useState(1);
@@ -101,12 +106,14 @@ const InspectionConfig = () => {
     config_name: "",
     description: "",
     is_active: false,
+    dealership_id: isPrimaryAdmin ? "" : userDealerships[0]?._id || "", // Set default dealership if not primary admin
   });
 
   const [editFormData, setEditFormData] = useState({
     config_name: "",
     description: "",
     is_active: false,
+    dealership_id: "",
   });
 
   const [sectionFormData, setSectionFormData] = useState({
@@ -334,7 +341,12 @@ const InspectionConfig = () => {
     onSuccess: () => {
       toast.success("Configuration created successfully");
       setIsConfigDialogOpen(false);
-      setConfigFormData({ config_name: "", description: "", is_active: false });
+      setConfigFormData({ 
+        config_name: "", 
+        description: "", 
+        is_active: false,
+        dealership_id: isPrimaryAdmin ? "" : userDealerships[0]?._id || "",
+      });
       refetch();
     },
     onError: (error: any) => {
@@ -698,7 +710,13 @@ const InspectionConfig = () => {
 
   const handleCreateConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    createConfigMutation.mutate(configFormData);
+    
+    // Only include dealership_id if user is not primary admin
+    const submitData = isPrimaryAdmin
+      ? configFormData
+      : { ...configFormData, dealership_id: configFormData.dealership_id };
+    
+    createConfigMutation.mutate(submitData);
   };
 
   const handleEditField = (field: any) => {
@@ -725,6 +743,7 @@ const InspectionConfig = () => {
       config_name: config.config_name,
       description: config.description || "",
       is_active: config.is_active,
+      dealership_id: config.dealership_id?._id || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -732,9 +751,15 @@ const InspectionConfig = () => {
   const handleUpdateConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!configToEdit) return;
+    
+    // Only include dealership_id if user is not primary admin
+    const submitData = isPrimaryAdmin
+      ? editFormData
+      : { ...editFormData, dealership_id: editFormData.dealership_id };
+    
     updateConfigMutation.mutate({
       id: configToEdit._id,
-      data: editFormData,
+      data: submitData,
     });
   };
 
@@ -896,6 +921,7 @@ const InspectionConfig = () => {
           {getSortIcon("categories_count")}
         </div>
       </TableHead>
+      <TableHead className="bg-muted/50">Dealership</TableHead>
       <TableHead
         className="bg-muted/50 cursor-pointer hover:bg-muted/70"
         onClick={() => handleSort("is_active")}
@@ -947,6 +973,11 @@ const InspectionConfig = () => {
           <TableCell>
             <Badge variant="outline">
               {config.categories_count || 0} categories
+            </Badge>
+          </TableCell>
+          <TableCell>
+            <Badge className="ml-2 bg-orange-500 text-white hover:bg-orange-600">
+              {config.dealership_id?.dealership_name || "Primary"}
             </Badge>
           </TableCell>
           <TableCell>
@@ -1423,6 +1454,30 @@ const InspectionConfig = () => {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateConfig} className="space-y-4">
+            {/* Show dealership dropdown for non-primary admins */}
+            {!isPrimaryAdmin && userDealerships.length > 0 && (
+              <div>
+                <Label htmlFor="dealership_id">Dealership</Label>
+                <Select
+                  value={configFormData.dealership_id}
+                  onValueChange={(value) =>
+                    setConfigFormData({ ...configFormData, dealership_id: value })
+                  }
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select dealership" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userDealerships.map((dealership) => (
+                      <SelectItem key={dealership._id} value={dealership._id}>
+                        {dealership.dealership_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label htmlFor="config_name">Configuration Name</Label>
               <Input
@@ -1491,6 +1546,30 @@ const InspectionConfig = () => {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpdateConfig} className="space-y-4">
+            {/* Show dealership dropdown for non-primary admins */}
+            {!isPrimaryAdmin && userDealerships.length > 0 && (
+              <div>
+                <Label htmlFor="edit_dealership_id">Dealership</Label>
+                <Select
+                  value={editFormData.dealership_id}
+                  onValueChange={(value) =>
+                    setEditFormData({ ...editFormData, dealership_id: value })
+                  }
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select dealership" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userDealerships.map((dealership) => (
+                      <SelectItem key={dealership._id} value={dealership._id}>
+                        {dealership.dealership_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label htmlFor="edit_config_name">Configuration Name</Label>
               <Input

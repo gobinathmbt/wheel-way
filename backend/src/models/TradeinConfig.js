@@ -99,6 +99,10 @@ const TradeinConfigSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  dealership_id: {
+    type: String,
+    ref: "Dealership",
+  },
   
   // Sections for trade-in evaluation (no master categories, just accordion sections)
   sections: [SectionConfigSchema],
