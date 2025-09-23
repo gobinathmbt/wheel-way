@@ -432,6 +432,7 @@ const AdPublishingList = () => {
         <TableRow key={vehicle._id}>
           <TableCell>
             {paginationEnabled
+            
               ? (page - 1) * rowsPerPage + index + 1
               : index + 1}
           </TableCell>
