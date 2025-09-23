@@ -16,13 +16,10 @@ import { supplierAuthServices } from "@/api/services";
 import {
   DollarSign,
   Clock,
-  FileText,
   Upload,
   Play,
   Edit,
   Car,
-  Building2,
-  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 
