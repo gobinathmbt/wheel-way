@@ -88,7 +88,7 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
     queryKey: ["dealerships-dropdown", completeUser?.is_primary_admin],
     queryFn: async () => {
       const response = await dealershipServices.getDealershipsDropdown();
-      
+
       if (!completeUser?.is_primary_admin && completeUser?.dealership_ids) {
         const userDealershipIds = completeUser.dealership_ids.map((d: any) =>
           typeof d === "object" ? d._id : d
@@ -97,7 +97,7 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
           userDealershipIds.includes(dealership._id)
         );
       }
-      
+
       return response.data.data;
     },
     enabled: isOpen && !!completeUser,
@@ -127,11 +127,14 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
 
       if (searchTerm) params.append("search", searchTerm);
       if (statusFilter !== "all") params.append("status", statusFilter);
-      if (dealershipFilter !== "all") params.append("dealership_id", dealershipFilter);
+      if (dealershipFilter !== "all")
+        params.append("dealership_id", dealershipFilter);
 
-      const response = await commonVehicleServices.getVehiclesForBulkOperations({
-        ...Object.fromEntries(params),
-      });
+      const response = await commonVehicleServices.getVehiclesForBulkOperations(
+        {
+          ...Object.fromEntries(params),
+        }
+      );
       return response.data;
     },
     enabled: isOpen,
@@ -179,17 +182,21 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
         vehicleType,
       });
 
-      toast.success(`Successfully updated dealership for ${selectedVehicles.length} vehicles`);
+      toast.success(
+        `Successfully updated dealership for ${selectedVehicles.length} vehicles`
+      );
       setSelectedVehicles([]);
       setTargetDealership("");
       refetch();
-      
+
       if (onSuccess) {
         onSuccess();
       }
     } catch (error: any) {
       console.error("Update dealership error:", error);
-      toast.error(error.response?.data?.message || "Failed to update dealership");
+      toast.error(
+        error.response?.data?.message || "Failed to update dealership"
+      );
     } finally {
       setIsUpdating(false);
     }
@@ -231,14 +238,17 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[80vh] flex flex-col">
+      <DialogContent className="w-[95vw] max-w-[1600px] h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MoveHorizontal className="h-5 w-5" />
-            Bulk Operations - {vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1)} Vehicles
+            Bulk Operations -{" "}
+            {vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1)}{" "}
+            Vehicles
           </DialogTitle>
           <DialogDescription>
-            Select vehicles to perform bulk operations. Currently supports dealership movement.
+            Select vehicles to perform bulk operations. Currently supports
+            dealership movement.
           </DialogDescription>
         </DialogHeader>
 
@@ -254,7 +264,7 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
                 className="pl-8 w-full sm:w-[250px]"
               />
             </div>
-            
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-[150px]">
                 <SelectValue placeholder="Status" />
@@ -267,7 +277,10 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
               </SelectContent>
             </Select>
 
-            <Select value={dealershipFilter} onValueChange={setDealershipFilter}>
+            <Select
+              value={dealershipFilter}
+              onValueChange={setDealershipFilter}
+            >
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Dealership" />
               </SelectTrigger>
@@ -287,7 +300,10 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Select value={targetDealership} onValueChange={setTargetDealership}>
+            <Select
+              value={targetDealership}
+              onValueChange={setTargetDealership}
+            >
               <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Select target dealership" />
               </SelectTrigger>
@@ -300,12 +316,16 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
               </SelectContent>
             </Select>
 
-            <Button 
-              onClick={handleUpdateDealership} 
-              disabled={isUpdating || selectedVehicles.length === 0 || !targetDealership}
+            <Button
+              onClick={handleUpdateDealership}
+              disabled={
+                isUpdating || selectedVehicles.length === 0 || !targetDealership
+              }
               className="whitespace-nowrap"
             >
-              {isUpdating ? "Updating..." : `Move ${selectedVehicles.length} Vehicles`}
+              {isUpdating
+                ? "Updating..."
+                : `Move ${selectedVehicles.length} Vehicles`}
             </Button>
           </div>
         </div>
@@ -317,7 +337,10 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedVehicles.length === vehicles.length && vehicles.length > 0}
+                    checked={
+                      selectedVehicles.length === vehicles.length &&
+                      vehicles.length > 0
+                    }
                     onCheckedChange={handleSelectAll}
                     disabled={vehicles.length === 0}
                   />
@@ -374,7 +397,8 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
                             {vehicle.make} {vehicle.model}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {vehicle.year} {vehicle.variant && `• ${vehicle.variant}`}
+                            {vehicle.year}{" "}
+                            {vehicle.variant && `• ${vehicle.variant}`}
                           </div>
                         </div>
                       </div>
@@ -386,7 +410,9 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
                           {getDealershipName(vehicle.dealership_id)}
                         </Badge>
                       ) : (
-                        <span className="text-muted-foreground">Not assigned</span>
+                        <span className="text-muted-foreground">
+                          Not assigned
+                        </span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -406,21 +432,25 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
               Showing {(page - 1) * rowsPerPage + 1} to{" "}
-              {Math.min(page * rowsPerPage, totalCount)} of {totalCount} vehicles
+              {Math.min(page * rowsPerPage, totalCount)} of {totalCount}{" "}
+              vehicles
             </div>
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
                     onClick={() => setPage(Math.max(1, page - 1))}
-                    className={page === 1 ? "pointer-events-none opacity-50" : ""}
+                    className={
+                      page === 1 ? "pointer-events-none opacity-50" : ""
+                    }
                   />
                 </PaginationItem>
-                
+
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const pageNum = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
+                  const pageNum =
+                    Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
                   if (pageNum > totalPages) return null;
-                  
+
                   return (
                     <PaginationItem key={pageNum}>
                       <PaginationLink
@@ -432,16 +462,20 @@ const BulkOperationsDialog: React.FC<BulkOperationsDialogProps> = ({
                     </PaginationItem>
                   );
                 })}
-                
+
                 <PaginationItem>
                   <PaginationNext
                     onClick={() => setPage(Math.min(totalPages, page + 1))}
-                    className={page === totalPages ? "pointer-events-none opacity-50" : ""}
+                    className={
+                      page === totalPages
+                        ? "pointer-events-none opacity-50"
+                        : ""
+                    }
                   />
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
-            
+
             <Select
               value={rowsPerPage.toString()}
               onValueChange={(value) => setRowsPerPage(Number(value))}
