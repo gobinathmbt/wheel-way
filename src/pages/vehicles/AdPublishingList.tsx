@@ -421,7 +421,7 @@ const AdPublishingList = () => {
           {getSortIcon("status")}
         </div>
       </TableHead>
-      <TableHead className="bg-muted/50">Actions</TableHead>
+    
     </TableRow>
   );
 
@@ -435,9 +435,9 @@ const AdPublishingList = () => {
               ? (page - 1) * rowsPerPage + index + 1
               : index + 1}
           </TableCell>
-          <TableCell>
+          <TableCell  onClick={() => handleViewDetails(vehicle.vehicle_stock_id)}>
             <div>
-              <p className="font-medium">{vehicle.vehicle_stock_id}</p>
+              <p className="font-medium text-blue-600 hover:text-blue-600 cursor-pointer">{vehicle.vehicle_stock_id}</p>
             </div>
           </TableCell>
           <TableCell>
@@ -495,28 +495,7 @@ const AdPublishingList = () => {
               {vehicle.status?.replace("_", " ") || "Pending"}
             </Badge>
           </TableCell>
-          <TableCell>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleViewDetails(vehicle.vehicle_stock_id)}
-                className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-              {vehicle.status === "pending" && (
-                <Button
-                  size="sm"
-                  onClick={() => handlePublishAd(vehicle.vehicle_stock_id)}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <Globe className="h-4 w-4 mr-1" />
-                  Publish
-                </Button>
-              )}
-            </div>
-          </TableCell>
+        
         </TableRow>
       ))}
     </>
