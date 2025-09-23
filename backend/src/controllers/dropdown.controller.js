@@ -39,7 +39,6 @@ const getDropdowns = async (req, res) => {
     }
 
     const dropdowns = await DropdownMaster.find(searchQuery)
-      .populate('dealership_id', 'dealership_name') // Populate dealership name
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit));

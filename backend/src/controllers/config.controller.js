@@ -29,7 +29,6 @@ const getInspectionConfigs = async (req, res) => {
       .select(
         "config_name description version is_active is_default created_at updated_at dealership_id"
       )
-      .populate('dealership_id', 'dealership_name dealership_id')
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -814,7 +813,6 @@ const getTradeinConfigs = async (req, res) => {
       .select(
         "config_name description version is_active is_default created_at updated_at dealership_id"
       )
-      .populate("dealership_id", "dealership_name dealership_id")
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit));

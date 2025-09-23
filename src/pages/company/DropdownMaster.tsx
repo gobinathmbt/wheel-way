@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { dropdownServices } from "@/api/services";
+import { dealershipServices, dropdownServices } from "@/api/services";
 import ValueManagementDialog from "../../components/dropdown/ValueManagementDialog";
 import DataTableLayout from "@/components/common/DataTableLayout";
 import { useAuth } from "@/auth/AuthContext";
@@ -168,7 +168,7 @@ const DropdownMaster = () => {
     }
   };
 
-  const getSortIcon = (field:any) => {
+  const getSortIcon = (field: any) => {
     if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
     return sortOrder === "asc" ? (
       <ArrowUp className="h-3 w-3 ml-1" />
@@ -177,7 +177,7 @@ const DropdownMaster = () => {
     );
   };
 
-  const handleSubmit = async (e:any) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     try {
       // Only include dealership_id if user is not primary admin
@@ -202,7 +202,7 @@ const DropdownMaster = () => {
     }
   };
 
-  const handleEditSubmit = async (e:any) => {
+  const handleEditSubmit = async (e: any) => {
     e.preventDefault();
     try {
       // Only include dealership_id if user is not primary admin
@@ -348,7 +348,31 @@ const DropdownMaster = () => {
     },
   ];
 
-  // Render table header
+  const { data: dealerships } = useQuery({
+    queryKey: ["dealerships-dropdown", completeUser?.is_primary_admin],
+    queryFn: async () => {
+      const response = await dealershipServices.getDealershipsDropdown();
+
+      if (!completeUser?.is_primary_admin && completeUser?.dealership_ids) {
+        const userDealershipIds = completeUser.dealership_ids.map((d: any) =>
+          typeof d === "object" ? d._id : d
+        );
+        return response.data.data.filter((dealership: any) =>
+          userDealershipIds.includes(dealership._id)
+        );
+      }
+
+      return response.data.data;
+    },
+    enabled: !!completeUser,
+  });
+
+  const getDealershipName = (dealershipId: string) => {
+    const dealership = dealerships?.find(
+      (dealer: any) => dealer._id === dealershipId
+    );
+    return dealership ? dealership.dealership_name : "Primary";
+  };
   // Add dealership column to table header
   const renderTableHeader = () => (
     <TableRow>
@@ -441,8 +465,8 @@ const DropdownMaster = () => {
             </div>
           </TableCell>
           <TableCell>
-            <Badge className="ml-2 bg-orange-500 text-white hover:bg-orange-600">
-              {dropdown.dealership_id?.dealership_name || "Primary"}
+            <Badge className="bg-orange-500 text-white hover:bg-orange-600">
+              {getDealershipName(dropdown.dealership_id)}
             </Badge>
           </TableCell>
           <TableCell>

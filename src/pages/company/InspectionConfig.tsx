@@ -41,13 +41,17 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  X
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import EditCategoryDialog from "@/components/inspection/EditCategoryDialog";
 import { Switch } from "@/components/ui/switch";
-import { configServices, dropdownServices } from "@/api/services";
+import {
+  configServices,
+  dealershipServices,
+  dropdownServices,
+} from "@/api/services";
 import DeleteConfirmationDialog from "@/components/dialogs/DeleteConfirmationDialog";
 import ConfigPreviewModal from "@/components/inspection/ConfigPreviewModal";
 import FieldEditDialog from "@/components/inspection/FieldEditDialog";
@@ -61,7 +65,7 @@ import DataTableLayout from "@/components/common/DataTableLayout";
 
 const InspectionConfig = () => {
   const { completeUser } = useAuth();
-  console.log(completeUser)
+  console.log(completeUser);
   const queryClient = useQueryClient();
 
   // Get user info from auth context
@@ -92,10 +96,13 @@ const InspectionConfig = () => {
   const [selectedSection, setSelectedSection] = useState(null);
   const [configToDelete, setConfigToDelete] = useState(null);
   const [configToEdit, setConfigToEdit] = useState(null);
-  const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] = useState(false);
+  const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] =
+    useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState(null);
-  const [isCalculationSettingsOpen, setIsCalculationSettingsOpen] = useState(false);
-  const [selectedCategoryForCalculations, setSelectedCategoryForCalculations] = useState<any>(null);
+  const [isCalculationSettingsOpen, setIsCalculationSettingsOpen] =
+    useState(false);
+  const [selectedCategoryForCalculations, setSelectedCategoryForCalculations] =
+    useState<any>(null);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
 
   // Search and filter states
@@ -164,7 +171,7 @@ const InspectionConfig = () => {
       return {
         data: allData,
         total: allData.length,
-        pagination: { total_items: allData.length }
+        pagination: { total_items: allData.length },
       };
     } catch (error) {
       throw error;
@@ -242,7 +249,11 @@ const InspectionConfig = () => {
   const hasCalculationFields = (category: any) => {
     return category.sections?.some((section: any) =>
       section.fields?.some(
-        (field: any) => field.field_type === 'number' || field.field_type === 'currency' || field.field_type === 'calculation_field' || field.field_type === 'mutiplier'
+        (field: any) =>
+          field.field_type === "number" ||
+          field.field_type === "currency" ||
+          field.field_type === "calculation_field" ||
+          field.field_type === "mutiplier"
       )
     );
   };
@@ -341,9 +352,9 @@ const InspectionConfig = () => {
     onSuccess: () => {
       toast.success("Configuration created successfully");
       setIsConfigDialogOpen(false);
-      setConfigFormData({ 
-        config_name: "", 
-        description: "", 
+      setConfigFormData({
+        config_name: "",
+        description: "",
         is_active: false,
         dealership_id: isPrimaryAdmin ? "" : userDealerships[0]?._id || "",
       });
@@ -710,12 +721,12 @@ const InspectionConfig = () => {
 
   const handleCreateConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Only include dealership_id if user is not primary admin
     const submitData = isPrimaryAdmin
       ? configFormData
       : { ...configFormData, dealership_id: configFormData.dealership_id };
-    
+
     createConfigMutation.mutate(submitData);
   };
 
@@ -751,12 +762,12 @@ const InspectionConfig = () => {
   const handleUpdateConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!configToEdit) return;
-    
+
     // Only include dealership_id if user is not primary admin
     const submitData = isPrimaryAdmin
       ? editFormData
       : { ...editFormData, dealership_id: editFormData.dealership_id };
-    
+
     updateConfigMutation.mutate({
       id: configToEdit._id,
       data: submitData,
@@ -817,6 +828,32 @@ const InspectionConfig = () => {
     });
   };
 
+  const { data: dealerships } = useQuery({
+    queryKey: ["dealerships-dropdown", completeUser?.is_primary_admin],
+    queryFn: async () => {
+      const response = await dealershipServices.getDealershipsDropdown();
+
+      if (!completeUser?.is_primary_admin && completeUser?.dealership_ids) {
+        const userDealershipIds = completeUser.dealership_ids.map((d: any) =>
+          typeof d === "object" ? d._id : d
+        );
+        return response.data.data.filter((dealership: any) =>
+          userDealershipIds.includes(dealership._id)
+        );
+      }
+
+      return response.data.data;
+    },
+    enabled: !!completeUser,
+  });
+
+  const getDealershipName = (dealershipId: string) => {
+    const dealership = dealerships?.find(
+      (dealer: any) => dealer._id === dealershipId
+    );
+    return dealership ? dealership.dealership_name : "Primary";
+  };
+
   const handleOpenCalculationSettings = (category: any) => {
     setSelectedCategoryForCalculations(category);
     setIsCalculationSettingsOpen(true);
@@ -826,9 +863,12 @@ const InspectionConfig = () => {
   const totalConfigs = configsData?.pagination?.total_items || 0;
   const activeCount = configs.filter((c: any) => c.is_active).length;
   const inactiveCount = configs.filter((c: any) => !c.is_active).length;
-  const categoriesCount = selectedConfig 
-    ? selectedConfigDetails?.categories?.length || 0 
-    : configs.reduce((sum: number, config: any) => sum + (config.categories_count || 0), 0);
+  const categoriesCount = selectedConfig
+    ? selectedConfigDetails?.categories?.length || 0
+    : configs.reduce(
+        (sum: number, config: any) => sum + (config.categories_count || 0),
+        0
+      );
 
   // Prepare stat chips
   const statChips = [
@@ -882,13 +922,15 @@ const InspectionConfig = () => {
       icon: <Plus className="h-4 w-4" />,
       tooltip: "Create Configuration",
       onClick: () => setIsConfigDialogOpen(true),
-      className: "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
+      className:
+        "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
     },
     {
       icon: <Upload className="h-4 w-4" />,
       tooltip: "Import Configurations",
       onClick: () => toast.info("Import feature coming soon"),
-      className: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
+      className:
+        "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
     },
   ];
 
@@ -948,7 +990,7 @@ const InspectionConfig = () => {
   const renderTableBody = () => (
     <>
       {sortedConfigs.map((config: any, index: number) => (
-        <TableRow 
+        <TableRow
           key={config._id}
           className="cursor-pointer hover:bg-muted/50"
           onClick={() => {
@@ -976,8 +1018,8 @@ const InspectionConfig = () => {
             </Badge>
           </TableCell>
           <TableCell>
-            <Badge className="ml-2 bg-orange-500 text-white hover:bg-orange-600">
-              {config.dealership_id?.dealership_name || "Primary"}
+            <Badge className="bg-orange-500 text-white hover:bg-orange-600">
+              {getDealershipName(config.dealership_id)}
             </Badge>
           </TableCell>
           <TableCell>
@@ -1246,7 +1288,10 @@ const InspectionConfig = () => {
 
       {/* Configuration Editor */}
       {selectedConfig && selectedConfigDetails && (
-        <Dialog open={!!selectedConfig} onOpenChange={(open) => !open && setSelectedConfig(null)}>
+        <Dialog
+          open={!!selectedConfig}
+          onOpenChange={(open) => !open && setSelectedConfig(null)}
+        >
           <DialogContent className="max-w-[95vw] max-h-[95vh] w-[95vw] h-[95vh] p-0">
             <div className="flex flex-col h-full">
               {/* Header */}
@@ -1257,7 +1302,8 @@ const InspectionConfig = () => {
                       Edit Configuration: {selectedConfig?.config_name}
                     </DialogTitle>
                     <DialogDescription>
-                      Configure categories, sections, and fields for this inspection
+                      Configure categories, sections, and fields for this
+                      inspection
                     </DialogDescription>
                   </div>
                   <Button
@@ -1298,7 +1344,9 @@ const InspectionConfig = () => {
                         disabled={saveConfigMutation.isPending}
                       >
                         <Save className="h-4 w-4 mr-2" />
-                        {saveConfigMutation.isPending ? "Saving..." : "Save Changes"}
+                        {saveConfigMutation.isPending
+                          ? "Saving..."
+                          : "Save Changes"}
                       </Button>
                     </div>
 
@@ -1307,115 +1355,152 @@ const InspectionConfig = () => {
                       <Card className="h-full">
                         <CardContent className="h-full p-4">
                           <div className="h-full overflow-auto">
-                            <Accordion type="single" collapsible className="space-y-4">
-                              {selectedConfigDetails.categories?.map((category: any) => (
-                                <AccordionItem
-                                  key={category.category_id}
-                                  value={category.category_id}
-                                >
-                                  <AccordionTrigger className="text-left">
-                                    <div className="flex items-center justify-between w-full mr-4">
-                                      <div>
-                                        <h3 className="font-semibold">
-                                          {category.category_name}
-                                        </h3>
-                                        <p className="text-sm text-muted-foreground">
-                                          {category.description}
-                                        </p>
-                                      </div>
-                                      <div className="flex items-center space-x-2">
-                                        <Badge variant="outline">
-                                          {category.sections?.length || 0} sections
-                                        </Badge>
-                                        <Switch
-                                          checked={category.is_active !== false}
-                                          onCheckedChange={(checked) =>
-                                            handleToggleCategoryStatus(category, checked)
-                                          }
-                                          disabled={toggleCategoryStatusMutation.isPending}
-                                        />
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleEditCategory(category);
-                                          }}
-                                        >
-                                          <Edit className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="space-y-4 pl-4">
-                                      <div className="flex justify-between items-center">
-                                        <h4 className="font-medium">Sections</h4>
-                                        <div className="flex space-x-2">
-                                          {hasCalculationFields(category) && (
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleOpenCalculationSettings(category);
-                                              }}
-                                            >
-                                              <Calculator className="h-4 w-4 mr-1" />
-                                              Calculations
-                                            </Button>
-                                          )}
-                                          <Dialog
-                                            open={isSectionDialogOpen}
-                                            onOpenChange={setIsSectionDialogOpen}
+                            <Accordion
+                              type="single"
+                              collapsible
+                              className="space-y-4"
+                            >
+                              {selectedConfigDetails.categories?.map(
+                                (category: any) => (
+                                  <AccordionItem
+                                    key={category.category_id}
+                                    value={category.category_id}
+                                  >
+                                    <AccordionTrigger className="text-left">
+                                      <div className="flex items-center justify-between w-full mr-4">
+                                        <div>
+                                          <h3 className="font-semibold">
+                                            {category.category_name}
+                                          </h3>
+                                          <p className="text-sm text-muted-foreground">
+                                            {category.description}
+                                          </p>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                          <Badge variant="outline">
+                                            {category.sections?.length || 0}{" "}
+                                            sections
+                                          </Badge>
+                                          <Switch
+                                            checked={
+                                              category.is_active !== false
+                                            }
+                                            onCheckedChange={(checked) =>
+                                              handleToggleCategoryStatus(
+                                                category,
+                                                checked
+                                              )
+                                            }
+                                            disabled={
+                                              toggleCategoryStatusMutation.isPending
+                                            }
+                                          />
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleEditCategory(category);
+                                            }}
                                           >
-                                            <DialogTrigger asChild>
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                      <div className="space-y-4 pl-4">
+                                        <div className="flex justify-between items-center">
+                                          <h4 className="font-medium">
+                                            Sections
+                                          </h4>
+                                          <div className="flex space-x-2">
+                                            {hasCalculationFields(category) && (
                                               <Button
                                                 size="sm"
                                                 variant="outline"
-                                                onClick={() =>
-                                                  setSelectedCategory(category.category_id)
-                                                }
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleOpenCalculationSettings(
+                                                    category
+                                                  );
+                                                }}
                                               >
-                                                <Plus className="h-4 w-4 mr-2" />
-                                                Add Section
+                                                <Calculator className="h-4 w-4 mr-1" />
+                                                Calculations
                                               </Button>
-                                            </DialogTrigger>
-                                          </Dialog>
+                                            )}
+                                            <Dialog
+                                              open={isSectionDialogOpen}
+                                              onOpenChange={
+                                                setIsSectionDialogOpen
+                                              }
+                                            >
+                                              <DialogTrigger asChild>
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  onClick={() =>
+                                                    setSelectedCategory(
+                                                      category.category_id
+                                                    )
+                                                  }
+                                                >
+                                                  <Plus className="h-4 w-4 mr-2" />
+                                                  Add Section
+                                                </Button>
+                                              </DialogTrigger>
+                                            </Dialog>
+                                          </div>
                                         </div>
-                                      </div>
 
-                                      {category.sections?.length > 0 ? (
-                                        <DraggableSectionsList
-                                          sections={category.sections}
-                                          configId={selectedConfig._id}
-                                          onDeleteSection={handleDeleteSection}
-                                          onAddField={(section) => setSelectedSection(section)}
-                                          onEditField={handleEditField}
-                                          onDeleteField={handleDeleteField}
-                                          onUpdateSectionsOrder={(sections) =>
-                                            handleUpdateSectionsOrder(
-                                              category.category_id,
-                                              sections
-                                            )
-                                          }
-                                          onUpdateFieldsOrder={handleUpdateFieldsOrder}
-                                          isFieldDialogOpen={isFieldDialogOpen}
-                                          setIsFieldDialogOpen={setIsFieldDialogOpen}
-                                          selectedSection={selectedSection}
-                                          setSelectedSection={setSelectedSection}
-                                          addFieldForm={addFieldForm}
-                                          isDeletingSection={deleteSectionMutation.isPending}
-                                        />
-                                      ) : (
-                                        <p className="text-muted-foreground text-center py-4">
-                                          No sections added yet. Click "Add Section" to get started.
-                                        </p>
-                                      )}
-                                    </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
+                                        {category.sections?.length > 0 ? (
+                                          <DraggableSectionsList
+                                            sections={category.sections}
+                                            configId={selectedConfig._id}
+                                            onDeleteSection={
+                                              handleDeleteSection
+                                            }
+                                            onAddField={(section) =>
+                                              setSelectedSection(section)
+                                            }
+                                            onEditField={handleEditField}
+                                            onDeleteField={handleDeleteField}
+                                            onUpdateSectionsOrder={(sections) =>
+                                              handleUpdateSectionsOrder(
+                                                category.category_id,
+                                                sections
+                                              )
+                                            }
+                                            onUpdateFieldsOrder={
+                                              handleUpdateFieldsOrder
+                                            }
+                                            isFieldDialogOpen={
+                                              isFieldDialogOpen
+                                            }
+                                            setIsFieldDialogOpen={
+                                              setIsFieldDialogOpen
+                                            }
+                                            selectedSection={selectedSection}
+                                            setSelectedSection={
+                                              setSelectedSection
+                                            }
+                                            addFieldForm={addFieldForm}
+                                            isDeletingSection={
+                                              deleteSectionMutation.isPending
+                                            }
+                                          />
+                                        ) : (
+                                          <p className="text-muted-foreground text-center py-4">
+                                            No sections added yet. Click "Add
+                                            Section" to get started.
+                                          </p>
+                                        )}
+                                      </div>
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                )
+                              )}
                             </Accordion>
                           </div>
                         </CardContent>
@@ -1426,7 +1511,8 @@ const InspectionConfig = () => {
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
                       <p className="text-muted-foreground mb-4">
-                        No categories added yet. Add categories to get started with this configuration.
+                        No categories added yet. Add categories to get started
+                        with this configuration.
                       </p>
                       <Button
                         variant="outline"
@@ -1461,7 +1547,10 @@ const InspectionConfig = () => {
                 <Select
                   value={configFormData.dealership_id}
                   onValueChange={(value) =>
-                    setConfigFormData({ ...configFormData, dealership_id: value })
+                    setConfigFormData({
+                      ...configFormData,
+                      dealership_id: value,
+                    })
                   }
                   required
                 >
@@ -1529,7 +1618,9 @@ const InspectionConfig = () => {
                 Cancel
               </Button>
               <Button type="submit" disabled={createConfigMutation.isPending}>
-                {createConfigMutation.isPending ? "Creating..." : "Create Configuration"}
+                {createConfigMutation.isPending
+                  ? "Creating..."
+                  : "Create Configuration"}
               </Button>
             </div>
           </form>
@@ -1621,7 +1712,9 @@ const InspectionConfig = () => {
                 Cancel
               </Button>
               <Button type="submit" disabled={updateConfigMutation.isPending}>
-                {updateConfigMutation.isPending ? "Updating..." : "Update Configuration"}
+                {updateConfigMutation.isPending
+                  ? "Updating..."
+                  : "Update Configuration"}
               </Button>
             </div>
           </form>

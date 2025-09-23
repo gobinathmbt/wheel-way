@@ -43,7 +43,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { configServices, dropdownServices } from "@/api/services";
+import {
+  configServices,
+  dealershipServices,
+  dropdownServices,
+} from "@/api/services";
 import DraggableTradeinSectionsList from "@/components/tradein/DraggableTradeinSectionsList";
 import { TradeinPreviewModal } from "@/components/tradein/TradeinPreviewModal";
 import ConfigurationSearchmore from "@/components/inspection/ConfigurationSearchmore";
@@ -303,7 +307,33 @@ const TradeinConfig = () => {
     }
   };
 
-  const getSortIcon = (field) => {
+  const { data: dealerships } = useQuery({
+    queryKey: ["dealerships-dropdown", completeUser?.is_primary_admin],
+    queryFn: async () => {
+      const response = await dealershipServices.getDealershipsDropdown();
+
+      if (!completeUser?.is_primary_admin && completeUser?.dealership_ids) {
+        const userDealershipIds = completeUser.dealership_ids.map((d: any) =>
+          typeof d === "object" ? d._id : d
+        );
+        return response.data.data.filter((dealership: any) =>
+          userDealershipIds.includes(dealership._id)
+        );
+      }
+
+      return response.data.data;
+    },
+    enabled: !!completeUser,
+  });
+
+  const getDealershipName = (dealershipId: string) => {
+    const dealership = dealerships?.find(
+      (dealer: any) => dealer._id === dealershipId
+    );
+    return dealership ? dealership.dealership_name : "Primary";
+  };
+
+  const getSortIcon = (field: any) => {
     if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
     return sortOrder === "asc" ? (
       <ArrowUp className="h-3 w-3 ml-1" />
@@ -597,7 +627,6 @@ const TradeinConfig = () => {
       textColor: "text-blue-800",
       hoverColor: "hover:bg-blue-100",
     },
-    
   ];
 
   // Prepare action buttons
@@ -659,15 +688,15 @@ const TradeinConfig = () => {
           {getSortIcon("sections_count")}
         </div>
       </TableHead>
-        <TableHead
-          className="bg-muted/50 cursor-pointer hover:bg-muted/70"
-          onClick={() => handleSort("dealership_name")}
-        >
-          <div className="flex items-center">
-            Dealership
-            {getSortIcon("dealership_name")}
-          </div>
-        </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+        onClick={() => handleSort("dealership_name")}
+      >
+        <div className="flex items-center">
+          Dealership
+          {getSortIcon("dealership_name")}
+        </div>
+      </TableHead>
       <TableHead
         className="bg-muted/50 cursor-pointer hover:bg-muted/70"
         onClick={() => handleSort("is_active")}
@@ -719,11 +748,11 @@ const TradeinConfig = () => {
               {config.sections_count || 0} sections
             </Badge>
           </TableCell>
-            <TableCell>
-              <Badge className="bg-orange-500 text-white hover:bg-orange-600">
-                {config.dealership_id?.dealership_name || "Primary"}
-              </Badge>
-            </TableCell>
+          <TableCell>
+            <Badge className="bg-orange-500 text-white hover:bg-orange-600">
+              {getDealershipName(config.dealership_id)}
+            </Badge>
+          </TableCell>
           <TableCell>
             <Badge
               variant={config.is_active ? "default" : "secondary"}
