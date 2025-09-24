@@ -253,19 +253,14 @@ const saveInspectionData = async (req, res) => {
     }
 
     if (vehicle_type === "inspection") {
-      // Update inspection result if provided
       if (inspection_result) {
         vehicle.inspection_result = inspection_result;
       }
-
-      // Update inspection_report_pdf - handle undefined/null case
       if (inspection_report_pdf) {
-        // Ensure it's an array
         const reportsToProcess = Array.isArray(inspection_report_pdf)
           ? inspection_report_pdf
           : [inspection_report_pdf];
 
-        // Initialize existing reports array if it doesn't exist
         if (!vehicle.inspection_report_pdf) {
           vehicle.inspection_report_pdf = [];
         }
@@ -273,7 +268,6 @@ const saveInspectionData = async (req, res) => {
         // Process each new report
         reportsToProcess.forEach(newReport => {
           if (newReport && newReport.category && newReport.link) {
-            // Remove existing report with same category
             vehicle.inspection_report_pdf = vehicle.inspection_report_pdf.filter(
               existingReport => existingReport.category !== newReport.category
             );
@@ -287,7 +281,6 @@ const saveInspectionData = async (req, res) => {
         });
       } else {
         console.log('No inspection_report_pdf provided or it was undefined');
-        // Optionally, you might want to keep existing PDFs or handle this case
       }
 
       if (config_id) {
