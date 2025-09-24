@@ -50,11 +50,14 @@ const WorkshopReportSchema = new mongoose.Schema({
     total_fields: Number,
     total_quotes: Number,
     total_work_completed: Number,
+    total_work_entries: Number,
     total_cost: Number,
     total_gst: Number,
     grand_total: Number,
+    parts_cost: Number,
+    labor_cost: Number,
     start_date: Date,
-    completion_date: Date,
+    completion_date: String,
     duration_days: Number
   },
 
@@ -84,19 +87,92 @@ const WorkshopReportSchema = new mongoose.Schema({
       approved_at: Date
     },
     
-    // Work Details
+    // Updated Work Details Structure (matching new comment_sheet)
     work_details: {
+      work_entries: [{
+        id: String,
+        description: String,
+        parts_cost: Number,
+        labor_cost: Number,
+        gst: Number,
+        parts_used: String,
+        labor_hours: String,
+        technician: String,
+        completed: Boolean,
+        entry_date_time: Date,
+        estimated_time: Date,
+        
+        // File attachments for each work entry
+        invoices: [{
+          url: String,
+          key: String,
+          description: String
+        }],
+        pdfs: [{
+          url: String,
+          key: String,
+          description: String
+        }],
+        videos: [{
+          url: String,
+          key: String,
+          description: String
+        }],
+        warranties: [{
+          part: String,
+          months: String,
+          supplier: String,
+          document: {
+            url: String,
+            key: String,
+            description: String
+          }
+        }],
+        documents: [{
+          url: String,
+          key: String,
+          description: String
+        }],
+        images: [{
+          url: String,
+          key: String,
+          description: String
+        }],
+        persons: [{
+          name: String,
+          role: String,
+          contact: String
+        }],
+        quality_check: {
+          visual_inspection: Boolean,
+          functional_test: Boolean,
+          road_test: Boolean,
+          safety_check: Boolean,
+          notes: String
+        },
+        comments: String
+      }],
+      
+      // Overall work summary fields
+      warranty_months: String,
+      maintenance_recommendations: String,
+      next_service_due: Date,
+      supplier_comments: String,
+      company_feedback: String,
+      customer_satisfaction: String,
+      technician_company_assigned: String,
+      work_completion_date: Date,
+      total_amount: Number,
+      quote_difference: Number,
       final_price: Number,
       gst_amount: Number,
       amount_spent: Number,
-      total_amount: Number,
       invoice_pdf_url: String,
+      invoice_pdf_key: String,
       work_images: [{
         url: String,
-        uploaded_at: Date
+        key: String
       }],
-      supplier_comments: String,
-      company_feedback: String,
       submitted_at: Date,
       reviewed_at: Date
     },
@@ -120,11 +196,15 @@ const WorkshopReportSchema = new mongoose.Schema({
       estimated_time: String,
       comments: String,
       quote_pdf_url: String,
+      quote_pdf_key: String,
       status: String,
       responded_at: Date
     }],
     
+    // Timestamps
     quote_created_at: Date,
+    work_started_at: Date,
+    work_submitted_at: Date,
     work_completed_at: Date
   }],
 
@@ -147,15 +227,20 @@ const WorkshopReportSchema = new mongoose.Schema({
     }]
   }],
 
-  // Attachments and Documents
-  attachments: [{
-    type: String, // 'invoice', 'work_image', 'quote_pdf', 'field_image', 'field_video'
-    url: String,
-    filename: String,
-    field_id: String, // Associated field if applicable
-    supplier_id: mongoose.Schema.Types.ObjectId, // Associated supplier if applicable
-    uploaded_at: Date
-  }],
+ attachments: [{
+  type: {
+    type: String,
+    enum: ['invoice', 'work_image', 'quote_pdf', 'field_image', 'field_video', 'work_entry_invoice', 'work_entry_pdf', 'work_entry_video', 'work_entry_image', 'work_entry_document', 'warranty_document']
+  },
+  url: String,
+  key: String,
+  filename: String,
+  description: String,
+  field_id: String,
+  work_entry_id: String,
+  supplier_id: mongoose.Schema.Types.ObjectId,
+  uploaded_at: Date
+}],
 
   // Report Generation Info
   generated_at: {
@@ -167,7 +252,7 @@ const WorkshopReportSchema = new mongoose.Schema({
     ref: 'User'
   },
   
-  // Report Statistics
+  // Enhanced Report Statistics
   statistics: {
     fields_by_status: {
       completed_jobs: Number,
@@ -178,25 +263,44 @@ const WorkshopReportSchema = new mongoose.Schema({
       quote_request: Number,
       rework: Number
     },
+    work_entries_summary: {
+      total_entries: Number,
+      completed_entries: Number,
+      pending_entries: Number,
+      total_parts_cost: Number,
+      total_labor_cost: Number,
+      total_gst: Number
+    },
     avg_completion_time: Number, // In days
     cost_breakdown: {
       parts: Number,
       labor: Number,
+      gst: Number,
       other: Number
+    },
+    quality_metrics: {
+      visual_inspection_passed: Number,
+      functional_test_passed: Number,
+      road_test_passed: Number,
+      safety_check_passed: Number
     },
     supplier_performance: [{
       supplier_id: mongoose.Schema.Types.ObjectId,
       supplier_name: String,
       jobs_completed: Number,
+      work_entries_completed: Number,
       avg_cost: Number,
       avg_time: Number,
-      total_earned: Number
+      total_earned: Number,
+      quality_score: Number
+    }],
+    technician_performance: [{
+      technician_name: String,
+      work_entries_completed: Number,
+      avg_completion_time: Number,
+      quality_score: Number
     }]
   },
-
-  // PDF Report URL (if generated)
-  pdf_report_url: String,
-  pdf_report_key: String, // S3 key for deletion
 
   // Timestamps
   created_at: {

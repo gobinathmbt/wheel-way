@@ -9,11 +9,11 @@ import { Wrench, TrendingUp, Shield, FileText, MessageSquare, CheckCircle, Refre
 import { workshopServices } from "@/api/services";
 import { toast } from "sonner";
 
-import ProgressSummaryTab from "./CommentSheetTabs/Tabs/ProgressSummaryTab";
-import WorkEntriesTab from "./CommentSheetTabs/Tabs/WorkEntriesTab";
-import QualityWarrantyTab from "./CommentSheetTabs/Tabs/QualityWarrantyTab";
-import DocumentationTab from "./CommentSheetTabs/Tabs/DocumentationTab";
-import CommentsTab from "./CommentSheetTabs/Tabs/CommentsTab";
+import ProgressSummaryTab from "@/components/workshop/CommentSheetTabs/Tabs/ProgressSummaryTab";
+import WorkEntriesTab from "@/components/workshop/CommentSheetTabs/Tabs/WorkEntriesTab";
+import QualityWarrantyTab from "@/components/workshop/CommentSheetTabs/Tabs/QualityWarrantyTab";
+import DocumentationTab from "@/components/workshop/CommentSheetTabs/Tabs/DocumentationTab";
+import CommentsTab from "@/components/workshop/CommentSheetTabs/Tabs/CommentsTab";
 
 interface WorkEntry {
   id: string;

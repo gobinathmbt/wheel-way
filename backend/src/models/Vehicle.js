@@ -66,8 +66,8 @@ const VehicleSchema = new mongoose.Schema({
   trade_in_result: [mongoose.Schema.Types.Mixed],
   inspection_report_pdf: [
     {
-      category: { type: String, required: true },
-      link: { type: String, required: true }
+      category: { type: String,},
+      link: { type: String, }
     }
   ],
   tradein_report_pdf: String, // URL to the generated PDF report

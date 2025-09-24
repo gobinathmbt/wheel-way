@@ -127,11 +127,11 @@ const completeWorkshop = async (req, res) => {
     if (vehicleType === "inspection" && stageName) {
       // Handle stage completion for inspection - FORCE UPDATE ARRAYS
 
-      console.log('Before update:', {
+      console.log("Before update:", {
         workshop_progress: vehicle.workshop_progress,
         workshop_report_preparing: vehicle.workshop_report_preparing,
         workshop_report_ready: vehicle.workshop_report_ready,
-        is_workshop: vehicle.is_workshop
+        is_workshop: vehicle.is_workshop,
       });
 
       // Ensure arrays are properly initialized
@@ -162,7 +162,7 @@ const completeWorkshop = async (req, res) => {
           stage_name: stageName,
           progress: "completed",
           completed_at: new Date(),
-          started_at: new Date() // Add started date as well
+          started_at: new Date(), // Add started date as well
         });
         console.log(`Added new progress entry for ${stageName}`);
       }
@@ -189,7 +189,8 @@ const completeWorkshop = async (req, res) => {
       );
       if (reportReadyIndex !== -1) {
         vehicle.workshop_report_ready[reportReadyIndex].ready = false;
-        vehicle.workshop_report_ready[reportReadyIndex].generated_at = new Date();
+        vehicle.workshop_report_ready[reportReadyIndex].generated_at =
+          new Date();
         console.log(`Updated existing report ready status for ${stageName}`);
       } else {
         // Force add if doesn't exist
@@ -215,27 +216,30 @@ const completeWorkshop = async (req, res) => {
           stage_name: stageName,
           in_workshop: true,
           pushed_at: new Date(),
-          completed_at: new Date()
+          completed_at: new Date(),
         });
         console.log(`Added new workshop entry for ${stageName}`);
       }
 
-      console.log('After update:', {
+      console.log("After update:", {
         workshop_progress: vehicle.workshop_progress,
         workshop_report_preparing: vehicle.workshop_report_preparing,
         workshop_report_ready: vehicle.workshop_report_ready,
-        is_workshop: vehicle.is_workshop
+        is_workshop: vehicle.is_workshop,
       });
 
       // Mark arrays as modified to ensure Mongoose saves them
-      vehicle.markModified('workshop_progress');
-      vehicle.markModified('workshop_report_preparing');
-      vehicle.markModified('workshop_report_ready');
-      vehicle.markModified('is_workshop');
+      vehicle.markModified("workshop_progress");
+      vehicle.markModified("workshop_report_preparing");
+      vehicle.markModified("workshop_report_ready");
+      vehicle.markModified("is_workshop");
 
       // Save with force
       const savedVehicle = await vehicle.save();
-      console.log('Vehicle saved successfully with stage completion:', savedVehicle._id);
+      console.log(
+        "Vehicle saved successfully with stage completion:",
+        savedVehicle._id
+      );
 
       // Send stage-specific data to SQS
       const {
@@ -251,22 +255,26 @@ const completeWorkshop = async (req, res) => {
       });
 
       if (!queueResult.success) {
-        console.log('Queue failed, rolling back changes');
-        
+        console.log("Queue failed, rolling back changes");
+
         // ROLLBACK: Restore previous states
         const rollbackProgressIndex = vehicle.workshop_progress.findIndex(
           (item) => item.stage_name === stageName
         );
         if (rollbackProgressIndex !== -1) {
-          vehicle.workshop_progress[rollbackProgressIndex].progress = "in_progress";
+          vehicle.workshop_progress[rollbackProgressIndex].progress =
+            "in_progress";
           delete vehicle.workshop_progress[rollbackProgressIndex].completed_at;
         }
 
-        const rollbackPreparingIndex = vehicle.workshop_report_preparing.findIndex(
-          (item) => item.stage_name === stageName
-        );
+        const rollbackPreparingIndex =
+          vehicle.workshop_report_preparing.findIndex(
+            (item) => item.stage_name === stageName
+          );
         if (rollbackPreparingIndex !== -1) {
-          vehicle.workshop_report_preparing[rollbackPreparingIndex].preparing = false;
+          vehicle.workshop_report_preparing[
+            rollbackPreparingIndex
+          ].preparing = false;
         }
 
         const rollbackReadyIndex = vehicle.workshop_report_ready.findIndex(
@@ -277,10 +285,10 @@ const completeWorkshop = async (req, res) => {
         }
 
         // Mark as modified and save rollback
-        vehicle.markModified('workshop_progress');
-        vehicle.markModified('workshop_report_preparing');
-        vehicle.markModified('workshop_report_ready');
-        
+        vehicle.markModified("workshop_progress");
+        vehicle.markModified("workshop_report_preparing");
+        vehicle.markModified("workshop_report_ready");
+
         await vehicle.save();
 
         return res.status(500).json({
@@ -322,18 +330,18 @@ const completeWorkshop = async (req, res) => {
       vehicle.is_workshop = true; // Ensure is_workshop is set
 
       // Initialize workshop_report_ready for tradein if it doesn't exist
-      if (typeof vehicle.workshop_report_ready === 'undefined') {
+      if (typeof vehicle.workshop_report_ready === "undefined") {
         vehicle.workshop_report_ready = false;
       }
 
       // Mark fields as modified for tradein
-      vehicle.markModified('workshop_progress');
-      vehicle.markModified('workshop_report_preparing');
-      vehicle.markModified('workshop_report_ready');
-      vehicle.markModified('is_workshop');
+      vehicle.markModified("workshop_progress");
+      vehicle.markModified("workshop_report_preparing");
+      vehicle.markModified("workshop_report_ready");
+      vehicle.markModified("is_workshop");
 
       const savedVehicle = await vehicle.save();
-      console.log('Tradein vehicle saved successfully:', savedVehicle._id);
+      console.log("Tradein vehicle saved successfully:", savedVehicle._id);
 
       const {
         sendToWorkshopReportQueue,
@@ -350,10 +358,10 @@ const completeWorkshop = async (req, res) => {
         // ROLLBACK for tradein
         vehicle.workshop_progress = "in_progress";
         vehicle.workshop_report_preparing = false;
-        
-        vehicle.markModified('workshop_progress');
-        vehicle.markModified('workshop_report_preparing');
-        
+
+        vehicle.markModified("workshop_progress");
+        vehicle.markModified("workshop_report_preparing");
+
         await vehicle.save();
 
         return res.status(500).json({
@@ -364,7 +372,8 @@ const completeWorkshop = async (req, res) => {
 
       res.json({
         success: true,
-        message: "Workshop completed successfully. Report will be available shortly.",
+        message:
+          "Workshop completed successfully. Report will be available shortly.",
         data: {
           queue_id: queueResult.queueId,
           vehicle_id: vehicle._id,
@@ -440,6 +449,472 @@ const generateWorkshopReport = async (messageData) => {
   }
 };
 
+// Get workshop reports for vehicle
+const getWorkshopReports = async (req, res) => {
+  try {
+    const { vehicleId, vehicleType } = req.params;
+
+    const vehicle = await Vehicle.findById(vehicleId);
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    let reports;
+    if (vehicleType === "inspection") {
+      // Get all stage reports
+      reports = await WorkshopReport.find({
+        vehicle_id: vehicleId,
+        report_type: "stage_workshop",
+      }).sort({ created_at: -1 });
+    } else {
+      // Get single tradein report
+      reports = await WorkshopReport.find({
+        vehicle_id: vehicleId,
+        report_type: "full_workshop",
+      }).sort({ created_at: -1 });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        reports,
+        vehicle_report_status: vehicle.workshop_report_ready,
+        report_preparing: vehicle.workshop_report_preparing,
+      },
+    });
+  } catch (error) {
+    console.error("Get workshop reports error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching workshop reports",
+    });
+  }
+};
+
+// Get specific workshop report
+const getWorkshopReport = async (req, res) => {
+  try {
+    const { reportId } = req.params;
+
+    const report = await WorkshopReport.findById(reportId);
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: "Workshop report not found",
+      });
+    }
+
+    // Check if user has access to this report
+    if (report.company_id.toString() !== req.user.company_id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: report,
+    });
+  } catch (error) {
+    console.error("Get workshop report error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching workshop report",
+    });
+  }
+};
+
+// Enhanced statistics calculation function
+const calculateStageStatistics = (quotes) => {
+  const stats = {
+    fields_by_status: {
+      completed_jobs: 0,
+      work_review: 0,
+      work_in_progress: 0,
+      quote_approved: 0,
+      quote_sent: 0,
+      quote_request: 0,
+      rework: 0,
+    },
+    work_entries_summary: {
+      total_entries: 0,
+      completed_entries: 0,
+      pending_entries: 0,
+      total_parts_cost: 0,
+      total_labor_cost: 0,
+      total_gst: 0,
+    },
+    quality_metrics: {
+      visual_inspection_passed: 0,
+      functional_test_passed: 0,
+      road_test_passed: 0,
+      safety_check_passed: 0,
+    },
+    supplier_performance: new Map(),
+    technician_performance: new Map(),
+    cost_breakdown: {
+      parts: 0,
+      labor: 0,
+      gst: 0,
+      other: 0,
+    },
+  };
+
+  const completionTimes = [];
+  let totalCost = 0;
+  let totalGst = 0;
+  let totalPartsCost = 0;
+  let totalLaborCost = 0;
+
+  quotes.forEach((quote) => {
+    // Count by status
+    if (stats.fields_by_status.hasOwnProperty(quote.status)) {
+      stats.fields_by_status[quote.status]++;
+    }
+
+    // Process work entries if they exist
+    if (quote.work_details?.work_entries) {
+      quote.work_details.work_entries.forEach((entry) => {
+        stats.work_entries_summary.total_entries++;
+
+        if (entry.completed) {
+          stats.work_entries_summary.completed_entries++;
+        } else {
+          stats.work_entries_summary.pending_entries++;
+        }
+
+        // Sum up costs
+        const partsCost = entry.parts_cost || 0;
+        const laborCost = entry.labor_cost || 0;
+        const gst = entry.gst || 0;
+
+        stats.work_entries_summary.total_parts_cost += partsCost;
+        stats.work_entries_summary.total_labor_cost += laborCost;
+        stats.work_entries_summary.total_gst += gst;
+
+        totalPartsCost += partsCost;
+        totalLaborCost += laborCost;
+        totalGst += gst;
+
+        // Quality metrics
+        if (entry.quality_check) {
+          if (entry.quality_check.visual_inspection)
+            stats.quality_metrics.visual_inspection_passed++;
+          if (entry.quality_check.functional_test)
+            stats.quality_metrics.functional_test_passed++;
+          if (entry.quality_check.road_test)
+            stats.quality_metrics.road_test_passed++;
+          if (entry.quality_check.safety_check)
+            stats.quality_metrics.safety_check_passed++;
+        }
+
+        // Technician performance
+        if (entry.technician) {
+          const techKey = entry.technician;
+          if (!stats.technician_performance.has(techKey)) {
+            stats.technician_performance.set(techKey, {
+              technician_name: entry.technician,
+              work_entries_completed: 0,
+              total_time: 0,
+              quality_checks: 0,
+              quality_passed: 0,
+            });
+          }
+
+          const techStats = stats.technician_performance.get(techKey);
+          techStats.work_entries_completed++;
+
+          if (entry.quality_check) {
+            techStats.quality_checks++;
+            const passedCount = Object.values(entry.quality_check).filter(
+              (val) => val === true
+            ).length;
+            techStats.quality_passed += passedCount;
+          }
+
+          // Calculate completion time if dates are available
+          if (entry.entry_date_time && entry.estimated_time) {
+            const startTime = new Date(entry.entry_date_time);
+            const endTime = new Date(entry.estimated_time);
+            const timeDiff = (endTime - startTime) / (1000 * 60 * 60 * 24); // Days
+            techStats.total_time += timeDiff;
+          }
+        }
+      });
+    }
+
+    // Overall quote costs
+    const quoteCost =
+      quote.work_details?.total_amount || quote.quote_amount || 0;
+    totalCost += quoteCost;
+
+    // Supplier performance
+    if (quote.approved_supplier) {
+      const supplierId = quote.approved_supplier.supplier_id.toString();
+      if (!stats.supplier_performance.has(supplierId)) {
+        stats.supplier_performance.set(supplierId, {
+          supplier_id: quote.approved_supplier.supplier_id,
+          supplier_name: quote.approved_supplier.supplier_name,
+          jobs_completed: 0,
+          work_entries_completed: 0,
+          total_earned: 0,
+          total_time: 0,
+          quality_score: 0,
+        });
+      }
+
+      const supplierStats = stats.supplier_performance.get(supplierId);
+      supplierStats.jobs_completed++;
+      supplierStats.total_earned += quoteCost;
+
+      if (quote.work_details?.work_entries) {
+        supplierStats.work_entries_completed +=
+          quote.work_details.work_entries.length;
+      }
+
+      // Calculate completion time
+      if (quote.quote_created_at && quote.work_completed_at) {
+        const startTime = new Date(quote.quote_created_at);
+        const endTime = new Date(quote.work_completed_at);
+        const timeDiff = (endTime - startTime) / (1000 * 60 * 60 * 24); // Days
+        supplierStats.total_time += timeDiff;
+        completionTimes.push(timeDiff);
+      }
+    }
+  });
+
+  // Calculate averages and convert Maps to Arrays
+  const supplierPerfArray = Array.from(stats.supplier_performance.values()).map(
+    (supplier) => ({
+      ...supplier,
+      avg_cost:
+        supplier.jobs_completed > 0
+          ? supplier.total_earned / supplier.jobs_completed
+          : 0,
+      avg_time:
+        supplier.jobs_completed > 0
+          ? supplier.total_time / supplier.jobs_completed
+          : 0,
+      quality_score: 95, // Placeholder - could be calculated based on quality metrics
+    })
+  );
+
+  const techPerfArray = Array.from(stats.technician_performance.values()).map(
+    (tech) => ({
+      ...tech,
+      avg_completion_time:
+        tech.work_entries_completed > 0
+          ? tech.total_time / tech.work_entries_completed
+          : 0,
+      quality_score:
+        tech.quality_checks > 0
+          ? (tech.quality_passed / (tech.quality_checks * 4)) * 100
+          : 0, // 4 quality check types
+    })
+  );
+
+  const avgCompletionTime =
+    completionTimes.length > 0
+      ? completionTimes.reduce((a, b) => a + b, 0) / completionTimes.length
+      : 0;
+
+  // Cost breakdown
+  stats.cost_breakdown = {
+    parts: totalPartsCost,
+    labor: totalLaborCost,
+    gst: totalGst,
+    other: Math.max(0, totalCost - totalPartsCost - totalLaborCost - totalGst),
+  };
+
+  return {
+    summary: {
+      total_fields: quotes.length,
+      total_quotes: quotes.length,
+      total_work_completed: stats.fields_by_status.completed_jobs,
+      total_work_entries: stats.work_entries_summary.total_entries,
+      total_cost: totalCost,
+      total_gst: totalGst,
+      grand_total: totalCost + totalGst,
+      parts_cost: totalPartsCost,
+      labor_cost: totalLaborCost,
+      start_date:
+        quotes.length > 0
+          ? new Date(
+              Math.min(...quotes.map((q) => new Date(q.quote_created_at)))
+            )
+          : null,
+      completion_date:
+        quotes.length > 0
+          ? new Date(
+              Math.max(
+                ...quotes
+                  .filter((q) => q.work_completed_at)
+                  .map((q) => new Date(q.work_completed_at))
+              )
+            )
+          : null,
+      duration_days: avgCompletionTime,
+    },
+    detailed: {
+      ...stats,
+      supplier_performance: supplierPerfArray,
+      technician_performance: techPerfArray,
+      avg_completion_time: avgCompletionTime,
+      cost_breakdown: stats.cost_breakdown,
+    },
+  };
+};
+
+// Enhanced attachment collection function
+const collectAttachments = (quote) => {
+  const attachments = [];
+
+  // Field images and videos
+  if (quote.field_images) {
+    quote.field_images.forEach((img) => {
+      attachments.push({
+        type: "field_image",
+        url: img,
+        field_id: quote.field_id,
+        uploaded_at: quote.quote_created_at,
+      });
+    });
+  }
+
+  if (quote.field_videos) {
+    quote.field_videos.forEach((video) => {
+      attachments.push({
+        type: "field_video",
+        url: video,
+        field_id: quote.field_id,
+        uploaded_at: quote.quote_created_at,
+      });
+    });
+  }
+
+  // Work entry attachments
+  if (quote.work_details?.work_entries) {
+    quote.work_details.work_entries.forEach((entry) => {
+      // Invoices
+      if (entry.invoices) {
+        entry.invoices.forEach((invoice) => {
+          attachments.push({
+            type: "work_entry_invoice",
+            url: invoice.url,
+            key: invoice.key,
+            filename: invoice.description,
+            description: invoice.description,
+            field_id: quote.field_id,
+            work_entry_id: entry.id,
+            uploaded_at: entry.entry_date_time,
+          });
+        });
+      }
+
+      // PDFs
+      if (entry.pdfs) {
+        entry.pdfs.forEach((pdf) => {
+          attachments.push({
+            type: "work_entry_pdf",
+            url: pdf.url,
+            key: pdf.key,
+            filename: pdf.description,
+            description: pdf.description,
+            field_id: quote.field_id,
+            work_entry_id: entry.id,
+            uploaded_at: entry.entry_date_time,
+          });
+        });
+      }
+
+      // Videos
+      if (entry.videos) {
+        entry.videos.forEach((video) => {
+          attachments.push({
+            type: "work_entry_video",
+            url: video.url,
+            key: video.key,
+            filename: video.description,
+            description: video.description,
+            field_id: quote.field_id,
+            work_entry_id: entry.id,
+            uploaded_at: entry.entry_date_time,
+          });
+        });
+      }
+
+      // Images
+      if (entry.images) {
+        entry.images.forEach((image) => {
+          attachments.push({
+            type: "work_entry_image",
+            url: image.url,
+            key: image.key,
+            filename: image.description,
+            description: image.description,
+            field_id: quote.field_id,
+            work_entry_id: entry.id,
+            uploaded_at: entry.entry_date_time,
+          });
+        });
+      }
+
+      // Documents
+      if (entry.documents) {
+        entry.documents.forEach((doc) => {
+          attachments.push({
+            type: "work_entry_document",
+            url: doc.url,
+            key: doc.key,
+            filename: doc.description,
+            description: doc.description,
+            field_id: quote.field_id,
+            work_entry_id: entry.id,
+            uploaded_at: entry.entry_date_time,
+          });
+        });
+      }
+
+      // Warranty documents
+      if (entry.warranties) {
+        entry.warranties.forEach((warranty) => {
+          if (warranty.document) {
+            attachments.push({
+              type: "warranty_document",
+              url: warranty.document.url,
+              key: warranty.document.key,
+              filename: warranty.document.description,
+              description: `${warranty.part} warranty - ${warranty.months} months`,
+              field_id: quote.field_id,
+              work_entry_id: entry.id,
+              uploaded_at: entry.entry_date_time,
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // Overall work images
+  if (quote.work_details?.work_images) {
+    quote.work_details.work_images.forEach((img) => {
+      attachments.push({
+        type: "work_image",
+        url: img.url,
+        key: img.key,
+        field_id: quote.field_id,
+        uploaded_at: quote.work_details.submitted_at,
+      });
+    });
+  }
+
+  return attachments;
+};
+
 // Generate inspection workshop report (multiple stages)
 const generateInspectionReport = async (
   vehicle,
@@ -449,19 +924,19 @@ const generateInspectionReport = async (
   completed_by
 ) => {
   const resultData = vehicle.inspection_result || [];
-  
-  // Determine stages that need report generation
-  // Criteria: workshop_progress is "completed" AND workshop_report_ready is false
+
   const stagesToGenerate = [];
-  
+
   if (Array.isArray(vehicle.workshop_progress)) {
     for (const progressItem of vehicle.workshop_progress) {
       if (progressItem.progress === "completed") {
         // Check if report is not ready for this stage
-        const reportReadyItem = Array.isArray(vehicle.workshop_report_ready) 
-          ? vehicle.workshop_report_ready.find(item => item.stage_name === progressItem.stage_name)
+        const reportReadyItem = Array.isArray(vehicle.workshop_report_ready)
+          ? vehicle.workshop_report_ready.find(
+              (item) => item.stage_name === progressItem.stage_name
+            )
           : null;
-        
+
         // Generate report if: no report ready entry exists OR report ready is false
         if (!reportReadyItem || reportReadyItem.ready === false) {
           stagesToGenerate.push(progressItem.stage_name);
@@ -469,20 +944,20 @@ const generateInspectionReport = async (
       }
     }
   }
-  
+
   // If no stages need report generation, exit early
   if (stagesToGenerate.length === 0) {
-    console.log('No stages require report generation at this time');
+    console.log("No stages require report generation at this time");
     return;
   }
-  
-  console.log(`Generating reports for stages: ${stagesToGenerate.join(', ')}`);
-  
+
+  console.log(`Generating reports for stages: ${stagesToGenerate.join(", ")}`);
+
   // Filter resultData to only include stages that need report generation
-  const stagesToProcess = resultData.filter(category => 
+  const stagesToProcess = resultData.filter((category) =>
     stagesToGenerate.includes(category.category_name)
   );
-  
+
   const reportReadyFlags = [];
 
   // Initialize arrays if they don't exist or are not arrays
@@ -509,7 +984,7 @@ const generateInspectionReport = async (
         const fieldQuotes = quotes.filter((q) => q.field_id === field.field_id);
 
         for (const quote of fieldQuotes) {
-          // Build quote data
+          // Build enhanced quote data with new work_details structure
           const quoteData = {
             field_id: field.field_id,
             field_name: field.field_name,
@@ -536,24 +1011,31 @@ const generateInspectionReport = async (
             work_details: quote.comment_sheet || {},
             field_images: quote.images || [],
             field_videos: quote.videos || [],
-            quote_responses: quote.supplier_responses || [],
+            quote_responses: (quote.supplier_responses || []).map(
+              (response) => ({
+                supplier_id: response.supplier_id,
+                supplier_name: response.supplier_name || "Unknown",
+                estimated_cost: response.estimated_cost,
+                estimated_time: response.estimated_time,
+                comments: response.comments,
+                quote_pdf_url: response.quote_pdf_url,
+                quote_pdf_key: response.quote_pdf_key,
+                status: response.status,
+                responded_at: response.responded_at,
+              })
+            ),
             quote_created_at: quote.created_at,
+            work_started_at: quote.work_started_at,
+            work_submitted_at: quote.work_submitted_at,
             work_completed_at: quote.work_completed_at,
+            status: quote.status,
           };
 
           stageQuotes.push(quoteData);
 
-          // Collect attachments
-          if (quote.images) {
-            quote.images.forEach((img) => {
-              stageAttachments.push({
-                type: "field_image",
-                url: img,
-                field_id: field.field_id,
-                uploaded_at: quote.created_at,
-              });
-            });
-          }
+          // Collect enhanced attachments
+          const quoteAttachments = collectAttachments(quoteData);
+          stageAttachments.push(...quoteAttachments);
 
           // Collect conversations
           const fieldConversations = conversations.filter(
@@ -574,7 +1056,7 @@ const generateInspectionReport = async (
       }
     }
 
-    // Calculate stage statistics
+    // Calculate enhanced stage statistics
     const stageStats = calculateStageStatistics(stageQuotes);
 
     // Create workshop report for this stage
@@ -663,23 +1145,30 @@ const generateInspectionReport = async (
     }
 
     // Mark the specific fields as modified to ensure Mongoose saves them
-    vehicle.markModified('workshop_report_ready');
-    vehicle.markModified('workshop_report_preparing');
+    vehicle.markModified("workshop_report_ready");
+    vehicle.markModified("workshop_report_preparing");
 
-    console.log(`Report generated successfully for stage: ${category.category_name}`);
+    console.log(
+      `Report generated successfully for stage: ${category.category_name}`
+    );
   }
 
   // Force save the vehicle document with explicit field updates
   try {
     await vehicle.save();
-    console.log(`Vehicle document saved with updated workshop_report_ready and workshop_report_preparing fields`);
+    console.log(
+      `Vehicle document saved with updated workshop_report_ready and workshop_report_preparing fields`
+    );
   } catch (error) {
-    console.error('Error saving vehicle document:', error);
+    console.error("Error saving vehicle document:", error);
     throw error;
   }
-  
-  console.log(`Report generation completed for ${reportReadyFlags.length} stages`);
+
+  console.log(
+    `Report generation completed for ${reportReadyFlags.length} stages`
+  );
 };
+
 // Generate tradein workshop report (single report)
 const generateTradeinReport = async (
   vehicle,
@@ -717,24 +1206,29 @@ const generateTradeinReport = async (
       work_details: quote.comment_sheet || {},
       field_images: quote.images || [],
       field_videos: quote.videos || [],
-      quote_responses: quote.supplier_responses || [],
+      quote_responses: (quote.supplier_responses || []).map((response) => ({
+        supplier_id: response.supplier_id,
+        supplier_name: response.supplier_name || "Unknown",
+        estimated_cost: response.estimated_cost,
+        estimated_time: response.estimated_time,
+        comments: response.comments,
+        quote_pdf_url: response.quote_pdf_url,
+        quote_pdf_key: response.quote_pdf_key,
+        status: response.status,
+        responded_at: response.responded_at,
+      })),
       quote_created_at: quote.created_at,
+      work_started_at: quote.work_started_at,
+      work_submitted_at: quote.work_submitted_at,
       work_completed_at: quote.work_completed_at,
+      status: quote.status,
     };
 
     allQuotes.push(quoteData);
 
-    // Collect attachments and conversations (same as inspection)
-    if (quote.images) {
-      quote.images.forEach((img) => {
-        allAttachments.push({
-          type: "field_image",
-          url: img,
-          field_id: quote.field_id,
-          uploaded_at: quote.created_at,
-        });
-      });
-    }
+    // Collect enhanced attachments and conversations (same as inspection)
+    const quoteAttachments = collectAttachments(quoteData);
+    allAttachments.push(...quoteAttachments);
 
     const fieldConversations = conversations.filter(
       (c) => c.quote_id.toString() === quote._id.toString()
@@ -793,225 +1287,10 @@ const generateTradeinReport = async (
   vehicle.workshop_report_ready = true;
   vehicle.workshop_report_preparing = false;
   await vehicle.save();
-};
 
-// Calculate statistics for stage/report
-const calculateStageStatistics = (quotes) => {
-  // Helper function to safely parse dates
-  const parseDate = (dateValue) => {
-    if (!dateValue) return null;
-    const date = new Date(dateValue);
-    return isNaN(date.getTime()) ? null : date;
-  };
-
-  // Helper function to safely get numeric value
-  const getNumericValue = (value, defaultValue = 0) => {
-    const num = Number(value);
-    return isNaN(num) ? defaultValue : num;
-  };
-
-  // Calculate start and completion dates
-  let startDate = null;
-  let completionDate = null;
-
-  if (quotes.length > 0) {
-    // Get valid start dates
-    const validStartDates = quotes
-      .map((q) => parseDate(q.quote_created_at))
-      .filter((date) => date !== null);
-
-    // Get valid completion dates
-    const validCompletionDates = quotes
-      .map((q) => parseDate(q.work_completed_at))
-      .filter((date) => date !== null);
-
-    startDate =
-      validStartDates.length > 0
-        ? new Date(Math.min(...validStartDates.map((d) => d.getTime())))
-        : null;
-
-    completionDate =
-      validCompletionDates.length > 0
-        ? new Date(Math.max(...validCompletionDates.map((d) => d.getTime())))
-        : null;
-  }
-
-  // Calculate duration safely
-  let durationDays = null;
-  if (startDate && completionDate && startDate <= completionDate) {
-    const diffTime = completionDate.getTime() - startDate.getTime();
-    durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    // Ensure duration is a positive number
-    if (durationDays < 0) durationDays = null;
-  }
-
-  const summary = {
-    total_fields: quotes.length,
-    total_quotes: quotes.length,
-    total_work_completed: quotes.filter(
-      (q) => q.work_details && getNumericValue(q.work_details.total_amount) > 0
-    ).length,
-    total_cost: quotes.reduce(
-      (sum, q) => sum + getNumericValue(q.work_details?.amount_spent),
-      0
-    ),
-    total_gst: quotes.reduce(
-      (sum, q) => sum + getNumericValue(q.work_details?.gst_amount),
-      0
-    ),
-    grand_total: quotes.reduce(
-      (sum, q) => sum + getNumericValue(q.work_details?.total_amount),
-      0
-    ),
-    start_date: startDate,
-    completion_date: completionDate,
-    duration_days: durationDays, // This will be null if calculation fails, avoiding NaN
-  };
-
-  const statusCounts = {
-    completed_jobs: 0,
-    work_review: 0,
-    work_in_progress: 0,
-    quote_approved: 0,
-    quote_sent: 0,
-    quote_request: 0,
-    rework: 0,
-  };
-
-  // Count statuses based on work completion
-  quotes.forEach((quote) => {
-    if (
-      quote.work_details &&
-      getNumericValue(quote.work_details.total_amount) > 0
-    ) {
-      statusCounts.completed_jobs++;
-    } else if (quote.approved_supplier) {
-      statusCounts.work_in_progress++;
-    } else if (quote.quote_responses && quote.quote_responses.length > 0) {
-      statusCounts.quote_sent++;
-    } else {
-      statusCounts.quote_request++;
-    }
-  });
-
-  const totalCost = summary.total_cost;
-  const detailed = {
-    fields_by_status: statusCounts,
-    avg_completion_time: durationDays || 0,
-    cost_breakdown: {
-      parts: getNumericValue(totalCost * 0.6), // Estimate
-      labor: getNumericValue(totalCost * 0.3), // Estimate
-      other: getNumericValue(totalCost * 0.1), // Estimate
-    },
-    supplier_performance: quotes.reduce((acc, quote) => {
-      if (quote.approved_supplier && quote.work_details) {
-        const supplierId =
-          quote.approved_supplier.supplier_id || quote.approved_supplier;
-        const supplierName = quote.approved_supplier.supplier_name || "Unknown";
-        const totalAmount = getNumericValue(quote.work_details.total_amount);
-
-        const existing = acc.find(
-          (s) => s.supplier_id.toString() === supplierId.toString()
-        );
-        if (existing) {
-          existing.jobs_completed++;
-          existing.total_earned += totalAmount;
-          existing.avg_cost = existing.total_earned / existing.jobs_completed;
-        } else if (totalAmount > 0) {
-          acc.push({
-            supplier_id: supplierId,
-            supplier_name: supplierName,
-            jobs_completed: 1,
-            avg_cost: totalAmount,
-            avg_time: durationDays || 0,
-            total_earned: totalAmount,
-          });
-        }
-      }
-      return acc;
-    }, []),
-  };
-
-  return { summary, detailed };
-};
-
-// Get workshop reports for vehicle
-const getWorkshopReports = async (req, res) => {
-  try {
-    const { vehicleId, vehicleType } = req.params;
-
-    const vehicle = await Vehicle.findById(vehicleId);
-    if (!vehicle) {
-      return res.status(404).json({
-        success: false,
-        message: "Vehicle not found",
-      });
-    }
-
-    let reports;
-    if (vehicleType === "inspection") {
-      // Get all stage reports
-      reports = await WorkshopReport.find({
-        vehicle_id: vehicleId,
-        report_type: "stage_workshop",
-      }).sort({ created_at: -1 });
-    } else {
-      // Get single tradein report
-      reports = await WorkshopReport.find({
-        vehicle_id: vehicleId,
-        report_type: "full_workshop",
-      }).sort({ created_at: -1 });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        reports,
-        vehicle_report_status: vehicle.workshop_report_ready,
-        report_preparing: vehicle.workshop_report_preparing,
-      },
-    });
-  } catch (error) {
-    console.error("Get workshop reports error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching workshop reports",
-    });
-  }
-};
-
-// Get specific workshop report
-const getWorkshopReport = async (req, res) => {
-  try {
-    const { reportId } = req.params;
-
-    const report = await WorkshopReport.findById(reportId);
-    if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: "Workshop report not found",
-      });
-    }
-
-    // Check if user has access to this report
-    if (report.company_id.toString() !== req.user.company_id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied",
-      });
-    }
-
-    res.json({
-      success: true,
-      data: report,
-    });
-  } catch (error) {
-    console.error("Get workshop report error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching workshop report",
-    });
-  }
+  console.log(
+    `Tradein workshop report generated successfully for vehicle: ${vehicle.vehicle_stock_id}`
+  );
 };
 
 module.exports = {
