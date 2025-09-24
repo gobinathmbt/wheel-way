@@ -50,7 +50,6 @@ import WorkflowManagement from "./pages/company/WorkflowManagement";
 import SupplierManagement from "./pages/company/SupplierManagement";
 
 // Supplier Pages
-import SupplierLogin from "./pages/supplier/SupplierLogin";
 import SupplierDashboard from "./pages/supplier/SupplierDashboard";
 import QuotesByStatus from "./pages/supplier/QuotesByStatus";
 import SupplierProfile from "./pages/supplier/SupplierProfile";
@@ -225,8 +224,6 @@ const App = () => (
               </ProtectedRoute>
             } />
 
-            {/* Supplier Routes (Public) */}
-            <Route path="/supplier/login" element={<SupplierLogin />} />
             <Route path="/supplier/dashboard" element={
               <SupplierLayout title="Dashboard">
                 <SupplierDashboard />

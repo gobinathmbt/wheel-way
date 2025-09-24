@@ -15,8 +15,7 @@ import {
   MapPin, 
   Building2, 
   Lock,
-  Save,
-  ArrowLeft
+  Save
 } from 'lucide-react';
 
 const SupplierProfile = () => {
@@ -39,7 +38,7 @@ const SupplierProfile = () => {
     const user = sessionStorage.getItem('supplier_user');
     
     if (!token || !user) {
-      navigate('/supplier/login');
+      navigate('/login');
       return;
     }
     
@@ -137,192 +136,183 @@ const SupplierProfile = () => {
 
   if (!supplierUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-full overflow-auto">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Profile Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Profile Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleProfileSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Full Name</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Enter your full name"
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="supplier_shop_name">Shop Name</Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="supplier_shop_name"
+                      value={formData.supplier_shop_name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, supplier_shop_name: e.target.value }))}
+                      placeholder="Enter your shop name"
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="email">Email Address</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={supplierUser.email || ''}
+                    className="pl-10"
+                    disabled
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Email cannot be changed. Contact administrator if needed.
+                </p>
+              </div>
+              
+              <div>
+                <Label htmlFor="phone">Phone Number</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="Enter your phone number"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="address">Address</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="address"
+                    value={formData.address}
+                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                    placeholder="Enter your address"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={updateProfileMutation.isPending}
+                  className="flex items-center gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  {updateProfileMutation.isPending ? 'Saving...' : 'Save Profile'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
-      
-      <div className="flex-1">
-
-
-        {/* Main Content */}
-        <main className="p-6">
-          <div className="max-w-2xl mx-auto space-y-6">
-            {/* Profile Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Profile Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleProfileSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="name">Full Name</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="name"
-                          value={formData.name}
-                          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                          placeholder="Enter your full name"
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="supplier_shop_name">Shop Name</Label>
-                      <div className="relative">
-                        <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="supplier_shop_name"
-                          value={formData.supplier_shop_name}
-                          onChange={(e) => setFormData(prev => ({ ...prev, supplier_shop_name: e.target.value }))}
-                          placeholder="Enter your shop name"
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="email">Email Address</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="email"
-                        type="email"
-                        value={supplierUser.email || ''}
-                        className="pl-10"
-                        disabled
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Email cannot be changed. Contact administrator if needed.
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                        placeholder="Enter your phone number"
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="address">Address</Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="address"
-                        value={formData.address}
-                        onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                        placeholder="Enter your address"
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-end">
-                    <Button
-                      type="submit"
-                      disabled={updateProfileMutation.isPending}
-                      className="flex items-center gap-2"
-                    >
-                      <Save className="h-4 w-4" />
-                      {updateProfileMutation.isPending ? 'Saving...' : 'Save Profile'}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-
-            {/* Password Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Lock className="h-5 w-5" />
-                  Change Password
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                  <div>
-                    <Label htmlFor="current_password">Current Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="current_password"
-                        type="password"
-                        value={passwordData.current_password}
-                        onChange={(e) => setPasswordData(prev => ({ ...prev, current_password: e.target.value }))}
-                        placeholder="Enter current password"
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div>
-                    <Label htmlFor="new_password">New Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="new_password"
-                        type="password"
-                        value={passwordData.new_password}
-                        onChange={(e) => setPasswordData(prev => ({ ...prev, new_password: e.target.value }))}
-                        placeholder="Enter new password"
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="confirm_password">Confirm New Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="confirm_password"
-                        type="password"
-                        value={passwordData.confirm_password}
-                        onChange={(e) => setPasswordData(prev => ({ ...prev, confirm_password: e.target.value }))}
-                        placeholder="Confirm new password"
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-end">
-                    <Button
-                      type="submit"
-                      disabled={updatePasswordMutation.isPending || !passwordData.current_password || !passwordData.new_password}
-                      variant="outline"
-                    >
-                      {updatePasswordMutation.isPending ? 'Updating...' : 'Update Password'}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
+        {/* Password Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              Change Password
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="current_password">Current Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="current_password"
+                    type="password"
+                    value={passwordData.current_password}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, current_password: e.target.value }))}
+                    placeholder="Enter current password"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              
+              <Separator />
+              
+              <div>
+                <Label htmlFor="new_password">New Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="new_password"
+                    type="password"
+                    value={passwordData.new_password}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, new_password: e.target.value }))}
+                    placeholder="Enter new password"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="confirm_password">Confirm New Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="confirm_password"
+                    type="password"
+                    value={passwordData.confirm_password}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirm_password: e.target.value }))}
+                    placeholder="Confirm new password"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={updatePasswordMutation.isPending || !passwordData.current_password || !passwordData.new_password}
+                  variant="outline"
+                >
+                  {updatePasswordMutation.isPending ? 'Updating...' : 'Update Password'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

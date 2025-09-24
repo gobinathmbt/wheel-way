@@ -27,10 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
-  ArrowLeft,
   Search,
-  Play,
-  Upload,
   Eye,
   Car,
   Building2,
@@ -65,7 +62,7 @@ const QuotesByStatus = () => {
     const user = sessionStorage.getItem("supplier_user");
 
     if (!token || !user) {
-      navigate("/supplier/login");
+      navigate("/login");
       return;
     }
 
@@ -219,20 +216,20 @@ const QuotesByStatus = () => {
     );
   };
 
-  const renderActionButton = (quote: any) => {
+  const renderActionButtons = (quote: any) => {
     const responded = hasResponded(quote);
     const notInterested = isNotInterested(quote);
 
     switch (status) {
       case "quote_request":
         return (
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => handleNotInterested(quote)}
               disabled={notInterestedMutation.isPending || responded}
-              className={notInterested ? "bg-gray-100 text-gray-400" : ""}
+              className={`${notInterested ? "bg-gray-100 text-gray-400" : ""} text-xs`}
             >
               <XCircle className="h-3 w-3 mr-1" />
               {notInterested ? "Not Interested" : "Not Interested"}
@@ -242,6 +239,7 @@ const QuotesByStatus = () => {
               variant="outline"
               onClick={() => handleViewDetails(quote)}
               disabled={notInterested}
+              className="text-xs"
             >
               <Eye className="h-3 w-3 mr-1" />
               View Details
@@ -250,26 +248,25 @@ const QuotesByStatus = () => {
         );
       case "completed_jobs":
         return (
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleViewDetails(quote)}
-              disabled={notInterested}
-            >
-              <Eye className="h-3 w-3 mr-1" />
-              View Details
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleViewDetails(quote)}
+            disabled={notInterested}
+            className="text-xs"
+          >
+            <Eye className="h-3 w-3 mr-1" />
+            View Details
+          </Button>
         );
-
       default:
         return (
-          <>
+          <div className="flex flex-col sm:flex-row gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => handleViewDetails(quote)}
+              className="text-xs"
             >
               <Eye className="h-3 w-3 mr-1" />
               View Details
@@ -278,201 +275,291 @@ const QuotesByStatus = () => {
               size="sm"
               variant="outline"
               onClick={() => handleMessaging(quote)}
+              className="text-xs"
             >
               <MessageSquare className="h-3 w-3 mr-1" />
               Message
             </Button>
-          </>
+          </div>
         );
     }
   };
 
+  // Mobile Card Component
+  const QuoteCard = ({ quote }: { quote: any }) => {
+    const responded = hasResponded(quote);
+    const notInterested = isNotInterested(quote);
+
+    return (
+      <Card className="mb-4">
+        <CardContent className="p-4">
+          <div className="space-y-3">
+            {/* Vehicle Info */}
+            <div className="flex items-center gap-3">
+              {quote.vehicle?.vehicle_hero_image && (
+                <img
+                  src={quote.vehicle.vehicle_hero_image}
+                  alt="Vehicle"
+                  className="w-16 h-12 object-cover rounded border flex-shrink-0"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm">
+                  {quote.vehicle?.name ||
+                    `${quote.vehicle?.year} ${quote.vehicle?.make} ${quote.vehicle?.model}`}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Stock: {quote.vehicle_stock_id}
+                </div>
+              </div>
+            </div>
+
+            {/* Field and Company */}
+            <div className="grid grid-cols-1 gap-2">
+              <div>
+                <div className="text-xs text-muted-foreground">Field</div>
+                <div className="font-medium text-sm">{quote.field_name}</div>
+                <div className="text-xs text-muted-foreground">
+                  ID: {quote.field_id}
+                </div>
+              </div>
+              
+              <div>
+                <div className="text-xs text-muted-foreground">Company</div>
+                <div className="flex items-center gap-1">
+                  <Building2 className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-sm">{quote.company_id?.company_name}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Amount and Date */}
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-1">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">${quote.quote_amount}</span>
+              </div>
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Calendar className="h-3 w-3" />
+                {new Date(quote.created_at).toLocaleDateString()}
+              </div>
+            </div>
+
+            {/* Status */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Badge variant={getStatusBadgeVariant(quote.status)}>
+                  {quote.status.replace("_", " ")}
+                </Badge>
+                {responded && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {notInterested ? "Not Interested" : "Response Submitted"}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="pt-2 border-t">
+              {renderActionButtons(quote)}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   if (!supplierUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-full flex flex-col">
+      <Card className="flex-1 flex flex-col">
+        <CardHeader className="flex-shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <Badge variant={getStatusBadgeVariant(status!)}>
+                {getStatusTitle(status!)}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                ({quotesData?.total || 0} total)
+              </span>
+            </CardTitle>
 
-      <div className="flex-1">
-
-        {/* Main Content */}
-        <main className="p-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Badge variant={getStatusBadgeVariant(status!)}>
-                    {getStatusTitle(status!)}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    ({quotesData?.total || 0} total)
-                  </span>
-                </CardTitle>
-
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search quotes..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10 w-64"
-                    />
-                  </div>
-                </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search quotes..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 w-full sm:w-64"
+                />
               </div>
-            </CardHeader>
+            </div>
+          </div>
+        </CardHeader>
 
-            <CardContent>
-              {isLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : quotesData?.data?.length > 0 ? (
-                <div className="space-y-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Vehicle</TableHead>
-                        <TableHead>Field</TableHead>
-                        <TableHead>Company</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {quotesData.data.map((quote: any) => (
-                        <TableRow key={quote._id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              {quote.vehicle?.vehicle_hero_image && (
-                                <img
-                                  src={quote.vehicle.vehicle_hero_image}
-                                  alt="Vehicle"
-                                  className="w-12 h-8 object-cover rounded border"
-                                />
-                              )}
-                              <div>
-                                <div className="font-medium">
-                                  {quote.vehicle?.name ||
-                                    `${quote.vehicle?.year} ${quote.vehicle?.make} ${quote.vehicle?.model}`}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  Stock: {quote.vehicle_stock_id}
-                                </div>
-                              </div>
-                            </div>
-                          </TableCell>
-
-                          <TableCell>
-                            <div className="font-medium">
-                              {quote.field_name}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              ID: {quote.field_id}
-                            </div>
-                          </TableCell>
-
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 text-muted-foreground" />
-                              <span>{quote.company_id?.company_name}</span>
-                            </div>
-                          </TableCell>
-
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <DollarSign className="h-4 w-4 text-muted-foreground" />
-                              <span>${quote.quote_amount}</span>
-                            </div>
-                          </TableCell>
-
-                          <TableCell>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Calendar className="h-4 w-4" />
-                              {new Date(quote.created_at).toLocaleDateString()}
-                            </div>
-                          </TableCell>
-
-                          <TableCell>
-                            <Badge
-                              variant={getStatusBadgeVariant(quote.status)}
-                            >
-                              {quote.status.replace("_", " ")}
-                            </Badge>
-                            {hasResponded(quote) && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {isNotInterested(quote)
-                                  ? "Not Interested"
-                                  : "Response Submitted"}
-                              </div>
+        <CardContent className="flex-1 overflow-hidden">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : quotesData?.data?.length > 0 ? (
+            <div className="h-full flex flex-col">
+              {/* Desktop Table View */}
+              <div className="hidden md:block flex-1 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Vehicle</TableHead>
+                      <TableHead>Field</TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {quotesData.data.map((quote: any) => (
+                      <TableRow key={quote._id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            {quote.vehicle?.vehicle_hero_image && (
+                              <img
+                                src={quote.vehicle.vehicle_hero_image}
+                                alt="Vehicle"
+                                className="w-12 h-8 object-cover rounded border"
+                              />
                             )}
-                          </TableCell>
+                            <div>
+                              <div className="font-medium">
+                                {quote.vehicle?.name ||
+                                  `${quote.vehicle?.year} ${quote.vehicle?.make} ${quote.vehicle?.model}`}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                Stock: {quote.vehicle_stock_id}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
 
-                          <TableCell>{renderActionButton(quote)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                        <TableCell>
+                          <div className="font-medium">
+                            {quote.field_name}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            ID: {quote.field_id}
+                          </div>
+                        </TableCell>
 
-                  {/* Pagination */}
-                  {quotesData.pagination &&
-                    quotesData.pagination.total_pages > 1 && (
-                      <div className="flex justify-between items-center mt-4">
-                        <div className="text-sm text-muted-foreground">
-                          Showing {(page - 1) * 20 + 1} to{" "}
-                          {Math.min(page * 20, quotesData.total)} of{" "}
-                          {quotesData.total} quotes
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                            disabled={page === 1}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                            <span>{quote.company_id?.company_name}</span>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="h-4 w-4 text-muted-foreground" />
+                            <span>${quote.quote_amount}</span>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            {new Date(quote.created_at).toLocaleDateString()}
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge
+                            variant={getStatusBadgeVariant(quote.status)}
                           >
-                            Previous
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setPage((p) => p + 1)}
-                            disabled={page >= quotesData.pagination.total_pages}
-                          >
-                            Next
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                </div>
-              ) : (
-                <div className="text-center py-16">
-                  <Car className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No {getStatusTitle(status!).toLowerCase()}
-                  </h3>
-                  <p className="text-muted-foreground">
-                    {search
-                      ? "No quotes match your search criteria"
-                      : `You don't have any ${getStatusTitle(
-                          status!
-                        ).toLowerCase()} at the moment`}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </main>
-      </div>
+                            {quote.status.replace("_", " ")}
+                          </Badge>
+                          {hasResponded(quote) && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {isNotInterested(quote)
+                                ? "Not Interested"
+                                : "Response Submitted"}
+                            </div>
+                          )}
+                        </TableCell>
 
-      {/* Comment Sheet Modal */}
+                        <TableCell>{renderActionButtons(quote)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden flex-1 overflow-auto">
+                {quotesData.data.map((quote: any) => (
+                  <QuoteCard key={quote._id} quote={quote} />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {quotesData.pagination &&
+                quotesData.pagination.total_pages > 1 && (
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-4 pt-4 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {(page - 1) * 20 + 1} to{" "}
+                      {Math.min(page * 20, quotesData.total)} of{" "}
+                      {quotesData.total} quotes
+                    </div>
+                    <div className="flex gap-2 justify-center sm:justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage((p) => p + 1)}
+                        disabled={page >= quotesData.pagination.total_pages}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center py-16">
+                <Car className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-semibold mb-2">
+                  No {getStatusTitle(status!).toLowerCase()}
+                </h3>
+                <p className="text-muted-foreground">
+                  {search
+                    ? "No quotes match your search criteria"
+                    : `You don't have any ${getStatusTitle(
+                        status!
+                      ).toLowerCase()} at the moment`}
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modals */}
       <CommentSheetModal
         open={commentSheetOpen}
         onOpenChange={setCommentSheetOpen}
@@ -483,14 +570,12 @@ const QuotesByStatus = () => {
         loading={submitWorkMutation.isPending}
       />
 
-      {/* Messaging Modal */}
       <ChatModal
         open={messagingModalOpen}
         onOpenChange={setMessagingModalOpen}
         quote={selectedField?.quote}
       />
 
-      {/* Quote Details Modal */}
       <SupplierQuoteDetailsModal
         open={quoteDetailsOpen}
         onOpenChange={setQuoteDetailsOpen}
@@ -512,7 +597,6 @@ const QuotesByStatus = () => {
         }}
       />
 
-      {/* Not Interested Confirmation Modal */}
       <Dialog
         open={confirmNotInterestedOpen}
         onOpenChange={setConfirmNotInterestedOpen}
@@ -549,4 +633,4 @@ const QuotesByStatus = () => {
   );
 };
 
-export default QuotesByStatus;
+export default QuotesByStatus;  
