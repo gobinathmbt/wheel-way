@@ -89,7 +89,6 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
   });
 
   useEffect(() => {
-    console.log(quote)
     if (quote?.comment_sheet) {
       const sheet = quote.comment_sheet;
       setFormData({

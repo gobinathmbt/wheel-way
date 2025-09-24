@@ -65,7 +65,6 @@ import DataTableLayout from "@/components/common/DataTableLayout";
 
 const InspectionConfig = () => {
   const { completeUser } = useAuth();
-  console.log(completeUser);
   const queryClient = useQueryClient();
 
   // Get user info from auth context

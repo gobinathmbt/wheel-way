@@ -115,7 +115,6 @@ const CreateVehicleTradeModal = ({
     },
   });
 
-  console.log("Vehicle Status:", vehicleStatus);
   const { data: vehiclePurchaseType } = useQuery({
     queryKey: ["vehicle-purchase-type"],
     queryFn: async () => {

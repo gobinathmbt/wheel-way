@@ -264,8 +264,6 @@ const QuoteModal: React.FC<QuoteModalProps> = ({
       return;
     }
 
-    console.log(field)
-
     createQuoteMutation.mutate({
       vehicle_type: field.vehicle_type,
       vehicle_stock_id: field.vehicle_stock_id,

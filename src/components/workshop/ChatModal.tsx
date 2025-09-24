@@ -41,7 +41,6 @@ interface ChatModalProps {
 }
 
 const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
-  console.log("ChatModal rendered with quote:", quote);
   const [newMessage, setNewMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
@@ -58,7 +57,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   const [loadingConversation, setLoadingConversation] = useState(true);
   const [s3Uploader, setS3Uploader] = useState<S3Uploader | null>(null);
 
-  console.log("Current conversation state:", conversation);
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -71,7 +69,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
       sessionStorage.getItem("supplier_user") ||
       "{}"
   );
-  console.log("Current user:", currentUser);
   const supplier_user = sessionStorage.getItem("supplier_user");
   const currentUserType =
     currentUser.role === "supplier" ? "supplier" : "company";

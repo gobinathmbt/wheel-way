@@ -117,11 +117,9 @@ const getCookie = (name: string): string | null => {
       while (c.charAt(0) === " ") c = c.substring(1, c.length);
       if (c.indexOf(nameEQ) === 0) {
         const value = c.substring(nameEQ.length, c.length);
-        console.log(`Cookie retrieved: ${name}=${value}`); // Debug log
         return value;
       }
     }
-    console.log(`Cookie not found: ${name}`); // Debug log
     return null;
   } catch (error) {
     console.error("Error getting cookie:", error);
@@ -158,11 +156,9 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
   useEffect(() => {
     if (typeof window !== "undefined" && !isInitialized) {
       const savedPaginationState = getCookie(cookieName);
-      console.log("Loading cookie on mount:", savedPaginationState); // Debug log
 
       if (savedPaginationState !== null) {
         const shouldEnablePagination = savedPaginationState === "true";
-        console.log("Setting pagination from cookie:", shouldEnablePagination); // Debug log
         onPaginationToggle(shouldEnablePagination);
       }
       setIsInitialized(true);
@@ -170,16 +166,10 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
   }, [cookieName, onPaginationToggle, isInitialized]);
 
   const handlePaginationToggle = (checked: boolean) => {
-    console.log("Pagination toggle clicked:", checked); // Debug log
 
-    // Update the parent state first
     onPaginationToggle(checked);
-
-    // Then save to cookie
     const daysToExpire = Math.ceil(cookieMaxAge / (24 * 60 * 60));
     setCookie(cookieName, checked.toString(), daysToExpire);
-
-    // Reset to first page when toggling pagination
     if (checked) {
       onPageChange(1);
     }
@@ -279,15 +269,6 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
     return options;
   };
 
-  // Debug information
-  console.log("DataTableLayout render:", {
-    paginationEnabled,
-    totalCount,
-    totalPages,
-    page,
-    rowsPerPage,
-    cookieName,
-  });
 
   return (
     <DashboardLayout title={title}>

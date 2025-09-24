@@ -22,8 +22,6 @@ const MasterPlans = () => {
     modules: []
   });
   const [tempSelectedModules, setTempSelectedModules] = useState([]);
-
-  console.log(planData)
   
   // Load current plan configuration
   const { data: currentPlan, isLoading, refetch } = useQuery({
@@ -68,8 +66,6 @@ const MasterPlans = () => {
       setTempSelectedModules([...planData.modules]);
     }
   }, [isModuleDialogOpen, planData.modules]);
-
-  console.log(currentPlan)
 
   const handleModuleCostChange = (moduleName, cost, isTemp = false) => {
     if (isTemp) {

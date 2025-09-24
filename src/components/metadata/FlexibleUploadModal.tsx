@@ -162,12 +162,10 @@ const FlexibleUploadModal: React.FC<FlexibleUploadModalProps> = ({
   const setupSocketListeners = () => {
     // Connection events
     metaSocketService.on("connected", (data) => {
-      console.log("Meta socket connected:", data);
       setSocketConnected(true);
     });
 
     metaSocketService.on("disconnected", (data) => {
-      console.log("Meta socket disconnected:", data);
       setSocketConnected(false);
       if (uploadProgress.isUploading) {
         toast.error(

@@ -36,7 +36,6 @@ const Login = () => {
 
       // Get user data from auth context after successful login
       const userData = JSON.parse(sessionStorage.getItem('user') || '{}');
-      console.log('User data after login:', userData);
 
       // Check if subscription modal is forced
       if (userData.subscription_modal_force) {

@@ -38,8 +38,6 @@ const WorkflowManagement = () => {
     }),
   });
 
-  console.log(workflowsData)
-
   // Get workflow statistics
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['workflow-stats'],

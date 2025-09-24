@@ -75,8 +75,6 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({
     queryKey: ["user-info"],
     queryFn: async () => {
       const response = await apiClient.get("/api/auth/me");
-      console.log("Auth me response:", response.data); // Check the exact structure
-      // Based on your console log, it should be response.data.user
       return response.data.user;
     },
   });

@@ -993,8 +993,6 @@ const WorkshopConfig = () => {
         ? vehicle.inspection_result
         : vehicle.trade_in_result;
 
-    console.log("Result Data:", resultData);
-
     if (!resultData || resultData.length === 0) {
       return (
         <Card>

@@ -1096,7 +1096,6 @@ const VehicleMetadata = () => {
           onClose={() => setShowFlexibleUpload(false)}
           onUploadComplete={(result) => {
             queryClient.invalidateQueries({ queryKey: ["vehicle-metadata"] });
-            console.log("Upload completed:", result);
           }}
         />
 

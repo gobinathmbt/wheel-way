@@ -510,7 +510,6 @@ const TradeinConfig = () => {
   };
 
   const openEditFieldDialog = (field: any, section: any) => {
-    console.log("Field data from server:", field);
     let dropdownName = "";
     if (field.dropdown_config?.dropdown_id && dropdowns) {
       const dropdown = dropdowns.find(

@@ -150,9 +150,6 @@ const [completeUser, setCompleteUser] = useState<CompleteUser | null>(null);
     try {
       const response = await axios.post("/api/auth/login", { email, password });
       const { token: newToken, user: userData } = response.data;
-
-      console.log("Login response:", response.data);
-
       setToken(newToken);
       setUser(userData);
       setCompleteUser(userData);
