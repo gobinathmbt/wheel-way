@@ -255,14 +255,24 @@ const submitWork = async (req, res) => {
     const { quoteId } = req.params;
     const supplierId = req.supplier.supplier_id;
     const {
+      work_entries,
+      warranty_months,
+      maintenance_recommendations,
+      next_service_due,
+      supplier_comments,
+      company_feedback,
+      customer_satisfaction,
+      workMode,
+      technician_company_assigned,
+      work_completion_date,
+      total_amount,
+      quote_difference,
       final_price,
       gst_amount,
       amount_spent,
-      supplier_comments,
       invoice_pdf_url,
       invoice_pdf_key,
       work_images,
-      workMode,
     } = req.body;
 
     const finalStatus =
@@ -280,18 +290,29 @@ const submitWork = async (req, res) => {
       });
     }
 
-    // Calculate total amount
-    const total_amount = (final_price || 0) + (gst_amount || 0);
+    // Calculate total amount if not provided
+    const calculatedTotal = total_amount || (final_price || 0) + (gst_amount || 0);
 
     // Update quote with comment sheet
     quote.status = "work_review";
     quote.work_submitted_at = new Date();
+    
+    // Update comment_sheet with new structure
     quote.comment_sheet = {
+      work_entries: work_entries || [],
+      warranty_months,
+      maintenance_recommendations,
+      next_service_due: next_service_due ? new Date(next_service_due) : null,
+      supplier_comments,
+      company_feedback,
+      customer_satisfaction,
+      technician_company_assigned,
+      work_completion_date: work_completion_date ? new Date(work_completion_date) : null,
+      total_amount: calculatedTotal,
+      quote_difference,
       final_price: final_price || 0,
       gst_amount: gst_amount || 0,
       amount_spent: amount_spent || 0,
-      total_amount,
-      supplier_comments,
       invoice_pdf_url,
       invoice_pdf_key,
       work_images: work_images || [],
@@ -313,7 +334,8 @@ const submitWork = async (req, res) => {
         vehicle_stock_id: quote.vehicle_stock_id,
         field_id: quote.field_id,
         final_price,
-        total_amount,
+        total_amount: calculatedTotal,
+        work_entries_count: work_entries ? work_entries.length : 0,
       },
     });
 

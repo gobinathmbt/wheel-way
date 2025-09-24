@@ -10,16 +10,16 @@ const QuoteResponseSchema = new mongoose.Schema({
     type: Number,
   },
   estimated_time: {
-    type: String, // e.g., "2-3 days", "1 week"
+    type: String,
   },
   comments: {
     type: String,
   },
   quote_pdf_url: {
-    type: String, // S3 URL for uploaded PDF
+    type: String,
   },
   quote_pdf_key: {
-    type: String, // S3 key for deletion
+    type: String,
   },
   status: {
     type: String,
@@ -32,8 +32,95 @@ const QuoteResponseSchema = new mongoose.Schema({
   },
 });
 
+const WorkEntrySchema = new mongoose.Schema({
+  id: {
+    type: String,
+    required: true
+  },
+  description: {
+    type: String,
+  },
+  parts_cost: {
+    type: Number,
+  },
+  labor_cost: {
+    type: Number,
+  },
+  gst: {
+    type: Number,
+  },
+  parts_used: {
+    type: String,
+  },
+  labor_hours: {
+    type: String,
+  },
+  technician: {
+    type: String,
+  },
+  completed: {
+    type: Boolean,
+    default: false
+  },
+  entry_date_time: {
+    type: Date,
+  },
+  estimated_time: {
+    type: Date,
+  },
+  invoices: [{
+    url: String,
+    key: String,
+    description: String
+  }],
+  pdfs: [{
+    url: String,
+    key: String,
+    description: String
+  }],
+  videos: [{
+    url: String,
+    key: String,
+    description: String
+  }],
+  warranties: [{
+    part: String,
+    months: String,
+    supplier: String,
+    document: {
+      url: String,
+      key: String,
+      description: String
+    }
+  }],
+  documents: [{
+    url: String,
+    key: String,
+    description: String
+  }],
+  images: [{
+    url: String,
+    key: String,
+    description: String
+  }],
+  persons: [{
+    name: String,
+    role: String,
+    contact: String
+  }],
+  quality_check: {
+    visual_inspection: Boolean,
+    functional_test: Boolean,
+    road_test: Boolean,
+    safety_check: Boolean,
+    notes: String
+  },
+  comments: {
+    type: String,
+  }
+});
+
 const WorkshopQuoteSchema = new mongoose.Schema({
-  // Unique identifier combination
   vehicle_type: {
     type: String,
     enum: ["inspection", "tradein"],
@@ -41,7 +128,7 @@ const WorkshopQuoteSchema = new mongoose.Schema({
   },
   vehicle: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Vehicle", // 👈 Add this
+    ref: "Vehicle",
   },
   company_id: {
     type: mongoose.Schema.Types.ObjectId,
@@ -52,8 +139,6 @@ const WorkshopQuoteSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-
-  // Field reference from inspection results
   field_id: {
     type: String,
     required: true,
@@ -62,12 +147,8 @@ const WorkshopQuoteSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-
-  // Field images for reference
   images: [String],
   videos: [String],
-
-  // Company's quote details
   quote_amount: {
     type: Number,
     required: true,
@@ -75,19 +156,11 @@ const WorkshopQuoteSchema = new mongoose.Schema({
   quote_description: {
     type: String,
   },
-
-  // Selected suppliers for this quote
-  selected_suppliers: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Supplier",
-    },
-  ],
-
-  // Supplier responses
+  selected_suppliers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Supplier",
+  }],
   supplier_responses: [QuoteResponseSchema],
-
-  // Overall status
   status: {
     type: String,
     enum: [
@@ -101,8 +174,6 @@ const WorkshopQuoteSchema = new mongoose.Schema({
     ],
     default: "quote_request",
   },
-
-  // Approved supplier
   approved_supplier: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Supplier",
@@ -110,9 +181,38 @@ const WorkshopQuoteSchema = new mongoose.Schema({
   approved_at: {
     type: Date,
   },
-
-  // Comment sheet for work submission
   comment_sheet: {
+    work_entries: [WorkEntrySchema],
+    warranty_months: {
+      type: String,
+    },
+    maintenance_recommendations: {
+      type: String,
+    },
+    next_service_due: {
+      type: Date,
+    },
+    supplier_comments: {
+      type: String,
+    },
+    company_feedback: {
+      type: String,
+    },
+    customer_satisfaction: {
+      type: String,
+    },
+    technician_company_assigned: {
+      type: String,
+    },
+    work_completion_date: {
+      type: Date,
+    },
+    total_amount: {
+      type: Number,
+    },
+    quote_difference: {
+      type: Number,
+    },
     final_price: {
       type: Number,
     },
@@ -122,27 +222,16 @@ const WorkshopQuoteSchema = new mongoose.Schema({
     amount_spent: {
       type: Number,
     },
-    total_amount: {
-      type: Number,
-    },
     invoice_pdf_url: {
       type: String,
     },
     invoice_pdf_key: {
       type: String,
     },
-    work_images: [
-      {
-        url: String,
-        key: String,
-      },
-    ],
-    supplier_comments: {
-      type: String,
-    },
-    company_feedback: {
-      type: String,
-    },
+    work_images: [{
+      url: String,
+      key: String,
+    }],
     submitted_at: {
       type: Date,
     },
@@ -150,34 +239,28 @@ const WorkshopQuoteSchema = new mongoose.Schema({
       type: Date,
     },
   },
-
-  // Messages between company and supplier
-  messages: [
-    {
-      sender_type: {
-        type: String,
-        enum: ["company", "supplier"],
-      },
-      sender_id: {
-        type: mongoose.Schema.Types.ObjectId,
-        refPath: "messages.sender_type",
-      },
-      message: {
-        type: String,
-        required: true,
-      },
-      sent_at: {
-        type: Date,
-        default: Date.now,
-      },
+  messages: [{
+    sender_type: {
+      type: String,
+      enum: ["company", "supplier"],
     },
-  ],
-
+    sender_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: "messages.sender_type",
+    },
+    message: {
+      type: String,
+      required: true,
+    },
+    sent_at: {
+      type: Date,
+      default: Date.now,
+    },
+  }],
   conversation_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Conversation",
   },
-  // Work tracking
   work_started_at: {
     type: Date,
   },
@@ -187,15 +270,11 @@ const WorkshopQuoteSchema = new mongoose.Schema({
   work_completed_at: {
     type: Date,
   },
-
-  // Who created this quote
   created_by: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
   },
-
-  // Timestamps
   created_at: {
     type: Date,
     default: Date.now,

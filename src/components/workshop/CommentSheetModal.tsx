@@ -20,8 +20,7 @@ interface WorkEntry {
   labor_hours: string;
   technician: string;
   completed: boolean;
-  entry_date: string;
-  entry_time: string;
+  entry_date_time: string;
   estimated_time: string;
   invoices: Array<{ url: string; key: string; description: string }>;
   pdfs: Array<{ url: string; key: string; description: string }>;
@@ -49,7 +48,7 @@ export interface FormData {
   company_feedback: string;
   customer_satisfaction: string;
   workMode: any;
-  technician_assigned: string;
+  technician_company_assigned: string;
   work_completion_date: string;
 }
 
@@ -85,11 +84,12 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
     company_feedback: "",
     customer_satisfaction: "",
     workMode: workMode,
-    technician_assigned: "",
+    technician_company_assigned: "",
     work_completion_date: "",
   });
 
   useEffect(() => {
+    console.log(quote)
     if (quote?.comment_sheet) {
       const sheet = quote.comment_sheet;
       setFormData({
@@ -101,8 +101,8 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
         company_feedback: sheet.company_feedback || "",
         customer_satisfaction: sheet.customer_satisfaction || "",
         workMode: sheet.workMode || workMode,
-        technician_assigned: sheet.technician_assigned || "",
-        work_completion_date: sheet.work_completion_date || "",
+        technician_company_assigned: sheet.technician_company_assigned ||quote.supplier_responses[0].supplier_id.name|| "",
+        work_completion_date: sheet.work_completion_date ||quote.supplier_responses[0].estimated_time ||"",
       });
     }
   }, [quote, workMode]);
@@ -165,8 +165,8 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-        <DialogHeader className="pb-3 border-b bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-700 -m-6 px-4 py-3 mb-4">
+      <DialogContent className="max-w-[95vw] h-[95vh] flex flex-col bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 overflow-hidden">
+        <DialogHeader className="pb-3 border-b bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-700 -m-6 px-4 py-3 mb-4 flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded-lg">
               <Wrench className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -184,9 +184,9 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-5 bg-muted/50 p-0.5 rounded-lg mb-3 h-12">
+            <TabsList className="grid w-full grid-cols-5 bg-muted/50 p-0.5 rounded-lg mb-3 h-12 flex-shrink-0">
               <TabsTrigger value="summary" className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs px-2">
                 <TrendingUp className="h-3 w-3" />
                 <span className="hidden sm:inline">Summary</span>
@@ -209,8 +209,8 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
               </TabsTrigger>
             </TabsList>
 
-            <div className="flex-1 overflow-y-auto">
-              <form onSubmit={handleSubmit} className="space-y-4 pb-16">
+            <div className="flex-1 min-h-0 overflow-y-auto px-1">
+              <form onSubmit={handleSubmit} className="pb-4">
                 <TabsContent value="summary" className="space-y-4 mt-0">
                   <ProgressSummaryTab {...commonProps} />
                 </TabsContent>
@@ -235,7 +235,7 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
           </Tabs>
         </div>
 
-        <DialogFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-3 border-t mt-3">
+        <DialogFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-3 border-t mt-3 flex-shrink-0">
           <div className="text-xs text-muted-foreground flex items-center gap-4">
             {uploading && (
               <div className="flex items-center gap-2">

@@ -4,8 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Shield, ClipboardCheck, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+  Shield,
+  ClipboardCheck,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 import { FormData } from "../../CommentSheetModal";
+import DateTimePicker from "../DateTimePicker";
 
 interface QualityWarrantyTabProps {
   formData: FormData;
@@ -31,15 +37,17 @@ const QualityWarrantyTab: React.FC<QualityWarrantyTabProps> = ({
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="warranty_months" className="text-sm">Work Warranty (Months)</Label>
+              <Label htmlFor="warranty_months" className="text-sm">
+                Work Warranty (Months)
+              </Label>
               <Input
                 id="warranty_months"
                 type="number"
                 value={formData.warranty_months}
                 onChange={(e) =>
-                  setFormData(prev => ({
+                  setFormData((prev) => ({
                     ...prev,
-                    warranty_months: e.target.value
+                    warranty_months: e.target.value,
                   }))
                 }
                 readOnly={isReadOnly}
@@ -47,32 +55,32 @@ const QualityWarrantyTab: React.FC<QualityWarrantyTabProps> = ({
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="next_service" className="text-sm">Next Service Due</Label>
-              <Input
-                id="next_service"
-                type="date"
+              <DateTimePicker
                 value={formData.next_service_due}
-                onChange={(e) =>
-                  setFormData(prev => ({
+                onChange={(value) =>
+                  setFormData((prev) => ({
                     ...prev,
-                    next_service_due: e.target.value
+                    next_service_due: value,
                   }))
                 }
-                readOnly={isReadOnly}
-                className="h-8"
+                label="Next Service Due"
+                placeholder="Pick Next Service Due date & time"
+                disabled={isReadOnly}
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="maintenance_recommendations" className="text-sm">Maintenance Recommendations</Label>
+            <Label htmlFor="maintenance_recommendations" className="text-sm">
+              Maintenance Recommendations
+            </Label>
             <Textarea
               id="maintenance_recommendations"
               value={formData.maintenance_recommendations}
               onChange={(e) =>
-                setFormData(prev => ({
+                setFormData((prev) => ({
                   ...prev,
-                  maintenance_recommendations: e.target.value
+                  maintenance_recommendations: e.target.value,
                 }))
               }
               placeholder="Recommend future maintenance or services"
@@ -99,18 +107,38 @@ const QualityWarrantyTab: React.FC<QualityWarrantyTabProps> = ({
                 <div className="flex justify-between items-center mb-2">
                   <h4 className="font-medium text-sm">Entry #{index + 1}</h4>
                   <Badge variant="outline" className="text-xs">
-                    {Object.values(entry.quality_check).filter(v => v === true).length}/4 checks passed
+                    {
+                      Object.values(entry.quality_check).filter(
+                        (v) => v === true
+                      ).length
+                    }
+                    /4 checks passed
                   </Badge>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {Object.entries(entry.quality_check).filter(([key]) => key !== 'notes').map(([key, value]) => (
-                    <div key={key} className={`text-xs p-2 rounded ${value ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
-                      <div className="flex items-center gap-1">
-                        {value ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-                        <span className="capitalize">{key.replace(/_/g, ' ')}</span>
+                  {Object.entries(entry.quality_check)
+                    .filter(([key]) => key !== "notes")
+                    .map(([key, value]) => (
+                      <div
+                        key={key}
+                        className={`text-xs p-2 rounded ${
+                          value
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1">
+                          {value ? (
+                            <CheckCircle2 className="h-3 w-3" />
+                          ) : (
+                            <AlertCircle className="h-3 w-3" />
+                          )}
+                          <span className="capitalize">
+                            {key.replace(/_/g, " ")}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
                 {entry.quality_check.notes && (
                   <div className="mt-2 p-2 bg-muted/50 rounded text-xs">
@@ -149,19 +177,26 @@ const QualityWarrantyTab: React.FC<QualityWarrantyTabProps> = ({
                 {entry.warranties && entry.warranties.length > 0 ? (
                   <div className="grid gap-2">
                     {entry.warranties.map((warranty: any, idx: number) => (
-                      <div key={idx} className="grid grid-cols-3 gap-2 text-xs p-2 bg-blue-50 dark:bg-blue-950/20 rounded">
+                      <div
+                        key={idx}
+                        className="grid grid-cols-3 gap-2 text-xs p-2 bg-blue-50 dark:bg-blue-950/20 rounded"
+                      >
                         <div>
-                          <span className="font-medium">Part:</span> {warranty.part}
+                          <span className="font-medium">Part:</span>{" "}
+                          {warranty.part}
                         </div>
                         <div>
-                          <span className="font-medium">Duration:</span> {warranty.months} months
+                          <span className="font-medium">Duration:</span>{" "}
+                          {warranty.months} months
                         </div>
                         <div>
-                          <span className="font-medium">Supplier:</span> {warranty.supplier}
+                          <span className="font-medium">Supplier:</span>{" "}
+                          {warranty.supplier}
                         </div>
                         {warranty.document && (
                           <div className="col-span-3 text-green-600">
-                            <span className="font-medium">Document:</span> {warranty.document.description}
+                            <span className="font-medium">Document:</span>{" "}
+                            {warranty.document.description}
                           </div>
                         )}
                       </div>
