@@ -45,12 +45,12 @@ import { toast } from "sonner";
 import QuoteModal from "@/components/workshop/QuoteModal";
 import ReceivedQuotesModal from "@/components/workshop/ReceivedQuotesModal";
 import ChatModal from "@/components/workshop/ChatModal";
-import CombinedWorkModal from "@/components/workshop/CombinedWorkModal";
 import DraggableWorkshopCategoriesList from "@/components/workshop/DraggableWorkshopCategoriesList";
 import InsertWorkshopFieldModal from "@/components/workshop/InsertWorkshopFieldModal";
 import { useAuth } from "@/auth/AuthContext";
 import { Input } from "@/components/ui/input";
 import MediaViewer, { MediaItem } from "@/components/common/MediaViewer";
+import CommentSheetModal from "@/components/workshop/CommentSheetModal";
 
 const WorkshopConfig = () => {
   const { vehicleId, vehicleType } = useParams();
@@ -1634,10 +1634,11 @@ const WorkshopConfig = () => {
               quote={selectedField.quote}
             />
 
-            <CombinedWorkModal
+            <CommentSheetModal
               open={finalWorkModalOpen}
               onOpenChange={setFinalWorkModalOpen}
               field={selectedField}
+              mode="company_view"
               onSuccess={() => {
                 setFinalWorkModalOpen(false);
                 setSelectedField(null);
@@ -1645,13 +1646,13 @@ const WorkshopConfig = () => {
                   queryKey: ["workshop-vehicle-details"],
                 });
               }}
-              mode="final"
             />
 
-            <CombinedWorkModal
+            <CommentSheetModal
               open={viewWorkModalOpen}
               onOpenChange={setViewWorkModalOpen}
               field={selectedField}
+              mode="company_review"
               onSuccess={() => {
                 setViewWorkModalOpen(false);
                 setSelectedField(null);
@@ -1659,7 +1660,6 @@ const WorkshopConfig = () => {
                   queryKey: ["workshop-vehicle-details"],
                 });
               }}
-              mode="view"
             />
           </>
         )}

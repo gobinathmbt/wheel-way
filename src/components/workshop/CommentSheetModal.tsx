@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wrench, TrendingUp, Shield, FileText, MessageSquare } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Wrench, TrendingUp, Shield, FileText, MessageSquare, CheckCircle, RefreshCw, Eye } from "lucide-react";
+import { workshopServices } from "@/api/services";
+import { toast } from "sonner";
 
 import ProgressSummaryTab from "./CommentSheetTabs/Tabs/ProgressSummaryTab";
 import WorkEntriesTab from "./CommentSheetTabs/Tabs/WorkEntriesTab";
@@ -55,25 +60,81 @@ export interface FormData {
 interface CommentSheetModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  quote: any;
-  workMode: any;
-  mode: "supplier_submit" | "company_review";
-  onSubmit: (data: any) => void;
+  quote?: any; // Optional for company_review and company_view modes
+  field?: any; // Required for company_review and company_view modes
+  workMode?: any;
+  mode: "supplier_submit" | "company_review" | "company_view";
+  onSubmit?: (data: any) => void;
+  onSuccess?: () => void;
   loading?: boolean;
 }
 
 const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
   open,
   onOpenChange,
-  quote,
+  quote: propQuote,
+  field,
   workMode,
   mode,
   onSubmit,
+  onSuccess,
   loading = false,
 }) => {
   const [activeTab, setActiveTab] = useState("summary");
   const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [reworkReason, setReworkReason] = useState("");
+
+  // Fetch quote data for company_review and company_view modes
+  const { data: fetchedQuote, isLoading: isFetchingQuote } = useQuery({
+    queryKey: [
+      "field-work-details",
+      field?.vehicle_type,
+      field?.vehicle_stock_id,
+      field?.field_id,
+    ],
+    queryFn: async () => {
+      if (!field) return null;
+      const response = await workshopServices.getQuotesForField(
+        field.vehicle_type,
+        field.vehicle_stock_id,
+        field.field_id
+      );
+      return response.data.data;
+    },
+    enabled: open && !!field && (mode === "company_review" || mode === "company_view"),
+  });
+
+  // Use either prop quote or fetched quote
+  const quote = mode === "supplier_submit" ? propQuote : fetchedQuote;
+  const isLoading = mode === "supplier_submit" ? false : isFetchingQuote;
+
+  // Accept work mutation (for company_review mode)
+  const acceptWorkMutation = useMutation({
+    mutationFn: async () => {
+      const response = await workshopServices.acceptWork(quote._id);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Work accepted successfully");
+      onSuccess?.();
+    },
+    onError: () => toast.error("Failed to accept work"),
+  });
+
+  // Request rework mutation (for company_review mode)
+  const requestReworkMutation = useMutation({
+    mutationFn: async (reason: string) => {
+      const response = await workshopServices.requestRework(quote._id, reason);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Rework request sent to supplier");
+      setReworkReason("");
+      onSuccess?.();
+    },
+    onError: () => toast.error("Failed to request rework"),
+  });
 
   const [formData, setFormData] = useState<FormData>({
     work_entries: [],
@@ -100,8 +161,8 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
         company_feedback: sheet.company_feedback || "",
         customer_satisfaction: sheet.customer_satisfaction || "",
         workMode: sheet.workMode || workMode,
-        technician_company_assigned: sheet.technician_company_assigned ||quote.supplier_responses[0].supplier_id.name|| "",
-        work_completion_date: sheet.work_completion_date ||quote.supplier_responses[0].estimated_time ||"",
+        technician_company_assigned: sheet.technician_company_assigned || quote?.supplier_responses?.[0]?.supplier_id?.name || "",
+        work_completion_date: sheet.work_completion_date || quote?.supplier_responses?.[0]?.estimated_time || "",
       });
     }
   }, [quote, workMode]);
@@ -133,19 +194,58 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
         alert("Please add at least one work entry");
         return;
       }
+
+      const submitData = {
+        ...formData,
+        total_amount: calculateGrandTotal(),
+        quote_difference: getQuoteDifference(),
+        workMode: workMode,
+      };
+
+      onSubmit?.(submitData);
     }
-
-    const submitData = {
-      ...formData,
-      total_amount: calculateGrandTotal(),
-      quote_difference: getQuoteDifference(),
-      workMode: workMode,
-    };
-
-    onSubmit(submitData);
   };
 
-  const isReadOnly = mode === "company_review";
+  const handleAcceptWork = () => {
+    acceptWorkMutation.mutate();
+  };
+
+  const handleRequestRework = () => {
+    if (!reworkReason.trim()) {
+      toast.error("Please provide a reason for rework");
+      return;
+    }
+    requestReworkMutation.mutate(reworkReason);
+  };
+
+  const isReadOnly = mode === "company_view" || (mode === "company_review" && activeTab !== "rework");
+  const showReworkTab = mode === "company_review";
+
+  const getModalTitle = () => {
+    switch (mode) {
+      case "supplier_submit":
+        return `${workMode === "submit" ? "Submit Work Details" : "Update Work Details"}`;
+      case "company_review":
+        return "Review Work Submission";
+      case "company_view":
+        return "Work Details";
+      default:
+        return "Work Details";
+    }
+  };
+
+  const getModalIcon = () => {
+    switch (mode) {
+      case "supplier_submit":
+        return <Wrench className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
+      case "company_review":
+        return <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />;
+      case "company_view":
+        return <Eye className="h-5 w-5 text-gray-600 dark:text-gray-400" />;
+      default:
+        return <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
+    }
+  };
 
   const commonProps = {
     formData,
@@ -162,22 +262,32 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
     getQuoteDifference,
   };
 
+  if (isLoading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] h-[95vh] flex flex-col bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 overflow-hidden">
         <DialogHeader className="pb-3 border-b bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-700 -m-6 px-4 py-3 mb-4 flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded-lg">
-              <Wrench className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              {getModalIcon()}
             </div>
             <div>
               <div className="text-lg font-bold">
-                {mode === "supplier_submit"
-                  ? `${workMode === "submit" ? "Submit Work Details" : "Update Work Details"}`
-                  : "Review Work Submission"}
+                {getModalTitle()}
               </div>
               <div className="text-xs text-muted-foreground font-normal">
-                {quote?.field_name} • Stock ID: {quote?.vehicle_stock_id}
+                {quote?.field_name || field?.field_name} • Stock ID: {quote?.vehicle_stock_id || field?.vehicle_stock_id}
               </div>
             </div>
           </DialogTitle>
@@ -185,7 +295,7 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
 
         <div className="flex-1 min-h-0 overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-5 bg-muted/50 p-0.5 rounded-lg mb-3 h-12 flex-shrink-0">
+            <TabsList className={`grid w-full ${showReworkTab ? 'grid-cols-6' : 'grid-cols-5'} bg-muted/50 p-0.5 rounded-lg mb-3 h-12 flex-shrink-0`}>
               <TabsTrigger value="summary" className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs px-2">
                 <TrendingUp className="h-3 w-3" />
                 <span className="hidden sm:inline">Summary</span>
@@ -206,6 +316,12 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                 <MessageSquare className="h-3 w-3" />
                 <span className="hidden sm:inline">Notes</span>
               </TabsTrigger>
+              {showReworkTab && (
+                <TabsTrigger value="rework" className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs px-2">
+                  <RefreshCw className="h-3 w-3" />
+                  <span className="hidden sm:inline">Review</span>
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <div className="flex-1 min-h-0 overflow-y-auto px-1">
@@ -229,6 +345,52 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                 <TabsContent value="comments" className="space-y-3 mt-0">
                   <CommentsTab {...commonProps} workMode={workMode} />
                 </TabsContent>
+
+                {showReworkTab && (
+                  <TabsContent value="rework" className="space-y-4 mt-0">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Work Review & Actions</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">
+                            Rework Request Reason (Optional)
+                          </label>
+                          <Textarea
+                            placeholder="Provide detailed reason for rework request if needed..."
+                            value={reworkReason}
+                            onChange={(e) => setReworkReason(e.target.value)}
+                            className="min-h-[100px]"
+                          />
+                        </div>
+                        
+                        <div className="flex gap-3 pt-4">
+                          <Button
+                            type="button"
+                            onClick={handleRequestRework}
+                            disabled={!reworkReason.trim() || requestReworkMutation.isPending}
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            {requestReworkMutation.isPending ? "Requesting..." : "Request Rework"}
+                          </Button>
+                          
+                          <Button
+                            type="button"
+                            onClick={handleAcceptWork}
+                            disabled={acceptWorkMutation.isPending}
+                            className="flex-1 bg-green-600 hover:bg-green-700"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            {acceptWorkMutation.isPending ? "Accepting..." : "Accept Work"}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                )}
               </form>
             </div>
           </Tabs>
@@ -253,10 +415,10 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
               onClick={() => onOpenChange(false)}
               className="min-w-[80px] h-9 text-sm"
             >
-              {mode === "company_review" ? "Close" : "Cancel"}
+              Close
             </Button>
 
-            {!isReadOnly && (
+            {mode === "supplier_submit" && (
               <Button 
                 type="submit" 
                 onClick={handleSubmit}
@@ -269,9 +431,7 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
                     Processing...
                   </div>
                 ) : (
-                  `${mode === "supplier_submit"
-                    ? `${workMode === "submit" ? "Submit Work" : "Update Work"}`
-                    : "Save Review"}`
+                  `${workMode === "submit" ? "Submit Work" : "Update Work"}`
                 )}
               </Button>
             )}

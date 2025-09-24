@@ -248,6 +248,20 @@ const QuotesByStatus = () => {
             </Button>
           </div>
         );
+      case "completed_jobs":
+        return (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleViewDetails(quote)}
+              disabled={notInterested}
+            >
+              <Eye className="h-3 w-3 mr-1" />
+              View Details
+            </Button>
+          </div>
+        );
 
       default:
         return (

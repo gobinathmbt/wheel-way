@@ -10,9 +10,16 @@ interface CommentsTabProps {
   formData: FormData;
   setFormData: React.Dispatch<React.SetStateAction<FormData>>;
   quote: any;
-  mode: "supplier_submit" | "company_review";
+  mode: "supplier_submit" | "company_review" | "company_view";
   isReadOnly: boolean;
-  workMode: any;
+  workMode?: any;
+  uploading?: boolean;
+  setUploading?: (uploading: boolean) => void;
+  expandedEntry?: string | null;
+  setExpandedEntry?: (entry: string | null) => void;
+  calculateEntryTotal?: (entry: any) => number;
+  calculateGrandTotal?: () => number;
+  getQuoteDifference?: () => number;
 }
 
 const CommentsTab: React.FC<CommentsTabProps> = ({
@@ -21,7 +28,14 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
   quote,
   mode,
   isReadOnly,
-  workMode,
+  workMode, // Now properly defined and optional
+  uploading,
+  setUploading,
+  expandedEntry,
+  setExpandedEntry,
+  calculateEntryTotal,
+  calculateGrandTotal,
+  getQuoteDifference,
 }) => {
   return (
     <div className="space-y-3">
@@ -52,6 +66,7 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
                   rows={5}
                   required
                   className="text-xs"
+                  readOnly={isReadOnly} // Added readOnly prop
                 />
               </div>
             ) : (
@@ -63,7 +78,7 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
                   </div>
                 </div>
 
-                {quote?.status === "work_review" && (
+                {(mode === "company_review" && quote?.status === "work_review") && (
                   <div className="space-y-2">
                     <Label htmlFor="company_feedback" className="text-sm">
                       Company Review & Feedback
@@ -80,6 +95,7 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
                       placeholder="Provide overall feedback on the completed work, quality assessment, approval status, etc."
                       rows={3}
                       className="text-xs"
+                      readOnly={isReadOnly} // Added readOnly prop
                     />
                   </div>
                 )}
@@ -94,7 +110,7 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
                         key={rating}
                         type="button"
                         onClick={() =>
-                          setFormData(prev => ({
+                          !isReadOnly && setFormData(prev => ({
                             ...prev,
                             customer_satisfaction: rating.toString()
                           }))
@@ -103,7 +119,7 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
                           parseInt(formData.customer_satisfaction) >= rating
                             ? 'text-yellow-500'
                             : 'text-gray-300'
-                        } hover:text-yellow-400`}
+                        } hover:text-yellow-400 ${isReadOnly ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                         disabled={isReadOnly}
                       >
                         <Star className="h-5 w-5 fill-current" />
@@ -162,7 +178,7 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
             <div className="space-y-3">
               <div className="p-3 bg-muted/50 rounded-lg">
                 <Label className="text-muted-foreground text-xs">Work Mode</Label>
-                <p className="font-medium text-sm capitalize">{workMode}</p>
+                <p className="font-medium text-sm capitalize">{workMode || 'N/A'}</p>
               </div>
               <div className="p-3 bg-muted/50 rounded-lg">
                 <Label className="text-muted-foreground text-xs">Last Updated</Label>
@@ -182,7 +198,7 @@ const CommentsTab: React.FC<CommentsTabProps> = ({
                 <Label className="text-muted-foreground text-xs">Overall Quality Status</Label>
                 <p className="font-medium text-sm">
                   {formData.work_entries.reduce((acc, entry) => 
-                    acc + Object.values(entry.quality_check).filter(v => v === true).length, 0
+                    acc + Object.values(entry.quality_check || {}).filter(v => v === true).length, 0
                   )} total checks passed
                 </p>
               </div>
