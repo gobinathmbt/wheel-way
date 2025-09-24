@@ -1,28 +1,57 @@
 import React, { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import {
-  DollarSign,
-  FileText,
-  Upload,
-  X,
-  Download,
-  Eye,
-  Image as ImageIcon,
-} from "lucide-react";
-import { S3Uploader } from "@/lib/s3-client";
-import { supplierDashboardServices } from "@/api/services";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Wrench, TrendingUp, Shield, FileText, MessageSquare } from "lucide-react";
+
+import ProgressSummaryTab from "./CommentSheetTabs/Tabs/ProgressSummaryTab";
+import WorkEntriesTab from "./CommentSheetTabs/Tabs/WorkEntriesTab";
+import QualityWarrantyTab from "./CommentSheetTabs/Tabs/QualityWarrantyTab";
+import DocumentationTab from "./CommentSheetTabs/Tabs/DocumentationTab";
+import CommentsTab from "./CommentSheetTabs/Tabs/CommentsTab";
+
+interface WorkEntry {
+  id: string;
+  description: string;
+  parts_cost: string;
+  labor_cost: string;
+  gst: string;
+  parts_used: string;
+  labor_hours: string;
+  technician: string;
+  completed: boolean;
+  entry_date: string;
+  entry_time: string;
+  estimated_time: string;
+  invoices: Array<{ url: string; key: string; description: string }>;
+  pdfs: Array<{ url: string; key: string; description: string }>;
+  videos: Array<{ url: string; key: string; description: string }>;
+  warranties: Array<{ part: string; months: string; supplier: string; document?: { url: string; key: string; description: string } }>;
+  documents: Array<{ url: string; key: string; description: string }>;
+  images: Array<{ url: string; key: string; description: string }>;
+  persons: Array<{ name: string; role: string; contact: string }>;
+  quality_check: {
+    visual_inspection: boolean;
+    functional_test: boolean;
+    road_test: boolean;
+    safety_check: boolean;
+    notes: string;
+  };
+  comments: string;
+}
+
+export interface FormData {
+  work_entries: WorkEntry[];
+  warranty_months: string;
+  maintenance_recommendations: string;
+  next_service_due: string;
+  supplier_comments: string;
+  company_feedback: string;
+  customer_satisfaction: string;
+  workMode: any;
+  technician_assigned: string;
+  work_completion_date: string;
+}
 
 interface CommentSheetModalProps {
   open: boolean;
@@ -43,133 +72,74 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
   onSubmit,
   loading = false,
 }) => {
-  const [formData, setFormData] = useState({
-    final_price: "",
-    gst_amount: "",
-    amount_spent: "",
+  const [activeTab, setActiveTab] = useState("summary");
+  const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const [formData, setFormData] = useState<FormData>({
+    work_entries: [],
+    warranty_months: "12",
+    maintenance_recommendations: "",
+    next_service_due: "",
     supplier_comments: "",
     company_feedback: "",
-    invoice_pdf_url: "",
-    invoice_pdf_key: "",
+    customer_satisfaction: "",
     workMode: workMode,
-    work_images: [] as Array<{ url: string; key: string }>,
+    technician_assigned: "",
+    work_completion_date: "",
   });
-
-  const [uploading, setUploading] = useState(false);
-  const [s3Uploader, setS3Uploader] = useState<S3Uploader | null>(null);
-
-  useEffect(() => {
-    // Initialize S3 uploader with company config
-    // This would typically come from your settings/config
-    const initializeS3 = async () => {
-      try {
-        const response = await supplierDashboardServices.getsupplierS3Config();
-        const config = response.data.data;
-
-        if (config && config.bucket && config.access_key) {
-          const s3Config = {
-            region: config.region,
-            bucket: config.bucket,
-            access_key: config.access_key,
-            secret_key: config.secret_key,
-            url: config.url,
-          };
-          setS3Uploader(new S3Uploader(s3Config));
-        }
-      } catch (error) {
-        console.error("Failed to initialize S3:", error);
-      }
-    };
-
-    initializeS3();
-  }, []);
 
   useEffect(() => {
     if (quote?.comment_sheet) {
       const sheet = quote.comment_sheet;
       setFormData({
-        final_price: sheet.final_price?.toString() || "",
-        gst_amount: sheet.gst_amount?.toString() || "",
-        amount_spent: sheet.amount_spent?.toString() || "",
+        work_entries: sheet.work_entries || [],
+        warranty_months: sheet.warranty_months || "12",
+        maintenance_recommendations: sheet.maintenance_recommendations || "",
+        next_service_due: sheet.next_service_due || "",
         supplier_comments: sheet.supplier_comments || "",
         company_feedback: sheet.company_feedback || "",
-        invoice_pdf_url: sheet.invoice_pdf_url || "",
-        invoice_pdf_key: sheet.invoice_pdf_key || "",
-        workMode: sheet.workMode || "",
-        work_images: sheet.work_images || [],
+        customer_satisfaction: sheet.customer_satisfaction || "",
+        workMode: sheet.workMode || workMode,
+        technician_assigned: sheet.technician_assigned || "",
+        work_completion_date: sheet.work_completion_date || "",
       });
     }
-  }, [quote]);
+  }, [quote, workMode]);
 
-  const handleFileUpload = async (file: File, type: "pdf" | "image") => {
-    if (!s3Uploader) {
-      toast.error("S3 uploader not initialized");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const category = type === "pdf" ? "document" : "otherImage";
-      const result = await s3Uploader.uploadFile(file, category);
-
-      if (type === "pdf") {
-        setFormData((prev) => ({
-          ...prev,
-          invoice_pdf_url: result.url,
-          invoice_pdf_key: result.key,
-        }));
-      } else {
-        setFormData((prev) => ({
-          ...prev,
-          work_images: [
-            ...prev.work_images,
-            { url: result.url, key: result.key },
-          ],
-        }));
-      }
-
-      toast.success(`${type.toUpperCase()} uploaded successfully`);
-    } catch (error) {
-      console.error("Upload error:", error);
-      toast.error(`Failed to upload ${type}`);
-    } finally {
-      setUploading(false);
-    }
+  const calculateEntryTotal = (entry: WorkEntry) => {
+    const parts = parseFloat(entry.parts_cost) || 0;
+    const labor = parseFloat(entry.labor_cost) || 0;
+    const gst = parseFloat(entry.gst) || 0;
+    return parts + labor + gst;
   };
 
-  const removeImage = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      work_images: prev.work_images.filter((_, i) => i !== index),
-    }));
+  const calculateGrandTotal = () => {
+    return formData.work_entries.reduce((total, entry) => {
+      return total + calculateEntryTotal(entry);
+    }, 0);
   };
 
-  const removePDF = () => {
-    setFormData((prev) => ({
-      ...prev,
-      invoice_pdf_url: "",
-      invoice_pdf_key: "",
-    }));
+  const getQuoteDifference = () => {
+    const total = calculateGrandTotal();
+    const quoteAmount = quote?.quote_amount || 0;
+    return total - quoteAmount;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (mode === "supplier_submit") {
-      if (!formData.final_price) {
-        toast.error("Please enter the final price");
+      if (formData.work_entries.length === 0) {
+        alert("Please add at least one work entry");
         return;
       }
     }
 
     const submitData = {
       ...formData,
-      final_price: parseFloat(formData.final_price) || 0,
-      gst_amount: parseFloat(formData.gst_amount) || 0,
-      amount_spent: parseFloat(formData.amount_spent) || 0,
-      total_amount:
-        (parseFloat(formData.final_price) || 0) +
-        (parseFloat(formData.gst_amount) || 0),
+      total_amount: calculateGrandTotal(),
+      quote_difference: getQuoteDifference(),
       workMode: workMode,
     };
 
@@ -178,339 +148,136 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
 
   const isReadOnly = mode === "company_review";
 
+  const commonProps = {
+    formData,
+    setFormData,
+    quote,
+    mode,
+    isReadOnly,
+    uploading,
+    setUploading,
+    expandedEntry,
+    setExpandedEntry,
+    calculateEntryTotal,
+    calculateGrandTotal,
+    getQuoteDifference,
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {mode === "supplier_submit"
-              ? `${
-                  workMode === "submit"
-                    ? "Submit Work Details"
-                    : "Update Work Details"
-                }`
-              : "Review Work Submission"}
+      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
+        <DialogHeader className="pb-3 border-b bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-700 -m-6 px-4 py-3 mb-4">
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded-lg">
+              <Wrench className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <div className="text-lg font-bold">
+                {mode === "supplier_submit"
+                  ? `${workMode === "submit" ? "Submit Work Details" : "Update Work Details"}`
+                  : "Review Work Submission"}
+              </div>
+              <div className="text-xs text-muted-foreground font-normal">
+                {quote?.field_name} • Stock ID: {quote?.vehicle_stock_id}
+              </div>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Quote Information */}
-          <Card>
-            <CardContent className="pt-4">
-              <h3 className="font-semibold mb-3">Quote Information</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <Label className="text-muted-foreground">Field Name</Label>
-                  <p className="font-medium">{quote?.field_name}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">
-                    Original Quote Amount
-                  </Label>
-                  <p className="font-medium">${quote?.quote_amount}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Vehicle</Label>
-                  <p className="font-medium">
-                    Stock ID: {quote?.vehicle_stock_id}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Status</Label>
-                  <Badge variant="outline">{quote?.status}</Badge>
-                </div>
+        <div className="flex-1 overflow-hidden">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            <TabsList className="grid w-full grid-cols-5 bg-muted/50 p-0.5 rounded-lg mb-3 h-12">
+              <TabsTrigger value="summary" className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs px-2">
+                <TrendingUp className="h-3 w-3" />
+                <span className="hidden sm:inline">Summary</span>
+              </TabsTrigger>
+              <TabsTrigger value="work-entries" className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs px-2">
+                <Wrench className="h-3 w-3" />
+                <span className="hidden sm:inline">Work</span>
+              </TabsTrigger>
+              <TabsTrigger value="quality-warranty" className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs px-2">
+                <Shield className="h-3 w-3" />
+                <span className="hidden sm:inline">Quality</span>
+              </TabsTrigger>
+              <TabsTrigger value="documentation" className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs px-2">
+                <FileText className="h-3 w-3" />
+                <span className="hidden sm:inline">Docs</span>
+              </TabsTrigger>
+              <TabsTrigger value="comments" className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs px-2">
+                <MessageSquare className="h-3 w-3" />
+                <span className="hidden sm:inline">Notes</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="flex-1 overflow-y-auto">
+              <form onSubmit={handleSubmit} className="space-y-4 pb-16">
+                <TabsContent value="summary" className="space-y-4 mt-0">
+                  <ProgressSummaryTab {...commonProps} />
+                </TabsContent>
+
+                <TabsContent value="work-entries" className="space-y-3 mt-0">
+                  <WorkEntriesTab {...commonProps} />
+                </TabsContent>
+
+                <TabsContent value="quality-warranty" className="space-y-3 mt-0">
+                  <QualityWarrantyTab {...commonProps} />
+                </TabsContent>
+
+                <TabsContent value="documentation" className="space-y-3 mt-0">
+                  <DocumentationTab {...commonProps} />
+                </TabsContent>
+
+                <TabsContent value="comments" className="space-y-3 mt-0">
+                  <CommentsTab {...commonProps} workMode={workMode} />
+                </TabsContent>
+              </form>
+            </div>
+          </Tabs>
+        </div>
+
+        <DialogFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-3 border-t mt-3">
+          <div className="text-xs text-muted-foreground flex items-center gap-4">
+            {uploading && (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                <span>Uploading...</span>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Financial Details */}
-          <Card>
-            <CardContent className="pt-4">
-              <h3 className="font-semibold mb-3">Financial Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="final_price">Final Price *</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="final_price"
-                      type="number"
-                      step="0.01"
-                      value={formData.final_price}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          final_price: e.target.value,
-                        }))
-                      }
-                      placeholder="0.00"
-                      className="pl-10"
-                      readOnly={isReadOnly}
-                      required={mode === "supplier_submit"}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="gst_amount">GST Amount</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="gst_amount"
-                      type="number"
-                      step="0.01"
-                      value={formData.gst_amount}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          gst_amount: e.target.value,
-                        }))
-                      }
-                      placeholder="0.00"
-                      className="pl-10"
-                      readOnly={isReadOnly}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="amount_spent">Amount Spent</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="amount_spent"
-                      type="number"
-                      step="0.01"
-                      value={formData.amount_spent}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          amount_spent: e.target.value,
-                        }))
-                      }
-                      placeholder="0.00"
-                      className="pl-10"
-                      readOnly={isReadOnly}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {(formData.final_price || formData.gst_amount) && (
-                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-                  <div className="flex justify-between items-center font-semibold">
-                    <span>Total Amount:</span>
-                    <span>
-                      $
-                      {(
-                        (parseFloat(formData.final_price) || 0) +
-                        (parseFloat(formData.gst_amount) || 0)
-                      ).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Invoice PDF */}
-          <Card>
-            <CardContent className="pt-4">
-              <h3 className="font-semibold mb-3">Invoice Document</h3>
-
-              {formData.invoice_pdf_url ? (
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    <span className="text-sm">Invoice PDF uploaded</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        window.open(formData.invoice_pdf_url, "_blank")
-                      }
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View
-                    </Button>
-                    {!isReadOnly && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={removePDF}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                !isReadOnly && (
-                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
-                    <input
-                      type="file"
-                      id="pdf-upload"
-                      accept=".pdf"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleFileUpload(file, "pdf");
-                      }}
-                      className="hidden"
-                    />
-                    <label
-                      htmlFor="pdf-upload"
-                      className="flex flex-col items-center gap-2 cursor-pointer"
-                    >
-                      <Upload className="h-8 w-8 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        Click to upload invoice PDF
-                      </span>
-                    </label>
-                  </div>
-                )
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Work Images */}
-          <Card>
-            <CardContent className="pt-4">
-              <h3 className="font-semibold mb-3">Work Images</h3>
-
-              {formData.work_images.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
-                  {formData.work_images.map((image, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={image.url}
-                        alt={`Work image ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-lg border"
-                      />
-                      {!isReadOnly && (
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => removeImage(index)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {!isReadOnly && (
-                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
-                  <input
-                    type="file"
-                    id="image-upload"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files || []);
-                      files.forEach((file) => handleFileUpload(file, "image"));
-                    }}
-                    className="hidden"
-                  />
-                  <label
-                    htmlFor="image-upload"
-                    className="flex flex-col items-center gap-2 cursor-pointer"
-                  >
-                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      Click to upload work images
-                    </span>
-                  </label>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Comments */}
-          <Card>
-            <CardContent className="pt-4">
-              <div className="space-y-4">
-                {mode === "supplier_submit" ? (
-                  <div>
-                    <Label htmlFor="supplier_comments">
-                      Work Description & Comments *
-                    </Label>
-                    <Textarea
-                      id="supplier_comments"
-                      value={formData.supplier_comments}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          supplier_comments: e.target.value,
-                        }))
-                      }
-                      placeholder="Describe the work completed, any issues encountered, etc."
-                      rows={4}
-                      required
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <Label>Supplier Comments</Label>
-                      <div className="p-3 bg-muted/50 rounded-lg">
-                        {formData.supplier_comments || "No comments provided"}
-                      </div>
-                    </div>
-
-                    {quote?.status === "work_review" && (
-                      <div>
-                        <Label htmlFor="company_feedback">
-                          Company Feedback
-                        </Label>
-                        <Textarea
-                          id="company_feedback"
-                          value={formData.company_feedback}
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              company_feedback: e.target.value,
-                            }))
-                          }
-                          placeholder="Provide feedback on the completed work"
-                          rows={3}
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3">
+            )}
+            <div className="hidden md:block">
+              Total: <span className="font-bold text-green-600">${calculateGrandTotal().toFixed(2)}</span>
+            </div>
+          </div>
+          <div className="flex gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              className="min-w-[80px] h-9 text-sm"
             >
               {mode === "company_review" ? "Close" : "Cancel"}
             </Button>
 
             {!isReadOnly && (
-              <Button type="submit" disabled={loading || uploading}>
-                {loading
-                  ? "Processing..."
-                  : mode === "supplier_submit"
-                  ? `${workMode === "submit" ? "Submit Work" : "Update Work"}`
-                  : "Save Feedback"}
+              <Button 
+                type="submit" 
+                onClick={handleSubmit}
+                disabled={loading || uploading}
+                className="min-w-[120px] h-9 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-sm"
+              >
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                    Processing...
+                  </div>
+                ) : (
+                  `${mode === "supplier_submit"
+                    ? `${workMode === "submit" ? "Submit Work" : "Update Work"}`
+                    : "Save Review"}`
+                )}
               </Button>
             )}
           </div>
-        </form>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

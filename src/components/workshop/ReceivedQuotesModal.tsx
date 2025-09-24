@@ -21,8 +21,7 @@ import {
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns"
-
+import { format } from "date-fns";
 
 interface ReceivedQuotesModalProps {
   open: boolean;
@@ -158,11 +157,15 @@ const ReceivedQuotesModal: React.FC<ReceivedQuotesModalProps> = ({
             <span className="text-sm font-medium">
               {response.supplier_id?.name || "Unknown Supplier"}
             </span>
-            <span className="hidden sm:inline text-sm text-muted-foreground">|</span>
+            <span className="hidden sm:inline text-sm text-muted-foreground">
+              |
+            </span>
             <span className="text-sm">
               {response.supplier_id?.email || "Unknown Email"}
             </span>
-            <span className="hidden sm:inline text-sm text-muted-foreground">|</span>
+            <span className="hidden sm:inline text-sm text-muted-foreground">
+              |
+            </span>
             <span className="text-sm">
               {response.supplier_id?.supplier_shop_name || "Unknown Shop"}
             </span>
@@ -212,11 +215,12 @@ const ReceivedQuotesModal: React.FC<ReceivedQuotesModalProps> = ({
                   <p className="text-sm text-muted-foreground">
                     Estimated Time
                   </p>
-<p className="font-medium">
-  {response.estimated_time
-    ? format(new Date(response.estimated_time), "PPP p")
-    : "-"}
-</p>                </div>
+                  <p className="font-medium">
+                    {response.estimated_time
+                      ? format(new Date(response.estimated_time), "PPP p")
+                      : "-"}
+                  </p>{" "}
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
@@ -363,16 +367,22 @@ const ReceivedQuotesModal: React.FC<ReceivedQuotesModalProps> = ({
                         <CheckCircle className="h-4 w-4" />
                         <span className="hidden xl:inline">Approved Quote</span>
                         <span className="xl:hidden">Approved</span>
-                        <span className="text-xs">({getFilteredResponses("approved").length})</span>
+                        <span className="text-xs">
+                          ({getFilteredResponses("approved").length})
+                        </span>
                       </TabsTrigger>
                       <TabsTrigger
                         value="received"
                         className="flex items-center gap-2"
                       >
                         <Eye className="h-4 w-4" />
-                        <span className="hidden xl:inline">Received Quotes</span>
+                        <span className="hidden xl:inline">
+                          Received Quotes
+                        </span>
                         <span className="xl:hidden">Received</span>
-                        <span className="text-xs">({getFilteredResponses("received").length})</span>
+                        <span className="text-xs">
+                          ({getFilteredResponses("received").length})
+                        </span>
                       </TabsTrigger>
                       <TabsTrigger
                         value="pending"
@@ -381,7 +391,9 @@ const ReceivedQuotesModal: React.FC<ReceivedQuotesModalProps> = ({
                         <Clock className="h-4 w-4" />
                         <span className="hidden xl:inline">Yet to Receive</span>
                         <span className="xl:hidden">Pending</span>
-                        <span className="text-xs">({getFilteredResponses("pending").length})</span>
+                        <span className="text-xs">
+                          ({getFilteredResponses("pending").length})
+                        </span>
                       </TabsTrigger>
                       <TabsTrigger
                         value="not_interested"
@@ -390,7 +402,9 @@ const ReceivedQuotesModal: React.FC<ReceivedQuotesModalProps> = ({
                         <XCircle className="h-4 w-4" />
                         <span className="hidden xl:inline">Not Interested</span>
                         <span className="xl:hidden">Not Int.</span>
-                        <span className="text-xs">({getFilteredResponses("not_interested").length})</span>
+                        <span className="text-xs">
+                          ({getFilteredResponses("not_interested").length})
+                        </span>
                       </TabsTrigger>
                     </TabsList>
 
@@ -403,7 +417,9 @@ const ReceivedQuotesModal: React.FC<ReceivedQuotesModalProps> = ({
                         >
                           <CheckCircle className="h-3 w-3" />
                           <span>Approved</span>
-                          <span>({getFilteredResponses("approved").length})</span>
+                          <span>
+                            ({getFilteredResponses("approved").length})
+                          </span>
                         </TabsTrigger>
                         <TabsTrigger
                           value="received"
@@ -411,7 +427,9 @@ const ReceivedQuotesModal: React.FC<ReceivedQuotesModalProps> = ({
                         >
                           <Eye className="h-3 w-3" />
                           <span>Received</span>
-                          <span>({getFilteredResponses("received").length})</span>
+                          <span>
+                            ({getFilteredResponses("received").length})
+                          </span>
                         </TabsTrigger>
                       </TabsList>
                       <TabsList className="grid grid-cols-2 w-full">
@@ -421,7 +439,9 @@ const ReceivedQuotesModal: React.FC<ReceivedQuotesModalProps> = ({
                         >
                           <Clock className="h-3 w-3" />
                           <span>Pending</span>
-                          <span>({getFilteredResponses("pending").length})</span>
+                          <span>
+                            ({getFilteredResponses("pending").length})
+                          </span>
                         </TabsTrigger>
                         <TabsTrigger
                           value="not_interested"
@@ -429,7 +449,9 @@ const ReceivedQuotesModal: React.FC<ReceivedQuotesModalProps> = ({
                         >
                           <XCircle className="h-3 w-3" />
                           <span>Not Int.</span>
-                          <span>({getFilteredResponses("not_interested").length})</span>
+                          <span>
+                            ({getFilteredResponses("not_interested").length})
+                          </span>
                         </TabsTrigger>
                       </TabsList>
                     </div>
