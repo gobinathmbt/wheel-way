@@ -46,6 +46,8 @@ import VehicleOwnershipSection from "@/components/vehicles/VehicleSections/Trade
 import VehicleAttachmentsSection from "@/components/vehicles/VehicleSections/TradeInSections/VehicleAttachmentsSection";
 import WorkshopReportModal from "@/components/workshop/WorkshopReportModal";
 
+import { DealershipManagerButton } from '@/components/common/DealershipManager';
+
 interface VehicleTradeSideModalProps {
   vehicle: any;
   vehicleType: "inspection" | "tradein" | "advertisement" | "master";
@@ -391,6 +393,9 @@ const canRemoveStage = (stageName: string) => {
                   >
                     <Wrench className="h-4 w-4 mr-2" />
 
+
+
+
                     {vehicle.workshop_progress === "completed"?"Completed": getWorkshopStatusDisplay()}
                
                   </Button>
@@ -459,6 +464,20 @@ const canRemoveStage = (stageName: string) => {
                     }
                     return null;
                   })()}
+
+<DealershipManagerButton
+  vehicleData={{
+    vehicleType: vehicle.vehicle_type,
+    vehicleIds: [vehicle._id],
+    currentDealership: vehicle.dealership_id,
+    stockNumber: vehicle.vehicle_stock_id,
+  }}
+  variant="outline"
+  size="sm"
+  onSuccess={onUpdate}
+/>
+
+
                 </div>
               </div>
             )}
