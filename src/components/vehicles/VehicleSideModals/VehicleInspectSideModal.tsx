@@ -46,6 +46,10 @@ import VehicleOwnershipSection from "@/components/vehicles/VehicleSections/Inspe
 import VehicleAttachmentsSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleAttachmentsSection";
 import WorkshopReportModal from "@/components/workshop/WorkshopReportModal";
 
+import { DealershipManagerButton } from '@/components/common/DealershipManager';
+
+
+
 interface VehicleInspectSideModalProps {
   vehicle: any;
   vehicleType: "inspection" | "tradein" | "advertisement" | "master";
@@ -459,6 +463,20 @@ const canRemoveStage = (stageName: string) => {
                     }
                     return null;
                   })()}
+
+    {/* Add the dealership manager button */}
+<DealershipManagerButton
+  vehicleData={{
+    vehicleType: vehicle.vehicle_type,
+    vehicleIds: [vehicle._id],
+    currentDealership: vehicle.dealership_id,
+    stockNumber: vehicle.vehicle_stock_id,
+  }}
+  variant="outline"
+  size="sm"
+  onSuccess={onUpdate}
+/>
+
                 </div>
               </div>
             )}
