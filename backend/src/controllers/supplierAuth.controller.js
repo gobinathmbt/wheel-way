@@ -19,12 +19,10 @@ const supplierLogin = async (req, res) => {
         message: "Email and password are required",
       });
     }
-
-    // Find supplier by email
     const supplier = await Supplier.findOne({
       email: email.toLowerCase(),
       is_active: true,
-    });
+    }).populate("company_id", "company_name");
 
     if (!supplier) {
       return res.status(401).json({
@@ -33,7 +31,6 @@ const supplierLogin = async (req, res) => {
       });
     }
 
-    // Check password (static password: Welcome@123)
     if (password !== supplier.password) {
       return res.status(401).json({
         success: false,
@@ -46,7 +43,7 @@ const supplierLogin = async (req, res) => {
       {
         supplier_id: supplier._id,
         email: supplier.email,
-        company_id: supplier.company_id,
+        company_id: supplier.company_id._id,
       },
       Env_Configuration.JWT_SECRET || "your-secret-key",
       { expiresIn: "30d" }
@@ -61,7 +58,8 @@ const supplierLogin = async (req, res) => {
           name: supplier.name,
           email: supplier.email,
           supplier_shop_name: supplier.supplier_shop_name,
-          company_id: supplier.company_id,
+          company_id: supplier.company_id._id,
+          company_name: supplier.company_id.company_name,
           type: "supplier",
         },
         token,
@@ -75,6 +73,7 @@ const supplierLogin = async (req, res) => {
     });
   }
 };
+
 
 // @desc    Get vehicles assigned to supplier
 // @route   GET /api/supplier-auth/vehicles
