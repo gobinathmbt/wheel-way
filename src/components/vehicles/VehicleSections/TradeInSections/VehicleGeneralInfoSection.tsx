@@ -13,7 +13,7 @@ import { Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { vehicleServices } from "@/api/services";
 import { Pencil } from "lucide-react";
-import VehicleMetadataSelector from "../../common/VehicleMetadataSelector";
+import VehicleMetadataSelector from "@/components/common/VehicleMetadataSelector";
 
 interface VehicleGeneralInfoSectionProps {
   vehicle: any;
