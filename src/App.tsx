@@ -52,7 +52,6 @@ import SupplierManagement from "./pages/company/SupplierManagement";
 // Supplier Pages
 import SupplierLogin from "./pages/supplier/SupplierLogin";
 import SupplierDashboard from "./pages/supplier/SupplierDashboard";
-import SupplierVehicleDetails from "./pages/supplier/SupplierVehicleDetails";
 import QuotesByStatus from "./pages/supplier/QuotesByStatus";
 import SupplierProfile from "./pages/supplier/SupplierProfile";
 
@@ -233,11 +232,7 @@ const App = () => (
                 <SupplierDashboard />
               </SupplierLayout>
             } />
-            <Route path="/supplier/vehicle/:vehicleStockId/:vehicleType" element={
-              <SupplierLayout title="Vehicle Details">
-                <SupplierVehicleDetails />
-              </SupplierLayout>
-            } />
+
             <Route path="/supplier/quotes/:status" element={
               <SupplierLayout title="Quotes">
                 <QuotesByStatus />

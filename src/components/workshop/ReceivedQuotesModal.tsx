@@ -21,6 +21,8 @@ import {
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns"
+
 
 interface ReceivedQuotesModalProps {
   open: boolean;
@@ -210,8 +212,11 @@ const ReceivedQuotesModal: React.FC<ReceivedQuotesModalProps> = ({
                   <p className="text-sm text-muted-foreground">
                     Estimated Time
                   </p>
-                  <p className="font-medium">{response.estimated_time}</p>
-                </div>
+<p className="font-medium">
+  {response.estimated_time
+    ? format(new Date(response.estimated_time), "PPP p")
+    : "-"}
+</p>                </div>
               </div>
 
               <div className="flex items-center gap-2">

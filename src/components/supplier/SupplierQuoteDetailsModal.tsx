@@ -13,14 +13,23 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { supplierAuthServices } from "@/api/services";
+import { DollarSign, Clock, Upload, Play, Edit, Car } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 import {
-  DollarSign,
-  Clock,
-  Upload,
-  Play,
-  Edit,
-  Car,
-} from "lucide-react";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 interface SupplierQuoteDetailsModalProps {
@@ -49,6 +58,36 @@ const SupplierQuoteDetailsModal: React.FC<SupplierQuoteDetailsModalProps> = ({
     comments: quote?.supplier_responses?.[0]?.comments || "",
   });
   const queryClient = useQueryClient();
+
+  const selectedDate = formData.estimated_time
+    ? new Date(formData.estimated_time)
+    : undefined;
+
+  const [hour, setHour] = useState("12");
+  const [minute, setMinute] = useState("00");
+  const [ampm, setAmPm] = useState("AM");
+
+  const handleDateTimeChange = (
+    date?: Date,
+    h = hour,
+    m = minute,
+    a = ampm
+  ) => {
+    if (!date) return;
+    let updated = new Date(date);
+
+    let hh = parseInt(h);
+    if (a === "PM" && hh < 12) hh += 12;
+    if (a === "AM" && hh === 12) hh = 0;
+
+    updated.setHours(hh);
+    updated.setMinutes(parseInt(m));
+
+    setFormData((prev) => ({
+      ...prev,
+      estimated_time: updated.toISOString(),
+    }));
+  };
 
   // Submit quote response mutation
   const submitQuoteMutation = useMutation({
@@ -124,8 +163,7 @@ const SupplierQuoteDetailsModal: React.FC<SupplierQuoteDetailsModalProps> = ({
                   </div>
                 )}
 
-
-                       {quote.images && quote.images.length > 0 && (
+                {quote.images && quote.images.length > 0 && (
                   <div className="mt-4">
                     <h4 className="font-medium mb-2">Field Images</h4>
                     <div className="grid grid-cols-3 gap-2">
@@ -193,22 +231,114 @@ const SupplierQuoteDetailsModal: React.FC<SupplierQuoteDetailsModalProps> = ({
 
                     <div>
                       <Label htmlFor="estimated_time">Estimated Time *</Label>
-                      <div className="relative">
-                        <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="estimated_time"
-                          value={formData.estimated_time}
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              estimated_time: e.target.value,
-                            }))
-                          }
-                          placeholder="e.g., 2-3 days, 1 week"
-                          className="pl-10"
-                          required
-                        />
-                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !selectedDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {selectedDate
+                              ? format(selectedDate, "PPP p") // e.g. Sep 24, 2025, 2:30 PM
+                              : "Pick a date & time"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-auto p-3 space-y-3"
+                          align="start"
+                        >
+                          {/* Date Picker */}
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(date) => handleDateTimeChange(date)}
+                            initialFocus
+                          />
+
+                          {/* Time Picker (12-hour format with AM/PM) */}
+                          <div className="flex items-center space-x-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+
+                            {/* Hours */}
+                            <Select
+                              value={hour}
+                              onValueChange={(val) => {
+                                setHour(val);
+                                handleDateTimeChange(
+                                  selectedDate,
+                                  val,
+                                  minute,
+                                  ampm
+                                );
+                              }}
+                            >
+                              <SelectTrigger className="w-16">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from({ length: 12 }, (_, i) => {
+                                  const h = (i + 1).toString();
+                                  return (
+                                    <SelectItem key={h} value={h}>
+                                      {h}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+
+                            {/* Minutes */}
+                            <Select
+                              value={minute}
+                              onValueChange={(val) => {
+                                setMinute(val);
+                                handleDateTimeChange(
+                                  selectedDate,
+                                  hour,
+                                  val,
+                                  ampm
+                                );
+                              }}
+                            >
+                              <SelectTrigger className="w-16">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {["00", "15", "30", "45"].map((m) => (
+                                  <SelectItem key={m} value={m}>
+                                    {m}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            {/* AM/PM */}
+                            <Select
+                              value={ampm}
+                              onValueChange={(val) => {
+                                setAmPm(val);
+                                handleDateTimeChange(
+                                  selectedDate,
+                                  hour,
+                                  minute,
+                                  val
+                                );
+                              }}
+                            >
+                              <SelectTrigger className="w-20">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="AM">AM</SelectItem>
+                                <SelectItem value="PM">PM</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
 
@@ -293,7 +423,7 @@ const SupplierQuoteDetailsModal: React.FC<SupplierQuoteDetailsModalProps> = ({
                   </div>
                 </div>
 
-                 <div className="flex justify-end">
+                <div className="flex justify-end">
                   <Button onClick={onStartWork}>
                     <Play className="h-4 w-4 mr-2" />
                     Start Work
@@ -314,9 +444,7 @@ const SupplierQuoteDetailsModal: React.FC<SupplierQuoteDetailsModalProps> = ({
                   <span>Quote Details</span>
                   <Badge
                     variant={
-                    status === "quote_rejected"
-                        ? "destructive"
-                        : "default"
+                      status === "quote_rejected" ? "destructive" : "default"
                     }
                   >
                     {status.replace("_", " ").toUpperCase()}
