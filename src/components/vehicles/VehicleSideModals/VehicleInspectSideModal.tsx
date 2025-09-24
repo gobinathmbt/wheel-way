@@ -33,17 +33,17 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
 // Import section components
-import VehicleOverviewSection from "../sections/VehicleOverviewSection";
-import VehicleGeneralInfoSection from "../sections/VehicleGeneralInfoSection";
-import VehicleSourceSection from "../sections/VehicleSourceSection";
-import VehicleRegistrationSection from "../sections/VehicleRegistrationSection";
-import VehicleImportSection from "../sections/VehicleImportSection";
-import VehicleEngineSection from "../sections/VehicleEngineSection";
-import VehicleSpecificationsSection from "../sections/VehicleSpecificationsSection";
-import VehicleSafetySection from "../sections/VehicleSafetySection";
-import VehicleOdometerSection from "../sections/VehicleOdometerSection";
-import VehicleOwnershipSection from "../sections/VehicleOwnershipSection";
-import VehicleAttachmentsSection from "../sections/VehicleAttachmentsSection";
+import VehicleOverviewSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleOverviewSection";
+import VehicleGeneralInfoSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleGeneralInfoSection";
+import VehicleSourceSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleSourceSection";
+import VehicleRegistrationSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleRegistrationSection";
+import VehicleImportSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleImportSection";
+import VehicleEngineSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleEngineSection";
+import VehicleSpecificationsSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleSpecificationsSection";
+import VehicleSafetySection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleSafetySection";
+import VehicleOdometerSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleOdometerSection";
+import VehicleOwnershipSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleOwnershipSection";
+import VehicleAttachmentsSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleAttachmentsSection";
 import WorkshopReportModal from "@/components/workshop/WorkshopReportModal";
 
 interface VehicleInspectSideModalProps {

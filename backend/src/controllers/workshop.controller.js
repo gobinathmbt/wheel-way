@@ -281,15 +281,11 @@ const createQuote = async (req, res) => {
       selected_suppliers,
       status: "quote_request",
       created_by: req.user.id,
-      // Store field images and videos for reference
-      field_images: images || [],
-      field_videos: videos || [],
+      images: images || [],
+      videos: videos || [],
     });
 
     await quote.save();
-
-    // TODO: Send email notifications to suppliers with media attachments
-    // This would require email service integration with media links
 
     // Log the event
     await logEvent({

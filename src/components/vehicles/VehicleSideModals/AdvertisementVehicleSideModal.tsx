@@ -33,17 +33,17 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
 // Import section components
-import VehicleOverviewSection from "../sections/VehicleOverviewSection";
-import VehicleGeneralInfoSection from "../sections/VehicleGeneralInfoSection";
-import VehicleSourceSection from "../sections/VehicleSourceSection";
-import VehicleRegistrationSection from "../sections/VehicleRegistrationSection";
-import VehicleImportSection from "../sections/VehicleImportSection";
-import VehicleEngineSection from "../sections/VehicleEngineSection";
-import VehicleSpecificationsSection from "../sections/VehicleSpecificationsSection";
-import VehicleSafetySection from "../sections/VehicleSafetySection";
-import VehicleOdometerSection from "../sections/VehicleOdometerSection";
-import VehicleOwnershipSection from "../sections/VehicleOwnershipSection";
-import VehicleAttachmentsSection from "../sections/VehicleAttachmentsSection";
+import VehicleOverviewSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleOverviewSection";
+import VehicleGeneralInfoSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleGeneralInfoSection";
+import VehicleSourceSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleSourceSection";
+import VehicleRegistrationSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleRegistrationSection";
+import VehicleImportSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleImportSection";
+import VehicleEngineSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleEngineSection";
+import VehicleSpecificationsSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleSpecificationsSection";
+import VehicleSafetySection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleSafetySection";
+import VehicleOdometerSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleOdometerSection";
+import VehicleOwnershipSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleOwnershipSection";
+import VehicleAttachmentsSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleAttachmentsSection";
 import WorkshopReportModal from "@/components/workshop/WorkshopReportModal";
 
 interface AdvertisementVehicleSideModalProps {
