@@ -27,7 +27,7 @@ const getMasterConfiguration = async (req, res) => {
       is_active: true,
     };
     let lastConfigId;
-    
+
     // If configId is provided, use it instead of is_active
     if (configId) {
       query = {
@@ -41,12 +41,12 @@ const getMasterConfiguration = async (req, res) => {
         vehicle_stock_id: parseInt(vehicle_stock_id),
         vehicle_type,
       });
-      
+
       if (vehicle) {
-        lastConfigId = vehicle_type === "inspection" 
-          ? vehicle.last_inspection_config_id 
+        lastConfigId = vehicle_type === "inspection"
+          ? vehicle.last_inspection_config_id
           : vehicle.last_tradein_config_id;
-          
+
         if (lastConfigId) {
           query = {
             company_id,
@@ -87,8 +87,8 @@ const getMasterConfiguration = async (req, res) => {
 
       if (vehicle) {
         // Extract workshop sections from vehicle data
-        const resultData = vehicle_type === "inspection" 
-          ? vehicle.inspection_result 
+        const resultData = vehicle_type === "inspection"
+          ? vehicle.inspection_result
           : vehicle.trade_in_result;
 
         if (resultData && resultData.length > 0) {
@@ -97,8 +97,8 @@ const getMasterConfiguration = async (req, res) => {
             resultData.forEach(category => {
               if (category.sections) {
                 category.sections.forEach(section => {
-                  if (section.section_display_name === "at_workshop_onstaging" || 
-                      section.section_name?.includes("Workshop")) {
+                  if (section.section_display_name === "at_workshop_onstaging" ||
+                    section.section_name?.includes("Workshop")) {
                     workshopSections.push({
                       ...section,
                       category_id: category.category_id,
@@ -111,9 +111,9 @@ const getMasterConfiguration = async (req, res) => {
           } else {
             // For tradein: look for workshop sections directly
             resultData.forEach(section => {
-              if (section.section_display_name === "at_workshop_onstaging" || 
-                  section.section_name?.includes("Workshop") ||
-                  section.section_id?.includes("workshop_section")) {
+              if (section.section_display_name === "at_workshop_onstaging" ||
+                section.section_name?.includes("Workshop") ||
+                section.section_id?.includes("workshop_section")) {
                 workshopSections.push(section);
               }
             });
@@ -130,13 +130,13 @@ const getMasterConfiguration = async (req, res) => {
           const categoryIndex = config.categories.findIndex(
             cat => cat.category_id === workshopSection.category_id
           );
-          
+
           if (categoryIndex !== -1) {
             // Check if section already exists in this category
             const existingSectionIndex = config.categories[categoryIndex].sections.findIndex(
               sec => sec.section_id === workshopSection.section_id
             );
-            
+
             if (existingSectionIndex === -1) {
               // Add new workshop section to the category
               config.categories[categoryIndex].sections.push(workshopSection);
@@ -162,7 +162,7 @@ const getMasterConfiguration = async (req, res) => {
           const existingSectionIndex = config.sections.findIndex(
             sec => sec.section_id === workshopSection.section_id
           );
-          
+
           if (existingSectionIndex === -1) {
             config.sections.push(workshopSection);
           }
@@ -174,17 +174,17 @@ const getMasterConfiguration = async (req, res) => {
     const s3Config =
       company.s3_config && company.s3_config.bucket
         ? {
-            bucket: company.s3_config.bucket,
-            region: company.s3_config.region,
-            access_key: company.s3_config.access_key,
-            secret_key: company.s3_config.secret_key,
-            url: company.s3_config.url,
-          }
+          bucket: company.s3_config.bucket,
+          region: company.s3_config.region,
+          access_key: company.s3_config.access_key,
+          secret_key: company.s3_config.secret_key,
+          url: company.s3_config.url,
+        }
         : null;
 
     // Get all dropdown dependencies (including workshop fields)
     const dropdownIds = [];
-    
+
     if (vehicle_type === "inspection") {
       config.categories.forEach((category) => {
         category.sections.forEach((section) => {
@@ -237,7 +237,7 @@ const getMasterConfiguration = async (req, res) => {
 const saveInspectionData = async (req, res) => {
   try {
     const { company_id, vehicle_stock_id, vehicle_type } = req.params;
-    const { inspection_result, reportPdfUrl, config_id } = req.body;
+    const { inspection_result, inspection_report_pdf, config_id } = req.body;
 
     const vehicle = await Vehicle.findOne({
       company_id,
@@ -252,19 +252,55 @@ const saveInspectionData = async (req, res) => {
       });
     }
 
-    // Update the relevant result field
     if (vehicle_type === "inspection") {
-      vehicle.inspection_result = inspection_result || [];
-      vehicle.inspection_report_pdf = reportPdfUrl || "";
+      // Update inspection result if provided
+      if (inspection_result) {
+        vehicle.inspection_result = inspection_result;
+      }
+
+      // Update inspection_report_pdf - handle undefined/null case
+      if (inspection_report_pdf) {
+        // Ensure it's an array
+        const reportsToProcess = Array.isArray(inspection_report_pdf)
+          ? inspection_report_pdf
+          : [inspection_report_pdf];
+
+        // Initialize existing reports array if it doesn't exist
+        if (!vehicle.inspection_report_pdf) {
+          vehicle.inspection_report_pdf = [];
+        }
+
+        // Process each new report
+        reportsToProcess.forEach(newReport => {
+          if (newReport && newReport.category && newReport.link) {
+            // Remove existing report with same category
+            vehicle.inspection_report_pdf = vehicle.inspection_report_pdf.filter(
+              existingReport => existingReport.category !== newReport.category
+            );
+
+            // Add new report
+            vehicle.inspection_report_pdf.push({
+              category: newReport.category,
+              link: newReport.link
+            });
+          }
+        });
+      } else {
+        console.log('No inspection_report_pdf provided or it was undefined');
+        // Optionally, you might want to keep existing PDFs or handle this case
+      }
+
       if (config_id) {
         vehicle.last_inspection_config_id = config_id;
       }
-    } else {
-      vehicle.trade_in_result = inspection_result || [];
-      vehicle.tradein_report_pdf = reportPdfUrl || "";
-      if (config_id) {
-        vehicle.last_tradein_config_id = config_id;
-      }
+    }
+
+    // Only mark as modified if we actually changed something
+    if (inspection_report_pdf) {
+      vehicle.markModified('inspection_report_pdf');
+    }
+    if (inspection_result) {
+      vehicle.markModified('inspection_result');
     }
 
     await vehicle.save();
@@ -279,6 +315,7 @@ const saveInspectionData = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error saving inspection data",
+      error: error.message
     });
   }
 };
@@ -321,6 +358,7 @@ const getVehicleInspectionData = async (req, res) => {
           plate_no: vehicle.plate_no,
           vehicle_type: vehicle.vehicle_type,
           vehicle_hero_image: vehicle.vehicle_hero_image,
+          inspection_report_pdf: vehicle.inspection_report_pdf,
         },
         result: resultData || [],
       },
@@ -386,5 +424,5 @@ module.exports = {
   getMasterConfiguration,
   getVehicleInspectionData,
   saveInspectionData,
-    getActiveConfigurations, // Add this
+  getActiveConfigurations, // Add this
 };

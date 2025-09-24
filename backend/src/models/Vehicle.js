@@ -18,7 +18,7 @@ const VehicleSchema = new mongoose.Schema({
   // Vehicle Type & Status
   vehicle_type: {
     type: String,
-    enum: ["inspection", "tradein", "advertisement","master"],
+    enum: ["inspection", "tradein", "advertisement", "master"],
     required: true,
   },
 
@@ -64,7 +64,12 @@ const VehicleSchema = new mongoose.Schema({
   // Results Arrays
   inspection_result: [mongoose.Schema.Types.Mixed],
   trade_in_result: [mongoose.Schema.Types.Mixed],
-  inspection_report_pdf: String, // URL to the generated PDF report
+  inspection_report_pdf: [
+    {
+      category: { type: String, required: true },
+      link: { type: String, required: true }
+    }
+  ],
   tradein_report_pdf: String, // URL to the generated PDF report
 
   last_inspection_config_id: {
