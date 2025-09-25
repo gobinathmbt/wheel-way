@@ -1,5 +1,5 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-
+import PullToRefresh from "react-simple-pull-to-refresh";
 
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -69,6 +69,9 @@ import Documentation from "./pages/Documentation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+  const handleRefresh = async () => {
+    window.location.reload();
+  };
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -77,6 +80,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+         <PullToRefresh onRefresh={handleRefresh}>
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />
@@ -273,6 +277,7 @@ const App = () => (
             
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </PullToRefresh>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
