@@ -46,6 +46,7 @@ import VehicleOwnershipSection from "@/components/vehicles/VehicleSections/Trade
 import VehicleAttachmentsSection from "@/components/vehicles/VehicleSections/TradeInSections/VehicleAttachmentsSection";
 import WorkshopReportModal from "@/components/workshop/WorkshopReportModal";
 import { DealershipManagerButton } from "@/components/common/DealershipManager";
+import MasterInspection from "@/components/inspection/MasterInspection";
 
 interface VehicleTradeSideModalProps {
   vehicle: any;
@@ -70,6 +71,7 @@ const VehicleTradeSideModal: React.FC<VehicleTradeSideModalProps> = ({
   const [stageSelectionOpen, setStageSelectionOpen] = useState(false);
   const [selectedStages, setSelectedStages] = useState<string[]>([]);
   const [availableStages, setAvailableStages] = useState<string[]>([]);
+  const [masterInspectionOpen, setMasterInspectionOpen] = useState(false);
 
   // Confirmation dialog states
   const [confirmationOpen, setConfirmationOpen] = useState(false);
@@ -298,12 +300,8 @@ const VehicleTradeSideModal: React.FC<VehicleTradeSideModalProps> = ({
   };
 
   const handleOpenMasterInspection = () => {
-    // Navigate to master inspection/tradein page
-    const mode = "edit"; // Can be 'view' or 'edit'
-    navigate(
-      `/vehicle/master/${vehicle.company_id}/${vehicle.vehicle_stock_id}/${vehicle.vehicle_type}/${mode}`
-    );
-    onClose();
+    setMasterInspectionOpen(true);
+    // Don't close the current modal to maintain context
   };
 
   const handleWorkshopReport = () => {
@@ -703,6 +701,15 @@ const VehicleTradeSideModal: React.FC<VehicleTradeSideModalProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MasterInspection
+        isOpen={masterInspectionOpen}
+        onClose={() => setMasterInspectionOpen(false)}
+        companyId={vehicle.company_id}
+        vehicleStockId={vehicle.vehicle_stock_id}
+        vehicleType={vehicle.vehicle_type}
+        mode="edit"
+      />
 
       {/* Workshop Report Modal */}
       <WorkshopReportModal

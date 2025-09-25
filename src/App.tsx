@@ -1,3 +1,5 @@
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -250,8 +252,18 @@ const App = () => (
             } />
             
             {/* Master Inspection Routes */}
-            <Route path="/vehicle/master/:company_id/:vehicle_stock_id/:vehicle_type/:mode" element={<MasterInspection />} />
-            
+            <Route 
+              path="/vehicle/master/:company_id/:vehicle_stock_id/:vehicle_type/:mode" 
+              element={
+                <Dialog open={true} onOpenChange={() => window.history.back()}>
+                  <DialogContent className="max-w-[80vw] max-h-[80vh] w-[80vw] h-[80vh] p-0 overflow-hidden">
+                    <div className="h-full overflow-y-auto">
+                      <MasterInspection />
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              } 
+            />            
             {/* Documentation */}
             <Route path="/docs" element={
               <ProtectedRoute allowedRoles={['master_admin', 'company_super_admin', 'company_admin']}>

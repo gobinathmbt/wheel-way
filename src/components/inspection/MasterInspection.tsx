@@ -22,10 +22,47 @@ import MasterInspectionHeader from "@/components/inspection/MasterInspectionSupp
 import CategorySection from "@/components/inspection/MasterInspectionSupport/CategorySection";
 import SectionAccordion from "@/components/inspection/MasterInspectionSupport/SectionAccordion";
 
-interface MasterInspectionProps {}
+interface MasterInspectionProps {
+  // Props for component usage
+  isOpen?: boolean;
+  onClose?: () => void;
+  companyId?: string;
+  vehicleStockId?: string;
+  vehicleType?: string;
+  mode?: string;
+}
+const MasterInspection: React.FC<MasterInspectionProps> = ({
+  isOpen,
+  onClose,
+  companyId: propCompanyId,
+  vehicleStockId: propVehicleStockId,
+  vehicleType: propVehicleType,
+  mode: propMode,
+}) => {
+  const params = useParams();
+  const {
+    company_id: paramCompanyId,
+    vehicle_stock_id: paramVehicleStockId,
+    vehicle_type: paramVehicleType,
+    mode: paramMode,
+  } = params;
 
-const MasterInspection: React.FC<MasterInspectionProps> = () => {
-  const { company_id, vehicle_stock_id, vehicle_type, mode } = useParams();
+  // Use props if available, otherwise use params
+  const company_id = propCompanyId || paramCompanyId;
+  const vehicle_stock_id = propVehicleStockId || paramVehicleStockId;
+  const vehicle_type = propVehicleType || paramVehicleType;
+  const mode = propMode || paramMode;
+
+  // Determine if this is being used as a modal component
+  const isModalComponent = isOpen !== undefined && onClose !== undefined;
+
+  const handleBack = () => {
+    if (isModalComponent && onClose) {
+      onClose();
+    } else {
+      window.history.back();
+    }
+  };
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,14 +106,16 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
   const [inspectorId] = useState<string>("68a405a06c25cd6de3e5619b"); // This should come from authentication
   const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
   const [regeneratePdfOnSave, setRegeneratePdfOnSave] = useState(false);
-  const [categoryPdfs, setCategoryPdfs] = useState<{ [key: string]: string }>({});
+  const [categoryPdfs, setCategoryPdfs] = useState<{ [key: string]: string }>(
+    {}
+  );
 
   const handlePdfUploaded = (pdfUrl: string) => {
     if (vehicle_type === "inspection" && selectedCategory) {
       // Store PDF URL for the specific category
-      setCategoryPdfs(prev => ({
+      setCategoryPdfs((prev) => ({
         ...prev,
-        [selectedCategory]: pdfUrl
+        [selectedCategory]: pdfUrl,
       }));
     } else {
       // For trade-in, store as single PDF
@@ -190,7 +229,10 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
           pdfMap[pdf.category] = pdf.link;
         });
         setCategoryPdfs(pdfMap);
-      } else if (vehicle_type === "tradein" && data.vehicle.tradein_report_pdf) {
+      } else if (
+        vehicle_type === "tradein" &&
+        data.vehicle.tradein_report_pdf
+      ) {
         setReportPdfUrl(data.vehicle.tradein_report_pdf);
       }
 
@@ -503,8 +545,10 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     if (vehicle_type === "inspection") {
       // For inspection, validate only the specified category or selected category
       const targetCategoryId = categoryId || selectedCategory;
-      const category = config.categories.find((cat: any) => cat.category_id === targetCategoryId);
-      
+      const category = config.categories.find(
+        (cat: any) => cat.category_id === targetCategoryId
+      );
+
       if (category) {
         category.sections?.forEach((section: any) => {
           section.fields?.forEach((field: any) => {
@@ -544,7 +588,7 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         return;
       }
     }
-    
+
     setReportDialogOpen(true);
   };
 
@@ -552,12 +596,12 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     if (vehicle_type === "inspection" && selectedCategory) {
       const pdfUrl = categoryPdfs[selectedCategory];
       if (pdfUrl) {
-        window.open(pdfUrl, '_blank');
+        window.open(pdfUrl, "_blank");
       } else {
         toast.error("No PDF available for this category");
       }
     } else if (vehicle_type === "tradein" && reportPdfUrl) {
-      window.open(reportPdfUrl, '_blank');
+      window.open(reportPdfUrl, "_blank");
     } else {
       toast.error("No PDF available");
     }
@@ -587,47 +631,61 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
 
     setSaving(true);
     let finalPdfUrl = "";
-    
+
     try {
       // If regenerate PDF is requested, generate it first
       if (regeneratePdf && s3Uploader) {
         try {
           // Generate PDF programmatically using the utility function
-          const { generatePdfBlob } = await import('@/utils/InspectionTradeinReportpdf');
-          
-          const pdfBlob = await generatePdfBlob({
-            formData,
-            formNotes,
-            formImages,
-            formVideos,
-            calculations
-          }, vehicle, config, vehicle_type, selectedCategory);
+          const { generatePdfBlob } = await import(
+            "@/utils/InspectionTradeinReportpdf"
+          );
 
-          const pdfFile = new File([pdfBlob], `report-${vehicle?.vehicle_stock_id || 'unknown'}-${Date.now()}.pdf`, {
-            type: 'application/pdf'
-          });
-          
-          const uploadResult = await s3Uploader.uploadFile(pdfFile, 'reports');
+          const pdfBlob = await generatePdfBlob(
+            {
+              formData,
+              formNotes,
+              formImages,
+              formVideos,
+              calculations,
+            },
+            vehicle,
+            config,
+            vehicle_type,
+            selectedCategory
+          );
+
+          const pdfFile = new File(
+            [pdfBlob],
+            `report-${
+              vehicle?.vehicle_stock_id || "unknown"
+            }-${Date.now()}.pdf`,
+            {
+              type: "application/pdf",
+            }
+          );
+
+          const uploadResult = await s3Uploader.uploadFile(pdfFile, "reports");
           finalPdfUrl = uploadResult.url;
 
           // Update category PDFs state
           if (vehicle_type === "inspection" && selectedCategory) {
-            setCategoryPdfs(prev => ({
+            setCategoryPdfs((prev) => ({
               ...prev,
-              [selectedCategory]: finalPdfUrl
+              [selectedCategory]: finalPdfUrl,
             }));
           } else {
             setReportPdfUrl(finalPdfUrl);
           }
 
-          toast.success('PDF regenerated successfully');
+          toast.success("PDF regenerated successfully");
         } catch (pdfError) {
-          console.error('PDF generation error:', pdfError);
-          toast.error('Failed to regenerate PDF, saving without PDF update');
+          console.error("PDF generation error:", pdfError);
+          toast.error("Failed to regenerate PDF, saving without PDF update");
         }
       }
 
-      let inspectionResult:any;
+      let inspectionResult: any;
 
       if (vehicle_type === "inspection") {
         inspectionResult = config.categories.map((category: any) => ({
@@ -896,8 +954,8 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
             section_id: `workshop_section_${Date.now()}`,
             section_name: "At Workshop - Add On",
             section_display_name: "at_workshop_onstaging",
-            display_order: updatedConfig.categories[categoryIndex].sections
-              ?.length || 0,
+            display_order:
+              updatedConfig.categories[categoryIndex].sections?.length || 0,
             is_collapsible: true,
             is_expanded_by_default: true,
             fields: [],
@@ -1021,7 +1079,7 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     );
   }
 
-  return (
+  const content = (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
       {showConfigDialog && company_id && vehicle_type && (
         <ConfigurationSelectionDialog
@@ -1040,7 +1098,7 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         config={config}
         saving={saving}
         reportPdfUrl={getCurrentCategoryPdfUrl()}
-        onBack={() => window.history.back()}
+        onBack={() => handleBack()}
         onGenerateReport={handleGenerateReport}
         onSave={handleSaveClick}
         onViewPdf={handleViewPdf}
@@ -1051,7 +1109,7 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
       <div className="container mx-auto px-3 sm:px-4 py-6">
         {vehicle_type === "inspection" ? (
           <CategorySection
-           config={config}
+            config={config}
             calculations={calculations}
             categories={config.categories}
             selectedCategory={selectedCategory}
@@ -1116,7 +1174,9 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         vehicle={vehicle}
         config={config}
         vehicleType={vehicle_type}
-        selectedCategory={vehicle_type === "inspection" ? selectedCategory : undefined}
+        selectedCategory={
+          vehicle_type === "inspection" ? selectedCategory : undefined
+        }
         s3Uploader={s3Uploader}
         onPdfUploaded={handlePdfUploaded}
         inspectorId={inspectorId}
@@ -1135,7 +1195,7 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
           existingField={selectedEditField}
         />
       )}
-      
+
       {/* Insert Workshop Field Modal */}
       <InsertWorkshopFieldModal
         open={insertFieldModalOpen}
@@ -1192,7 +1252,9 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
           <DialogHeader>
             <DialogTitle>Save Data</DialogTitle>
             <DialogDescription>
-              Do you want to regenerate the {vehicle_type === "inspection" ? "category" : "trade-in"} PDF report before saving?
+              Do you want to regenerate the{" "}
+              {vehicle_type === "inspection" ? "category" : "trade-in"} PDF
+              report before saving?
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-4">
@@ -1201,14 +1263,15 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
               onClick={() => saveData(false)}
               disabled={saving}
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               No, Save Without PDF
             </Button>
-            <Button
-              onClick={() => saveData(true)}
-              disabled={saving}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            <Button onClick={() => saveData(true)} disabled={saving}>
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Yes, Regenerate PDF & Save
             </Button>
           </div>
@@ -1216,6 +1279,18 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
       </Dialog>
     </div>
   );
+
+  if (isModalComponent) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-[80vw] max-h-[80vh] w-[80vw] h-[80vh] p-0 overflow-hidden">
+          <div className="h-full overflow-y-auto">{content}</div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return content;
 };
 
 export default MasterInspection;
