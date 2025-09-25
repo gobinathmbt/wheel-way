@@ -1,5 +1,4 @@
 const Notification = require('../models/Notification');
-const NotificationConfiguration = require('../models/NotificationConfiguration');
 const { getMetaSocketIO } = require('./socket.controller');
 
 // Get notifications for a user

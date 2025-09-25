@@ -1,6 +1,7 @@
 const NotificationConfiguration = require('../models/NotificationConfiguration');
 const Company = require('../models/Company');
 const User = require('../models/User');
+const mongoose = require("mongoose");
 
 // Get all notification configurations for a company
 const getNotificationConfigurations = async (req, res) => {
@@ -315,61 +316,46 @@ const toggleNotificationConfigurationStatus = async (req, res) => {
 };
 
 // Get available schemas and their fields
+
+
 const getAvailableSchemas = async (req, res) => {
   try {
-    const schemas = {
-      'User': {
-        fields: ['first_name', 'last_name', 'email', 'role', 'is_active', 'last_login'],
-        relationships: ['company_id', 'dealership_ids']
-      },
-      'Vehicle': {
-        fields: ['stock_id', 'make', 'model', 'year', 'status', 'price'],
-        relationships: ['make', 'model', 'variant', 'body']
-      },
-      'Inspection': {
-        fields: ['inspection_id', 'status', 'score', 'completed_at'],
-        relationships: ['vehicle_id', 'user_id']
-      },
-      'Workshop': {
-        fields: ['workshop_name', 'status', 'type'],
-        relationships: ['vehicle_id', 'supplier_id']
-      },
-      'Supplier': {
-        fields: ['supplier_name', 'email', 'status', 'rating'],
-        relationships: ['company_id']
-      },
-      'Make': {
-        fields: ['displayName', 'displayValue', 'isActive'],
-        relationships: []
-      },
-      'Model': {
-        fields: ['displayName', 'displayValue', 'isActive'],
-        relationships: ['make']
-      },
-      'Variant': {
-        fields: ['displayName', 'displayValue', 'isActive'],
-        relationships: ['models']
-      },
-      'Body': {
-        fields: ['displayName', 'displayValue', 'isActive'],
-        relationships: []
-      },
-      'VehicleMetadata': {
-        fields: ['fuelType', 'transmission', 'engineCapacity', 'power', 'seatingCapacity'],
-        relationships: ['make', 'model', 'variant', 'body', 'variantYear']
-      }
-    };
+    const schemas = {};
+
+    // Loop through all registered mongoose models
+    Object.keys(mongoose.models).forEach((modelName) => {
+      const model = mongoose.models[modelName];
+      const schema = model.schema;
+
+      // Separate fields & relationships
+      const fields = [];
+      const relationships = [];
+
+      schema.eachPath((path, schemaType) => {
+        if (schemaType.instance === "ObjectId" && schemaType.options.ref) {
+          // If it's a reference -> relationship
+          relationships.push(schemaType.options.ref);
+        } else {
+          fields.push(path);
+        }
+      });
+
+      schemas[modelName] = {
+        fields,
+        relationships,
+      };
+    });
 
     res.json({
       success: true,
-      data: schemas
+      data: schemas,
     });
   } catch (error) {
-    console.error('Error fetching available schemas:', error);
+    console.error("Error fetching available schemas:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching available schemas',
-      error: error.message
+      message: "Error fetching available schemas",
+      error: error.message,
     });
   }
 };
