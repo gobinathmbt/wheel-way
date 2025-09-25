@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Car, ArrowLeft, FileText, Save, Loader2 } from "lucide-react";
+import { Car, ArrowLeft, FileText, Save, Loader2, Eye } from "lucide-react";
 
 interface MasterInspectionHeaderProps {
   vehicle: any;
@@ -13,6 +13,8 @@ interface MasterInspectionHeaderProps {
   onBack: () => void;
   onGenerateReport: () => void;
   onSave: () => void;
+  onViewPdf: () => void;
+  hasCurrentPdf: boolean;
 }
 
 const MasterInspectionHeader: React.FC<MasterInspectionHeaderProps> = ({
@@ -25,6 +27,8 @@ const MasterInspectionHeader: React.FC<MasterInspectionHeaderProps> = ({
   onBack,
   onGenerateReport,
   onSave,
+  onViewPdf,
+  hasCurrentPdf,
 }) => {
   const isViewMode = mode === "view";
 
@@ -81,20 +85,18 @@ const MasterInspectionHeader: React.FC<MasterInspectionHeaderProps> = ({
                 className="shadow-sm"
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Generate Report
+                Preview Report
               </Button>
 
-              {reportPdfUrl && (
-                <a
-                  href={reportPdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              {hasCurrentPdf && (
+                <Button
+                  onClick={onViewPdf}
+                  variant="outline"
+                  className="shadow-sm"
                 >
-                  <Button variant="outline" className="shadow-sm">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Pdf
-                  </Button>
-                </a>
+                  <Eye className="h-4 w-4 mr-2" />
+                  View PDF
+                </Button>
               )}
 
               <Button

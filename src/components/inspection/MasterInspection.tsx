@@ -67,9 +67,21 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     string | null
   >(null);
   const [inspectorId] = useState<string>("68a405a06c25cd6de3e5619b"); // This should come from authentication
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
+  const [regeneratePdfOnSave, setRegeneratePdfOnSave] = useState(false);
+  const [categoryPdfs, setCategoryPdfs] = useState<{ [key: string]: string }>({});
 
   const handlePdfUploaded = (pdfUrl: string) => {
-    setReportPdfUrl(pdfUrl);
+    if (vehicle_type === "inspection" && selectedCategory) {
+      // Store PDF URL for the specific category
+      setCategoryPdfs(prev => ({
+        ...prev,
+        [selectedCategory]: pdfUrl
+      }));
+    } else {
+      // For trade-in, store as single PDF
+      setReportPdfUrl(pdfUrl);
+    }
   };
 
   const isViewMode = mode === "view";
@@ -170,6 +182,17 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
       const data = response.data.data;
 
       setVehicle(data.vehicle);
+
+      // Load existing category PDFs for inspection
+      if (vehicle_type === "inspection" && data.vehicle.inspection_report_pdf) {
+        const pdfMap: { [key: string]: string } = {};
+        data.vehicle.inspection_report_pdf.forEach((pdf: any) => {
+          pdfMap[pdf.category] = pdf.link;
+        });
+        setCategoryPdfs(pdfMap);
+      } else if (vehicle_type === "tradein" && data.vehicle.tradein_report_pdf) {
+        setReportPdfUrl(data.vehicle.tradein_report_pdf);
+      }
 
       if (data.result && data.result.length > 0) {
         if (
@@ -473,12 +496,16 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     calculateFormulas();
   }, [formData, config]);
 
-  const validateForm = () => {
+  const validateForm = (categoryId?: string) => {
     const errors: { [key: string]: boolean } = {};
     let isValid = true;
 
     if (vehicle_type === "inspection") {
-      config.categories.forEach((category: any) => {
+      // For inspection, validate only the specified category or selected category
+      const targetCategoryId = categoryId || selectedCategory;
+      const category = config.categories.find((cat: any) => cat.category_id === targetCategoryId);
+      
+      if (category) {
         category.sections?.forEach((section: any) => {
           section.fields?.forEach((field: any) => {
             if (field.is_required && !formData[field.field_id]) {
@@ -487,7 +514,7 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
             }
           });
         });
-      });
+      }
     } else {
       config.sections?.forEach((section: any) => {
         section.fields?.forEach((field: any) => {
@@ -503,16 +530,103 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     return isValid;
   };
 
-  const saveData = async () => {
-    if (isViewMode) return;
+  const handleGenerateReport = () => {
+    // For inspection, validate only the active category
+    if (vehicle_type === "inspection") {
+      if (!validateForm(selectedCategory)) {
+        toast.error("Please fill all required fields in the current category");
+        return;
+      }
+    } else {
+      // For trade-in, validate all fields
+      if (!validateForm()) {
+        toast.error("Please fill all required fields");
+        return;
+      }
+    }
+    
+    setReportDialogOpen(true);
+  };
 
-    if (!validateForm()) {
-      toast.error("Please fill all required fields");
-      return;
+  const handleViewPdf = () => {
+    if (vehicle_type === "inspection" && selectedCategory) {
+      const pdfUrl = categoryPdfs[selectedCategory];
+      if (pdfUrl) {
+        window.open(pdfUrl, '_blank');
+      } else {
+        toast.error("No PDF available for this category");
+      }
+    } else if (vehicle_type === "tradein" && reportPdfUrl) {
+      window.open(reportPdfUrl, '_blank');
+    } else {
+      toast.error("No PDF available");
+    }
+  };
+
+  const handleSaveClick = () => {
+    // For inspection, validate only the active category
+    if (vehicle_type === "inspection") {
+      if (!validateForm(selectedCategory)) {
+        toast.error("Please fill all required fields in the current category");
+        return;
+      }
+    } else {
+      // For trade-in, validate all fields
+      if (!validateForm()) {
+        toast.error("Please fill all required fields");
+        return;
+      }
     }
 
+    // Show confirmation dialog for PDF regeneration
+    setSaveConfirmOpen(true);
+  };
+
+  const saveData = async (regeneratePdf: boolean = false) => {
+    if (isViewMode) return;
+
     setSaving(true);
+    let finalPdfUrl = "";
+    
     try {
+      // If regenerate PDF is requested, generate it first
+      if (regeneratePdf && s3Uploader) {
+        try {
+          // Generate PDF programmatically using the utility function
+          const { generatePdfBlob } = await import('@/utils/InspectionTradeinReportpdf');
+          
+          const pdfBlob = await generatePdfBlob({
+            formData,
+            formNotes,
+            formImages,
+            formVideos,
+            calculations
+          }, vehicle, config, vehicle_type, selectedCategory);
+
+          const pdfFile = new File([pdfBlob], `report-${vehicle?.vehicle_stock_id || 'unknown'}-${Date.now()}.pdf`, {
+            type: 'application/pdf'
+          });
+          
+          const uploadResult = await s3Uploader.uploadFile(pdfFile, 'reports');
+          finalPdfUrl = uploadResult.url;
+
+          // Update category PDFs state
+          if (vehicle_type === "inspection" && selectedCategory) {
+            setCategoryPdfs(prev => ({
+              ...prev,
+              [selectedCategory]: finalPdfUrl
+            }));
+          } else {
+            setReportPdfUrl(finalPdfUrl);
+          }
+
+          toast.success('PDF regenerated successfully');
+        } catch (pdfError) {
+          console.error('PDF generation error:', pdfError);
+          toast.error('Failed to regenerate PDF, saving without PDF update');
+        }
+      }
+
       let inspectionResult;
 
       if (vehicle_type === "inspection") {
@@ -585,15 +699,28 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         ];
       }
 
+      const savePayload: any = {
+        inspection_result: inspectionResult,
+        config_id: selectedConfigId || config._id,
+      };
+
+      // Add appropriate PDF URLs to payload
+      if (vehicle_type === "inspection") {
+        if (regeneratePdf && finalPdfUrl) {
+          savePayload.inspection_report_pdf = finalPdfUrl;
+          savePayload.current_category = selectedCategory;
+        }
+      } else {
+        if (regeneratePdf && finalPdfUrl) {
+          savePayload.tradein_report_pdf = finalPdfUrl;
+        }
+      }
+
       await masterInspectionServices.saveInspectionData(
         company_id!,
         vehicle_stock_id!,
         vehicle_type!,
-        {
-          inspection_result: inspectionResult,
-          reportPdfUrl,
-          config_id: selectedConfigId || config._id,
-        }
+        savePayload
       );
 
       toast.success(`${vehicle_type} data saved successfully`);
@@ -602,6 +729,7 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
       toast.error("Failed to save data");
     } finally {
       setSaving(false);
+      setSaveConfirmOpen(false);
     }
   };
 
@@ -832,6 +960,16 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
     }
   };
 
+  // Get current category PDF URL for inspection
+  const getCurrentCategoryPdfUrl = () => {
+    if (vehicle_type === "inspection" && selectedCategory) {
+      return categoryPdfs[selectedCategory];
+    } else if (vehicle_type === "tradein") {
+      return reportPdfUrl;
+    }
+    return "";
+  };
+
   if (
     loading ||
     (mode === "edit" && !configurationLoaded && !showConfigDialog)
@@ -901,10 +1039,12 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         mode={mode!}
         config={config}
         saving={saving}
-        reportPdfUrl={reportPdfUrl}
+        reportPdfUrl={getCurrentCategoryPdfUrl()}
         onBack={() => window.history.back()}
-        onGenerateReport={() => setReportDialogOpen(true)}
-        onSave={saveData}
+        onGenerateReport={handleGenerateReport}
+        onSave={handleSaveClick}
+        onViewPdf={handleViewPdf}
+        hasCurrentPdf={!!getCurrentCategoryPdfUrl()}
       />
 
       {/* Content */}
@@ -974,6 +1114,7 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         vehicle={vehicle}
         config={config}
         vehicleType={vehicle_type}
+        selectedCategory={vehicle_type === "inspection" ? selectedCategory : undefined}
         s3Uploader={s3Uploader}
         onPdfUploaded={handlePdfUploaded}
         inspectorId={inspectorId}
@@ -1038,6 +1179,35 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
               }}
             >
               Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save Confirmation Dialog */}
+      <Dialog open={saveConfirmOpen} onOpenChange={setSaveConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save Data</DialogTitle>
+            <DialogDescription>
+              Do you want to regenerate the {vehicle_type === "inspection" ? "category" : "trade-in"} PDF report before saving?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => saveData(false)}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              No, Save Without PDF
+            </Button>
+            <Button
+              onClick={() => saveData(true)}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Yes, Regenerate PDF & Save
             </Button>
           </div>
         </DialogContent>
