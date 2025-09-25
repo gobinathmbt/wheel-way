@@ -327,16 +327,36 @@ const getAvailableSchemas = async (req, res) => {
       const model = mongoose.models[modelName];
       const schema = model.schema;
 
-      // Separate fields & relationships
       const fields = [];
       const relationships = [];
 
       schema.eachPath((path, schemaType) => {
-        if (schemaType.instance === "ObjectId" && schemaType.options.ref) {
-          // If it's a reference -> relationship
-          relationships.push(schemaType.options.ref);
+        // Skip internal paths like __v
+        if (path.startsWith("__")) return;
+
+        // Relationship (ObjectId with ref)
+        if (
+          schemaType.instance === "ObjectId" &&
+          schemaType.options &&
+          schemaType.options.ref
+        ) {
+          relationships.push({
+            field: path,
+            ref: schemaType.options.ref,
+          });
         } else {
-          fields.push(path);
+          // Normal field
+          const fieldInfo = {
+            field: path,
+            type: schemaType.instance,
+          };
+
+          // If enum is defined, add it
+          if (schemaType.enumValues && schemaType.enumValues.length > 0) {
+            fieldInfo.enums = schemaType.enumValues;
+          }
+
+          fields.push(fieldInfo);
         }
       });
 
