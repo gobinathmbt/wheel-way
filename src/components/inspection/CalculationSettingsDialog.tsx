@@ -295,32 +295,38 @@ const CalculationSettingsDialog: React.FC<CalculationSettingsDialogProps> = ({
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddCalculation} className="space-y-4">
-            <div>
-              <Label htmlFor="display_name">Display Name</Label>
-              <Input
-                id="display_name"
-                value={newCalculationData.display_name}
-                onChange={(e) => setNewCalculationData({
+          <div>
+            <Label htmlFor="display_name">Display Name</Label>
+            <Input
+              id="display_name"
+              value={newCalculationData.display_name}
+              onChange={(e) => {
+                const displayName = e.target.value;
+                const internalName = displayName
+                  .toLowerCase()
+                  .replace(/\s+/g, '_') // Replace spaces with underscores
+                  .replace(/[^a-z0-9_]/g, ''); // Remove any non-alphanumeric characters except underscores
+                
+                setNewCalculationData({
                   ...newCalculationData,
-                  display_name: e.target.value
-                })}
-                placeholder="Total Score"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="internal_name">Internal Name</Label>
-              <Input
-                id="internal_name"
-                value={newCalculationData.internal_name}
-                onChange={(e) => setNewCalculationData({
-                  ...newCalculationData,
-                  internal_name: e.target.value
-                })}
-                placeholder="total_score"
-                required
-              />
-            </div>
+                  display_name: displayName,
+                  internal_name: internalName
+                });
+              }}
+              placeholder="Total Score"
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="internal_name">Internal Name</Label>
+            <Input
+              id="internal_name"
+              value={newCalculationData.internal_name}
+              disabled // This disables the input field
+              placeholder="total_score"
+              required
+            />
+          </div>
             <div className="flex justify-end space-x-2">
               <Button
                 type="button"

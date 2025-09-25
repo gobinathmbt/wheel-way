@@ -1095,7 +1095,7 @@ const TradeinConfig = () => {
         open={isEditConfigDialogOpen}
         onOpenChange={setIsEditConfigDialogOpen}
       >
-        <DialogContent className="max-w-[95vw] max-h-[95vh] w-[95vw] h-[95vh] p-0">
+        <DialogContent className="max-w-7xl h-[95vh] flex flex-col">
           <div className="flex flex-col h-full">
             <DialogHeader className="p-6 border-b">
               <div className="flex items-center justify-between">
@@ -1117,10 +1117,10 @@ const TradeinConfig = () => {
               </div>
             </DialogHeader>
 
-            <div className="flex-1 overflow-hidden p-6">
+            <div className="flex-1 flex flex-col overflow-y-auto max-h-[90vh] p-6">
               {configDetails ? (
-                <div className="h-full flex flex-col space-y-6">
-                  <div className="flex justify-between items-center">
+                <div>
+                  <div className="flex justify-between items-center mb-6 flex-shrink-0">
                     <div className="flex space-x-2">
                       <Dialog
                         open={isSectionDialogOpen}
@@ -1255,22 +1255,24 @@ const TradeinConfig = () => {
                     </div>
                   </div>
 
-                  <DraggableTradeinSectionsList
-                    sections={configDetails.sections.sort(
-                      (a: any, b: any) =>
-                        (a.display_order || 0) - (b.display_order || 0)
-                    )}
-                    selectedConfig={selectedConfig}
-                    onAddField={(section) => {
-                      setSelectedSection(section);
-                      setEditingField(null);
-                      resetFieldForm();
-                      setIsFieldDialogOpen(true);
-                    }}
-                    onEditField={openEditFieldDialog}
-                    onDeleteField={handleDeleteField}
-                    dropdowns={dropdowns}
-                  />
+                  <div className="flex-1 overflow-y-auto pr-2">
+                    <DraggableTradeinSectionsList
+                      sections={configDetails.sections.sort(
+                        (a: any, b: any) =>
+                          (a.display_order || 0) - (b.display_order || 0)
+                      )}
+                      selectedConfig={selectedConfig}
+                      onAddField={(section) => {
+                        setSelectedSection(section);
+                        setEditingField(null);
+                        resetFieldForm();
+                        setIsFieldDialogOpen(true);
+                      }}
+                      onEditField={openEditFieldDialog}
+                      onDeleteField={handleDeleteField}
+                      dropdowns={dropdowns}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div>Loading configuration details...</div>
@@ -1335,37 +1337,52 @@ const TradeinConfig = () => {
               </Select>
             </div>
             {fieldFormData.field_type === "dropdown" && (
-              <div>
-                <Label htmlFor="dropdown_name">Dropdown Name</Label>
-                <Input
-                  id="dropdown_name"
-                  value={fieldFormData.dropdown_config.dropdown_name}
-                  onChange={(e) =>
-                    setFieldFormData({
-                      ...fieldFormData,
-                      dropdown_config: {
-                        ...fieldFormData.dropdown_config,
-                        dropdown_name: e.target.value,
-                      },
-                    })
-                  }
-                  placeholder="Enter dropdown name"
-                />
-                <div className="flex items-center space-x-2 mt-2">
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                <h4 className="font-medium">Dropdown Configuration</h4>
+                <div>
+                  <Label htmlFor="dropdown_name">Select Dropdown</Label>
+                  <Select
+                    value={fieldFormData.dropdown_config.dropdown_name}
+                    onValueChange={(value) =>
+                      setFieldFormData({
+                        ...fieldFormData,
+                        dropdown_config: {
+                          ...fieldFormData.dropdown_config,
+                          dropdown_name: value,
+                        },
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a dropdown" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {dropdowns?.map((dropdown: any) => (
+                        <SelectItem
+                          key={dropdown._id}
+                          value={dropdown.dropdown_name}
+                        >
+                          {dropdown.display_name} ({dropdown.dropdown_name})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center space-x-2">
                   <Checkbox
-                    id="allow_multiple"
+                    id="allow_multiple_dropdown"
                     checked={fieldFormData.dropdown_config.allow_multiple}
                     onCheckedChange={(checked) =>
                       setFieldFormData({
                         ...fieldFormData,
                         dropdown_config: {
                           ...fieldFormData.dropdown_config,
-                          allow_multiple: checked as boolean,
+                          allow_multiple: checked === true,
                         },
                       })
                     }
                   />
-                  <Label htmlFor="allow_multiple">
+                  <Label htmlFor="allow_multiple_dropdown">
                     Allow multiple selections
                   </Label>
                 </div>

@@ -1291,7 +1291,7 @@ const InspectionConfig = () => {
           open={!!selectedConfig}
           onOpenChange={(open) => !open && setSelectedConfig(null)}
         >
-          <DialogContent className="max-w-[95vw] max-h-[95vh] w-[95vw] h-[95vh] p-0">
+          <DialogContent className="max-w-7xl h-[95vh] flex flex-col">
             <div className="flex flex-col h-full">
               {/* Header */}
               <DialogHeader className="p-6 border-b">
@@ -1316,15 +1316,15 @@ const InspectionConfig = () => {
               </DialogHeader>
 
               {/* Content */}
-              <div className="flex-1 overflow-hidden p-6">
+              <div className="flex-1 flex flex-col overflow-y-auto max-h-[90vh] p-6">
                 {detailsLoading ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
                 ) : selectedConfigDetails.categories?.length > 0 ? (
-                  <div className="h-full flex flex-col space-y-6">
+                  <div>
                     {/* Action Buttons */}
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center mb-6 flex-shrink-0">
                       <div className="flex space-x-2">
                         <Button
                           variant="outline"
@@ -1349,161 +1349,147 @@ const InspectionConfig = () => {
                       </Button>
                     </div>
 
-                    {/* Categories List */}
-                    <div className="flex-1 overflow-hidden">
-                      <Card className="h-full">
-                        <CardContent className="h-full p-4">
-                          <div className="h-full overflow-auto">
-                            <Accordion
-                              type="single"
-                              collapsible
-                              className="space-y-4"
+                    {/* Categories List - Scrollable */}
+                    <div className="flex-1 overflow-y-auto pr-2">
+                      <Accordion
+                        type="single"
+                        collapsible
+                        className="space-y-4"
+                      >
+                        {selectedConfigDetails.categories?.map(
+                          (category: any) => (
+                            <AccordionItem
+                              key={category.category_id}
+                              value={category.category_id}
+                              className="border rounded-lg"
                             >
-                              {selectedConfigDetails.categories?.map(
-                                (category: any) => (
-                                  <AccordionItem
-                                    key={category.category_id}
-                                    value={category.category_id}
-                                  >
-                                    <AccordionTrigger className="text-left">
-                                      <div className="flex items-center justify-between w-full mr-4">
-                                        <div>
-                                          <h3 className="font-semibold">
-                                            {category.category_name}
-                                          </h3>
-                                          <p className="text-sm text-muted-foreground">
-                                            {category.description}
-                                          </p>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                          <Badge variant="outline">
-                                            {category.sections?.length || 0}{" "}
-                                            sections
-                                          </Badge>
-                                          <Switch
-                                            checked={
-                                              category.is_active !== false
-                                            }
-                                            onCheckedChange={(checked) =>
-                                              handleToggleCategoryStatus(
-                                                category,
-                                                checked
-                                              )
-                                            }
-                                            disabled={
-                                              toggleCategoryStatusMutation.isPending
-                                            }
-                                          />
+                              <AccordionTrigger className="text-left px-4 hover:no-underline">
+                                <div className="flex items-center justify-between w-full mr-4">
+                                  <div>
+                                    <h3 className="font-semibold">
+                                      {category.category_name}
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                      {category.description}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Badge variant="outline">
+                                      {category.sections?.length || 0} sections
+                                    </Badge>
+                                    <Switch
+                                      checked={category.is_active !== false}
+                                      onCheckedChange={(checked) =>
+                                        handleToggleCategoryStatus(
+                                          category,
+                                          checked
+                                        )
+                                      }
+                                      disabled={
+                                        toggleCategoryStatusMutation.isPending
+                                      }
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditCategory(category);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent className="px-4 pb-4">
+                                <div className="space-y-4">
+                                  {/* Sticky section header with actions */}
+                                  <div className="flex justify-between items-center sticky top-0 bg-background z-10 py-2 -mx-2 px-2">
+                                    <h4 className="font-medium">Sections</h4>
+                                    <div className="flex space-x-2">
+                                      {hasCalculationFields(category) && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenCalculationSettings(
+                                              category
+                                            );
+                                          }}
+                                        >
+                                          <Calculator className="h-4 w-4 mr-1" />
+                                          Calculations
+                                        </Button>
+                                      )}
+                                      <Dialog
+                                        open={isSectionDialogOpen}
+                                        onOpenChange={setIsSectionDialogOpen}
+                                      >
+                                        <DialogTrigger asChild>
                                           <Button
                                             size="sm"
                                             variant="outline"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleEditCategory(category);
-                                            }}
-                                          >
-                                            <Edit className="h-4 w-4" />
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent>
-                                      <div className="space-y-4 pl-4">
-                                        <div className="flex justify-between items-center">
-                                          <h4 className="font-medium">
-                                            Sections
-                                          </h4>
-                                          <div className="flex space-x-2">
-                                            {hasCalculationFields(category) && (
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleOpenCalculationSettings(
-                                                    category
-                                                  );
-                                                }}
-                                              >
-                                                <Calculator className="h-4 w-4 mr-1" />
-                                                Calculations
-                                              </Button>
-                                            )}
-                                            <Dialog
-                                              open={isSectionDialogOpen}
-                                              onOpenChange={
-                                                setIsSectionDialogOpen
-                                              }
-                                            >
-                                              <DialogTrigger asChild>
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  onClick={() =>
-                                                    setSelectedCategory(
-                                                      category.category_id
-                                                    )
-                                                  }
-                                                >
-                                                  <Plus className="h-4 w-4 mr-2" />
-                                                  Add Section
-                                                </Button>
-                                              </DialogTrigger>
-                                            </Dialog>
-                                          </div>
-                                        </div>
-
-                                        {category.sections?.length > 0 ? (
-                                          <DraggableSectionsList
-                                            sections={category.sections}
-                                            configId={selectedConfig._id}
-                                            onDeleteSection={
-                                              handleDeleteSection
-                                            }
-                                            onAddField={(section) =>
-                                              setSelectedSection(section)
-                                            }
-                                            onEditField={handleEditField}
-                                            onDeleteField={handleDeleteField}
-                                            onUpdateSectionsOrder={(sections) =>
-                                              handleUpdateSectionsOrder(
-                                                category.category_id,
-                                                sections
+                                            onClick={() =>
+                                              setSelectedCategory(
+                                                category.category_id
                                               )
                                             }
-                                            onUpdateFieldsOrder={
-                                              handleUpdateFieldsOrder
-                                            }
-                                            isFieldDialogOpen={
-                                              isFieldDialogOpen
-                                            }
-                                            setIsFieldDialogOpen={
-                                              setIsFieldDialogOpen
-                                            }
-                                            selectedSection={selectedSection}
-                                            setSelectedSection={
-                                              setSelectedSection
-                                            }
-                                            addFieldForm={addFieldForm}
-                                            isDeletingSection={
-                                              deleteSectionMutation.isPending
-                                            }
-                                          />
-                                        ) : (
-                                          <p className="text-muted-foreground text-center py-4">
-                                            No sections added yet. Click "Add
-                                            Section" to get started.
-                                          </p>
-                                        )}
-                                      </div>
-                                    </AccordionContent>
-                                  </AccordionItem>
-                                )
-                              )}
-                            </Accordion>
-                          </div>
-                        </CardContent>
-                      </Card>
+                                          >
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Add Section
+                                          </Button>
+                                        </DialogTrigger>
+                                      </Dialog>
+                                    </div>
+                                  </div>
+
+                                  {/* Scrollable sections content */}
+                                  <div className="max-h-80 overflow-y-auto">
+                                    {category.sections?.length > 0 ? (
+                                      <DraggableSectionsList
+                                        sections={category.sections}
+                                        configId={selectedConfig._id}
+                                        onDeleteSection={handleDeleteSection}
+                                        onAddField={(section) =>
+                                          setSelectedSection(section)
+                                        }
+                                        onEditField={handleEditField}
+                                        onDeleteField={handleDeleteField}
+                                        onUpdateSectionsOrder={(sections) =>
+                                          handleUpdateSectionsOrder(
+                                            category.category_id,
+                                            sections
+                                          )
+                                        }
+                                        onUpdateFieldsOrder={
+                                          handleUpdateFieldsOrder
+                                        }
+                                        isFieldDialogOpen={isFieldDialogOpen}
+                                        setIsFieldDialogOpen={
+                                          setIsFieldDialogOpen
+                                        }
+                                        selectedSection={selectedSection}
+                                        setSelectedSection={setSelectedSection}
+                                        addFieldForm={addFieldForm}
+                                        isDeletingSection={
+                                          deleteSectionMutation.isPending
+                                        }
+                                      />
+                                    ) : (
+                                      <p className="text-muted-foreground text-center py-4">
+                                        No sections added yet. Click "Add
+                                        Section" to get started.
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          )
+                        )}
+                      </Accordion>
                     </div>
                   </div>
                 ) : (
