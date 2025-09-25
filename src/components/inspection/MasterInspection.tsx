@@ -1283,7 +1283,7 @@ const MasterInspection: React.FC<MasterInspectionProps> = ({
   if (isModalComponent) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-[80vw] max-h-[80vh] w-[80vw] h-[80vh] p-0 overflow-hidden">
+        <DialogContent className="max-w-[90vw] max-h-[90vh] w-[90vw] h-[90vh] p-0 overflow-hidden">
           <div className="h-full overflow-y-auto">{content}</div>
         </DialogContent>
       </Dialog>
