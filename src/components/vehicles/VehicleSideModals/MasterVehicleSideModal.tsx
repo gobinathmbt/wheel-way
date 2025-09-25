@@ -342,7 +342,7 @@ const MasterVehicleSideModal: React.FC<MasterVehicleSideModalProps> = ({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-[800px] sm:max-w-[800px] overflow-y-auto">
+        <SheetContent className="w-full sm:w-[600px] md:w-[800px] lg:w-[1000px] sm:max-w-[600px] md:max-w-[800px] lg:max-w-[900px] overflow-y-auto">
           <SheetHeader className="pb-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
