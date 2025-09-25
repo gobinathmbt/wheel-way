@@ -1051,6 +1051,8 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
       <div className="container mx-auto px-3 sm:px-4 py-6">
         {vehicle_type === "inspection" ? (
           <CategorySection
+           config={config}
+            calculations={calculations}
             categories={config.categories}
             selectedCategory={selectedCategory}
             onCategoryChange={setSelectedCategory}

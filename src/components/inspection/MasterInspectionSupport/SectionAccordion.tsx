@@ -97,7 +97,7 @@ const SectionAccordion: React.FC<SectionAccordionProps> = ({
 
   return (
     <div className="space-y-6">
-            {/* do not remove, might be needed later */}
+      {/* do not remove, might be needed later */}
       {/* Insert Field Button for non-inspection types */}
       {/* {isEditMode && onInsertWorkshopField && vehicleType !== "inspection" && (
         <div className="flex justify-between items-center">
@@ -112,9 +112,6 @@ const SectionAccordion: React.FC<SectionAccordionProps> = ({
           </Button>
         </div>
       )} */}
-
-      {/* Global Calculations */}
-      <InspectionCalculations config={config} calculations={calculations} />
 
       {/* Sections */}
       <Accordion type="multiple" className="space-y-4">
@@ -193,6 +190,11 @@ const SectionAccordion: React.FC<SectionAccordionProps> = ({
           </AccordionItem>
         ))}
       </Accordion>
+      <InspectionCalculations
+        config={config}
+        calculations={calculations}
+        vehicleType={vehicleType}
+      />
     </div>
   );
 };

@@ -11,8 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import InspectionFormField from "./InspectionFormField";
 import { MediaItem } from "@/components/common/MediaViewer";
+import InspectionCalculations from "./InspectionCalculations";
 
 interface CategorySectionProps {
+  config: any;
+  calculations: any;
   categories: any[];
   selectedCategory: string;
   onCategoryChange: (categoryId: string) => void;
@@ -58,6 +61,8 @@ interface CategorySectionProps {
 
 const CategorySection: React.FC<CategorySectionProps> = ({
   categories,
+  config,
+  calculations,
   selectedCategory,
   onCategoryChange,
   formData,
@@ -123,8 +128,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
         >
           {/* Category Header with Insert Field Button */}
           {/* <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg"> */}
-        {/* do not remove, might be needed later */}
-            {/* <div>  
+          {/* do not remove, might be needed later */}
+          {/* <div>  
               <h3 className="text-lg font-semibold">{category.category_name}</h3>
               {category.description && (
                 <p className="text-sm text-muted-foreground">
@@ -132,7 +137,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                 </p>
               )}
             </div> */}
-            {/* {isEditMode && onInsertWorkshopField && (
+          {/* {isEditMode && onInsertWorkshopField && (
               <Button
                 size="sm"
                 variant="outline"
@@ -144,6 +149,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
               </Button>
             )} */}
           {/* </div> */}
+      
 
           <Accordion type="multiple" className="space-y-4">
             {category.sections
@@ -230,6 +236,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                 </AccordionItem>
               ))}
           </Accordion>
+
+              <InspectionCalculations config={config} calculations={calculations} vehicleType={vehicleType} />
         </TabsContent>
       ))}
     </Tabs>
