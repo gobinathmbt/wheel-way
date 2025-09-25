@@ -11,6 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -30,9 +35,6 @@ import {
 } from "lucide-react";
 import { vehicleServices } from "@/api/services";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
-
-// Import section components
 import VehicleOverviewSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleOverviewSection";
 import VehicleGeneralInfoSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleGeneralInfoSection";
 import VehicleSourceSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleSourceSection";
@@ -46,6 +48,7 @@ import VehicleOwnershipSection from "@/components/vehicles/VehicleSections/Inspe
 import VehicleAttachmentsSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleAttachmentsSection";
 import WorkshopReportModal from "@/components/workshop/WorkshopReportModal";
 import { DealershipManagerButton } from "@/components/common/DealershipManager";
+import MasterInspection from "@/components/inspection/MasterInspection";
 
 interface VehicleInspectSideModalProps {
   vehicle: any;
@@ -62,7 +65,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
   onUpdate,
   vehicleType,
 }) => {
-  const navigate = useNavigate();
   const [workshopReportModalOpen, setWorkshopReportModalOpen] = useState(false);
   const [workshopStageSelectionOpen, setWorkshopStageSelectionOpen] =
     useState(false);
@@ -70,8 +72,10 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
   const [stageSelectionOpen, setStageSelectionOpen] = useState(false);
   const [selectedStages, setSelectedStages] = useState<string[]>([]);
   const [availableStages, setAvailableStages] = useState<string[]>([]);
+  const [masterInspectionOpen, setMasterInspectionOpen] = useState(false);
+  const [modePopoverOpen, setModePopoverOpen] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<"view" | "edit">("edit");
 
-  // Confirmation dialog states
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     type: "tradein" | "inspection";
@@ -79,7 +83,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
     stages?: string[];
   } | null>(null);
 
-  // Move all hooks before any conditional returns
   useEffect(() => {
     if (
       vehicle &&
@@ -95,7 +98,7 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
 
   useEffect(() => {
     if (vehicle && vehicle.vehicle_type === "inspection") {
-      // Set currently selected stages based on workshop status
+
       const currentlyInWorkshop = Array.isArray(vehicle.is_workshop)
         ? vehicle.is_workshop
             .filter((item: any) => item.in_workshop)
@@ -105,7 +108,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
     }
   }, [vehicle]);
 
-  // Now check if vehicle exists and return early if needed
   if (!vehicle) return null;
 
   const isStageInWorkshop = (stageName: string) => {
@@ -116,7 +118,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
     return stageInfo?.in_workshop || false;
   };
 
-  // Helper function to get stage progress
   const getStageProgress = (stageName: string) => {
     if (!Array.isArray(vehicle.workshop_progress)) return "not_processed_yet";
     const progressInfo = vehicle.workshop_progress.find(
@@ -125,7 +126,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
     return progressInfo?.progress || "not_processed_yet";
   };
 
-  // Check if stage can be removed (not in progress)
   const canRemoveStage = (stageName: string) => {
     const progress = getStageProgress(stageName);
     return !(progress === "in_progress" || progress === "completed");
@@ -133,10 +133,10 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
 
   const handlePushToWorkshop = async () => {
     if (vehicle.vehicle_type === "inspection") {
-      // Open stage selection modal
+
       setStageSelectionOpen(true);
     } else {
-      // Show confirmation for tradein
+
       setPendingAction({ type: "tradein" });
       setConfirmationOpen(true);
     }
@@ -147,7 +147,7 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
       if (!pendingAction) return;
 
       if (pendingAction.type === "tradein") {
-        // Direct push for tradein
+
         await vehicleServices.updateVehicleWorkshopStatus(
           vehicle._id,
           vehicleType,
@@ -158,7 +158,7 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
         );
         toast.success("Vehicle pushed to workshop successfully");
       } else if (pendingAction.type === "inspection" && pendingAction.stages) {
-        // Handle inspection stages
+
         await vehicleServices.updateVehicleWorkshopStatus(
           vehicle._id,
           vehicleType,
@@ -173,7 +173,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
         toast.success(`Selected stages ${actionText} workshop successfully`);
         setStageSelectionOpen(false);
 
-        // Reset selected stages to current workshop state after update
         setTimeout(() => {
           onUpdate();
         }, 100);
@@ -188,21 +187,19 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
     }
   };
 
-  // New function to handle stage changes
   const handleStageUpdate = async () => {
-    // Get currently in workshop stages
+
     const currentlyInWorkshop = Array.isArray(vehicle.is_workshop)
       ? vehicle.is_workshop
           .filter((item: any) => item.in_workshop)
           .map((item: any) => item.stage_name)
       : [];
 
-    // Determine which stages to push and which to remove
     const stagesToPush = selectedStages.filter(
       (stage) => !currentlyInWorkshop.includes(stage)
     );
     const stagesToRemove = currentlyInWorkshop.filter(
-      (stage) => !selectedStages.includes(stage) && canRemoveStage(stage)
+      (stage:any) => !selectedStages.includes(stage) && canRemoveStage(stage)
     );
 
     if (stagesToPush.length === 0 && stagesToRemove.length === 0) {
@@ -210,9 +207,8 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
       return;
     }
 
-    // Check if trying to remove in-progress stages
     const attemptingToRemoveInProgress = currentlyInWorkshop.filter(
-      (stage) => !selectedStages.includes(stage) && !canRemoveStage(stage)
+      (stage:any) => !selectedStages.includes(stage) && !canRemoveStage(stage)
     );
 
     if (attemptingToRemoveInProgress.length > 0) {
@@ -224,7 +220,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
       return;
     }
 
-    // Prepare confirmation with details
     const actions = [];
     if (stagesToPush.length > 0)
       actions.push(`Push: ${stagesToPush.join(", ")}`);
@@ -238,10 +233,9 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
     });
     setConfirmationOpen(true);
 
-    // If we have both actions, handle them sequentially
     if (stagesToPush.length > 0 && stagesToRemove.length > 0) {
       try {
-        // First push new stages
+
         if (stagesToPush.length > 0) {
           await vehicleServices.updateVehicleWorkshopStatus(
             vehicle._id,
@@ -253,7 +247,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
           );
         }
 
-        // Then remove stages
         if (stagesToRemove.length > 0) {
           await vehicleServices.updateVehicleWorkshopStatus(
             vehicle._id,
@@ -279,13 +272,11 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
     }
   };
 
-  // Function to get workshop status display for inspection
   const getWorkshopStatusDisplay = () => {
     if (vehicle.vehicle_type !== "inspection") {
       return vehicle.is_workshop ? "In Workshop" : "Push to Workshop";
     }
 
-    // For inspection, check if any stages are in workshop
     if (Array.isArray(vehicle.is_workshop)) {
       const inWorkshopStages = vehicle.is_workshop.filter(
         (item: any) => item.in_workshop
@@ -297,21 +288,18 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
     return "Manage Workshop Stages";
   };
 
-  const handleOpenMasterInspection = () => {
-    // Navigate to master inspection/tradein page
-    const mode = "edit"; // Can be 'view' or 'edit'
-    navigate(
-      `/vehicle/master/${vehicle.company_id}/${vehicle.vehicle_stock_id}/${vehicle.vehicle_type}/${mode}`
-    );
-    onClose();
+  const handleModeSelection = (mode: "view" | "edit") => {
+    setSelectedMode(mode);
+    setModePopoverOpen(false);
+    setMasterInspectionOpen(true);
   };
 
   const handleWorkshopReport = () => {
     if (vehicle.vehicle_type === "inspection") {
-      // Show stage selection for inspection
+
       setWorkshopStageSelectionOpen(true);
     } else {
-      // Direct modal open for tradein
+
       setWorkshopReportModalOpen(true);
     }
   };
@@ -364,7 +352,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
               </Button>
             </div>
 
-            {/* Action Buttons */}
             {vehicleType !== "advertisement" && (
               <div className="flex items-center justify-between border-t pt-4">
                 <div className="flex space-x-2">
@@ -385,7 +372,7 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
                     onClick={handlePushToWorkshop}
                     disabled={
                       vehicle.vehicle_type === "inspection"
-                        ? false // Always allow for inspection to manage stages
+                        ? false 
                         : vehicle.workshop_progress === "completed"
                     }
                     className={
@@ -408,29 +395,52 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
                       : getWorkshopStatusDisplay()}
                   </Button>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleOpenMasterInspection}
+                  <Popover
+                    open={modePopoverOpen}
+                    onOpenChange={setModePopoverOpen}
                   >
-                    {vehicle.vehicle_type === "inspection" ? (
-                      <>
-                        <ClipboardList className="h-4 w-4 mr-2" />
-                        Inspection
-                      </>
-                    ) : (
-                      <>
-                        <Calculator className="h-4 w-4 mr-2" />
-                        Trade-in
-                      </>
-                    )}
-                  </Button>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        {vehicle.vehicle_type === "inspection" ? (
+                          <>
+                            <ClipboardList className="h-4 w-4 mr-2" />
+                            Inspection
+                          </>
+                        ) : (
+                          <>
+                            <Calculator className="h-4 w-4 mr-2" />
+                            Trade-in
+                          </>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-2" align="start">
+                      <div className="space-y-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => handleModeSelection("view")}
+                        >
+                          <ClipboardList className="h-4 w-4 mr-2" />
+                          View Mode
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => handleModeSelection("edit")}
+                        >
+                          <Calculator className="h-4 w-4 mr-2" />
+                          Edit Mode
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
 
-                  {/* Workshop Report Button */}
-                  {/* Workshop Report Button */}
                   {(() => {
                     if (vehicle.vehicle_type === "tradein") {
-                      // For tradein, show button when workshop is completed
+
                       return (
                         vehicle.workshop_progress === "completed" && (
                           <Button
@@ -447,7 +457,7 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
                         )
                       );
                     } else if (vehicle.vehicle_type === "inspection") {
-                      // For inspection, check if any stage has report preparing or ready
+
                       const hasPreparingReports =
                         Array.isArray(vehicle.workshop_report_preparing) &&
                         vehicle.workshop_report_preparing.some(
@@ -539,7 +549,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
         </SheetContent>
       </Sheet>
 
-      {/* Workshop Report Stage Selection Modal (for inspection vehicles) */}
       <Dialog
         open={workshopStageSelectionOpen}
         onOpenChange={setWorkshopStageSelectionOpen}
@@ -580,7 +589,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Stage Selection Modal for Workshop Management */}
       <Dialog open={stageSelectionOpen} onOpenChange={setStageSelectionOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -608,7 +616,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
                       checked={isSelected}
                       onChange={(e) => {
                         if (!canEdit && inWorkshop && !e.target.checked) {
-                          // Prevent unchecking in-progress stages
                           return;
                         }
 
@@ -664,7 +671,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
               variant="outline"
               onClick={() => {
                 setStageSelectionOpen(false);
-                // Reset to current workshop state
                 const currentlyInWorkshop = Array.isArray(vehicle.is_workshop)
                   ? vehicle.is_workshop
                       .filter((item: any) => item.in_workshop)
@@ -680,7 +686,6 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Dialog */}
       <AlertDialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -705,7 +710,15 @@ const VehicleInspectSideModal: React.FC<VehicleInspectSideModalProps> = ({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Workshop Report Modal */}
+      <MasterInspection
+        isOpen={masterInspectionOpen}
+        onClose={() => setMasterInspectionOpen(false)}
+        companyId={vehicle.company_id}
+        vehicleStockId={vehicle.vehicle_stock_id}
+        vehicleType={vehicle.vehicle_type}
+        mode={selectedMode}
+      />
+
       <WorkshopReportModal
         isOpen={workshopReportModalOpen}
         onClose={() => {
