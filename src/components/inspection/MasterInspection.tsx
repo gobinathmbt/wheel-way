@@ -627,7 +627,7 @@ const MasterInspection: React.FC<MasterInspectionProps> = () => {
         }
       }
 
-      let inspectionResult;
+      let inspectionResult:any;
 
       if (vehicle_type === "inspection") {
         inspectionResult = config.categories.map((category: any) => ({
