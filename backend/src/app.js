@@ -9,6 +9,7 @@ const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const { startSubscriptionCronJob } = require("./jobs/subscriptionCron");
 const { startGlobalLogCleanupCron } = require("./jobs/globalLogsCron");
+const { startNotificationCleanupCron } = require("./jobs/notificationCleanupCron");
 const { startQueueConsumer } = require('./controllers/sqs.controller');
 const { startWorkshopQueueConsumer } = require('./controllers/workshopReportSqs.controller');
 const mongoose = require("mongoose");
@@ -40,8 +41,11 @@ const customModuleRoutes = require("./routes/customModule.routes");
 const vehicleMetadataRoutes = require("./routes/vehicleMetadata.routes");
 const socketRoutes = require("./routes/socketRoutes");
 const commonVehicleRoutes = require("./routes/commonvehicle.routes");
+const notificationConfigRoutes = require("./routes/notificationConfig.routes");
+const notificationRoutes = require("./routes/notification.routes");
 
 const errorHandler = require("./middleware/error");
+const notificationMiddleware = require("./middleware/notificationMiddleware");
 const { logRequest } = require("./controllers/logs.controller");
 
 // Connect to database
@@ -50,6 +54,7 @@ connectDB();
 // Start CRON jobs
 startSubscriptionCronJob();
 startGlobalLogCleanupCron();
+startNotificationCleanupCron();
 // Start main vehicle processing queue consumer
 // startQueueConsumer();
 
@@ -97,6 +102,9 @@ if (process.env.NODE_ENV === "development") {
 // Custom logging middleware
 app.use(logRequest);
 
+// Notification middleware (apply to all routes)
+app.use(notificationMiddleware);
+
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -143,6 +151,8 @@ app.use("/api/master/custom-modules", customModuleRoutes);
 app.use("/api/master/vehicle-metadata", vehicleMetadataRoutes);
 app.use("/api/socket_connection", socketRoutes);
 app.use("/api/common-vehicle", commonVehicleRoutes);
+app.use("/api/notification-config", notificationConfigRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {

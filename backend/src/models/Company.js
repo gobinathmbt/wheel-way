@@ -78,6 +78,10 @@ const CompanySchema = new mongoose.Schema({
     api_key: String,
     auth_token: String
   },
+  notification_configurations: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'NotificationConfiguration'
+  }],
   is_active: {
     type: Boolean,
     default: true

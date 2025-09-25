@@ -248,6 +248,57 @@ export const vehicleMetadataServices = {
     }),
 };
 
+// Notification Configuration Services
+export const notificationConfigServices = {
+  getNotificationConfigurations: (params = {}) => 
+    apiClient.get("/api/notification-config", { params }),
+    
+  getNotificationConfiguration: (id) => 
+    apiClient.get(`/api/notification-config/${id}`),
+    
+  createNotificationConfiguration: (data) => 
+    apiClient.post("/api/notification-config", data),
+    
+  updateNotificationConfiguration: (id, data) => 
+    apiClient.put(`/api/notification-config/${id}`, data),
+    
+  deleteNotificationConfiguration: (id) => 
+    apiClient.delete(`/api/notification-config/${id}`),
+    
+  toggleNotificationConfigurationStatus: (id, data) => 
+    apiClient.patch(`/api/notification-config/${id}/status`, data),
+    
+  getAvailableSchemas: () => 
+    apiClient.get("/api/notification-config/schemas"),
+    
+  getCompanyUsers: () => 
+    apiClient.get("/api/notification-config/users"),
+};
+
+// Notification Services
+export const notificationServices = {
+  getNotifications: (params = {}) => 
+    apiClient.get("/api/notifications", { params }),
+    
+  getNotificationStats: () => 
+    apiClient.get("/api/notifications/stats"),
+    
+  getUnreadCount: () => 
+    apiClient.get("/api/notifications/unread-count"),
+    
+  markNotificationAsRead: (id) => 
+    apiClient.patch(`/api/notifications/${id}/read`),
+    
+  markMultipleAsRead: (notificationIds) => 
+    apiClient.patch("/api/notifications/mark-multiple-read", { notification_ids: notificationIds }),
+    
+  markAllAsRead: () => 
+    apiClient.patch("/api/notifications/mark-all-read"),
+    
+  deleteNotification: (id) => 
+    apiClient.delete(`/api/notifications/${id}`),
+};
+
 // Workflow Services
 export const workflowServices = {
   // Get all workflows

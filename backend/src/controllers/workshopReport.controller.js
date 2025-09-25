@@ -251,7 +251,7 @@ const completeWorkshop = async (req, res) => {
         vehicle_stock_id: vehicle.vehicle_stock_id,
         vehicle_type: vehicleType,
         stage_name: stageName,
-        completed_by: req.user._id,
+        completed_by: req.user.id,
       });
 
       if (!queueResult.success) {
@@ -351,7 +351,7 @@ const completeWorkshop = async (req, res) => {
         company_id: req.user.company_id,
         vehicle_stock_id: vehicle.vehicle_stock_id,
         vehicle_type: vehicleType,
-        completed_by: req.user._id,
+        completed_by: req.user.id,
       });
 
       if (!queueResult.success) {

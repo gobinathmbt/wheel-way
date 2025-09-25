@@ -26,6 +26,9 @@ import WebsiteMaintenance from "./pages/master_admin/WebsiteMaintenance";
 import GlobalLogs from "./pages/master_admin/GlobalLogs";
 import VehicleMetadata from "./pages/master_admin/VehicleMetadata";
 
+// Notification Pages
+import NotificationConfiguration from "./pages/company/NotificationConfiguration";
+
 // Company Pages  
 import CompanyDashboard from "./pages/company/Dashboard";
 import Dealerships from "./pages/company/Dealerships";
@@ -221,6 +224,11 @@ const App = () => (
             <Route path="/company/workflows" element={
               <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="workflow_automation">
                 <WorkflowManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/company/notifications" element={
+              <ProtectedRoute allowedRoles={['company_super_admin']}  requiredModule="company_notifications">
+                <NotificationConfiguration />
               </ProtectedRoute>
             } />
 

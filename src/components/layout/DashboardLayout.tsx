@@ -329,6 +329,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           module: "workflow_automation",
         },
         {
+          icon: Bell,
+          label: "Notifications",
+          path: "/company/notifications",
+          module: "company_notifications",
+        },
+        {
           icon: UserCog,
           label: "Settings",
           path: "/company/settings",
