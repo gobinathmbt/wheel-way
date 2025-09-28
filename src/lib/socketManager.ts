@@ -1,9 +1,10 @@
 // socketManager.ts - Centralized socket management
 import { socketService } from './socket';
 import { metaSocketService } from './metaSocket';
+import { notificationSocketService } from './notificationSocket';
 
 export interface SocketConnection {
-  type: 'chat' | 'metadata';
+  type: 'chat' | 'metadata' | 'notification';
   isConnected: boolean;
   connectionState: string;
   socketId: string | null;
@@ -30,13 +31,14 @@ class SocketManager {
       // Initialize chat socket
       await this.connectChatSocket();
       
-      // Initialize metadata socket (only for company users)
+      // Initialize metadata and notification sockets (only for company users)
       const token = sessionStorage.getItem("token");
       if (token) {
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
           if (payload.role === 'company_super_admin' || payload.role === 'company_admin') {
             await this.connectMetaSocket();
+            await this.connectNotificationSocket();
           }
         } catch (error) {
           console.warn('Could not parse token for role check:', error);
@@ -76,6 +78,19 @@ class SocketManager {
     }
   }
 
+  // Connect to notification socket
+  public async connectNotificationSocket(): Promise<void> {
+    try {
+      console.log('🔔 Connecting to notification socket...');
+      await notificationSocketService.connect();
+      this.connections.set('notification', notificationSocketService);
+      console.log('✅ Notification socket connected');
+    } catch (error) {
+      console.error('❌ Notification socket connection failed:', error);
+      throw error;
+    }
+  }
+
   // Get connection status for all sockets
   public getConnectionStatus(): SocketConnection[] {
     const connections: SocketConnection[] = [];
@@ -96,6 +111,14 @@ class SocketManager {
       socketId: metaSocketService.getSocketId()
     });
 
+    // Notification socket status
+    connections.push({
+      type: 'notification',
+      isConnected: notificationSocketService.isConnected(),
+      connectionState: notificationSocketService.getConnectionState(),
+      socketId: notificationSocketService.getSocketId()
+    });
+
     return connections;
   }
 
@@ -108,12 +131,17 @@ class SocketManager {
     return metaSocketService;
   }
 
+  public getNotificationSocket() {
+    return notificationSocketService;
+  }
+
   // Disconnect all sockets
   public disconnectAll(): void {
     console.log('🔌 Disconnecting all sockets...');
     
     socketService.disconnect();
     metaSocketService.disconnect();
+    notificationSocketService.disconnect();
     
     this.connections.clear();
     console.log('✅ All sockets disconnected');
@@ -130,10 +158,14 @@ class SocketManager {
     if (metaSocketService.isConnected()) {
       metaSocketService.testConnection();
     }
+
+    if (notificationSocketService.isConnected()) {
+      notificationSocketService.testConnection();
+    }
   }
 
   // Reconnect specific socket
-  public async reconnectSocket(type: 'chat' | 'metadata'): Promise<void> {
+  public async reconnectSocket(type: 'chat' | 'metadata' | 'notification'): Promise<void> {
     console.log(`🔄 Reconnecting ${type} socket...`);
     
     if (type === 'chat') {
@@ -142,6 +174,9 @@ class SocketManager {
     } else if (type === 'metadata') {
       metaSocketService.disconnect();
       await this.connectMetaSocket();
+    } else if (type === 'notification') {
+      notificationSocketService.disconnect();
+      await this.connectNotificationSocket();
     }
   }
 
@@ -175,4 +210,4 @@ class SocketManager {
 }
 
 export const socketManager = SocketManager.getInstance();
-export { socketService, metaSocketService };
+export { socketService, metaSocketService, notificationSocketService };

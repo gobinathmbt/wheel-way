@@ -1,5 +1,6 @@
 const NotificationConfiguration = require('../models/NotificationConfiguration');
 const Company = require('../models/Company');
+const Dealership = require('../models/Dealership');
 const User = require('../models/User');
 const mongoose = require("mongoose");
 
@@ -315,8 +316,6 @@ const toggleNotificationConfigurationStatus = async (req, res) => {
   }
 };
 
-// Get available schemas and their fields
-
 
 const getAvailableSchemas = async (req, res) => {
   try {
@@ -389,7 +388,8 @@ const getCompanyUsers = async (req, res) => {
       company_id: companyId,
       is_active: true
     })
-      .select('first_name last_name email role')
+      .select('first_name last_name email role dealership_ids')
+      .populate('dealership_ids', 'name location')
       .sort({ first_name: 1 });
 
     res.json({
@@ -406,6 +406,32 @@ const getCompanyUsers = async (req, res) => {
   }
 };
 
+// Get dealerships for target selection
+const getCompanyDealerships = async (req, res) => {
+  try {
+    const companyId = req.user.company_id;
+    
+    const dealerships = await Dealership.find({
+      company_id: companyId,
+      is_active: true
+    })
+      .select('name location contact_info')
+      .sort({ name: 1 });
+
+    res.json({
+      success: true,
+      data: dealerships
+    });
+  } catch (error) {
+    console.error('Error fetching company dealerships:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching company dealerships',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getNotificationConfigurations,
   getNotificationConfiguration,
@@ -414,5 +440,6 @@ module.exports = {
   deleteNotificationConfiguration,
   toggleNotificationConfigurationStatus,
   getAvailableSchemas,
-  getCompanyUsers
+  getCompanyUsers,
+  getCompanyDealerships
 };

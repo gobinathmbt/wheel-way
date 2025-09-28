@@ -55,6 +55,17 @@ const notificationSchema = new mongoose.Schema({
     },
     entity_data: mongoose.Schema.Types.Mixed // Snapshot of relevant data
   },
+  dealership_context: {
+    dealership_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Dealership'
+    },
+    dealership_name: String,
+    is_dealership_specific: {
+      type: Boolean,
+      default: false
+    }
+  },
   action_url: String,
   action_data: mongoose.Schema.Types.Mixed,
   channels: {

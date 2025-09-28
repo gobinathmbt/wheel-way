@@ -51,7 +51,7 @@ const notificationConfigurationSchema = new mongoose.Schema({
   target_users: {
     type: {
       type: String,
-      enum: ['all', 'specific_users', 'role_based', 'department_based'],
+      enum: ['all', 'specific_users', 'role_based', 'department_based', 'dealership_based'],
       default: 'all'
     },
     user_ids: [{
@@ -63,6 +63,10 @@ const notificationConfigurationSchema = new mongoose.Schema({
       enum: ['company_super_admin', 'company_admin']
     }],
     departments: [String],
+    dealership_ids: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Dealership'
+    }],
     exclude_user_ids: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
@@ -180,6 +184,9 @@ notificationConfigurationSchema.pre('save', function(next) {
   }
   if (this.target_users.type === 'role_based' && (!this.target_users.roles || this.target_users.roles.length === 0)) {
     return next(new Error('Roles are required when target type is role_based'));
+  }
+  if (this.target_users.type === 'dealership_based' && (!this.target_users.dealership_ids || this.target_users.dealership_ids.length === 0)) {
+    return next(new Error('Dealership IDs are required when target type is dealership_based'));
   }
   next();
 });

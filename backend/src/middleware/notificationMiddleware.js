@@ -1,7 +1,7 @@
 const NotificationConfiguration = require('../models/NotificationConfiguration');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
-const { getMetaSocketIO } = require('../controllers/socket.controller');
+const { getNotificationSocketIO } = require('../controllers/socket.controller');
 
 // Global notification middleware
 const notificationMiddleware = async (req, res, next) => {
@@ -322,10 +322,10 @@ const replaceMessageVariables = (template, data, user, req) => {
 // Send real-time notification via socket
 const sendRealTimeNotification = async (notification, userId) => {
   try {
-    const metaIO = getMetaSocketIO();
-    if (metaIO) {
+    const notificationIO = getNotificationSocketIO();
+    if (notificationIO) {
       // Send to specific user
-      metaIO.to(`user_${userId}`).emit('new_notification', {
+      notificationIO.to(`user_${userId}`).emit('new_notification', {
         notification: {
           _id: notification._id,
           title: notification.title,
@@ -333,7 +333,8 @@ const sendRealTimeNotification = async (notification, userId) => {
           type: notification.type,
           priority: notification.priority,
           created_at: notification.created_at,
-          action_url: notification.action_url
+          action_url: notification.action_url,
+          source_entity: notification.source_entity
         },
         unread_count: await Notification.getUnreadCount(userId)
       });

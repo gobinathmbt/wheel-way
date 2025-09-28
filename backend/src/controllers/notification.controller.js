@@ -1,5 +1,6 @@
 const Notification = require('../models/Notification');
-const { getMetaSocketIO } = require('./socket.controller');
+// Update the notification controller to use new notification socket
+const { getNotificationSocketIO } = require('../controllers/socket.controller');
 
 // Get notifications for a user
 const getNotifications = async (req, res) => {
@@ -79,9 +80,9 @@ const markNotificationAsRead = async (req, res) => {
       await notification.markAsRead();
       
       // Emit real-time update
-      const metaIO = getMetaSocketIO();
-      if (metaIO) {
-        metaIO.to(`user_${userId}`).emit('notification_read', {
+      const notificationIO = getNotificationSocketIO();
+      if (notificationIO) {
+        notificationIO.to(`user_${userId}`).emit('notification_read', {
           notification_id: id,
           unread_count: await Notification.getUnreadCount(userId)
         });
@@ -119,9 +120,9 @@ const markMultipleAsRead = async (req, res) => {
     const result = await Notification.markManyAsRead(notification_ids, userId);
     
     // Emit real-time update
-    const metaIO = getMetaSocketIO();
-    if (metaIO) {
-      metaIO.to(`user_${userId}`).emit('notifications_read', {
+    const notificationIO = getNotificationSocketIO();
+    if (notificationIO) {
+      notificationIO.to(`user_${userId}`).emit('notifications_read', {
         notification_ids,
         unread_count: await Notification.getUnreadCount(userId)
       });
@@ -167,9 +168,9 @@ const markAllAsRead = async (req, res) => {
     );
 
     // Emit real-time update
-    const metaIO = getMetaSocketIO();
-    if (metaIO) {
-      metaIO.to(`user_${userId}`).emit('all_notifications_read', {
+    const notificationIO = getNotificationSocketIO();
+    if (notificationIO) {
+      notificationIO.to(`user_${userId}`).emit('all_notifications_read', {
         unread_count: 0
       });
     }
@@ -269,9 +270,9 @@ const deleteNotification = async (req, res) => {
     }
 
     // Emit real-time update
-    const metaIO = getMetaSocketIO();
-    if (metaIO) {
-      metaIO.to(`user_${userId}`).emit('notification_deleted', {
+    const notificationIO = getNotificationSocketIO();
+    if (notificationIO) {
+      notificationIO.to(`user_${userId}`).emit('notification_deleted', {
         notification_id: id,
         unread_count: await Notification.getUnreadCount(userId)
       });

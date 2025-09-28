@@ -15,7 +15,7 @@ connectDB();
 const server = http.createServer(app);
 
 // Initialize Socket.io with the server
-const { mainIO, chatIO, metaIO } = initializeSocket(server);
+const { mainIO, chatIO, metaIO, notificationIO } = initializeSocket(server);
 
 // Start SQS queue consumers
 console.log('🔄 Starting SQS Queue Consumers...');
@@ -32,6 +32,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🔌 Multi-namespace Socket.io server initialized at http://localhost:${PORT}`);
   console.log(`📞 Chat namespace available at http://localhost:${PORT}/chat`);
   console.log(`📊 Metadata namespace available at http://localhost:${PORT}/metadata`);
+  console.log(`🔔 Notification namespace available at http://localhost:${PORT}/notifications`);
   console.log(`🚛 Vehicle Queue Consumer: Running (every 10 seconds)`);
   console.log(`🏗️ Workshop Queue Consumer: Running (every 15 seconds)`);
 });

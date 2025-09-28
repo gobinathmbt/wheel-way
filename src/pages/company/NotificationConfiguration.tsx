@@ -1,22 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { notificationConfigServices } from '@/api/services';
+import { notificationConfigServices, dealershipServices } from '@/api/services';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Bell, Settings, Users, Database, Search, Filter, MoreHorizontal, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, Bell, Settings, Users, Database, Search, MoreHorizontal, Eye } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import EnhancedNotificationConfigForm from '@/components/notifications/EnhancedNotificationConfigForm'; // Import the enhanced form
 
 interface NotificationConfiguration {
   _id: string;
@@ -31,10 +29,11 @@ interface NotificationConfiguration {
     condition: 'and' | 'or';
   }>;
   target_users: {
-    type: 'all' | 'specific_users' | 'role_based' | 'department_based';
+    type: 'all' | 'specific_users' | 'role_based' | 'department_based' | 'dealership_based';
     user_ids: string[];
     roles: string[];
     departments: string[];
+    dealership_ids: string[];
     exclude_user_ids: string[];
   };
   message_template: {
@@ -68,8 +67,14 @@ interface User {
   role: string;
 }
 
+interface SchemaField {
+  field: string;
+  type: string;
+  enums?: string[];
+}
+
 interface Schema {
-  fields: string[];
+  fields: SchemaField[];
   relationships: string[];
 }
 
@@ -106,6 +111,12 @@ const NotificationConfiguration: React.FC = () => {
     queryFn: () => notificationConfigServices.getCompanyUsers()
   });
 
+  // Fetch dealerships
+  const { data: dealershipsData } = useQuery({
+    queryKey: ['company-dealerships'],
+    queryFn: () => dealershipServices.getDealerships()
+  });
+
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: (id: string) => notificationConfigServices.deleteNotificationConfiguration(id),
@@ -135,6 +146,7 @@ const NotificationConfiguration: React.FC = () => {
   const pagination = configurationsData?.data?.data?.pagination;
   const availableSchemas = schemasData?.data?.data || {};
   const users = usersData?.data?.data || [];
+  const dealerships = dealershipsData?.data?.data || [];
 
   const handleDelete = (config: NotificationConfiguration) => {
     if (window.confirm(`Are you sure you want to delete "${config.name}"?`)) {
@@ -177,6 +189,13 @@ const NotificationConfiguration: React.FC = () => {
     }
   };
 
+  const handleFormSuccess = () => {
+    setIsCreateDialogOpen(false);
+    setIsEditDialogOpen(false);
+    setSelectedConfig(null);
+    queryClient.invalidateQueries({ queryKey: ['notification-configurations'] });
+  };
+
   return (
     <DashboardLayout title="Notification Configuration">
       <div className="space-y-6">
@@ -189,20 +208,16 @@ const NotificationConfiguration: React.FC = () => {
             </p>
           </div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Configuration
-              </Button>
-            </DialogTrigger>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Configuration
+            </Button>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <NotificationConfigForm
+              <EnhancedNotificationConfigForm
                 schemas={availableSchemas}
                 users={users}
-                onSuccess={() => {
-                  setIsCreateDialogOpen(false);
-                  queryClient.invalidateQueries({ queryKey: ['notification-configurations'] });
-                }}
+                dealerships={dealerships}
+                onSuccess={handleFormSuccess}
               />
             </DialogContent>
           </Dialog>
@@ -320,6 +335,7 @@ const NotificationConfiguration: React.FC = () => {
                     <TableHead>Name</TableHead>
                     <TableHead>Schema</TableHead>
                     <TableHead>Trigger</TableHead>
+                    <TableHead>Conditions</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created By</TableHead>
@@ -349,6 +365,15 @@ const NotificationConfiguration: React.FC = () => {
                         <Badge variant="outline" className="capitalize">
                           {config.trigger_type.replace('_', ' ')}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {config.target_fields && config.target_fields.length > 0 ? (
+                          <Badge variant="secondary">
+                            {config.target_fields.length} condition{config.target_fields.length > 1 ? 's' : ''}
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">None</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant={getPriorityColor(config.priority) as any}>
@@ -437,347 +462,18 @@ const NotificationConfiguration: React.FC = () => {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             {selectedConfig && (
-              <NotificationConfigForm
+              <EnhancedNotificationConfigForm
                 schemas={availableSchemas}
                 users={users}
-                initialData={selectedConfig}
-                isEdit={true}
-                onSuccess={() => {
-                  setIsEditDialogOpen(false);
-                  setSelectedConfig(null);
-                  queryClient.invalidateQueries({ queryKey: ['notification-configurations'] });
-                }}
+                dealerships={dealerships}
+                editData={selectedConfig}
+                onSuccess={handleFormSuccess}
               />
             )}
           </DialogContent>
         </Dialog>
       </div>
     </DashboardLayout>
-  );
-};
-
-// Notification Config Form Component
-interface NotificationConfigFormProps {
-  schemas: Record<string, Schema>;
-  users: User[];
-  initialData?: NotificationConfiguration;
-  isEdit?: boolean;
-  onSuccess: () => void;
-}
-
-const NotificationConfigForm: React.FC<NotificationConfigFormProps> = ({
-  schemas,
-  users,
-  initialData,
-  isEdit,
-  onSuccess
-}) => {
-  const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    name: initialData?.name || '',
-    description: initialData?.description || '',
-    trigger_type: initialData?.trigger_type || 'create',
-    target_schema: initialData?.target_schema || '',
-    target_users: {
-      type: initialData?.target_users?.type || 'all',
-      user_ids: initialData?.target_users?.user_ids || [],
-      roles: initialData?.target_users?.roles || [],
-      departments: initialData?.target_users?.departments || [],
-      exclude_user_ids: initialData?.target_users?.exclude_user_ids || []
-    },
-    message_template: {
-      title: initialData?.message_template?.title || '',
-      body: initialData?.message_template?.body || '',
-      action_url: initialData?.message_template?.action_url || '',
-      variables: initialData?.message_template?.variables || []
-    },
-    notification_channels: {
-      in_app: initialData?.notification_channels?.in_app ?? true,
-    },
-    priority: initialData?.priority || 'medium',
-    is_active: initialData?.is_active ?? true
-  });
-
-  // Create mutation
-  const createMutation = useMutation({
-    mutationFn: (data: any) => notificationConfigServices.createNotificationConfiguration(data),
-    onSuccess: () => {
-      toast({ title: 'Success', description: 'Notification configuration created successfully' });
-      onSuccess();
-    },
-    onError: (error: any) => {
-      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to create configuration', variant: 'destructive' });
-    }
-  });
-
-  // Update mutation
-  const updateMutation = useMutation({
-    mutationFn: (data: any) => notificationConfigServices.updateNotificationConfiguration(initialData!._id, data),
-    onSuccess: () => {
-      toast({ title: 'Success', description: 'Notification configuration updated successfully' });
-      onSuccess();
-    },
-    onError: (error: any) => {
-      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to update configuration', variant: 'destructive' });
-    }
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (isEdit && initialData) {
-      updateMutation.mutate(formData);
-    } else {
-      createMutation.mutate(formData);
-    }
-  };
-
-  const selectedSchemaFields = schemas[formData.target_schema]?.fields || [];
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <DialogHeader>
-        <DialogTitle>
-          {isEdit ? 'Edit' : 'Create'} Notification Configuration
-        </DialogTitle>
-        <DialogDescription>
-          Configure when and how notifications should be sent to your users.
-        </DialogDescription>
-      </DialogHeader>
-
-      <Tabs defaultValue="basic" className="w-full mt-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="basic">Basic Info</TabsTrigger>
-          <TabsTrigger value="triggers">Triggers</TabsTrigger>
-          <TabsTrigger value="message">Message</TabsTrigger>
-          <TabsTrigger value="channels">Channels</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="basic" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Configuration Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter configuration name"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value as any })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Describe when this notification should be triggered"
-              rows={3}
-            />
-          </div>
-          <div className="flex items-center space-x-2">
-            <Switch
-              checked={formData.is_active}
-              onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-            />
-            <Label>Active</Label>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="triggers" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="trigger_type">Trigger Type</Label>
-              <Select value={formData.trigger_type} onValueChange={(value) => setFormData({ ...formData, trigger_type: value as any })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="create">Create</SelectItem>
-                  <SelectItem value="update">Update</SelectItem>
-                  <SelectItem value="delete">Delete</SelectItem>
-                  <SelectItem value="custom_event">Custom Event</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="target_schema">Target Schema</Label>
-              <Select value={formData.target_schema} onValueChange={(value) => setFormData({ ...formData, target_schema: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select schema" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.keys(schemas).map((schema) => (
-                    <SelectItem key={schema} value={schema}>
-                      {schema}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="user_type">Target Users</Label>
-            <Select 
-              value={formData.target_users.type} 
-              onValueChange={(value) => setFormData({ 
-                ...formData, 
-                target_users: { ...formData.target_users, type: value as any }
-              })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Users</SelectItem>
-                <SelectItem value="specific_users">Specific Users</SelectItem>
-                <SelectItem value="role_based">Role Based</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {formData.target_users.type === 'specific_users' && (
-            <div className="space-y-2">
-              <Label>Select Users</Label>
-              <div className="border rounded-md p-4 max-h-40 overflow-y-auto">
-                {users.map((user) => (
-                  <div key={user._id} className="flex items-center space-x-2 mb-2">
-                    <Checkbox
-                      checked={formData.target_users.user_ids.includes(user._id)}
-                      onCheckedChange={(checked) => {
-                        const updatedUserIds = checked
-                          ? [...formData.target_users.user_ids, user._id]
-                          : formData.target_users.user_ids.filter(id => id !== user._id);
-                        setFormData({
-                          ...formData,
-                          target_users: { ...formData.target_users, user_ids: updatedUserIds }
-                        });
-                      }}
-                    />
-                    <span>{user.first_name} {user.last_name} ({user.email})</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {formData.target_users.type === 'role_based' && (
-            <div className="space-y-2">
-              <Label>Select Roles</Label>
-              <div className="border rounded-md p-4">
-                {['company_super_admin', 'company_admin'].map((role) => (
-                  <div key={role} className="flex items-center space-x-2 mb-2">
-                    <Checkbox
-                      checked={formData.target_users.roles.includes(role)}
-                      onCheckedChange={(checked) => {
-                        const updatedRoles = checked
-                          ? [...formData.target_users.roles, role]
-                          : formData.target_users.roles.filter(r => r !== role);
-                        setFormData({
-                          ...formData,
-                          target_users: { ...formData.target_users, roles: updatedRoles }
-                        });
-                      }}
-                    />
-                    <span className="capitalize">{role.replace('_', ' ')}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="message" className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Notification Title</Label>
-            <Input
-              id="title"
-              value={formData.message_template.title}
-              onChange={(e) => setFormData({ 
-                ...formData, 
-                message_template: { ...formData.message_template, title: e.target.value }
-              })}
-              placeholder="Enter notification title"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="body">Message Body</Label>
-            <Textarea
-              id="body"
-              value={formData.message_template.body}
-              onChange={(e) => setFormData({ 
-                ...formData, 
-                message_template: { ...formData.message_template, body: e.target.value }
-              })}
-              placeholder="Enter notification message"
-              rows={4}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="action_url">Action URL (Optional)</Label>
-            <Input
-              id="action_url"
-              value={formData.message_template.action_url}
-              onChange={(e) => setFormData({ 
-                ...formData, 
-                message_template: { ...formData.message_template, action_url: e.target.value }
-              })}
-              placeholder="https://example.com/action"
-            />
-          </div>
-          <div className="text-sm text-muted-foreground">
-            <p><strong>Available Variables:</strong></p>
-            <p>• {`{user.first_name}`}, {`{user.last_name}`}, {`{user.email}`}</p>
-            <p>• {`{timestamp}`}</p>
-            {selectedSchemaFields.length > 0 && (
-              <p>• {selectedSchemaFields.map(field => `{data.${field}}`).join(', ')}</p>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="channels" className="space-y-4">
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Switch
-                checked={formData.notification_channels.in_app}
-                onCheckedChange={(checked) => setFormData({
-                  ...formData,
-                  notification_channels: { ...formData.notification_channels, in_app: checked }
-                })}
-              />
-              <Label>In-App Notifications</Label>
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      <DialogFooter className="mt-6">
-        <Button
-          type="submit"
-          disabled={createMutation.isPending || updateMutation.isPending}
-        >
-          {createMutation.isPending || updateMutation.isPending ? 'Saving...' : (isEdit ? 'Update' : 'Create')}
-        </Button>
-      </DialogFooter>
-    </form>
   );
 };
 

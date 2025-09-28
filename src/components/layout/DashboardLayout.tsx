@@ -54,6 +54,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import NotificationSideModal from "@/components/notifications/NotificationSideModal";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -834,9 +835,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
 
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon">
-              <Bell className="h-5 w-5" />
-            </Button>
+            <NotificationSideModal>
+              <Button variant="ghost" size="icon">
+                <Bell className="h-5 w-5" />
+              </Button>
+            </NotificationSideModal>
 
             <Link to="/docs">
               <Button variant="ghost" size="sm">

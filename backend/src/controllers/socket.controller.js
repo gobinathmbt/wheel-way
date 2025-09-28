@@ -25,9 +25,20 @@ const {
   BATCH_DELAY,
 } = require("../handlers/metadata.handler");
 
+// Import notification handlers
+const {
+  initializeNotificationHandlers,
+  notificationAuthMiddleware,
+  notificationConnectedUsers,
+  sendRealTimeNotification,
+  sendDealershipNotification,
+  getConnectedNotificationUsers
+} = require("../handlers/notification.handler");
+
 let mainIO;
 let chatIO;
 let metaIO;
+let notificationIO;
 
 const initializeSocket = (server) => {
   console.log("Initializing Multi-namespace Socket.io...");
@@ -61,6 +72,9 @@ const initializeSocket = (server) => {
   // Initialize Metadata namespace
   metaIO = mainIO.of("/metadata");
 
+  // Initialize Notification namespace
+  notificationIO = mainIO.of("/notifications");
+
   console.log(
     `Multi-namespace Socket.io server initialized with CORS origin: ${
       Env_Configuration.FRONTEND_URL || "http://localhost:8080"
@@ -68,6 +82,7 @@ const initializeSocket = (server) => {
   );
   console.log("Chat namespace: /chat");
   console.log("Metadata namespace: /metadata");
+  console.log("Notification namespace: /notifications");
 
   // Set up Chat namespace authentication middleware
   chatIO.use(chatAuthMiddleware);
@@ -75,13 +90,19 @@ const initializeSocket = (server) => {
   // Set up Metadata namespace authentication middleware
   metaIO.use(metaAuthMiddleware);
 
+  // Set up Notification namespace authentication middleware
+  notificationIO.use(notificationAuthMiddleware);
+
   // Initialize Chat namespace handlers
   initializeChatHandlers(chatIO);
 
   // Initialize Metadata namespace handlers
   initializeMetaHandlers(metaIO);
 
-  return { mainIO, chatIO, metaIO };
+  // Initialize Notification namespace handlers
+  initializeNotificationHandlers(notificationIO);
+
+  return { mainIO, chatIO, metaIO, notificationIO };
 };
 
 // Getter functions for socket instances
@@ -104,6 +125,13 @@ const getMetaSocketIO = () => {
     throw new Error("Metadata Socket.io not initialized");
   }
   return metaIO;
+};
+
+const getNotificationSocketIO = () => {
+  if (!notificationIO) {
+    throw new Error("Notification Socket.io not initialized");
+  }
+  return notificationIO;
 };
 
 // Legacy support
@@ -136,6 +164,7 @@ const getConnectedUsers = () => {
       key,
       ...data,
     })),
+    notifications: getConnectedNotificationUsers(),
   };
 };
 
@@ -145,10 +174,12 @@ module.exports = {
   getMainSocketIO,
   getChatSocketIO,
   getMetaSocketIO,
+  getNotificationSocketIO,
   getActiveOperations,
   getConnectedUsers,
   connectedUsers,
   metaConnectedUsers,
+  notificationConnectedUsers,
   // Export helper functions for external use if needed
   getOrCreateConversation,
   markMessagesAsRead,
@@ -156,6 +187,8 @@ module.exports = {
   convertToType,
   createOrUpdateEntry,
   processBatchWithSocket,
+  sendRealTimeNotification,
+  sendDealershipNotification,
   BATCH_SIZE,
   BATCH_DELAY,
 };

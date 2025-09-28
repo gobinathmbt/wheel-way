@@ -9,7 +9,8 @@ const {
   deleteNotificationConfiguration,
   toggleNotificationConfigurationStatus,
   getAvailableSchemas,
-  getCompanyUsers
+  getCompanyUsers,
+  getCompanyDealerships
 } = require('../controllers/notificationConfig.controller');
 
 // Apply auth middleware to all routes
@@ -20,6 +21,7 @@ router.use(companyScopeCheck);
 // Get available schemas and users for configuration
 router.get('/schemas', getAvailableSchemas);
 router.get('/users', getCompanyUsers);
+router.get('/dealerships', getCompanyDealerships);
 
 // CRUD operations for notification configurations
 router.get('/', getNotificationConfigurations);

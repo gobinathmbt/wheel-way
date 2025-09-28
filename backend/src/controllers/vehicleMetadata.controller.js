@@ -680,7 +680,7 @@ const retrieveController = {
   },
 
   // Dropdown data handler - Enhanced for better year filtering
-  dropdown: async (req, res) => {
+dropdown: async (req, res) => {
     try {
       const { type, makeId, modelId, variantId } = req.query;
 
@@ -768,14 +768,16 @@ const retrieveController = {
               ],
             };
           }
-
-          data = await VariantYear.find(yearFilter)
-            .select("_id displayName displayValue year model variant")
-            .populate([
-              { path: "model", select: "displayName displayValue" },
-              { path: "variant", select: "displayName displayValue" },
-            ])
-            .sort({ year: -1 });
+          const distinctYears = await VariantYear.distinct("year", yearFilter);
+            data = distinctYears
+            .filter(year => year !== null && year !== undefined)
+            .sort((a, b) => b - a) // Sort descending
+            .map(year => ({
+              _id: year,
+              displayName: year.toString(),
+              displayValue: year.toString(),
+              year: year
+            }));
           break;
 
         case "fuel-types":
