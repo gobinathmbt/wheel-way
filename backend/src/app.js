@@ -43,6 +43,7 @@ const socketRoutes = require("./routes/socketRoutes");
 const commonVehicleRoutes = require("./routes/commonvehicle.routes");
 const notificationConfigRoutes = require("./routes/notificationConfig.routes");
 const notificationRoutes = require("./routes/notification.routes");
+const integrationRoutes = require("./routes/integration.routes");
 
 const errorHandler = require("./middleware/error");
 const notificationMiddleware = require("./middleware/notificationMiddleware");
@@ -153,6 +154,7 @@ app.use("/api/socket_connection", socketRoutes);
 app.use("/api/common-vehicle", commonVehicleRoutes);
 app.use("/api/notification-config", notificationConfigRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/integrations", integrationRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {

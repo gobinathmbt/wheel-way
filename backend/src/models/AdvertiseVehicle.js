@@ -18,7 +18,7 @@ const VehicleSchema = new mongoose.Schema({
   // Vehicle Type & Status
   vehicle_type: {
     type: String,
-    enum: ["inspection", "tradein", "advertisement","master"],
+    enum: ["inspection", "tradein", "advertisement", "master"],
     required: true,
   },
 

@@ -3,6 +3,8 @@ const { protect, authorize, companyScopeCheck } = require('../middleware/auth');
 const {
   updateVehicleDealership,
   getVehiclesForBulkOperations,
+  getPricingReadyVehicles,
+  togglePricingReady,
 } = require('../controllers/commonvehicle.controller');
 
 const router = express.Router();
@@ -15,5 +17,9 @@ router.use(companyScopeCheck);
 // Bulk operations routes
 router.put('/update-dealership', updateVehicleDealership);
 router.get('/bulk-operations', getVehiclesForBulkOperations);
+
+// Pricing routes
+router.get('/pricing-ready', getPricingReadyVehicles);
+router.patch('/pricing-ready/:vehicleId', togglePricingReady);
 
 module.exports = router;

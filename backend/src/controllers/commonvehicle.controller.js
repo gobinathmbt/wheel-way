@@ -207,7 +207,192 @@ const getVehiclesForBulkOperations = async (req, res) => {
   }
 };
 
+// @desc    Get pricing ready vehicles from both Vehicle and MasterVehicle schemas
+// @route   GET /api/common-vehicle/pricing-ready
+// @access  Private (Company Admin/Super Admin)
+const getPricingReadyVehicles = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      status,
+      dealership_id,
+    } = req.query;
+
+    const skip = (page - 1) * limit;
+    const numericLimit = parseInt(limit);
+    const numericPage = parseInt(page);
+
+    // Build filter with company_id
+    let filter = {
+      company_id: req.user.company_id,
+      is_pricing_ready: true,
+    };
+
+    // Handle dealership-based access
+    if (
+      !req.user.is_primary_admin &&
+      req.user.dealership_ids &&
+      req.user.dealership_ids.length > 0
+    ) {
+      const dealershipObjectIds = req.user.dealership_ids.map((dealer) =>
+        typeof dealer === "object" ? dealer._id : dealer
+      );
+      filter.dealership_id = { $in: dealershipObjectIds };
+    }
+
+    if (dealership_id && dealership_id !== "all") {
+      filter.dealership_id = dealership_id;
+    }
+
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+
+    // Text search
+    if (search && search.trim().length > 0) {
+      filter.$text = { $search: search };
+    }
+
+    // Define fields to return
+    const fields = {
+      vehicle_stock_id: 1,
+      make: 1,
+      model: 1,
+      year: 1,
+      variant: 1,
+      plate_no: 1,
+      vin: 1,
+      vehicle_type: 1,
+      status: 1,
+      dealership_id: 1,
+      vehicle_hero_image: 1,
+      is_pricing_ready: 1,
+      created_at: 1,
+      dealership_id: 1,
+    };
+
+    // Fetch from both Vehicle and MasterVehicle collections
+    const [vehicleResults, masterVehicleResults, vehicleCount, masterVehicleCount] = await Promise.all([
+      Vehicle.find(filter, fields)
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(numericLimit)
+        .lean(),
+      MasterVehicle.find(filter, fields)
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(numericLimit)
+        .lean(),
+      Vehicle.countDocuments(filter),
+      MasterVehicle.countDocuments(filter),
+    ]);
+
+    // Combine results and sort by created_at
+    const combinedResults = [...vehicleResults, ...masterVehicleResults]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, numericLimit);
+
+    const total = vehicleCount + masterVehicleCount;
+
+    res.status(200).json({
+      success: true,
+      data: combinedResults,
+      total,
+      pagination: {
+        current_page: numericPage,
+        total_pages: Math.ceil(total / numericLimit),
+        total_records: total,
+        per_page: numericLimit,
+      },
+    });
+  } catch (error) {
+    console.error("Get pricing ready vehicles error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving pricing ready vehicles",
+    });
+  }
+};
+
+// @desc    Toggle vehicle pricing ready status
+// @route   PATCH /api/common-vehicle/pricing-ready/:vehicleId
+// @access  Private (Company Admin/Super Admin)
+const togglePricingReady = async (req, res) => {
+  try {
+    const { vehicleId } = req.params;
+    const { vehicle_type, is_pricing_ready } = req.body;
+
+    if (!vehicle_type) {
+      return res.status(400).json({
+        success: false,
+        message: "Vehicle type is required",
+      });
+    }
+
+    if (typeof is_pricing_ready !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: "is_pricing_ready must be a boolean value",
+      });
+    }
+
+    // Get the correct model based on vehicle type
+    const VehicleModel = getVehicleModel(vehicle_type);
+
+    // Update the vehicle
+    const vehicle = await VehicleModel.findOneAndUpdate(
+      {
+        vehicle_stock_id: vehicleId,
+        company_id: req.user.company_id,
+      },
+      {
+        is_pricing_ready,
+        updated_at: new Date(),
+      },
+      { new: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    // Log the event
+    await logEvent({
+      event_type: "vehicle_operation",
+      event_action: "pricing_ready_toggle",
+      event_description: `Vehicle ${vehicleId} pricing ready status set to ${is_pricing_ready}`,
+      user_id: req.user.id,
+      company_id: req.user.company_id,
+      user_role: req.user.role,
+      metadata: {
+        vehicle_id: vehicleId,
+        vehicle_type,
+        is_pricing_ready,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Vehicle ${is_pricing_ready ? 'marked as' : 'removed from'} pricing ready`,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error("Toggle pricing ready error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating pricing ready status",
+    });
+  }
+};
+
 module.exports = {
   updateVehicleDealership,
   getVehiclesForBulkOperations,
+  getPricingReadyVehicles,
+  togglePricingReady,
 };

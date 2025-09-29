@@ -40,12 +40,14 @@ import DropdownMaster from "./pages/company/DropdownMaster";
 import InspectionConfig from "./pages/company/InspectionConfig";
 import TradeinConfig from "./pages/company/TradeinConfig";
 import UserPermissions from './pages/company/UserPermissions';
+import Integration from './pages/company/Integration';
 
 // Vehicle Pages
 import InspectionList from "./pages/vehicles/InspectionList";
 import TradeinList from "./pages/vehicles/TradeinList";
 import MasterVehicleList from "./pages/vehicles/MasterVehicleList";
 import AdPublishingList from "./pages/vehicles/AdPublishingList";
+import VehiclePricingList from "./pages/vehicles/VehiclePricingList";
 
 // Workshop Pages
 import Workshop from "./pages/company/Workshop";
@@ -211,6 +213,13 @@ const App = () => (
               </ProtectedRoute>
             } />
 
+            {/* Vehicle Pricing Routes */}
+            <Route path="/vehicles/pricing" element={
+              <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']} requiredModule="vehicle_pricing">
+                <VehiclePricingList />
+              </ProtectedRoute>
+            } />
+
             {/* Workshop Routes */}
             <Route path="/company/workshop" element={
               <ProtectedRoute allowedRoles={['company_super_admin', 'company_admin']} requiredModule="work_shop">
@@ -235,6 +244,11 @@ const App = () => (
             <Route path="/company/notifications" element={
               <ProtectedRoute allowedRoles={['company_super_admin']}  requiredModule="company_notifications">
                 <NotificationConfiguration />
+              </ProtectedRoute>
+            } />
+            <Route path="/company/integrations" element={
+              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="vehicle_integration">
+                <Integration />
               </ProtectedRoute>
             } />
 

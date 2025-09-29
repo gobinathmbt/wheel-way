@@ -34,6 +34,9 @@ import {
   Archive,
   Workflow,
   MoreVertical,
+  Tag,
+  DollarSign,
+  Plug,
 } from "lucide-react";
 import { authServices, subscriptionServices } from "@/api/services";
 import { Badge } from "../ui/badge";
@@ -303,6 +306,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           ],
         },
         {
+          icon: DollarSign,
+          label: "Vehicle Pricing",
+          path: "/vehicles/pricing",
+          module: "vehicle_pricing",
+        },
+
+        {
           icon: Globe,
           label: "Ad Publishing",
           module: "ad_publishing",
@@ -328,6 +338,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           label: "Workflows",
           path: "/company/workflows",
           module: "workflow_automation",
+        },
+        {
+          icon: Plug,
+          label: "Vehicle Integration",
+          path: "/company/integrations",
+          module: "vehicle_integration",
         },
         {
           icon: Bell,

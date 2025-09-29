@@ -1178,6 +1178,33 @@ export const commonVehicleServices = {
 
   getVehiclesForBulkOperations: (params?: any) =>
     apiClient.get("/api/common-vehicle/bulk-operations", { params }),
+
+  getPricingReadyVehicles: (params?: any) =>
+    apiClient.get("/api/common-vehicle/pricing-ready", { params }),
+
+  togglePricingReady: (vehicleId: string, data: any) =>
+    apiClient.patch(`/api/common-vehicle/pricing-ready/${vehicleId}`, data),
+};
+
+// Integration Services
+export const integrationServices = {
+  getIntegrations: (params?: any) =>
+    apiClient.get("/api/integrations", { params }),
+
+  getIntegration: (id: string) =>
+    apiClient.get(`/api/integrations/${id}`),
+
+  createIntegration: (data: any) =>
+    apiClient.post("/api/integrations", data),
+
+  updateIntegration: (id: string, data: any) =>
+    apiClient.put(`/api/integrations/${id}`, data),
+
+  deleteIntegration: (id: string) =>
+    apiClient.delete(`/api/integrations/${id}`),
+
+  toggleIntegrationStatus: (id: string, data: any) =>
+    apiClient.patch(`/api/integrations/${id}/status`, data),
 };
 
 export default {

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { boolean } = require("zod");
 
 const VehicleSchema = new mongoose.Schema({
   vehicle_stock_id: {
@@ -53,6 +54,10 @@ const VehicleSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  is_pricing_ready: {
+    type: Boolean,
+    default: false,
+  },
 
   // Optional Basic Fields
   variant: String,
@@ -66,9 +71,9 @@ const VehicleSchema = new mongoose.Schema({
   trade_in_result: [mongoose.Schema.Types.Mixed],
   inspection_report_pdf: [
     {
-      category: { type: String,},
-      link: { type: String, }
-    }
+      category: { type: String },
+      link: { type: String },
+    },
   ],
   tradein_report_pdf: String, // URL to the generated PDF report
 
