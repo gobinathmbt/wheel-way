@@ -341,7 +341,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         },
         {
           icon: Plug,
-          label: "Vehicle Integration",
+          label: "Integrations",
           path: "/company/integrations",
           module: "vehicle_integration",
         },
