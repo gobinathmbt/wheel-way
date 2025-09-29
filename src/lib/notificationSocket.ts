@@ -27,11 +27,15 @@ class NotificationSocketService {
 
       this.socket = io(socketUrl, {
         auth: { token },
-        transports: ["websocket", "polling"],
-        timeout: 20000,
+        transports: ["polling", "websocket"],
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: this.reconnectInterval,
+        reconnectionDelayMax: 10000,
+        timeout: 30000,
+        forceNew: true,
+        upgrade: true,
+        autoConnect: true,
       });
 
       this.setupEventHandlers();
@@ -77,7 +81,7 @@ class NotificationSocketService {
     this.socket.on("disconnect", (reason) => {
       console.log("🔔 Notification socket disconnected:", reason);
       this.connectionState = "disconnected";
-      
+
       if (reason === "io server disconnect") {
         // Server initiated disconnect, reconnect manually
         this.socket?.connect();
@@ -85,7 +89,9 @@ class NotificationSocketService {
     });
 
     this.socket.on("reconnect", (attemptNumber) => {
-      console.log(`🔔 Notification socket reconnected after ${attemptNumber} attempts`);
+      console.log(
+        `🔔 Notification socket reconnected after ${attemptNumber} attempts`
+      );
       this.connectionState = "connected";
       this.reconnectAttempts = 0;
     });
@@ -169,7 +175,7 @@ class NotificationSocketService {
   async forceReconnect(): Promise<void> {
     console.log("🔄 Force reconnecting notification socket...");
     this.disconnect();
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     await this.connect();
   }
 }

@@ -16,12 +16,16 @@ import {
   CheckCircle, 
   XCircle,
   Filter,
-  MoreHorizontal
+  MoreHorizontal,
+  Calendar,
+  ExternalLink,
+  ArrowLeft
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { socketManager } from '@/lib/socketManager';
 
 interface Notification {
@@ -55,6 +59,8 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
   const [filterType, setFilterType] = useState('all');
   const [filterRead, setFilterRead] = useState('all');
   const [connected, setConnected] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Check notification socket connection state
   const getNotificationSocketConnection = () => {
@@ -263,225 +269,390 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
       markAsRead(notification._id);
     }
     
-    if (notification.action_url) {
+    // On mobile, open dialog instead of direct action
+    if (window.innerWidth < 640) {
+      setSelectedNotification(notification);
+      setIsDialogOpen(true);
+    } else if (notification.action_url) {
       window.open(notification.action_url, '_blank');
     }
   };
 
+  const handleDialogAction = () => {
+    if (selectedNotification?.action_url) {
+      window.open(selectedNotification.action_url, '_blank');
+    }
+    setIsDialogOpen(false);
+    setSelectedNotification(null);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString();
+  };
+
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
-        <div className="relative">
-          {children}
-          {unreadCount > 0 && (
-            <Badge 
-              variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-            >
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </Badge>
-          )}
-        </div>
-      </SheetTrigger>
-      
-      <SheetContent side="right" className="w-[450px] sm:w-[500px] p-0 overflow-hidden">
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <SheetHeader className="p-6 pb-4 flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <SheetTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Notifications
-                {unreadCount > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {unreadCount} unread
-                  </Badge>
-                )}
-              </SheetTitle>
-              {unreadCount > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={markAllAsRead}
-                  className="text-xs"
-                >
-                  <CheckCheck className="h-4 w-4 mr-1" />
-                  Mark all read
-                </Button>
-              )}
-            </div>
-            
-            {/* Connection Status */}
-            <div className="flex items-center gap-2 text-sm mt-2">
-              <div className={`h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-              <span className="text-muted-foreground">
-                {connected ? 'Connected' : 'Disconnected - Trying to reconnect...'}
-              </span>
-            </div>
-          </SheetHeader>
-
-          <Separator />
-
-          {/* Filters */}
-          <div className="p-4 space-y-3 flex-shrink-0">
-            <div className="flex gap-2">
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="info">Info</SelectItem>
-                  <SelectItem value="success">Success</SelectItem>
-                  <SelectItem value="warning">Warning</SelectItem>
-                  <SelectItem value="error">Error</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={filterRead} onValueChange={setFilterRead}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="false">Unread</SelectItem>
-                  <SelectItem value="true">Read</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    <>
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetTrigger asChild>
+          <div className="relative">
+            {children}
+            {unreadCount > 0 && (
+              <Badge 
+                variant="destructive" 
+                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs min-w-[20px]"
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Badge>
+            )}
           </div>
+        </SheetTrigger>
+        
+        <SheetContent 
+          side="right" 
+          className="w-full sm:w-[450px] md:w-[500px] p-0 overflow-hidden max-w-[100vw]"
+        >
+          <div className="flex flex-col h-full">
+            {/* Header */}
+            <SheetHeader className="p-4 sm:p-6 pb-3 sm:pb-4 flex-shrink-0">
+              <div className="flex items-center justify-between mt-4">
+                <SheetTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
+                  Notifications
+                  {unreadCount > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {unreadCount} unread
+                    </Badge>
+                  )}
+                </SheetTitle>
+                {unreadCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={markAllAsRead}
+                    className="text-xs h-8 px-2 sm:px-3"
+                  >
+                    <CheckCheck className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                    <span className="hidden sm:inline">Mark all read</span>
+                    <span className="sm:hidden">All read</span>
+                  </Button>
+                )}
+              </div>
+              
+              {/* Connection Status */}
+              <div className="flex items-center gap-2 text-xs sm:text-sm mt-2">
+                <div className={`h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                <span className="text-muted-foreground">
+                  {connected ? 'Connected' : 'Disconnected'}
+                </span>
+              </div>
+            </SheetHeader>
 
-          <Separator />
+            <Separator />
 
-          {/* Notifications List */}
-          <div className="flex-1 min-h-0">
-            <ScrollArea className="h-full">
-              <div className="p-4">
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                    <span className="ml-2">Loading notifications...</span>
-                  </div>
-                ) : notifications.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No notifications found</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {notifications.map((notification) => (
-                      <div
-                        key={notification._id}
-                        className={`p-3 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 ${
-                          !notification.is_read ? 'bg-blue-50 border-blue-200' : 'bg-background'
-                        }`}
-                        onClick={() => handleNotificationClick(notification)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 mt-1">
-                            {getNotificationIcon(notification.type)}
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-medium break-words">
-                                  {notification.title}
-                                </h4>
-                                <p className="text-sm text-muted-foreground mt-1 break-words">
-                                  {notification.message}
-                                </p>
-                              </div>
-                              
-                              <div className="flex items-center gap-1 flex-shrink-0">
-                                <Badge variant={getPriorityColor(notification.priority) as any} className="text-xs">
-                                  {notification.priority}
-                                </Badge>
-                                
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    {!notification.is_read && (
-                                      <DropdownMenuItem onClick={(e) => {
-                                        e.stopPropagation();
-                                        markAsRead(notification._id);
-                                      }}>
-                                        <Check className="h-4 w-4 mr-2" />
-                                        Mark as read
-                                      </DropdownMenuItem>
-                                    )}
-                                    <DropdownMenuItem 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteNotification(notification._id);
-                                      }}
-                                      className="text-destructive"
-                                    >
-                                      <X className="h-4 w-4 mr-2" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
+            {/* Filters */}
+            <div className="p-3 sm:p-4 space-y-2 sm:space-y-3 flex-shrink-0">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="w-full text-xs sm:text-sm h-9 sm:h-10">
+                    <SelectValue placeholder="Filter by type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs sm:text-sm">All Types</SelectItem>
+                    <SelectItem value="info" className="text-xs sm:text-sm">Info</SelectItem>
+                    <SelectItem value="success" className="text-xs sm:text-sm">Success</SelectItem>
+                    <SelectItem value="warning" className="text-xs sm:text-sm">Warning</SelectItem>
+                    <SelectItem value="error" className="text-xs sm:text-sm">Error</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={filterRead} onValueChange={setFilterRead}>
+                  <SelectTrigger className="w-full text-xs sm:text-sm h-9 sm:h-10">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs sm:text-sm">All</SelectItem>
+                    <SelectItem value="false" className="text-xs sm:text-sm">Unread</SelectItem>
+                    <SelectItem value="true" className="text-xs sm:text-sm">Read</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Notifications List */}
+            <div className="flex-1 min-h-0">
+              <ScrollArea className="h-full">
+                <div className="p-3 sm:p-4">
+                  {loading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin" />
+                      <span className="ml-2 text-sm">Loading notifications...</span>
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Bell className="h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+                      <p className="text-muted-foreground text-sm sm:text-base">No notifications found</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 sm:space-y-3">
+                      {notifications.map((notification) => (
+                        <div
+                          key={notification._id}
+                          className={`p-3 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 ${
+                            !notification.is_read ? 'bg-blue-50 border-blue-200' : 'bg-background'
+                          }`}
+                          onClick={() => handleNotificationClick(notification)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-0.5">
+                              {getNotificationIcon(notification.type)}
                             </div>
                             
-                            <div className="flex items-center justify-between mt-2">
-                              <span className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                              </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-sm font-medium break-words line-clamp-1">
+                                    {notification.title}
+                                  </h4>
+                                  <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words line-clamp-2">
+                                    {notification.message}
+                                  </p>
+                                </div>
+                                
+                                <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                                  <Badge 
+                                    variant={getPriorityColor(notification.priority) as any} 
+                                    className="text-xs hidden xs:inline-flex"
+                                  >
+                                    {notification.priority}
+                                  </Badge>
+                                  
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-6 w-6 p-0"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <MoreHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="text-xs sm:text-sm">
+                                      {!notification.is_read && (
+                                        <DropdownMenuItem onClick={(e) => {
+                                          e.stopPropagation();
+                                          markAsRead(notification._id);
+                                        }}>
+                                          <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                                          Mark as read
+                                        </DropdownMenuItem>
+                                      )}
+                                      <DropdownMenuItem 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          deleteNotification(notification._id);
+                                        }}
+                                        className="text-destructive"
+                                      >
+                                        <X className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              </div>
                               
-                              {notification.source_entity && (
-                                <Badge variant="outline" className="text-xs">
-                                  {notification.source_entity.entity_type}
-                                </Badge>
-                              )}
+                              <div className="flex items-center justify-between mt-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                                </span>
+                                
+                                {notification.source_entity && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {notification.source_entity.entity_type}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <>
+                <Separator />
+                <div className="p-3 sm:p-4 flex justify-between items-center flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1 || loading}
+                    className="text-xs h-8 px-2 sm:px-3"
+                  >
+                    Previous
+                  </Button>
+                  
+                  <span className="text-xs sm:text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages || loading}
+                    className="text-xs h-8 px-2 sm:px-3"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Mobile Notification Detail Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-md w-[95vw] max-w-[95vw] rounded-lg mx-2 p-0 overflow-hidden">
+          {selectedNotification && (
             <>
-              <Separator />
-              <div className="p-4 flex justify-between items-center flex-shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1 || loading}
-                >
-                  Previous
-                </Button>
+              <DialogHeader className="p-4 pb-3 border-b">
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsDialogOpen(false)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <DialogTitle className="text-base flex items-center gap-2">
+                    {getNotificationIcon(selectedNotification.type)}
+                    Notification Details
+                  </DialogTitle>
+                </div>
+              </DialogHeader>
+
+              <ScrollArea className="max-h-[70vh]">
+                <div className="p-4 space-y-4">
+                  {/* Header */}
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <h2 className="text-lg font-semibold break-words">
+                        {selectedNotification.title}
+                      </h2>
+                      <Badge variant={getPriorityColor(selectedNotification.priority) as any}>
+                        {selectedNotification.priority}
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>{formatDate(selectedNotification.created_at)}</span>
+                    </div>
+                  </div>
+
+                  {/* Message */}
+                  <div className="space-y-2">
+                    <h3 className="font-medium text-sm">Message</h3>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg break-words">
+                      {selectedNotification.message}
+                    </p>
+                  </div>
+
+                  {/* Metadata */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Status:</span>
+                      <Badge variant={selectedNotification.is_read ? "outline" : "default"}>
+                        {selectedNotification.is_read ? "Read" : "Unread"}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Type:</span>
+                      <Badge variant="outline" className="capitalize">
+                        {selectedNotification.type}
+                      </Badge>
+                    </div>
+
+                    {selectedNotification.source_entity && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium">Source</h4>
+                        <div className="bg-muted/50 p-3 rounded-lg space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span>Entity Type:</span>
+                            <span className="font-medium capitalize">
+                              {selectedNotification.source_entity.entity_type}
+                            </span>
+                          </div>
+                          {selectedNotification.source_entity.entity_data && (
+                            <div className="text-xs text-muted-foreground break-all">
+                              ID: {selectedNotification.source_entity.entity_id}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </ScrollArea>
+
+              {/* Actions */}
+              <div className="p-4 border-t flex flex-col sm:flex-row gap-2">
+                {!selectedNotification.is_read && (
+                  <Button
+                    onClick={() => {
+                      markAsRead(selectedNotification._id);
+                      setIsDialogOpen(false);
+                    }}
+                    className="flex-1"
+                    size="sm"
+                  >
+                    <Check className="h-4 w-4 mr-2" />
+                    Mark as Read
+                  </Button>
+                )}
                 
-                <span className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages}
-                </span>
+                {selectedNotification.action_url && (
+                  <Button
+                    onClick={handleDialogAction}
+                    variant="secondary"
+                    className="flex-1"
+                    size="sm"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open Link
+                  </Button>
+                )}
                 
                 <Button
-                  variant="outline"
+                  onClick={() => {
+                    deleteNotification(selectedNotification._id);
+                    setIsDialogOpen(false);
+                  }}
+                  variant="destructive"
+                  className="flex-1"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages || loading}
                 >
-                  Next
+                  <X className="h-4 w-4 mr-2" />
+                  Delete
                 </Button>
               </div>
             </>
           )}
-        </div>
-      </SheetContent>
-    </Sheet>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

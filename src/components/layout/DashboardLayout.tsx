@@ -119,9 +119,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
   useEffect(() => {
     if (user?.email) {
-      const savedCollapsedState = getCookie(sidebarCookieKey);
-      if (savedCollapsedState !== null) {
-        setIsSidebarCollapsed(savedCollapsedState === "true");
+      // Only apply desktop collapse state from cookie
+      if (!isMobileMenuOpen) {
+        const savedCollapsedState = getCookie(sidebarCookieKey);
+        if (savedCollapsedState !== null) {
+          setIsSidebarCollapsed(savedCollapsedState === "true");
+        }
       }
 
       const savedExpandedMenus = getCookie(expandedMenusCookieKey);
@@ -134,14 +137,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         }
       }
     }
-  }, [user?.email, sidebarCookieKey, expandedMenusCookieKey]);
+  }, [user?.email, sidebarCookieKey, expandedMenusCookieKey, isMobileMenuOpen]);
 
-  const handleSidebarToggle = () => {
-    const newCollapsedState = !isSidebarCollapsed;
+  const handleSidebarToggle = (state?: boolean, isMobile: boolean = false) => {
+    // If mobile menu, always force false
+    const newCollapsedState = isMobile ? false : state;
     setIsSidebarCollapsed(newCollapsedState);
     setCookie(sidebarCookieKey, newCollapsedState.toString());
 
-    if (newCollapsedState) {
+    // If collapsing (desktop), also collapse all expanded menus
+    if (!isMobile && newCollapsedState) {
       setExpandedMenus(new Set());
       setCookie(expandedMenusCookieKey, "[]");
       setClickedMenu(null);
@@ -214,7 +219,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           path: "/master/maintenance",
         },
         { icon: FileText, label: "Global Logs", path: "/master/global-logs" },
-        { icon: Database, label: "Vehicle MetaData", path: "/master/vehicle-metadata" },
+        {
+          icon: Database,
+          label: "Vehicle MetaData",
+          path: "/master/vehicle-metadata",
+        },
         { icon: Settings, label: "Settings", path: "/master/settings" },
       ];
     }
@@ -697,16 +706,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </Tooltip>
           )}
         </div>
-        {!isSidebarCollapsed && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 opacity-100 hidden md:flex"
-            onClick={handleSidebarToggle}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-        )}
       </div>
 
       <nav className="flex-1 px-2 space-y-1 overflow-y-auto py-4">
@@ -776,7 +775,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     <div className="flex flex-col h-full p-6 space-y-6">
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Account Details</h3>
-        
+
         {/* User Info */}
         <div className="flex items-center space-x-3 p-4 bg-muted rounded-lg">
           <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -804,7 +803,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <p className="text-sm text-muted-foreground mb-2">Dealerships</p>
             <div className="space-y-2">
               {completeUser.dealership_ids.map((d, idx) => (
-                <Badge key={idx} className="mr-2 bg-orange-500 text-white hover:bg-orange-600">
+                <Badge
+                  key={idx}
+                  className="mr-2 bg-orange-500 text-white hover:bg-orange-600"
+                >
                   {d.dealership_name}
                 </Badge>
               ))}
@@ -847,7 +849,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </div>
 
       {/* Mobile Sidebar */}
-      <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+      <Sheet
+        open={isMobileMenuOpen}
+        onOpenChange={(open) => {
+          setIsMobileMenuOpen(open);
+          handleSidebarToggle(false, true); // Always false for mobile
+        }}
+      >
         <SheetContent side="left" className="w-64 p-0">
           <Sidebar className="w-full" />
         </SheetContent>
@@ -866,26 +874,42 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <header className="bg-card border-b px-4 md:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2 md:space-x-4 flex-1 min-w-0">
             {/* Mobile Menu Button */}
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <Sheet
+              open={isMobileMenuOpen}
+              onOpenChange={(open) => {
+                setIsMobileMenuOpen(open);
+                handleSidebarToggle(false, true); // Always false for mobile
+              }}
+            >
               <SheetTrigger asChild className="md:hidden">
                 <Button variant="ghost" size="icon" className="shrink-0">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
             </Sheet>
-
             {/* Desktop Sidebar Toggle - Only show when collapsed */}
             {isSidebarCollapsed && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="hidden md:flex shrink-0"
-                onClick={handleSidebarToggle}
+                className="hidden md:flex bg-green-500 text-white hover:bg-green-600"
+                onClick={() => handleSidebarToggle(false)}
               >
-                <Menu className="h-5 w-5" />
+                {" "}
+                <ChevronRight className="h-5 w-5" />{" "}
+              </Button>
+            )}{" "}
+            {!isSidebarCollapsed && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hidden md:flex bg-green-500 text-white hover:bg-green-600"
+                onClick={() => handleSidebarToggle(true)}
+              >
+                {" "}
+                <ChevronLeft className="h-5 w-5" />{" "}
               </Button>
             )}
-
             <h1 className="text-lg md:text-2xl font-bold truncate">
               {hasNoModuleAccess ? "Access Restricted" : title}
             </h1>
