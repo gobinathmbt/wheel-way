@@ -52,6 +52,13 @@ import { Input } from "@/components/ui/input";
 import MediaViewer, { MediaItem } from "@/components/common/MediaViewer";
 import CommentSheetModal from "@/components/workshop/CommentSheetModal";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 const WorkshopConfig = () => {
   const { vehicleId, vehicleType } = useParams();
   const navigate = useNavigate();
@@ -1017,79 +1024,115 @@ const WorkshopConfig = () => {
     return (
       <div className="space-y-4">
         {/* Fixed Header Section */}
-        <div className="sticky top-0 z-10 bg-background py-4 border-b">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">
-              {vehicleType
-                ? vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1)
-                : ""}{" "}
-              Results
-            </h3>
+       <div className="sticky top-0 z-10 bg-background py-4 border-b">
+  <div className="flex justify-between items-center">
+    <h3 className="text-lg font-semibold">
+      {vehicleType
+        ? vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1)
+        : ""}{" "}
+      Results
+    </h3>
 
-            <div className="flex gap-2">
-              {/* Insert Field button for tradein (no categories) */}
-              {vehicleType === "tradein" && (
-                <Button
-                  variant="default"
-                  onClick={() => handleInsertField()}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Insert Field
-                </Button>
-              )}
-
-              <Button
-                variant="outline"
-                onClick={handleRearrange}
-                className="flex items-center gap-2"
-              >
-                <Settings2 className="h-4 w-4" />
-                Rearrange
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={() => setColorPaletteModalOpen(true)}
-                className="flex items-center gap-2"
-              >
-                🎨 Stage Legend
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={() => navigate("/company/workshop")}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to List
-              </Button>
-
-              {/* Complete Workshop Button */}
+    <div className="flex gap-2">
+      {/* Insert Field button for tradein (no categories) */}
+      {vehicleType === "tradein" && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
               <Button
                 variant="default"
-                onClick={() => handleCompleteWorkshop()}
-                disabled={
-                  vehicle.vehicle_type === "inspection"
-                    ? false // Always enabled for inspection (will show appropriate message if no stages ready)
-                    : !canCompleteWorkshop || completeWorkshopMutation.isPending // For tradein, check if all completed
-                }
-                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => handleInsertField()}
+                className="flex items-center gap-2"
               >
-                {completeWorkshopMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Complete Workshop
-                  </>
-                )}
+                <Plus className="h-4 w-4" />
               </Button>
-            </div>
-          </div>
-        </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Insert Field</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={handleRearrange}
+              className="flex items-center gap-2"
+            >
+              <Settings2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Rearrange</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={() => setColorPaletteModalOpen(true)}
+              className="flex items-center gap-2"
+            >
+              🎨
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Stage Legend</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/company/workshop")}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Back to List</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      {/* Complete Workshop Button */}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="default"
+              onClick={() => handleCompleteWorkshop()}
+              disabled={
+                vehicle.vehicle_type === "inspection"
+                  ? false // Always enabled for inspection (will show appropriate message if no stages ready)
+                  : !canCompleteWorkshop || completeWorkshopMutation.isPending // For tradein, check if all completed
+              }
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {completeWorkshopMutation.isPending ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <CheckCircle className="h-4 w-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Complete Workshop</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  </div>
+</div>
 
         {/* Scrollable Content */}
         <div className="pt-4">
