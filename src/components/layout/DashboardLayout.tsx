@@ -33,6 +33,7 @@ import {
   Search,
   Archive,
   Workflow,
+  MoreVertical,
 } from "lucide-react";
 import { authServices, subscriptionServices } from "@/api/services";
 import { Badge } from "../ui/badge";
@@ -72,7 +73,6 @@ interface NavigationItem {
 // Cookie utilities with user-specific keys
 const getUserSpecificKey = (baseKey: string, userEmail: string | undefined) => {
   if (!userEmail) return baseKey;
-  // Create a simple hash of the email to keep cookie names clean
   const hash = userEmail.split("").reduce((a, b) => {
     a = (a << 5) - a + b.charCodeAt(0);
     return a & a;
@@ -104,20 +104,19 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const { user, logout, completeUser } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileOptionsOpen, setIsMobileOptionsOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
   const [clickedMenu, setClickedMenu] = useState<string | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
-  // Generate user-specific cookie keys
   const sidebarCookieKey = getUserSpecificKey("sidebar-collapsed", user?.email);
   const expandedMenusCookieKey = getUserSpecificKey(
     "expanded-menus",
     user?.email
   );
 
-  // Load sidebar state from user-specific cookie on component mount
   useEffect(() => {
     if (user?.email) {
       const savedCollapsedState = getCookie(sidebarCookieKey);
@@ -137,13 +136,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
   }, [user?.email, sidebarCookieKey, expandedMenusCookieKey]);
 
-  // Save sidebar state to user-specific cookie when it changes
   const handleSidebarToggle = () => {
     const newCollapsedState = !isSidebarCollapsed;
     setIsSidebarCollapsed(newCollapsedState);
     setCookie(sidebarCookieKey, newCollapsedState.toString());
 
-    // If collapsing, also collapse all expanded menus
     if (newCollapsedState) {
       setExpandedMenus(new Set());
       setCookie(expandedMenusCookieKey, "[]");
@@ -151,9 +148,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
   };
 
-  // Save expanded menus state to user-specific cookie
   const toggleMenuExpansion = (menuKey: string) => {
-    if (isSidebarCollapsed) return; // Don't toggle if sidebar is collapsed
+    if (isSidebarCollapsed) return;
 
     const newExpandedMenus = new Set(expandedMenus);
     if (newExpandedMenus.has(menuKey)) {
@@ -176,7 +172,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     },
   });
 
-  // Get company subscription info
   const { data: companySubscription } = useQuery({
     queryKey: ["company-subscription-info"],
     queryFn: async () => {
@@ -195,7 +190,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     ),
   });
 
-  // Show subscription modal for force cases
   useEffect(() => {
     if (
       user?.subscription_modal_force &&
@@ -205,7 +199,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
   }, [user]);
 
-
   const getNavigationItems = (): NavigationItem[] => {
     if (user?.role === "master_admin") {
       return [
@@ -213,7 +206,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         { icon: Building2, label: "Companies", path: "/master/companies" },
         { icon: Shield, label: "Permission", path: "/master/permissions" },
         { icon: CreditCard, label: "Plans", path: "/master/plans" },
-
         { icon: Globe, label: "Master Dropdown", path: "/master/dropdowns" },
         { icon: Cog, label: "Custom Module", path: "/master/custom-modules" },
         {
@@ -301,7 +293,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             },
           ],
         },
-
         {
           icon: Globe,
           label: "Ad Publishing",
@@ -381,7 +372,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       if (!item.module) {
         return true;
       }
-
       return userModule.data.module.includes(item.module);
     });
   };
@@ -394,7 +384,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       !Array.isArray(userModule.data.module) ||
       userModule.data.module.length === 0);
 
-  // Check if current path matches any child path
   const isMenuActive = (item: NavigationItem): boolean => {
     if (item.path && location.pathname === item.path) {
       return true;
@@ -405,7 +394,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     return false;
   };
 
-  // Auto-expand menu if current path is in its children
   useEffect(() => {
     if (!isSidebarCollapsed) {
       const newExpandedMenus = new Set(expandedMenus);
@@ -456,7 +444,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Check if click is outside any popover content
       const popoverContent = document.querySelector(
         "[data-radix-popover-content]"
       );
@@ -482,7 +469,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
   }, [clickedMenu]);
 
-  // Handle menu click for collapsed sidebar
   const handleMenuClick = (menuKey: string, event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -494,7 +480,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
   };
 
-  // Render collapsed menu item with popover for submenus
   const renderCollapsedMenuItem = (item: NavigationItem, index: number) => {
     const Icon = item.icon;
     const isActive = isMenuActive(item);
@@ -610,7 +595,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     const isExpanded = expandedMenus.has(menuKey);
 
     if (item.children && item.children.length > 0) {
-      // Parent item with children (expanded sidebar)
       return (
         <Collapsible
           key={menuKey}
@@ -664,7 +648,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </Collapsible>
       );
     } else {
-      // Regular navigation item (expanded sidebar)
       return (
         <Link
           key={index}
@@ -689,7 +672,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         isSidebarCollapsed ? "w-16" : "w-64"
       }`}
     >
-      {/* Logo and Toggle Button */}
       <div className="p-4 flex items-center justify-between">
         <div
           className={`flex items-center transition-all duration-300 ${
@@ -719,7 +701,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 opacity-100"
+            className="h-8 w-8 opacity-100 hidden md:flex"
             onClick={handleSidebarToggle}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -727,7 +709,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         )}
       </div>
 
-      {/* Navigation Items with Scroll */}
       <nav className="flex-1 px-2 space-y-1 overflow-y-auto py-4">
         {navigationItems.length > 0 ? (
           <TooltipProvider>
@@ -749,7 +730,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         )}
       </nav>
 
-      {/* User Info and Logout */}
       <div className="p-3 border-t">
         <div
           className={`flex items-center transition-all duration-300 ${
@@ -791,6 +771,74 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     </div>
   );
 
+  // Mobile Options Sheet Content
+  const MobileOptionsContent = () => (
+    <div className="flex flex-col h-full p-6 space-y-6">
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Account Details</h3>
+        
+        {/* User Info */}
+        <div className="flex items-center space-x-3 p-4 bg-muted rounded-lg">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <User className="h-6 w-6 text-primary" />
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <p className="font-medium truncate">{user?.email}</p>
+            <p className="text-sm text-muted-foreground capitalize truncate">
+              {user?.role?.replace("_", " ")}
+            </p>
+          </div>
+        </div>
+
+        {/* Company ID */}
+        {completeUser?.company_id?._id && (
+          <div className="p-4 bg-muted rounded-lg">
+            <p className="text-sm text-muted-foreground mb-1">Company ID</p>
+            <p className="font-medium">{completeUser.company_id._id}</p>
+          </div>
+        )}
+
+        {/* Dealerships */}
+        {completeUser?.dealership_ids?.length > 0 && (
+          <div className="p-4 bg-muted rounded-lg">
+            <p className="text-sm text-muted-foreground mb-2">Dealerships</p>
+            <div className="space-y-2">
+              {completeUser.dealership_ids.map((d, idx) => (
+                <Badge key={idx} className="mr-2 bg-orange-500 text-white hover:bg-orange-600">
+                  {d.dealership_name}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Docs */}
+      <Link to="/docs" onClick={() => setIsMobileOptionsOpen(false)}>
+        <Button variant="outline" className="w-full justify-start" size="lg">
+          <FileText className="h-5 w-5 mr-3" />
+          Documentation
+        </Button>
+      </Link>
+
+      {/* Logout */}
+      <div className="mt-auto pt-4 border-t">
+        <Button
+          onClick={() => {
+            logout();
+            setIsMobileOptionsOpen(false);
+          }}
+          variant="destructive"
+          className="w-full justify-start"
+          size="lg"
+        >
+          <LogOut className="h-5 w-5 mr-3" />
+          Logout
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-screen flex">
       {/* Desktop Sidebar */}
@@ -800,41 +848,51 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
       {/* Mobile Sidebar */}
       <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-        <SheetTrigger asChild className="md:hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden absolute top-4 left-4 z-10"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        </SheetTrigger>
         <SheetContent side="left" className="w-64 p-0">
           <Sidebar className="w-full" />
+        </SheetContent>
+      </Sheet>
+
+      {/* Mobile Options Sheet */}
+      <Sheet open={isMobileOptionsOpen} onOpenChange={setIsMobileOptionsOpen}>
+        <SheetContent side="right" className="w-80 p-0">
+          <MobileOptionsContent />
         </SheetContent>
       </Sheet>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-card border-b px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+        <header className="bg-card border-b px-4 md:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-2 md:space-x-4 flex-1 min-w-0">
+            {/* Mobile Menu Button */}
+            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <SheetTrigger asChild className="md:hidden">
+                <Button variant="ghost" size="icon" className="shrink-0">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+            </Sheet>
+
+            {/* Desktop Sidebar Toggle - Only show when collapsed */}
             {isSidebarCollapsed && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="hidden md:flex"
+                className="hidden md:flex shrink-0"
                 onClick={handleSidebarToggle}
               >
                 <Menu className="h-5 w-5" />
               </Button>
             )}
-            <h1 className="text-2xl font-bold">
+
+            <h1 className="text-lg md:text-2xl font-bold truncate">
               {hasNoModuleAccess ? "Access Restricted" : title}
             </h1>
           </div>
 
-          <div className="flex items-center space-x-4">
+          {/* Desktop Actions */}
+          <div className="hidden md:flex items-center space-x-4">
             <NotificationSideModal>
               <Button variant="ghost" size="icon">
                 <Bell className="h-5 w-5" />
@@ -848,14 +906,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </Button>
             </Link>
 
-            {/* Company ID Chip */}
             {completeUser?.company_id?._id && (
               <Badge variant="outline" className="ml-2">
                 Company ID: {completeUser.company_id._id}
               </Badge>
             )}
 
-            {/* Dealership Chips */}
             {completeUser?.dealership_ids?.length > 0 && (
               <Badge className="ml-2 bg-orange-500 text-white hover:bg-orange-600">
                 Dealerships:{" "}
@@ -864,6 +920,23 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   .join(", ")}
               </Badge>
             )}
+          </div>
+
+          {/* Mobile Actions - Notification + Options */}
+          <div className="md:hidden flex items-center space-x-2">
+            <NotificationSideModal>
+              <Button variant="ghost" size="icon">
+                <Bell className="h-5 w-5" />
+              </Button>
+            </NotificationSideModal>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMobileOptionsOpen(true)}
+            >
+              <MoreVertical className="h-5 w-5" />
+            </Button>
           </div>
         </header>
 
@@ -884,7 +957,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         canClose={!user?.subscription_modal_force}
         mode="new"
         onSuccess={() => setShowSubscriptionModal(false)}
-        fullScreen={user?.subscription_modal_force} // Add this line
+        fullScreen={user?.subscription_modal_force}
       />
     </div>
   );
