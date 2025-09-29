@@ -18,7 +18,7 @@ const notificationConfigurationSchema = new mongoose.Schema({
   },
   trigger_type: {
     type: String,
-    enum: ['create', 'update', 'delete', 'custom_event'],
+    enum: ['create', 'update', 'delete'],
     required: true
   },
   target_schema: {

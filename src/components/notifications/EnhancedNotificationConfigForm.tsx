@@ -513,7 +513,6 @@ const EnhancedNotificationConfigForm: React.FC<
                       <SelectItem value="create">Create</SelectItem>
                       <SelectItem value="update">Update</SelectItem>
                       <SelectItem value="delete">Delete</SelectItem>
-                      <SelectItem value="custom_event">Custom Event</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

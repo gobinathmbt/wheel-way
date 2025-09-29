@@ -21,7 +21,7 @@ interface NotificationConfiguration {
   _id: string;
   name: string;
   description: string;
-  trigger_type: 'create' | 'update' | 'delete' | 'custom_event';
+  trigger_type: 'create' | 'update' | 'delete';
   target_schema: string;
   target_fields: Array<{
     field_name: string;

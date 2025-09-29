@@ -1,19 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { companyServices } from "@/api/services";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import Select from "react-select";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import AddsingleEntryDialog from "../metadata/AddsingleEntrydialog"; // Changed import name
+import AddsingleEntryDialog from "../metadata/AddsingleEntrydialog";
 import { toast } from "sonner";
 
 interface DropdownItem {
@@ -28,13 +22,27 @@ interface DropdownItem {
   models?: DropdownItem[];
 }
 
+interface SelectOption {
+  value: string;
+  label: string;
+  data?: DropdownItem;
+}
+
 type LayoutVariant = 
-  | "horizontal" // All fields in one row
-  | "stacked" // All fields stacked vertically
-  | "grid-2" // 2 columns grid
-  | "grid-3" // 3 columns grid
-  | "grid-5" // 5 columns grid (default)
-  | "custom"; // Use custom containerClassName
+  | "horizontal"
+  | "stacked"
+  | "grid-2"
+  | "grid-3"
+  | "grid-5"
+  | "custom";
+
+interface EditableFields {
+  make?: boolean;
+  model?: boolean;
+  variant?: boolean;
+  year?: boolean;
+  body?: boolean;
+}
 
 interface VehicleMetadataSelectorProps {
   // Selected values (display names)
@@ -51,10 +59,14 @@ interface VehicleMetadataSelectorProps {
   onYearChange: (displayName: string) => void;
   onBodyChange: (displayName: string) => void;
 
+  // Edit mode props
+  isEdit?: boolean;
+  editableFields?: EditableFields;
+
   // Layout customization props
   layout?: LayoutVariant;
-  containerClassName?: string; // Custom container classes
-  fieldClassName?: string; // Classes for each field wrapper
+  containerClassName?: string;
+  fieldClassName?: string;
   
   // Field visibility
   showMake?: boolean;
@@ -117,6 +129,14 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
   onVariantChange,
   onYearChange,
   onBodyChange,
+  isEdit = false,
+  editableFields = {
+    make: true,
+    model: true,
+    variant: true,
+    year: true,
+    body: true,
+  },
   layout = "grid-5",
   containerClassName,
   fieldClassName = "",
@@ -154,9 +174,9 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
   const [addingEntry, setAddingEntry] = useState(false);
   const [defaultEntryType, setDefaultEntryType] = useState<string>("");
 
-  // Reset dependent fields when parent field changes
+  // Reset dependent fields when parent field changes (only in non-edit mode)
   useEffect(() => {
-    if (!selectedMake) {
+    if (!isEdit && !selectedMake) {
       onModelChange("");
       onVariantChange("");
       onYearChange("");
@@ -167,22 +187,22 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
         year: "",
       }));
     }
-  }, [selectedMake, onModelChange, onVariantChange, onYearChange]);
+  }, [selectedMake, onModelChange, onVariantChange, onYearChange, isEdit]);
 
   useEffect(() => {
-    if (!selectedModel) {
+    if (!isEdit && !selectedModel) {
       onVariantChange("");
       onYearChange("");
       setSelectedIds((prev) => ({ ...prev, variant: "", year: "" }));
     }
-  }, [selectedModel, onVariantChange, onYearChange]);
+  }, [selectedModel, onVariantChange, onYearChange, isEdit]);
 
   useEffect(() => {
-    if (!selectedVariant) {
+    if (!isEdit && !selectedVariant) {
       onYearChange("");
       setSelectedIds((prev) => ({ ...prev, year: "" }));
     }
-  }, [selectedVariant, onYearChange]);
+  }, [selectedVariant, onYearChange, isEdit]);
 
   // Common query options
   const queryOptions = {
@@ -221,7 +241,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       companyServices.getCompanyMetaData("models", {
         makeId: selectedIds.make || undefined,
       }),
-    enabled: !!selectedIds.make,
+    enabled: isEdit ? true : !!selectedIds.make,
     ...queryOptions,
   });
 
@@ -237,7 +257,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       companyServices.getCompanyMetaData("variants", {
         modelId: selectedIds.model || undefined,
       }),
-    enabled: !!selectedIds.model,
+    enabled: isEdit ? true : !!selectedIds.model,
     ...queryOptions,
   });
 
@@ -254,7 +274,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
         modelId: selectedIds.model || undefined,
         variantId: selectedIds.variant || undefined,
       }),
-    enabled: !!(selectedIds.model || selectedIds.variant),
+    enabled: isEdit ? true : !!(selectedIds.model || selectedIds.variant),
     ...queryOptions,
   });
 
@@ -371,23 +391,23 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       switch (type) {
         case "make":
           response = await companyServices.createMake(data);
-          await refetchMakes(); // Refresh makes dropdown
+          await refetchMakes();
           break;
         case "model":
           response = await companyServices.createModel(data);
-          await refetchModels(); // Refresh models dropdown
+          await refetchModels();
           break;
         case "variant":
           response = await companyServices.createVariant(data);
-          await refetchVariants(); // Refresh variants dropdown
+          await refetchVariants();
           break;
         case "body":
           response = await companyServices.createBodyType(data);
-          await refetchBodies(); // Refresh body styles dropdown
+          await refetchBodies();
           break;
         case "year":
           response = await companyServices.createYear(data);
-          await refetchYears(); // Refresh years dropdown
+          await refetchYears();
           break;
         default:
           throw new Error(`Unknown type: ${type}`);
@@ -417,7 +437,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
         }
       }
 
-      return response?.data?.data; // Return the created item
+      return response?.data?.data;
     } catch (error: any) {
       console.error(`Error adding ${type}:`, error);
       toast.error(`Failed to add ${type}: ${error.response?.data?.message || error.message}`);
@@ -449,13 +469,106 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       case "grid-5":
         return "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4";
       case "custom":
-        return ""; // No default classes, rely on containerClassName
+        return "";
       default:
         return "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4";
     }
   };
 
-  const renderSelect = (
+  // Convert dropdown items to react-select options
+  const convertToOptions = (items: DropdownItem[] | undefined, isYear: boolean = false): SelectOption[] => {
+    if (!items) return [];
+    return items.map(item => ({
+      value: isYear ? (item.year ? item.year.toString() : item.displayName) : item.displayName,
+      label: isYear ? (item.year ? item.year.toString() : item.displayName) : item.displayName,
+      data: item,
+    }));
+  };
+
+  // Get selected option for react-select
+  const getSelectedOption = (value: string | undefined, options: SelectOption[]): SelectOption | null => {
+    if (!value) return null;
+    return options.find(opt => opt.value === value) || null;
+  };
+
+  // Auto-select if only one option is available (for create mode)
+  // useEffect(() => {
+  //   if (!isEdit && allMakes?.data?.data?.length === 1 && !selectedMake) {
+  //     const singleMake = allMakes.data.data[0];
+  //     onMakeChange(singleMake.displayName);
+  //   }
+  // }, [allMakes, selectedMake, isEdit, onMakeChange]);
+
+  // useEffect(() => {
+  //   if (!isEdit && allModels?.data?.data?.length === 1 && !selectedModel && selectedMake) {
+  //     const singleModel = allModels.data.data[0];
+  //     onModelChange(singleModel.displayName);
+  //   }
+  // }, [allModels, selectedModel, selectedMake, isEdit, onModelChange]);
+
+  // useEffect(() => {
+  //   if (!isEdit && allVariants?.data?.data?.length === 1 && !selectedVariant && selectedModel) {
+  //     const singleVariant = allVariants.data.data[0];
+  //     onVariantChange(singleVariant.displayName);
+  //   }
+  // }, [allVariants, selectedVariant, selectedModel, isEdit, onVariantChange]);
+
+  // useEffect(() => {
+  //   if (!isEdit && allYears?.data?.data?.length === 1 && !selectedYear && (selectedModel || selectedVariant)) {
+  //     const singleYear = allYears.data.data[0];
+  //     const yearValue = singleYear.year ? singleYear.year.toString() : singleYear.displayName;
+  //     onYearChange(yearValue);
+  //   }
+  // }, [allYears, selectedYear, selectedModel, selectedVariant, isEdit, onYearChange]);
+
+  // useEffect(() => {
+  //   if (!isEdit && allBodies?.data?.data?.length === 1 && !selectedBody) {
+  //     const singleBody = allBodies.data.data[0];
+  //     onBodyChange(singleBody.displayName);
+  //   }
+  // }, [allBodies, selectedBody, isEdit, onBodyChange]);
+
+  // Custom styles for react-select to match shadcn/ui
+  const customSelectStyles = {
+    control: (base: any, state: any) => ({
+      ...base,
+      minHeight: '40px',
+      borderColor: state.isFocused ? 'hsl(var(--ring))' : 'hsl(var(--input))',
+      boxShadow: state.isFocused ? '0 0 0 2px hsl(var(--ring))' : 'none',
+      '&:hover': {
+        borderColor: 'hsl(var(--input))',
+      },
+      backgroundColor: state.isDisabled ? 'hsl(var(--muted))' : 'transparent',
+      cursor: state.isDisabled ? 'not-allowed' : 'default',
+    }),
+    option: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: state.isSelected 
+        ? 'hsl(var(--primary))' 
+        : state.isFocused 
+        ? 'hsl(var(--accent))' 
+        : 'transparent',
+      color: state.isSelected ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))',
+      cursor: 'pointer',
+      '&:active': {
+        backgroundColor: 'hsl(var(--accent))',
+      },
+    }),
+    menu: (base: any) => ({
+      ...base,
+      zIndex: 50,
+    }),
+    placeholder: (base: any) => ({
+      ...base,
+      color: 'hsl(var(--muted-foreground))',
+    }),
+    singleValue: (base: any) => ({
+      ...base,
+      color: 'hsl(var(--foreground))',
+    }),
+  };
+
+  const renderReactSelect = (
     fieldKey: string,
     label: string,
     value: string | undefined,
@@ -471,11 +584,21 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       required?: boolean;
     },
     showPlusButton: boolean = false,
-    onPlusClick?: () => void
+    onPlusClick?: () => void,
+    isEditableField: boolean = true
   ) => {
     const finalLabel = fieldProps?.label || label;
     const finalPlaceholder = fieldProps?.placeholder || placeholder;
     const isRequired = fieldProps?.required || false;
+    const isYearField = label === "Year";
+    
+    const selectOptions = convertToOptions(options, isYearField);
+    const selectedOption = getSelectedOption(value, selectOptions);
+
+    // In edit mode, check if field is editable
+    // In create mode, always allow clearing
+    const isFieldDisabled = disabled || (isEdit && !isEditableField) || (!isEdit && disabledCondition);
+    const isClearable = isEdit ? isEditableField : true; // Always clearable in create mode
 
     return (
       <div className={`space-y-2 ${fieldClassName} ${layout === 'horizontal' ? 'flex-1 min-w-0' : ''}`}>
@@ -495,40 +618,20 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
             </div>
           ) : (
             <Select
-              value={value || ""}
-              onValueChange={(selectedDisplayName) => {
-                if (selectedDisplayName !== "placeholder") {
-                  onChange(selectedDisplayName);
-                }
+              id={fieldKey}
+              value={selectedOption}
+              onChange={(option: SelectOption | null) => {
+                onChange(option ? option.value : "");
               }}
-              disabled={disabled || disabledCondition}
-              required={isRequired}
-            >
-              <SelectTrigger id={fieldKey} className="w-full">
-                <SelectValue placeholder={finalPlaceholder}>
-                  {value || finalPlaceholder}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="placeholder" disabled>
-                  {finalPlaceholder}
-                </SelectItem>
-                {options?.map((item: DropdownItem) => {
-                  const itemDisplay =
-                    label === "Year"
-                      ? item.year
-                        ? item.year.toString()
-                        : item.displayName
-                      : item.displayName;
-
-                  return (
-                    <SelectItem key={item._id} value={itemDisplay}>
-                      {itemDisplay}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+              options={selectOptions}
+              isClearable={isClearable}
+              isDisabled={isFieldDisabled}
+              placeholder={finalPlaceholder}
+              styles={customSelectStyles}
+              className="w-full react-select-container"
+              classNamePrefix="react-select"
+              noOptionsMessage={() => `No ${label.toLowerCase()} available`}
+            />
           )}
           {showPlusButton && onPlusClick && (
             <Button
@@ -556,9 +659,11 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       value: selectedMake,
       onChange: (displayName: string) => {
         onMakeChange(displayName);
-        onModelChange("");
-        onVariantChange("");
-        onYearChange("");
+        if (!isEdit) {
+          onModelChange("");
+          onVariantChange("");
+          onYearChange("");
+        }
       },
       options: allMakes?.data?.data,
       isLoading: allMakesLoading,
@@ -569,6 +674,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       show: showMake,
       showPlusButton: showMakePlus,
       onPlusClick: handleMakePlusClick,
+      isEditable: editableFields.make !== false,
     },
     model: {
       key: "model",
@@ -576,8 +682,10 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       value: selectedModel,
       onChange: (displayName: string) => {
         onModelChange(displayName);
-        onVariantChange("");
-        onYearChange("");
+        if (!isEdit) {
+          onVariantChange("");
+          onYearChange("");
+        }
       },
       options: allModels?.data?.data,
       isLoading: allModelsLoading,
@@ -588,6 +696,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       show: showModel,
       showPlusButton: showModelPlus,
       onPlusClick: handleModelPlusClick,
+      isEditable: editableFields.model !== false,
     },
     variant: {
       key: "variant",
@@ -603,6 +712,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       show: showVariant,
       showPlusButton: showVariantPlus,
       onPlusClick: handleVariantPlusClick,
+      isEditable: editableFields.variant !== false,
     },
     year: {
       key: "year",
@@ -618,6 +728,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       show: showYear,
       showPlusButton: showYearPlus,
       onPlusClick: handleYearPlusClick,
+      isEditable: editableFields.year !== false,
     },
     body: {
       key: "body",
@@ -633,6 +744,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       show: showBody,
       showPlusButton: showBodyPlus,
       onPlusClick: handleBodyPlusClick,
+      isEditable: editableFields.body !== false,
     },
   };
 
@@ -642,7 +754,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       .filter(fieldKey => fieldConfigs[fieldKey].show)
       .map(fieldKey => {
         const config = fieldConfigs[fieldKey];
-        return renderSelect(
+        return renderReactSelect(
           config.key,
           config.label,
           config.value,
@@ -654,7 +766,8 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
           config.error,
           config.fieldProps,
           config.showPlusButton,
-          config.onPlusClick
+          config.onPlusClick,
+          config.isEditable
         );
       });
   };

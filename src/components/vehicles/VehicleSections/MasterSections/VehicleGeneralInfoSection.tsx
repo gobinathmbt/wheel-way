@@ -84,8 +84,6 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
     setFormData({ ...formData, body_style: displayName });
   };
 
-
-
   const handleSave = async () => {
     try {
       // Update vehicle basic info
@@ -221,6 +219,14 @@ const VehicleGeneralInfoSection: React.FC<VehicleGeneralInfoSectionProps> = ({
                       onBodyChange={handleBodyChange}
                       showLabels={true}
                       layout="grid-3"
+                      isEdit={true}
+                      editableFields={{
+                        make: false,
+                        model: false,
+                        variant: true,
+                        year: true,
+                        body: true,
+                      }}
                     />
                   </div>
 

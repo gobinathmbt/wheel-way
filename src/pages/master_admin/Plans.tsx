@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Save, Trash2, Users, Package, Check } from 'lucide-react';
+import { Plus, Save, Trash2, Users, Package, Check, Cpu, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/axios';
@@ -16,7 +16,10 @@ import { companyServices, masterServices } from '@/api/services';
 const MasterPlans = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isModuleDialogOpen, setIsModuleDialogOpen] = useState(false);
-  const [availableModules, setAvailableModules] = useState([]);
+  const [availableModules, setAvailableModules] = useState({
+    superadmin: [],
+    integration: []
+  });
   const [planData, setPlanData] = useState({
     per_user_cost: 10,
     modules: []
@@ -37,10 +40,19 @@ const MasterPlans = () => {
     const loadModules = async () => {
       try {
         const response = await masterServices.getMasterdropdownvalues({
-          dropdown_name: ["company_superadmin_modules"],
+          dropdown_name: ["company_superadmin_modules", "company_integration_modules"],
         });
         if (response.data.success) {
-          setAvailableModules(response.data.data[0].values || []);
+          const data = response.data.data;
+          
+          // Separate superadmin and integration modules
+          const superadminModule = data.find(item => item.dropdown_name === "company_superadmin_modules");
+          const integrationModule = data.find(item => item.dropdown_name === "company_integration_modules");
+          
+          setAvailableModules({
+            superadmin: superadminModule?.values || [],
+            integration: integrationModule?.values || []
+          });
         }
       } catch (error) {
         console.error('Failed to load modules:', error);
@@ -86,13 +98,14 @@ const MasterPlans = () => {
     }
   };
 
-  const handleModuleToggle = (module, checked) => {
+  const handleModuleToggle = (module, checked, moduleType) => {
     if (checked) {
       // Add module if not already present
       if (!tempSelectedModules.find(m => m.module_name === module.option_value)) {
         setTempSelectedModules(prev => [...prev, {
           module_name: module.option_value,
           display_value: module.display_value,
+          module_type: moduleType,
           cost_per_module: 0
         }]);
       }
@@ -141,6 +154,17 @@ const MasterPlans = () => {
     }
   };
 
+  // Filter modules by type based on available modules
+  const getFilteredModules = (modules) => {
+    const superadminModuleNames = availableModules.superadmin.map(m => m.option_value);
+    const integrationModuleNames = availableModules.integration.map(m => m.option_value);
+
+    return {
+      superadmin: modules.filter(module => superadminModuleNames.includes(module.module_name)),
+      integration: modules.filter(module => integrationModuleNames.includes(module.module_name))
+    };
+  };
+
   if (isLoading) {
     return (
       <DashboardLayout title="Plan Configuration">
@@ -150,6 +174,9 @@ const MasterPlans = () => {
       </DashboardLayout>
     );
   }
+
+  const filteredCurrentModules = getFilteredModules(planData.modules);
+  const filteredTempModules = getFilteredModules(tempSelectedModules);
 
   return (
     <DashboardLayout title="Plan Configuration">
@@ -218,25 +245,62 @@ const MasterPlans = () => {
                           {/* Available Modules */}
                           <div className="flex-1">
                             <Label className="text-sm font-medium mb-3 block">Available Modules</Label>
-                            <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2">
-                              {availableModules.map((module) => {
-                                const isSelected = tempSelectedModules.find(m => m.module_name === module.option_value);
-                                return (
-                                  <div key={module.option_value} className="flex items-center space-x-2 p-2 border rounded-lg hover:bg-muted/50 transition-colors">
-                                    <Checkbox
-                                      id={module.option_value}
-                                      checked={!!isSelected}
-                                      onCheckedChange={(checked) => handleModuleToggle(module, checked)}
-                                    />
-                                    <Label htmlFor={module.option_value} className="flex-1 cursor-pointer">
-                                      {module.display_value}
-                                    </Label>
-                                    {isSelected && (
-                                      <Check className="h-4 w-4 text-green-600" />
-                                    )}
-                                  </div>
-                                );
-                              })}
+                            <div className="max-h-[400px] overflow-y-auto space-y-4 pr-2">
+                              {/* Superadmin Modules */}
+                              <div>
+                                <div className="flex items-center gap-2 mb-2 p-2 bg-muted/50 rounded-lg">
+                                  <Settings className="h-4 w-4" />
+                                  <Label className="text-sm font-medium">Superadmin Modules</Label>
+                                </div>
+                                <div className="space-y-2">
+                                  {availableModules.superadmin.map((module) => {
+                                    const isSelected = tempSelectedModules.find(m => m.module_name === module.option_value);
+                                    return (
+                                      <div key={module.option_value} className="flex items-center space-x-2 p-2 border rounded-lg hover:bg-muted/50 transition-colors">
+                                        <Checkbox
+                                          id={module.option_value}
+                                          checked={!!isSelected}
+                                          onCheckedChange={(checked) => handleModuleToggle(module, checked, 'superadmin')}
+                                        />
+                                        <Label htmlFor={module.option_value} className="flex-1 cursor-pointer text-sm">
+                                          {module.display_value}
+                                        </Label>
+                                        {isSelected && (
+                                          <Check className="h-4 w-4 text-green-600" />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Integration Modules */}
+                              <div>
+                                <div className="flex items-center gap-2 mb-2 p-2 bg-muted/50 rounded-lg">
+                                  <Cpu className="h-4 w-4" />
+                                  <Label className="text-sm font-medium">Integration Modules</Label>
+                                </div>
+                                <div className="space-y-2">
+                                  {availableModules.integration.map((module) => {
+                                    const isSelected = tempSelectedModules.find(m => m.module_name === module.option_value);
+                                    return (
+                                      <div key={module.option_value} className="flex items-center space-x-2 p-2 border rounded-lg hover:bg-muted/50 transition-colors">
+                                        <Checkbox
+                                          id={module.option_value}
+                                          checked={!!isSelected}
+                                          onCheckedChange={(checked) => handleModuleToggle(module, checked, 'integration')}
+                                        />
+                                        <Label htmlFor={module.option_value} className="flex-1 cursor-pointer text-sm">
+                                          {module.display_value}
+                                        </Label>
+                                        {isSelected && (
+                                          <Check className="h-4 w-4 text-green-600" />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
                             </div>
                           </div>
 
@@ -245,37 +309,91 @@ const MasterPlans = () => {
                             <Label className="text-sm font-medium mb-3 block">
                               Selected Modules ({tempSelectedModules.length})
                             </Label>
-                            <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2">
+                            <div className="max-h-[400px] overflow-y-auto space-y-4 pr-2">
                               {tempSelectedModules.length > 0 ? (
-                                tempSelectedModules.map((module, index) => (
-                                  <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg bg-muted/20">
-                                    <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                      <Label className="capitalize text-sm font-medium block truncate">
-                                        {module.display_value}
-                                      </Label>
+                                <>
+                                  {/* Superadmin Modules */}
+                                  {filteredTempModules.superadmin.length > 0 && (
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-2 p-2 bg-muted/50 rounded-lg">
+                                        <Settings className="h-4 w-4" />
+                                        <Label className="text-sm font-medium">Superadmin Modules</Label>
+                                      </div>
+                                      <div className="space-y-3">
+                                        {filteredTempModules.superadmin.map((module, index) => (
+                                          <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg bg-muted/20">
+                                            <Settings className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                            <div className="flex-1 min-w-0">
+                                              <Label className="capitalize text-sm font-medium block truncate">
+                                                {module.display_value}
+                                              </Label>
+                                            </div>
+                                            <div className="flex items-center space-x-2 flex-shrink-0">
+                                              <span className="text-sm">$</span>
+                                              <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={module.cost_per_module}
+                                                onChange={(e) => handleModuleCostChange(module.module_name, e.target.value, true)}
+                                                className="w-20"
+                                                placeholder="0.00"
+                                              />
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => removeTempModule(module.module_name)}
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
-                                    <div className="flex items-center space-x-2 flex-shrink-0">
-                                      <span className="text-sm">$</span>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={module.cost_per_module}
-                                        onChange={(e) => handleModuleCostChange(module.module_name, e.target.value, true)}
-                                        className="w-20"
-                                        placeholder="0.00"
-                                      />
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => removeTempModule(module.module_name)}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
+                                  )}
+
+                                  {/* Integration Modules */}
+                                  {filteredTempModules.integration.length > 0 && (
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-2 p-2 bg-muted/50 rounded-lg">
+                                        <Cpu className="h-4 w-4" />
+                                        <Label className="text-sm font-medium">Integration Modules</Label>
+                                      </div>
+                                      <div className="space-y-3">
+                                        {filteredTempModules.integration.map((module, index) => (
+                                          <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg bg-muted/20">
+                                            <Cpu className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                            <div className="flex-1 min-w-0">
+                                              <Label className="capitalize text-sm font-medium block truncate">
+                                                {module.display_value}
+                                              </Label>
+                                            </div>
+                                            <div className="flex items-center space-x-2 flex-shrink-0">
+                                              <span className="text-sm">$</span>
+                                              <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={module.cost_per_module}
+                                                onChange={(e) => handleModuleCostChange(module.module_name, e.target.value, true)}
+                                                className="w-20"
+                                                placeholder="0.00"
+                                              />
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => removeTempModule(module.module_name)}
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
-                                  </div>
-                                ))
+                                  )}
+                                </>
                               ) : (
                                 <div className="text-center py-8 text-muted-foreground">
                                   <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -299,35 +417,87 @@ const MasterPlans = () => {
                     </Dialog>
                   </div>
 
-                  <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2">
+                  <div className="max-h-[300px] overflow-y-auto space-y-4 pr-2">
                     {planData.modules.length > 0 ? (
-                      planData.modules.map((module, index) => (
-                        <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                          <div className="flex-1">
-                            <Label className="capitalize">{module.display_value}</Label>
+                      <>
+                        {/* Superadmin Modules */}
+                        {filteredCurrentModules.superadmin.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Settings className="h-4 w-4" />
+                              <Label className="text-sm font-medium">Superadmin Modules</Label>
+                            </div>
+                            <div className="space-y-3">
+                              {filteredCurrentModules.superadmin.map((module, index) => (
+                                <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
+                                  <Settings className="h-4 w-4 text-muted-foreground" />
+                                  <div className="flex-1">
+                                    <Label className="capitalize">{module.display_value}</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm">$</span>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={module.cost_per_module}
+                                      onChange={(e) => handleModuleCostChange(module.module_name, e.target.value)}
+                                      className="w-20"
+                                      placeholder="0.00"
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeModule(module.module_name)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm">$</span>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={module.cost_per_module}
-                              onChange={(e) => handleModuleCostChange(module.module_name, e.target.value)}
-                              className="w-20"
-                              placeholder="0.00"
-                            />
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeModule(module.module_name)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                        )}
+
+                        {/* Integration Modules */}
+                        {filteredCurrentModules.integration.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Cpu className="h-4 w-4" />
+                              <Label className="text-sm font-medium">Integration Modules</Label>
+                            </div>
+                            <div className="space-y-3">
+                              {filteredCurrentModules.integration.map((module, index) => (
+                                <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
+                                  <Cpu className="h-4 w-4 text-muted-foreground" />
+                                  <div className="flex-1">
+                                    <Label className="capitalize">{module.display_value}</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm">$</span>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={module.cost_per_module}
+                                      onChange={(e) => handleModuleCostChange(module.module_name, e.target.value)}
+                                      className="w-20"
+                                      placeholder="0.00"
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeModule(module.module_name)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        )}
+                      </>
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
                         <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -353,7 +523,7 @@ const MasterPlans = () => {
         </div>
 
         {/* Current Configuration Display */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -372,21 +542,44 @@ const MasterPlans = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Module Pricing
+                <Settings className="h-5 w-5" />
+                Superadmin Modules
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {currentPlan?.modules?.length > 0 ? (
-                  currentPlan.modules.map((module, index) => (
+                {filteredCurrentModules.superadmin?.length > 0 ? (
+                  filteredCurrentModules.superadmin.map((module, index) => (
                     <div key={index} className="flex justify-between items-center">
-                      <span className="capitalize">{module.display_value}</span>
+                      <span className="capitalize text-sm">{module.display_value}</span>
                       <Badge variant="outline">${module.cost_per_module}/day</Badge>
                     </div>
                   ))
                 ) : (
-                  <p className="text-muted-foreground text-center">No modules configured</p>
+                  <p className="text-muted-foreground text-center text-sm">No superadmin modules</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Cpu className="h-5 w-5" />
+                Integration Modules
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {filteredCurrentModules.integration?.length > 0 ? (
+                  filteredCurrentModules.integration.map((module, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <span className="capitalize text-sm">{module.display_value}</span>
+                      <Badge variant="outline">${module.cost_per_module}/day</Badge>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-center text-sm">No integration modules</p>
                 )}
               </div>
             </CardContent>
@@ -401,14 +594,18 @@ const MasterPlans = () => {
               <CardDescription>Current pricing configuration overview</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 bg-muted/50 rounded-lg">
                   <div className="text-2xl font-bold">${currentPlan.per_user_cost}</div>
                   <p className="text-sm text-muted-foreground">Per User Daily</p>
                 </div>
                 <div className="text-center p-4 bg-muted/50 rounded-lg">
-                  <div className="text-2xl font-bold">{currentPlan.modules?.length || 0}</div>
-                  <p className="text-sm text-muted-foreground">Configured Modules</p>
+                  <div className="text-2xl font-bold">{filteredCurrentModules.superadmin?.length || 0}</div>
+                  <p className="text-sm text-muted-foreground">Superadmin Modules</p>
+                </div>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold">{filteredCurrentModules.integration?.length || 0}</div>
+                  <p className="text-sm text-muted-foreground">Integration Modules</p>
                 </div>
                 <div className="text-center p-4 bg-muted/50 rounded-lg">
                   <div className="text-2xl font-bold">
