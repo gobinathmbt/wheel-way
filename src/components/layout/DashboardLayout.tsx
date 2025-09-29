@@ -307,7 +307,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         },
         {
           icon: DollarSign,
-          label: "Vehicle Pricing",
+          label: "Pricing & Cost",
           path: "/vehicles/pricing",
           module: "vehicle_pricing",
         },
