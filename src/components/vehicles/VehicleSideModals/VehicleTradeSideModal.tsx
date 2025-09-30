@@ -33,7 +33,7 @@ import {
   Calculator,
   FileText,
 } from "lucide-react";
-import { vehicleServices } from "@/api/services";
+import { commonVehicleServices, vehicleServices } from "@/api/services";
 import { toast } from "sonner";
 import VehicleOverviewSection from "@/components/vehicles/VehicleSections/TradeInSections/VehicleOverviewSection";
 import VehicleGeneralInfoSection from "@/components/vehicles/VehicleSections/TradeInSections/VehicleGeneralInfoSection";
@@ -75,6 +75,7 @@ const VehicleTradeSideModal: React.FC<VehicleTradeSideModalProps> = ({
   const [masterInspectionOpen, setMasterInspectionOpen] = useState(false);
   const [modePopoverOpen, setModePopoverOpen] = useState(false);
   const [selectedMode, setSelectedMode] = useState<"view" | "edit">("edit");
+  const [isPricingReady, setIsPricingReady] = useState(false);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     type: "tradein" | "inspection";
@@ -103,6 +104,9 @@ const VehicleTradeSideModal: React.FC<VehicleTradeSideModalProps> = ({
             .map((item: any) => item.stage_name)
         : [];
       setSelectedStages(currentlyInWorkshop);
+    }
+    if (vehicle) {
+      setIsPricingReady(vehicle.is_pricing_ready || false);
     }
   }, [vehicle]);
 
@@ -141,6 +145,23 @@ const VehicleTradeSideModal: React.FC<VehicleTradeSideModalProps> = ({
     } else {
       setPendingAction({ type: "tradein" });
       setConfirmationOpen(true);
+    }
+  };
+  const handleTogglePricingReady = async () => {
+    try {
+      await commonVehicleServices.togglePricingReady(vehicle.vehicle_stock_id, {
+        vehicle_type: vehicle.vehicle_type,
+        is_pricing_ready: !isPricingReady,
+      });
+      setIsPricingReady(!isPricingReady);
+      toast.success(
+        `Vehicle ${
+          !isPricingReady ? "marked as" : "removed from"
+        } pricing ready`
+      );
+      onUpdate();
+    } catch (error) {
+      toast.error("Failed to update pricing ready status");
     }
   };
 
@@ -487,6 +508,19 @@ const VehicleTradeSideModal: React.FC<VehicleTradeSideModalProps> = ({
                     size="sm"
                     onSuccess={onUpdate}
                   />
+                  <Button
+                    variant={isPricingReady ? "default" : "outline"}
+                    size="sm"
+                    onClick={handleTogglePricingReady}
+                    className={
+                      isPricingReady
+                        ? "bg-green-500 hover:bg-green-600 text-white"
+                        : ""
+                    }
+                  >
+                    <Calculator className="h-4 w-4 mr-2" />
+                    {isPricingReady ? "Pricing Ready" : "Mark Pricing Ready"}
+                  </Button>
                 </div>
               </div>
             )}

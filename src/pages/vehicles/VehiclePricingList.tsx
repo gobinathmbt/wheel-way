@@ -20,8 +20,6 @@ import {
 } from "@/api/services";
 import DataTableLayout from "@/components/common/DataTableLayout";
 import { useAuth } from "@/auth/AuthContext";
-import VehicleInspectSideModal from "@/components/vehicles/VehicleSideModals/VehicleInspectSideModal";
-import MasterVehicleSideModal from "@/components/vehicles/VehicleSideModals/MasterVehicleSideModal";
 
 const VehiclePricingList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -182,12 +180,6 @@ const VehiclePricingList = () => {
     setSelectedVehicle(vehicle);
   };
 
-  const handleClearFilters = () => {
-    setSearchTerm("");
-    setStatusFilter("all");
-    setPage(1);
-    refetch();
-  };
 
   const getDealershipName = (dealershipId: string) => {
     const dealership = dealerships?.find(
@@ -234,12 +226,6 @@ const VehiclePricingList = () => {
 
   // Prepare action buttons
   const actionButtons = [
-    {
-      icon: <RefreshCw className="h-4 w-4" />,
-      tooltip: "Refresh Data",
-      onClick: handleRefresh,
-      className: "bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200",
-    },
     {
       icon: <SlidersHorizontal className="h-4 w-4" />,
       tooltip: "Search & Filters",
@@ -388,24 +374,6 @@ const VehiclePricingList = () => {
     </>
   );
 
-  const renderSideModal = () => {
-    if (!selectedVehicle) return null;
-
-    const commonProps = {
-      vehicle: selectedVehicle,
-      vehicleType: selectedVehicle.vehicle_type,
-      isOpen: !!selectedVehicle,
-      onClose: () => setSelectedVehicle(null),
-      onUpdate: refetch,
-    };
-
-    // Render appropriate modal based on vehicle type
-    if (selectedVehicle.vehicle_type === "master") {
-      return <MasterVehicleSideModal {...commonProps} />;
-    } else {
-      return <VehicleInspectSideModal {...commonProps} />;
-    }
-  };
 
   return (
     <>
@@ -432,7 +400,6 @@ const VehiclePricingList = () => {
         cookieName="vehicle_pricing_pagination"
       />
 
-      {/* {renderSideModal()} */}
     </>
   );
 };
