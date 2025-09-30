@@ -59,6 +59,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import NotificationSideModal from "@/components/notifications/NotificationSideModal";
+import logo from '@/assests/logo/android-chrome-512x512.png'
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -705,7 +706,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         >
           {!isSidebarCollapsed && (
             <>
-              <Car className="h-6 w-6 text-primary" />
+             <img src={logo} className="h-6 w-6 text-primary" />
               <span className="text-lg font-bold">Auto Erp</span>
             </>
           )}
@@ -713,7 +714,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
                 <div className="flex items-center justify-center">
-                  <Car className="h-6 w-6 text-primary" />
+                  <img src={logo} className="h-6 w-6 text-primary" />
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right">

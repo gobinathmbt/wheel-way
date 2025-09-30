@@ -1,5 +1,5 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import PullToRefresh from "@/utils/PullToRefresh";
+import PullToRefresh from "react-simple-pull-to-refresh";
 
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -70,9 +70,10 @@ import MasterInspection from "./components/inspection/MasterInspection";
 import Documentation from "./pages/Documentation";
 import NotFound from "./pages/NotFound";
 
-import logo from "@/assests/logo/android-chrome-512x512.png";
-
 const queryClient = new QueryClient();
+  const handleRefresh = async () => {
+    window.location.reload();
+  };
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -81,8 +82,8 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-         <PullToRefresh logo={logo}>
-          <Routes>
+          <PullToRefresh onRefresh={handleRefresh}>          
+            <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
