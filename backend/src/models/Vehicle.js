@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const { boolean } = require("zod");
 
 const VehicleSchema = new mongoose.Schema({
   vehicle_stock_id: {
