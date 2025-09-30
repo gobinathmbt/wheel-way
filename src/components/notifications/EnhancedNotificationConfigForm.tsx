@@ -38,6 +38,7 @@ import {
   Filter,
   Check,
 } from "lucide-react";
+import SelectComponent from 'react-select';
 
 interface EnhancedNotificationConfigFormProps {
   schemas: Record<string, any>;
@@ -85,6 +86,13 @@ interface AvailableVariable {
   category: 'data' | 'user' | 'system';
 }
 
+interface UserOption {
+  value: string;
+  label: string;
+  email: string;
+  user: any;
+}
+
 const EnhancedNotificationConfigForm: React.FC<
   EnhancedNotificationConfigFormProps
 > = ({ schemas, users, dealerships = [], editData, onSuccess }) => {
@@ -125,6 +133,8 @@ const EnhancedNotificationConfigForm: React.FC<
   const [copiedVariable, setCopiedVariable] = useState<string | null>(null);
   const [titleInputRef, setTitleInputRef] = useState<HTMLInputElement | null>(null);
   const [bodyTextareaRef, setBodyTextareaRef] = useState<HTMLTextAreaElement | null>(null);
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+  const [selectedUserOptions, setSelectedUserOptions] = useState<UserOption[]>([]);
 
   // Initialize form with edit data
   useEffect(() => {
@@ -157,6 +167,36 @@ const EnhancedNotificationConfigForm: React.FC<
       });
     }
   }, [editData]);
+
+  // Prepare user options for react-select
+  useEffect(() => {
+    const options = users.map(user => ({
+      value: user._id,
+      label: `${user.first_name} ${user.last_name}`,
+      email: user.email,
+      user: user
+    }));
+    setUserOptions(options);
+  }, [users]);
+
+  // Update selected user options when formData changes
+  useEffect(() => {
+    if (formData.target_users.type === "specific_users" && formData.target_users.user_ids.length > 0) {
+      const selectedOptions = userOptions.filter(option => 
+        formData.target_users.user_ids.some((selectedUser: any) => {
+          if (typeof selectedUser === 'string') {
+            return selectedUser === option.value;
+          } else if (typeof selectedUser === 'object') {
+            return selectedUser._id === option.value;
+          }
+          return false;
+        })
+      );
+      setSelectedUserOptions(selectedOptions);
+    } else {
+      setSelectedUserOptions([]);
+    }
+  }, [formData.target_users.user_ids, formData.target_users.type, userOptions]);
 
   // Get dealerships data
   const { data: dealershipsData } = useQuery({
@@ -230,6 +270,22 @@ const EnhancedNotificationConfigForm: React.FC<
     }
   }, [formData.target_schema, schemas]);
 
+  // Handle user selection change
+  const handleUserSelectionChange = (selectedOptions: any) => {
+    setSelectedUserOptions(selectedOptions || []);
+    
+    // Extract user IDs from selected options
+    const userIds = selectedOptions ? selectedOptions.map((option: UserOption) => option.value) : [];
+    
+    setFormData((prev) => ({
+      ...prev,
+      target_users: {
+        ...prev.target_users,
+        user_ids: userIds,
+      },
+    }));
+  };
+
   // Copy to clipboard functionality
   const copyToClipboard = useCallback(async (text: string, variableName: string) => {
     try {
@@ -270,7 +326,6 @@ const EnhancedNotificationConfigForm: React.FC<
       document.body.removeChild(textArea);
     }
   }, [toast]);
-
 
   // Create/Update mutation
   const createMutation = useMutation({
@@ -375,7 +430,6 @@ const EnhancedNotificationConfigForm: React.FC<
     }));
   };
 
-
   const getFieldEnumOptions = (fieldName: string) => {
     const field = selectedSchemaFields.find((f) => f.field === fieldName);
     return field?.enums || [];
@@ -416,6 +470,35 @@ const EnhancedNotificationConfigForm: React.FC<
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+const customSelectStyles = {
+    control: (base: any) => ({
+      ...base,
+      border: '1px solid #d1d5db',
+      borderRadius: '0.375rem',
+      minHeight: '40px',
+      '&:hover': {
+        borderColor: '#9ca3af',
+      },
+    }),
+    multiValue: (base: any) => ({
+      ...base,
+      backgroundColor: '#3b82f6',
+      color: 'white',
+    }),
+    multiValueLabel: (base: any) => ({
+      ...base,
+      color: 'white',
+    }),
+    multiValueRemove: (base: any) => ({
+      ...base,
+      color: 'white',
+      ':hover': {
+        backgroundColor: '#ef4444',
+        color: 'white',
+      },
+    }),
   };
 
   return (
@@ -693,179 +776,166 @@ const EnhancedNotificationConfigForm: React.FC<
           </Card>
         </TabsContent>
 
-        {/* Target Users Tab */}
-        <TabsContent value="targets" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Target Users
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Target Type</Label>
-                <Select
-                  value={formData.target_users.type}
-                  onValueChange={(value: any) =>
+{/* Target Users Tab */}
+<TabsContent value="targets" className="space-y-4">
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Users className="h-5 w-5" />
+        Target Users
+      </CardTitle>
+      {/* Show selected users count */}
+      {formData.target_users.type === "specific_users" && (
+        <CardDescription>
+          {formData.target_users.user_ids.length} user(s) selected
+        </CardDescription>
+      )}
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <div className="space-y-2">
+        <Label>Target Type</Label>
+        <Select
+          value={formData.target_users.type}
+          onValueChange={(value: any) =>
+            setFormData((prev) => ({
+              ...prev,
+              target_users: { ...prev.target_users, type: value },
+            }))
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Users</SelectItem>
+            <SelectItem value="specific_users">
+              Specific Users
+            </SelectItem>
+            <SelectItem value="role_based">Role Based</SelectItem>
+            <SelectItem value="dealership_based">
+              Dealership Based
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {formData.target_users.type === "specific_users" && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Select Users</Label>
+            <SelectComponent
+              isMulti
+              options={userOptions}
+              value={selectedUserOptions}
+              onChange={handleUserSelectionChange}
+              placeholder="Search and select users..."
+              noOptionsMessage={() => "No users found"}
+              styles={customSelectStyles}
+              className="react-select-container"
+              classNamePrefix="react-select"
+              // Custom format for dropdown options
+              formatOptionLabel={(option: UserOption, { context }) => (
+                <div className="flex flex-col">
+                  <span className="font-medium">{option.label}</span>
+                  {context === 'menu' && (
+                    <span className="text-sm text-muted-foreground">{option.email}</span>
+                  )}
+                </div>
+              )}
+            />
+          </div>
+        </div>
+      )}
+
+      {formData.target_users.type === "role_based" && (
+        <div className="space-y-2">
+          <Label>Select Roles</Label>
+          {["company_super_admin", "company_admin"].map((role) => (
+            <div key={role} className="flex items-center space-x-2">
+              <Checkbox
+                checked={formData.target_users.roles.includes(role)}
+                onCheckedChange={(checked) => {
+                  if (checked) {
                     setFormData((prev) => ({
                       ...prev,
-                      target_users: { ...prev.target_users, type: value },
-                    }))
+                      target_users: {
+                        ...prev.target_users,
+                        roles: [...prev.target_users.roles, role],
+                      },
+                    }));
+                  } else {
+                    setFormData((prev) => ({
+                      ...prev,
+                      target_users: {
+                        ...prev.target_users,
+                        roles: prev.target_users.roles.filter(
+                          (r) => r !== role
+                        ),
+                      },
+                    }));
                   }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Users</SelectItem>
-                    <SelectItem value="specific_users">
-                      Specific Users
-                    </SelectItem>
-                    <SelectItem value="role_based">Role Based</SelectItem>
-                    <SelectItem value="dealership_based">
-                      Dealership Based
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                }}
+              />
+              <span className="text-sm capitalize">
+                {role.replace("_", " ")}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {formData.target_users.type === "dealership_based" && (
+        <div className="space-y-2">
+          <Label>Select Dealerships</Label>
+          <div className="border rounded-lg p-3 max-h-48 overflow-y-auto">
+            {availableDealerships.map((dealership) => (
+              <div
+                key={dealership._id}
+                className="flex items-center space-x-2 py-1"
+              >
+                <Checkbox
+                  checked={formData.target_users.dealership_ids.includes(
+                    dealership._id
+                  )}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        target_users: {
+                          ...prev.target_users,
+                          dealership_ids: [
+                            ...prev.target_users.dealership_ids,
+                            dealership._id,
+                          ],
+                        },
+                      }));
+                    } else {
+                      setFormData((prev) => ({
+                        ...prev,
+                        target_users: {
+                          ...prev.target_users,
+                          dealership_ids:
+                            prev.target_users.dealership_ids.filter(
+                              (id) => id !== dealership._id
+                            ),
+                        },
+                      }));
+                    }
+                  }}
+                />
+                <span className="text-sm">
+                  {dealership.dealership_name}{" "}
+                  {dealership.dealership_address &&
+                    `(${dealership.dealership_address})`}
+                </span>
               </div>
-
-              {formData.target_users.type === "specific_users" && (
-                <div className="space-y-2">
-                  <Label>Select Users</Label>
-                  <div className="border rounded-lg p-3 max-h-48 overflow-y-auto">
-                    {users.map((user) => (
-                      <div
-                        key={user._id}
-                        className="flex items-center space-x-2 py-1"
-                      >
-                        <Checkbox
-                          checked={formData.target_users.user_ids.includes(
-                            user._id
-                          )}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setFormData((prev) => ({
-                                ...prev,
-                                target_users: {
-                                  ...prev.target_users,
-                                  user_ids: [
-                                    ...prev.target_users.user_ids,
-                                    user._id,
-                                  ],
-                                },
-                              }));
-                            } else {
-                              setFormData((prev) => ({
-                                ...prev,
-                                target_users: {
-                                  ...prev.target_users,
-                                  user_ids: prev.target_users.user_ids.filter(
-                                    (id) => id !== user._id
-                                  ),
-                                },
-                              }));
-                            }
-                          }}
-                        />
-                        <span className="text-sm">
-                          {user.first_name} {user.last_name} ({user.email})
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {formData.target_users.type === "role_based" && (
-                <div className="space-y-2">
-                  <Label>Select Roles</Label>
-                  {["company_super_admin", "company_admin"].map((role) => (
-                    <div key={role} className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={formData.target_users.roles.includes(role)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setFormData((prev) => ({
-                              ...prev,
-                              target_users: {
-                                ...prev.target_users,
-                                roles: [...prev.target_users.roles, role],
-                              },
-                            }));
-                          } else {
-                            setFormData((prev) => ({
-                              ...prev,
-                              target_users: {
-                                ...prev.target_users,
-                                roles: prev.target_users.roles.filter(
-                                  (r) => r !== role
-                                ),
-                              },
-                            }));
-                          }
-                        }}
-                      />
-                      <span className="text-sm capitalize">
-                        {role.replace("_", " ")}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {formData.target_users.type === "dealership_based" && (
-                <div className="space-y-2">
-                  <Label>Select Dealerships</Label>
-                  <div className="border rounded-lg p-3 max-h-48 overflow-y-auto">
-                    {availableDealerships.map((dealership) => (
-                      <div
-                        key={dealership._id}
-                        className="flex items-center space-x-2 py-1"
-                      >
-                        <Checkbox
-                          checked={formData.target_users.dealership_ids.includes(
-                            dealership._id
-                          )}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setFormData((prev) => ({
-                                ...prev,
-                                target_users: {
-                                  ...prev.target_users,
-                                  dealership_ids: [
-                                    ...prev.target_users.dealership_ids,
-                                    dealership._id,
-                                  ],
-                                },
-                              }));
-                            } else {
-                              setFormData((prev) => ({
-                                ...prev,
-                                target_users: {
-                                  ...prev.target_users,
-                                  dealership_ids:
-                                    prev.target_users.dealership_ids.filter(
-                                      (id) => id !== dealership._id
-                                    ),
-                                },
-                              }));
-                            }
-                          }}
-                        />
-                        <span className="text-sm">
-                          {dealership.dealership_name}{" "}
-                          {dealership.dealership_address &&
-                            `(${dealership.dealership_address})`}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            ))}
+          </div>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+</TabsContent>
 
         {/* Message Template Tab */}
         <TabsContent value="message" className="space-y-4">
