@@ -24,12 +24,6 @@ const notificationConfigurationSchema = new mongoose.Schema({
   target_schema: {
     type: String,
     required: true,
-    enum: [
-      'User', 'Vehicle', 'Inspection', 'TradeinConfig', 'Workshop', 
-      'WorkshopReport', 'Supplier', 'Dealership', 'VehicleMetadata',
-      'Make', 'Model', 'Variant', 'Body', 'VariantYear', 'Company',
-      'Subscription', 'Invoice', 'Permission', 'DropdownMaster'
-    ]
   },
   target_fields: [{
     field_name: {

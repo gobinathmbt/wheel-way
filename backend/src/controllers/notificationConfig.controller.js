@@ -338,8 +338,6 @@ const toggleNotificationConfigurationStatus = async (req, res) => {
 const getAvailableSchemas = async (req, res) => {
   try {
     const schemas = {};
-
-    // Loop through all registered mongoose models
     Object.keys(mongoose.models).forEach((modelName) => {
       const model = mongoose.models[modelName];
       const schema = model.schema;
