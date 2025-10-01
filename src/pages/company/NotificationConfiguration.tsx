@@ -258,10 +258,6 @@ const NotificationConfiguration: React.FC = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleView = (config: NotificationConfiguration) => {
-    setSelectedConfig(config);
-  };
-
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'urgent': return 'destructive';
@@ -519,10 +515,6 @@ const NotificationConfiguration: React.FC = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleView(config)}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  View
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleEdit(config)}>
                   <Edit className="h-4 w-4 mr-2" />
                   Edit

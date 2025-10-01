@@ -248,7 +248,7 @@ const createNotificationForUser = async (config, user, req, responseData) => {
       recipient_id: user._id,
       title,
       message,
-      type: config.priority === 'urgent' ? 'error' : 'info',
+      type: config.type,
       priority: config.priority,
       category: 'system',
       source_entity: {
@@ -292,22 +292,49 @@ const replaceMessageVariables = (template, data, user, req) => {
   
   // Replace data variables
   if (data) {
-    // Simple field replacements
+    // Simple field replacements (including dealership_id with special handling)
     Object.keys(data).forEach(key => {
       if (typeof data[key] === 'string' || typeof data[key] === 'number') {
-        const regex = new RegExp(`\\{data\\.${key}\\}`, 'g');
-        message = message.replace(regex, data[key]);
+        // Special handling for dealership_id
+        if (key === 'dealership_id') {
+          let dealershipName = 'Primary User';
+          if (!req.user.is_primary_admin && data.dealership_id) {
+            const dealership = req.user.dealership_ids?.find(
+              d => d._id.toString() === data.dealership_id.toString()
+            );
+            dealershipName = dealership?.dealership_name || dealershipName;
+          }
+          const regex = new RegExp(`\\{data\\.${key}\\}`, 'g');
+          message = message.replace(regex, dealershipName);
+        } else {
+          // Regular field replacement
+          const regex = new RegExp(`\\{data\\.${key}\\}`, 'g');
+          message = message.replace(regex, data[key]);
+        }
       }
     });
     
-    // Handle nested object replacements (e.g., make.displayName)
     const nestedMatches = message.match(/\{data\.[\w.]+\}/g);
     if (nestedMatches) {
       nestedMatches.forEach(match => {
         const fieldPath = match.replace(/\{data\./, '').replace(/\}/, '');
-        const value = getNestedFieldValue(data, fieldPath);
-        if (value !== undefined) {
-          message = message.replace(match, value);
+        
+        // Special handling for dealership_id in nested paths
+        if (fieldPath === 'dealership_id') {
+          let dealershipName = 'Primary User';
+          if (!req.user.is_primary_admin && data.dealership_id) {
+            const dealership = req.user.dealership_ids?.find(
+              d => d._id.toString() === data.dealership_id.toString()
+            );
+            dealershipName = dealership?.dealership_name || dealershipName;
+          }
+          message = message.replace(match, dealershipName);
+        } else {
+          // Regular nested field replacement
+          const value = getNestedFieldValue(data, fieldPath);
+          if (value !== undefined) {
+            message = message.replace(match, value);
+          }
         }
       });
     }

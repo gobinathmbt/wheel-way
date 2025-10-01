@@ -37,6 +37,7 @@ import {
   Variable,
   Filter,
   Check,
+  Search,
 } from "lucide-react";
 import SelectComponent from 'react-select';
 
@@ -91,6 +92,19 @@ interface UserOption {
   label: string;
   email: string;
   user: any;
+  role?: string;
+  dealership_ids?: string[]; // Changed from dealership_id to dealership_ids (array)
+}
+
+interface RoleOption {
+  value: string;
+  label: string;
+}
+
+interface DealershipOption {
+  value: string;
+  label: string;
+  address?: string;
 }
 
 const EnhancedNotificationConfigForm: React.FC<
@@ -125,6 +139,7 @@ const EnhancedNotificationConfigForm: React.FC<
       in_app: true,
     },
     priority: "medium",
+    type: "info", // Added type field with default value
     is_active: true,
   });
 
@@ -135,6 +150,13 @@ const EnhancedNotificationConfigForm: React.FC<
   const [bodyTextareaRef, setBodyTextareaRef] = useState<HTMLTextAreaElement | null>(null);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [selectedUserOptions, setSelectedUserOptions] = useState<UserOption[]>([]);
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
+  const [selectedRoleOptions, setSelectedRoleOptions] = useState<RoleOption[]>([]);
+  const [dealershipOptions, setDealershipOptions] = useState<DealershipOption[]>([]);
+  const [selectedDealershipOptions, setSelectedDealershipOptions] = useState<DealershipOption[]>([]);
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("");
+  const [selectedDealershipFilter, setSelectedDealershipFilter] = useState<string>("");
+  const [filteredUserOptions, setFilteredUserOptions] = useState<UserOption[]>([]);
 
   // Initialize form with edit data
   useEffect(() => {
@@ -163,6 +185,7 @@ const EnhancedNotificationConfigForm: React.FC<
           in_app: true,
         },
         priority: editData.priority || "medium",
+        type: editData.type || "info", // Added type field initialization
         is_active: editData.is_active !== undefined ? editData.is_active : true,
       });
     }
@@ -174,10 +197,22 @@ const EnhancedNotificationConfigForm: React.FC<
       value: user._id,
       label: `${user.first_name} ${user.last_name}`,
       email: user.email,
-      user: user
+      user: user,
+      role: user.role,
+      dealership_ids: user.dealerships || [] // Changed to dealership_ids array
     }));
     setUserOptions(options);
+    setFilteredUserOptions(options);
   }, [users]);
+
+  // Prepare role options for react-select
+  useEffect(() => {
+    const roles = [
+      { value: "company_super_admin", label: "Company Super Admin" },
+      { value: "company_admin", label: "Company Admin" },
+    ];
+    setRoleOptions(roles);
+  }, []);
 
   // Update selected user options when formData changes
   useEffect(() => {
@@ -198,6 +233,30 @@ const EnhancedNotificationConfigForm: React.FC<
     }
   }, [formData.target_users.user_ids, formData.target_users.type, userOptions]);
 
+  // Update selected role options when formData changes
+  useEffect(() => {
+    if (formData.target_users.type === "role_based" && formData.target_users.roles.length > 0) {
+      const selectedOptions = roleOptions.filter(option => 
+        formData.target_users.roles.includes(option.value)
+      );
+      setSelectedRoleOptions(selectedOptions);
+    } else {
+      setSelectedRoleOptions([]);
+    }
+  }, [formData.target_users.roles, formData.target_users.type, roleOptions]);
+
+  // Update selected dealership options when formData changes
+  useEffect(() => {
+    if (formData.target_users.type === "dealership_based" && formData.target_users.dealership_ids.length > 0) {
+      const selectedOptions = dealershipOptions.filter(option => 
+        formData.target_users.dealership_ids.includes(option.value)
+      );
+      setSelectedDealershipOptions(selectedOptions);
+    } else {
+      setSelectedDealershipOptions([]);
+    }
+  }, [formData.target_users.dealership_ids, formData.target_users.type, dealershipOptions]);
+
   // Get dealerships data
   const { data: dealershipsData } = useQuery({
     queryKey: ["company-dealerships"],
@@ -207,6 +266,34 @@ const EnhancedNotificationConfigForm: React.FC<
 
   const availableDealerships =
     dealerships.length > 0 ? dealerships : dealershipsData?.data?.data || [];
+
+  useEffect(() => {
+    const options = availableDealerships.map(dealership => ({
+      value: dealership._id,
+      label: dealership.dealership_name,
+      address: dealership.dealership_address
+    }));
+    setDealershipOptions(options);
+  }, [availableDealerships]);
+
+  // Filter users based on role, and dealership - UPDATED LOGIC
+  useEffect(() => {
+    let filtered = userOptions;
+    
+    // Apply role filter - only if not "all"
+    if (selectedRoleFilter && selectedRoleFilter !== "all") {
+      filtered = filtered.filter(user => user.role === selectedRoleFilter);
+    }
+
+    // Apply dealership filter - only if not "all"
+    if (selectedDealershipFilter && selectedDealershipFilter !== "all") {
+      filtered = filtered.filter(user => 
+        user.user.dealership_ids?.some(d => d._id === selectedDealershipFilter)
+      );
+    }
+
+    setFilteredUserOptions(filtered);
+  }, [userOptions, selectedRoleFilter, selectedDealershipFilter]);
 
   // Update schema fields when target schema changes
   useEffect(() => {
@@ -284,6 +371,44 @@ const EnhancedNotificationConfigForm: React.FC<
         user_ids: userIds,
       },
     }));
+  };
+
+  // Handle role selection change
+  const handleRoleSelectionChange = (selectedOptions: any) => {
+    setSelectedRoleOptions(selectedOptions || []);
+    
+    // Extract role values from selected options
+    const roles = selectedOptions ? selectedOptions.map((option: RoleOption) => option.value) : [];
+    
+    setFormData((prev) => ({
+      ...prev,
+      target_users: {
+        ...prev.target_users,
+        roles: roles,
+      },
+    }));
+  };
+
+  // Handle dealership selection change
+  const handleDealershipSelectionChange = (selectedOptions: any) => {
+    setSelectedDealershipOptions(selectedOptions || []);
+    
+    // Extract dealership IDs from selected options
+    const dealershipIds = selectedOptions ? selectedOptions.map((option: DealershipOption) => option.value) : [];
+    
+    setFormData((prev) => ({
+      ...prev,
+      target_users: {
+        ...prev.target_users,
+        dealership_ids: dealershipIds,
+      },
+    }));
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSelectedRoleFilter("");
+    setSelectedDealershipFilter("");
   };
 
   // Copy to clipboard functionality
@@ -501,6 +626,13 @@ const customSelectStyles = {
     }),
   };
 
+  // Helper function to get dealership names for display
+  const getDealershipNames = (dealershipIds: string[]) => {
+    return dealershipIds.map(id => 
+      dealershipOptions.find(d => d.value === id)?.label || id
+    ).join(', ');
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <DialogHeader>
@@ -564,23 +696,27 @@ const customSelectStyles = {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  placeholder="Describe what this notification does"
-                  rows={3}
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="type">Type</Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({ ...prev, type: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="info">Info</SelectItem>
+                      <SelectItem value="success">Success</SelectItem>
+                      <SelectItem value="warning">Warning</SelectItem>
+                      <SelectItem value="error">Error</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="trigger_type">Trigger Type *</Label>
                   <Select
@@ -599,7 +735,25 @@ const customSelectStyles = {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="Describe what this notification does"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="target_schema">Target Schema *</Label>
                   <Select
@@ -776,166 +930,238 @@ const customSelectStyles = {
           </Card>
         </TabsContent>
 
-{/* Target Users Tab */}
-<TabsContent value="targets" className="space-y-4">
-  <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        <Users className="h-5 w-5" />
-        Target Users
-      </CardTitle>
-      {/* Show selected users count */}
-      {formData.target_users.type === "specific_users" && (
-        <CardDescription>
-          {formData.target_users.user_ids.length} user(s) selected
-        </CardDescription>
-      )}
-    </CardHeader>
-    <CardContent className="space-y-4">
-      <div className="space-y-2">
-        <Label>Target Type</Label>
-        <Select
-          value={formData.target_users.type}
-          onValueChange={(value: any) =>
-            setFormData((prev) => ({
-              ...prev,
-              target_users: { ...prev.target_users, type: value },
-            }))
-          }
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Users</SelectItem>
-            <SelectItem value="specific_users">
-              Specific Users
-            </SelectItem>
-            <SelectItem value="role_based">Role Based</SelectItem>
-            <SelectItem value="dealership_based">
-              Dealership Based
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Target Users Tab */}
+        <TabsContent value="targets" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Target Users
+              </CardTitle>
+              {/* Show selected counts */}
+              {formData.target_users.type === "specific_users" && (
+                <CardDescription>
+                  {formData.target_users.user_ids.length} user(s) selected
+                </CardDescription>
+              )}
+              {formData.target_users.type === "role_based" && (
+                <CardDescription>
+                  {formData.target_users.roles.length} role(s) selected
+                </CardDescription>
+              )}
+              {formData.target_users.type === "dealership_based" && (
+                <CardDescription>
+                  {formData.target_users.dealership_ids.length} dealership(s) selected
+                </CardDescription>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Target Type</Label>
+                <Select
+                  value={formData.target_users.type}
+                  onValueChange={(value: any) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      target_users: { ...prev.target_users, type: value },
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    <SelectItem value="specific_users">
+                      Specific Users
+                    </SelectItem>
+                    <SelectItem value="role_based">Role Based</SelectItem>
+                    <SelectItem value="dealership_based">
+                      Dealership Based
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-      {formData.target_users.type === "specific_users" && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Select Users</Label>
-            <SelectComponent
-              isMulti
-              options={userOptions}
-              value={selectedUserOptions}
-              onChange={handleUserSelectionChange}
-              placeholder="Search and select users..."
-              noOptionsMessage={() => "No users found"}
-              styles={customSelectStyles}
-              className="react-select-container"
-              classNamePrefix="react-select"
-              // Custom format for dropdown options
-              formatOptionLabel={(option: UserOption, { context }) => (
-                <div className="flex flex-col">
-                  <span className="font-medium">{option.label}</span>
-                  {context === 'menu' && (
-                    <span className="text-sm text-muted-foreground">{option.email}</span>
-                  )}
+              {formData.target_users.type === "specific_users" && (
+                <div className="space-y-4">
+                  {/* User Filters */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Search className="h-4 w-4" />
+                        Filter Users
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="role-filter" className="text-xs">Filter by Role</Label>
+                          <Select
+                            value={selectedRoleFilter}
+                            onValueChange={setSelectedRoleFilter}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="All roles" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Roles</SelectItem>
+                              {roleOptions.map((role) => (
+                                <SelectItem key={role.value} value={role.value}>
+                                  {role.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="dealership-filter" className="text-xs">Filter by Dealership</Label>
+                          <Select
+                            value={selectedDealershipFilter}
+                            onValueChange={setSelectedDealershipFilter}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="All dealerships" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Dealerships</SelectItem>
+                              {dealershipOptions.map((dealership) => (
+                                <SelectItem key={dealership.value} value={dealership.value}>
+                                  {dealership.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Active Filters Display */}
+                      {((selectedRoleFilter && selectedRoleFilter !== "all") || (selectedDealershipFilter && selectedDealershipFilter !== "all")) && (
+                        <div className="flex items-center justify-between pt-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Active filters:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {selectedRoleFilter && selectedRoleFilter !== "all" && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Role: {roleOptions.find(r => r.value === selectedRoleFilter)?.label}
+                                </Badge>
+                              )}
+                              {selectedDealershipFilter && selectedDealershipFilter !== "all" && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Dealership: {dealershipOptions.find(d => d.value === selectedDealershipFilter)?.label}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearFilters}
+                            className="h-7 text-xs"
+                          >
+                            Clear All
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Results Count */}
+                      <div className="text-xs text-muted-foreground">
+                        Showing {filteredUserOptions.length} of {userOptions.length} users
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="space-y-2">
+                    <Label>Select Users</Label>
+                    <SelectComponent
+                      isMulti
+                      options={filteredUserOptions}
+                      value={selectedUserOptions}
+                      onChange={handleUserSelectionChange}
+                      placeholder="Search and select users..."
+                      noOptionsMessage={() => "No users found matching filters"}
+                      styles={customSelectStyles}
+                      className="react-select-container"
+                      classNamePrefix="react-select"
+                      formatOptionLabel={(option: UserOption, { context }) => (
+                        <div className="flex flex-col">
+                          <div className="flex justify-between items-start">
+                            <span className="font-medium">{option.label}</span>
+                            {option.role && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                {option.role.replace('_', ' ')}
+                              </Badge>
+                            )}
+                          </div>
+                          {context === 'menu' && (
+                            <div className="flex flex-col mt-1">
+                              <span className="text-sm text-muted-foreground">{option.email}</span>
+                              {option.dealership_ids && option.dealership_ids.length > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  Dealerships: {getDealershipNames(option.dealership_ids)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    />
+                  </div>
                 </div>
               )}
-            />
-          </div>
-        </div>
-      )}
 
-      {formData.target_users.type === "role_based" && (
-        <div className="space-y-2">
-          <Label>Select Roles</Label>
-          {["company_super_admin", "company_admin"].map((role) => (
-            <div key={role} className="flex items-center space-x-2">
-              <Checkbox
-                checked={formData.target_users.roles.includes(role)}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    setFormData((prev) => ({
-                      ...prev,
-                      target_users: {
-                        ...prev.target_users,
-                        roles: [...prev.target_users.roles, role],
-                      },
-                    }));
-                  } else {
-                    setFormData((prev) => ({
-                      ...prev,
-                      target_users: {
-                        ...prev.target_users,
-                        roles: prev.target_users.roles.filter(
-                          (r) => r !== role
-                        ),
-                      },
-                    }));
-                  }
-                }}
-              />
-              <span className="text-sm capitalize">
-                {role.replace("_", " ")}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+              {formData.target_users.type === "role_based" && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Select Roles</Label>
+                    <SelectComponent
+                      isMulti
+                      options={roleOptions}
+                      value={selectedRoleOptions}
+                      onChange={handleRoleSelectionChange}
+                      placeholder="Select roles..."
+                      noOptionsMessage={() => "No roles found"}
+                      styles={customSelectStyles}
+                      className="react-select-container"
+                      classNamePrefix="react-select"
+                    />
+                  </div>
+                </div>
+              )}
 
-      {formData.target_users.type === "dealership_based" && (
-        <div className="space-y-2">
-          <Label>Select Dealerships</Label>
-          <div className="border rounded-lg p-3 max-h-48 overflow-y-auto">
-            {availableDealerships.map((dealership) => (
-              <div
-                key={dealership._id}
-                className="flex items-center space-x-2 py-1"
-              >
-                <Checkbox
-                  checked={formData.target_users.dealership_ids.includes(
-                    dealership._id
-                  )}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setFormData((prev) => ({
-                        ...prev,
-                        target_users: {
-                          ...prev.target_users,
-                          dealership_ids: [
-                            ...prev.target_users.dealership_ids,
-                            dealership._id,
-                          ],
-                        },
-                      }));
-                    } else {
-                      setFormData((prev) => ({
-                        ...prev,
-                        target_users: {
-                          ...prev.target_users,
-                          dealership_ids:
-                            prev.target_users.dealership_ids.filter(
-                              (id) => id !== dealership._id
-                            ),
-                        },
-                      }));
-                    }
-                  }}
-                />
-                <span className="text-sm">
-                  {dealership.dealership_name}{" "}
-                  {dealership.dealership_address &&
-                    `(${dealership.dealership_address})`}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </CardContent>
-  </Card>
-</TabsContent>
+              {formData.target_users.type === "dealership_based" && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Select Dealerships</Label>
+                    <SelectComponent
+                      isMulti
+                      options={dealershipOptions}
+                      value={selectedDealershipOptions}
+                      onChange={handleDealershipSelectionChange}
+                      placeholder="Select dealerships..."
+                      noOptionsMessage={() => "No dealerships found"}
+                      styles={customSelectStyles}
+                      className="react-select-container"
+                      classNamePrefix="react-select"
+                      formatOptionLabel={(option: DealershipOption, { context }) => (
+                        <div className="flex flex-col">
+                          <span className="font-medium">{option.label}</span>
+                          {context === 'menu' && option.address && (
+                            <span className="text-sm text-muted-foreground truncate">
+                              {option.address}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Message Template Tab */}
         <TabsContent value="message" className="space-y-4">
@@ -945,35 +1171,35 @@ const customSelectStyles = {
                 <Variable className="h-5 w-5" />
                 Message Template
               </CardTitle>
+              <CardDescription>
+                Define the notification message and available variables
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Title *</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="title"
-                    ref={setTitleInputRef}
-                    value={formData.message_template.title}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        message_template: {
-                          ...prev.message_template,
-                          title: e.target.value,
-                        },
-                      }))
-                    }
-                    placeholder="Enter notification title"
-                    required
-                  />
-                </div>
+                <Label htmlFor="message_title">Title *</Label>
+                <Input
+                  id="message_title"
+                  value={formData.message_template.title}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      message_template: {
+                        ...prev.message_template,
+                        title: e.target.value,
+                      },
+                    }))
+                  }
+                  placeholder="Enter notification title"
+                  required
+                  ref={setTitleInputRef}
+                />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="body">Message Body *</Label>
+                <Label htmlFor="message_body">Body *</Label>
                 <Textarea
-                  id="body"
-                  ref={setBodyTextareaRef}
+                  id="message_body"
                   value={formData.message_template.body}
                   onChange={(e) =>
                     setFormData((prev) => ({
@@ -984,9 +1210,10 @@ const customSelectStyles = {
                       },
                     }))
                   }
-                  placeholder="Enter notification message"
-                  required
+                  placeholder="Enter notification body"
                   rows={4}
+                  required
+                  ref={setBodyTextareaRef}
                 />
               </div>
 
@@ -994,7 +1221,7 @@ const customSelectStyles = {
                 <Label htmlFor="action_url">Action URL (Optional)</Label>
                 <Input
                   id="action_url"
-                  value={formData.message_template.action_url}
+                  value={formData.message_template.action_url || ""}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
@@ -1010,45 +1237,71 @@ const customSelectStyles = {
 
               {/* Available Variables */}
               {availableVariables.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">
-                      Available Variables
-                    </CardTitle>
-                    <CardDescription>
-                      Click to copy variables to clipboard, then paste them into your message template at the desired position
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {/* Group variables by category */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Available Variables</Label>
+                    <span className="text-sm text-muted-foreground">
+                      Click to copy variables
+                    </span>
+                  </div>
+
+                  <ScrollArea className="h-48 border rounded-lg">
+                    <div className="p-4 space-y-3">
                       {['data', 'user', 'system'].map((category) => {
-                        const categoryVariables = availableVariables.filter(v => v.category === category);
-                        if (categoryVariables.length === 0) return null;
-                        
+                        const categoryVars = availableVariables.filter(
+                          (v) => v.category === category
+                        );
+                        if (categoryVars.length === 0) return null;
+
                         return (
                           <div key={category} className="space-y-2">
                             <h4 className="text-sm font-medium text-muted-foreground">
                               {getCategoryLabel(category)}
                             </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {categoryVariables.map((variable) => (
-                                <div key={variable.variable} className="relative">
-                                  <Badge
-                                    variant="outline"
-                                    className={`cursor-pointer hover:bg-muted transition-all duration-200 ${getCategoryColor(category)} ${
-                                      copiedVariable === variable.variable ? 'ring-2 ring-green-500' : ''
-                                    }`}
-                                    onClick={() => copyToClipboard(variable.variable, variable.variable)}
-                                    title={variable.description}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {categoryVars.map((variable) => (
+                                <div
+                                  key={variable.variable}
+                                  className={`flex items-center justify-between p-2 border rounded-md cursor-pointer hover:bg-accent transition-colors ${
+                                    copiedVariable === variable.variable
+                                      ? "bg-green-50 border-green-200"
+                                      : ""
+                                  }`}
+                                  onClick={() =>
+                                    copyToClipboard(
+                                      variable.variable,
+                                      variable.variable
+                                    )
+                                  }
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <code className="text-xs bg-primary/10 px-1.5 py-0.5 rounded">
+                                        {variable.variable}
+                                      </code>
+                                      {copiedVariable === variable.variable && (
+                                        <Check className="h-3 w-3 text-green-600" />
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1 truncate">
+                                      {variable.description}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="ml-2 h-6 w-6 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      copyToClipboard(
+                                        variable.variable,
+                                        variable.variable
+                                      );
+                                    }}
                                   >
-                                    {copiedVariable === variable.variable ? (
-                                      <Check className="h-3 w-3 mr-1 text-green-600" />
-                                    ) : (
-                                      <Copy className="h-3 w-3 mr-1" />
-                                    )}
-                                    {variable.name}
-                                  </Badge>
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
                                 </div>
                               ))}
                             </div>
@@ -1056,63 +1309,21 @@ const customSelectStyles = {
                         );
                       })}
                     </div>
-
-                    <Separator className="my-4" />
-                    
-                  </CardContent>
-                </Card>
+                  </ScrollArea>
+                </div>
               )}
-
-              {/* Preview Section */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Message Preview</CardTitle>
-                  <CardDescription>
-                    Preview how your notification will look (variables shown as placeholders)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="border rounded-lg p-4 bg-muted/20">
-                    <div className="font-medium text-sm mb-2">
-                      {formData.message_template.title || "Notification Title"}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {formData.message_template.body || "Notification message body will appear here..."}
-                    </div>
-                    {formData.message_template.action_url && (
-                      <div className="mt-2">
-                        <Button size="sm" variant="outline" disabled>
-                          View Details
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      <Separator />
-
-      <div className="flex justify-end space-x-4">
-        <Button
-          type="submit"
-          disabled={createMutation.isPending}
-          className="min-w-32"
-        >
-          {createMutation.isPending ? (
-            <>
-              <CheckCircle className="h-4 w-4 mr-2 animate-spin" />
-              {editData ? "Updating..." : "Creating..."}
-            </>
-          ) : (
-            <>
-              <CheckCircle className="h-4 w-4 mr-2" />
-              {editData ? "Update Configuration" : "Create Configuration"}
-            </>
-          )}
+      <div className="flex justify-end space-x-2 pt-4">
+        <Button type="submit" disabled={createMutation.isPending}>
+          {createMutation.isPending
+            ? "Saving..."
+            : editData
+            ? "Update Configuration"
+            : "Create Configuration"}
         </Button>
       </div>
     </form>

@@ -142,6 +142,11 @@ const notificationConfigurationSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  type: {
+    type: String,
+    enum: ['info', 'success', 'warning', 'error'],
+    default: 'info'
+  },
   priority: {
     type: String,
     enum: ['low', 'medium', 'high', 'urgent'],

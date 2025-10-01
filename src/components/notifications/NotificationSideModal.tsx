@@ -58,6 +58,7 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
   const [totalPages, setTotalPages] = useState(1);
   const [filterType, setFilterType] = useState('all');
   const [filterRead, setFilterRead] = useState('all');
+  const [filterPriority, setFilterPriority] = useState('all');
   const [connected, setConnected] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -94,14 +95,20 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
             notificationSocket.emit('get_unread_count');
           });
           notificationSocket.on('notifications_data', (data) => {
-            setNotifications(data.notifications);
+            // Sort notifications by priority and creation date
+            const sortedNotifications = sortNotifications(data.notifications);
+            setNotifications(sortedNotifications);
             setUnreadCount(data.unread_count);
             setTotalPages(data.pagination.total_pages);
             setLoading(false);
           });
 
           notificationSocket.on('new_notification', (data) => {
-            setNotifications(prev => [data.notification, ...prev]);
+            // Add new notification and sort by priority
+            setNotifications(prev => {
+              const newNotifications = [data.notification, ...prev];
+              return sortNotifications(newNotifications);
+            });
             setUnreadCount(data.unread_count);
             toast({
               title: data.notification.title,
@@ -115,18 +122,20 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
           });
 
           notificationSocket.on('notification_marked_read', (data) => {
-            setNotifications(prev => 
-              prev.map(n => 
+            setNotifications(prev => {
+              const updatedNotifications = prev.map(n => 
                 n._id === data.notification_id ? { ...n, is_read: true } : n
-              )
-            );
+              );
+              return sortNotifications(updatedNotifications);
+            });
             setUnreadCount(data.unread_count);
           });
 
           notificationSocket.on('all_notifications_marked_read', (data) => {
-            setNotifications(prev => 
-              prev.map(n => ({ ...n, is_read: true }))
-            );
+            setNotifications(prev => {
+              const allReadNotifications = prev.map(n => ({ ...n, is_read: true }));
+              return sortNotifications(allReadNotifications);
+            });
             setUnreadCount(0);
             toast({
               title: 'Success',
@@ -191,23 +200,54 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
     };
   }, [toast]);
 
+  // Sort notifications: by priority (urgent > high > medium > low), then by creation date (newest first)
+  const sortNotifications = (notifications: Notification[]): Notification[] => {
+    return notifications.sort((a, b) => {
+      // First sort by priority: urgent > high > medium > low
+      const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
+      const priorityA = priorityOrder[a.priority];
+      const priorityB = priorityOrder[b.priority];
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      
+      // Then sort by read status: unread first
+      if (!a.is_read && b.is_read) return -1;
+      if (a.is_read && !b.is_read) return 1;
+      
+      // Then sort by creation date: newest first
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  };
+
   // Fetch notifications when modal opens or filters change
   useEffect(() => {
     if (isOpen && connected) {
       fetchNotifications();
     }
-  }, [isOpen, connected, currentPage, filterType, filterRead]);
+  }, [isOpen, connected, currentPage, filterType, filterRead, filterPriority]);
 
   const fetchNotifications = () => {
     setLoading(true);
     const notificationSocket = socketManager.getNotificationSocket();
     if (notificationSocket) {
-      notificationSocket.emit('get_notifications', {
+      const payload: any = {
         page: currentPage,
         limit: 20,
-        type: filterType,
-        is_read: filterRead
-      });
+      };
+
+      if (filterType !== "all") {
+        payload.type = filterType;
+      }
+      if (filterRead !== "all") {
+        payload.is_read = filterRead;
+      }
+      if (filterPriority !== "all") {
+        payload.priority = filterPriority;
+      }
+
+      notificationSocket.emit("get_notifications", payload);
     }
   };
 
@@ -236,7 +276,13 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
     }
   };
 
-  const getNotificationIcon = (type: string) => {
+  const getNotificationIcon = (type: string, isRead: boolean) => {
+    // For unread notifications, show info symbol
+    if (!isRead) {
+      return <Info className="h-4 w-4 text-blue-500" />;
+    }
+    
+    // For read notifications, show check symbol based on type
     switch (type) {
       case 'success':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
@@ -245,7 +291,7 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
       case 'error':
         return <XCircle className="h-4 w-4 text-red-500" />;
       default:
-        return <Info className="h-4 w-4 text-blue-500" />;
+        return <Check className="h-4 w-4 text-blue-500" />;
     }
   };
 
@@ -264,18 +310,164 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
     }
   };
 
+  // Get type color for notification chips
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'success':
+        return 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100';
+      case 'warning':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100';
+      case 'error':
+        return 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100';
+      case 'info':
+      default:
+        return 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100';
+    }
+  };
+
+  // Get type icon for notifications
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'success':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'warning':
+        return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+      case 'error':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'info':
+      default:
+        return <Info className="h-4 w-4 text-blue-500" />;
+    }
+  };
+
+  // Get type background color for notification items
+  const getTypeBackgroundColor = (type: string, isRead: boolean) => {
+    if (isRead) {
+      switch (type) {
+        case 'success':
+          return 'bg-green-50 border-green-200';
+        case 'warning':
+          return 'bg-yellow-50 border-yellow-200';
+        case 'error':
+          return 'bg-red-50 border-red-200';
+        case 'info':
+        default:
+          return 'bg-blue-50 border-blue-200';
+      }
+    } else {
+      switch (type) {
+        case 'success':
+          return 'bg-green-100 border-green-300';
+        case 'warning':
+          return 'bg-yellow-100 border-yellow-300';
+        case 'error':
+          return 'bg-red-100 border-red-300';
+        case 'info':
+        default:
+          return 'bg-blue-100 border-blue-300';
+      }
+    }
+  };
+
+  // Get type border color for notification items
+  const getTypeBorderColor = (type: string, isRead: boolean) => {
+    if (isRead) {
+      switch (type) {
+        case 'success':
+          return 'border-l-green-400';
+        case 'warning':
+          return 'border-l-yellow-400';
+        case 'error':
+          return 'border-l-red-400';
+        case 'info':
+        default:
+          return 'border-l-blue-400';
+      }
+    } else {
+      switch (type) {
+        case 'success':
+          return 'border-l-green-600';
+        case 'warning':
+          return 'border-l-yellow-600';
+        case 'error':
+          return 'border-l-red-600';
+        case 'info':
+        default:
+          return 'border-l-blue-600';
+      }
+    }
+  };
+
+  // Get priority background color for notification items
+  const getPriorityBackgroundColor = (priority: string, isRead: boolean) => {
+    if (isRead) {
+      switch (priority) {
+        case 'urgent':
+          return 'bg-red-50 border-red-200';
+        case 'high':
+          return 'bg-orange-50 border-orange-200';
+        case 'medium':
+          return 'bg-yellow-50 border-yellow-200';
+        case 'low':
+          return 'bg-blue-50 border-blue-200';
+        default:
+          return 'bg-gray-50 border-gray-200';
+      }
+    } else {
+      switch (priority) {
+        case 'urgent':
+          return 'bg-red-100 border-red-300';
+        case 'high':
+          return 'bg-orange-100 border-orange-300';
+        case 'medium':
+          return 'bg-yellow-100 border-yellow-300';
+        case 'low':
+          return 'bg-blue-100 border-blue-300';
+        default:
+          return 'bg-blue-50 border-blue-200';
+      }
+    }
+  };
+
+  // Get priority border color for notification items
+  const getPriorityBorderColor = (priority: string, isRead: boolean) => {
+    if (isRead) {
+      switch (priority) {
+        case 'urgent':
+          return 'border-l-red-400';
+        case 'high':
+          return 'border-l-orange-400';
+        case 'medium':
+          return 'border-l-yellow-400';
+        case 'low':
+          return 'border-l-blue-400';
+        default:
+          return 'border-l-gray-400';
+      }
+    } else {
+      switch (priority) {
+        case 'urgent':
+          return 'border-l-red-600';
+        case 'high':
+          return 'border-l-orange-600';
+        case 'medium':
+          return 'border-l-yellow-600';
+        case 'low':
+          return 'border-l-blue-600';
+        default:
+          return 'border-l-gray-600';
+      }
+    }
+  };
+
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.is_read) {
       markAsRead(notification._id);
     }
     
-    // On mobile, open dialog instead of direct action
-    if (window.innerWidth < 640) {
-      setSelectedNotification(notification);
-      setIsDialogOpen(true);
-    } else if (notification.action_url) {
-      window.open(notification.action_url, '_blank');
-    }
+    // Show detail dialog for both mobile and desktop when clicking notification
+    setSelectedNotification(notification);
+    setIsDialogOpen(true);
   };
 
   const handleDialogAction = () => {
@@ -309,7 +501,7 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
         
         <SheetContent 
           side="right" 
-          className="w-full sm:w-[450px] md:w-[500px] p-0 overflow-hidden max-w-[100vw]"
+          className="w-full sm:w-[450px] md:w-[500px] p-0 overflow-hidden min-w-[30vw]"
         >
           <div className="flex flex-col h-full">
             {/* Header */}
@@ -375,6 +567,19 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
                     <SelectItem value="true" className="text-xs sm:text-sm">Read</SelectItem>
                   </SelectContent>
                 </Select>
+
+                <Select value={filterPriority} onValueChange={setFilterPriority}>
+                  <SelectTrigger className="w-full text-xs sm:text-sm h-9 sm:h-10">
+                    <SelectValue placeholder="Filter by priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs sm:text-sm">All Priorities</SelectItem>
+                    <SelectItem value="urgent" className="text-xs sm:text-sm">Urgent</SelectItem>
+                    <SelectItem value="high" className="text-xs sm:text-sm">High</SelectItem>
+                    <SelectItem value="medium" className="text-xs sm:text-sm">Medium</SelectItem>
+                    <SelectItem value="low" className="text-xs sm:text-sm">Low</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -399,14 +604,14 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
                       {notifications.map((notification) => (
                         <div
                           key={notification._id}
-                          className={`p-3 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 ${
-                            !notification.is_read ? 'bg-blue-50 border-blue-200' : 'bg-background'
-                          }`}
+                          className={`p-3 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 border-l-4 ${
+                            getTypeBackgroundColor(notification.type, notification.is_read)
+                          } ${getTypeBorderColor(notification.type, notification.is_read)}`}
                           onClick={() => handleNotificationClick(notification)}
                         >
                           <div className="flex items-start gap-3">
                             <div className="flex-shrink-0 mt-0.5">
-                              {getNotificationIcon(notification.type)}
+                              {getNotificationIcon(notification.type, notification.is_read)}
                             </div>
                             
                             <div className="flex-1 min-w-0">
@@ -416,11 +621,19 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
                                     {notification.title}
                                   </h4>
                                   <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words line-clamp-2">
-                                    {notification.message}
+                                    {(notification.message)}
                                   </p>
                                 </div>
                                 
                                 <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                                  {/* Type Chip */}
+                                  <Badge 
+                                    variant="outline" 
+                                    className={`text-xs capitalize ${getTypeColor(notification.type)}`}
+                                  >
+                                    {notification.type}
+                                  </Badge>
+                                  
                                   <Badge 
                                     variant={getPriorityColor(notification.priority) as any} 
                                     className="text-xs hidden xs:inline-flex"
@@ -520,7 +733,7 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
         </SheetContent>
       </Sheet>
 
-      {/* Mobile Notification Detail Dialog */}
+      {/* Notification Detail Dialog for both Mobile and Desktop */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md w-[95vw] max-w-[95vw] rounded-lg mx-2 p-0 overflow-hidden">
           {selectedNotification && (
@@ -536,7 +749,7 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                   <DialogTitle className="text-base flex items-center gap-2">
-                    {getNotificationIcon(selectedNotification.type)}
+                    {getNotificationIcon(selectedNotification.type, selectedNotification.is_read)}
                     Notification Details
                   </DialogTitle>
                 </div>
@@ -550,9 +763,17 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
                       <h2 className="text-lg font-semibold break-words">
                         {selectedNotification.title}
                       </h2>
-                      <Badge variant={getPriorityColor(selectedNotification.priority) as any}>
-                        {selectedNotification.priority}
-                      </Badge>
+                      <div className="flex flex-col gap-1 items-end">
+                        <Badge 
+                          variant="outline" 
+                          className={`capitalize ${getTypeColor(selectedNotification.type)}`}
+                        >
+                          {selectedNotification.type}
+                        </Badge>
+                        <Badge variant={getPriorityColor(selectedNotification.priority) as any}>
+                          {selectedNotification.priority}
+                        </Badge>
+                      </div>
                     </div>
                     
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -565,7 +786,7 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
                   <div className="space-y-2">
                     <h3 className="font-medium text-sm">Message</h3>
                     <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg break-words">
-                      {selectedNotification.message}
+                      {(selectedNotification.message)}
                     </p>
                   </div>
 
@@ -578,16 +799,8 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({ children 
                       </Badge>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Type:</span>
-                      <Badge variant="outline" className="capitalize">
-                        {selectedNotification.type}
-                      </Badge>
-                    </div>
-
                     {selectedNotification.source_entity && (
                       <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Source</h4>
                         <div className="bg-muted/50 p-3 rounded-lg space-y-1 text-sm">
                           <div className="flex justify-between">
                             <span>Entity Type:</span>

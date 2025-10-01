@@ -115,6 +115,15 @@ const createNotificationConfiguration = async (req, res) => {
       created_by: userId
     };
 
+    // Validate type field
+    const validTypes = ['info', 'success', 'warning', 'error'];
+    if (configurationData.type && !validTypes.includes(configurationData.type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid notification type. Must be one of: info, success, warning, error'
+      });
+    }
+
     // Validate target users if specific users are selected
     if (configurationData.target_users?.type === 'specific_users' && configurationData.target_users?.user_ids?.length > 0) {
       const validUsers = await User.find({
@@ -179,6 +188,15 @@ const updateNotificationConfiguration = async (req, res) => {
       ...req.body,
       updated_by: userId
     };
+
+    // Validate type field
+    const validTypes = ['info', 'success', 'warning', 'error'];
+    if (updateData.type && !validTypes.includes(updateData.type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid notification type. Must be one of: info, success, warning, error'
+      });
+    }
 
     // Validate target users if specific users are selected
     if (updateData.target_users?.type === 'specific_users' && updateData.target_users?.user_ids?.length > 0) {
