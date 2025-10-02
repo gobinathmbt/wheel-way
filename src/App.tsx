@@ -61,6 +61,10 @@ import SupplierDashboard from "./pages/supplier/SupplierDashboard";
 import QuotesByStatus from "./pages/supplier/QuotesByStatus";
 import SupplierProfile from "./pages/supplier/SupplierProfile";
 
+// Service Bay Pages
+import ServiceBays from "./pages/company/ServiceBays";
+import BayCalendar from "./pages/company/BayCalendar";
+
 // Supplier Layout
 import SupplierLayout from "./components/layout/SupplierLayout";
 
@@ -249,6 +253,16 @@ const App = () => (
             <Route path="/company/integrations" element={
               <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="vehicle_integration">
                 <Integration />
+              </ProtectedRoute>
+            } />
+            <Route path="/company/service-bays" element={
+              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="work_shop">
+                <ServiceBays />
+              </ProtectedRoute>
+            } />
+            <Route path="/company/bay-calendar" element={
+              <ProtectedRoute allowedRoles={['company_admin']} requiredModule="work_shop">
+                <BayCalendar />
               </ProtectedRoute>
             } />
 

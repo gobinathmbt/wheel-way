@@ -87,13 +87,22 @@ const WorkshopFieldCard: React.FC<WorkshopFieldCardProps> = ({
           )}
 
           {!quoteApproved && (
-            <Button
-              size="sm"
-              onClick={() => onSendQuote(field, categoryId, sectionId)}
-            >
-              <DollarSign className="h-3 w-3 mr-1" />
-              {hasQuote ? "Update Quote" : "Request For Quote"}
-            </Button>
+            <>
+              <Button
+                size="sm"
+                onClick={() => onSendQuote(field, categoryId, sectionId)}
+              >
+                <DollarSign className="h-3 w-3 mr-1" />
+                {hasQuote ? "Update Quote" : "Request For Quote"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {/* TODO: Open bay booking dialog */}}
+              >
+                Request Bay
+              </Button>
+            </>
           )}
 
           <Button

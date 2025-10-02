@@ -44,6 +44,8 @@ const commonVehicleRoutes = require("./routes/commonvehicle.routes");
 const notificationConfigRoutes = require("./routes/notificationConfig.routes");
 const notificationRoutes = require("./routes/notification.routes");
 const integrationRoutes = require("./routes/integration.routes");
+const serviceBayRoutes = require("./routes/serviceBay.routes");
+const bayBookingRoutes = require("./routes/bayBooking.routes");
 
 const errorHandler = require("./middleware/error");
 const notificationMiddleware = require("./middleware/notificationMiddleware");
@@ -155,6 +157,8 @@ app.use("/api/common-vehicle", commonVehicleRoutes);
 app.use("/api/notification-config", notificationConfigRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/integrations", integrationRoutes);
+app.use("/api/service-bay", serviceBayRoutes);
+app.use("/api/bay-booking", bayBookingRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {
