@@ -256,12 +256,12 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/company/service-bays" element={
-              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="work_shop">
+              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="vehicle_bay">
                 <ServiceBays />
               </ProtectedRoute>
             } />
             <Route path="/company/bay-calendar" element={
-              <ProtectedRoute allowedRoles={['company_admin']} requiredModule="work_shop">
+              <ProtectedRoute allowedRoles={['company_admin']} requiredModule="vehicle_bay">
                 <BayCalendar />
               </ProtectedRoute>
             } />

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { TableCell, TableRow } from "@/components/ui/table";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { serviceBayServices, dealershipServices, companyServices } from "@/api/services";
 import { useAuth } from "@/auth/AuthContext";
 import DataTableLayout from "@/components/common/DataTableLayout";
-import apiClient from "@/api/axios";
 import ReactSelect from "react-select";
 
 const ServiceBays = () => {
@@ -76,7 +75,7 @@ const ServiceBays = () => {
     },
   });
 
-  // Fetch bays
+  // Fetch all bays when pagination is disabled
   const fetchAllBays = async () => {
     let allData: any[] = [];
     let currentPage = 1;
@@ -143,7 +142,7 @@ const ServiceBays = () => {
   const bays = baysResponse?.data || [];
   const stats = baysResponse?.stats || {};
 
-  // Sort bays
+  // Sort bays when not using pagination
   const sortedBays = React.useMemo(() => {
     if (!sortField) return bays;
 
@@ -316,6 +315,21 @@ const ServiceBays = () => {
     });
   };
 
+  const handleRefresh = () => {
+    refetch();
+    toast.success("Data refreshed");
+  };
+
+  const handleRowsPerPageChange = (value: string) => {
+    setRowsPerPage(Number(value));
+    setPage(1);
+  };
+
+  const handlePaginationToggle = (checked: boolean) => {
+    setPaginationEnabled(checked);
+    setPage(1);
+  };
+
   const statChips = [
     {
       label: "Total Bays",
@@ -354,112 +368,118 @@ const ServiceBays = () => {
 
   const renderTableHeader = () => (
     <TableRow>
-      <th className="bg-muted/50 p-3 text-left">S.No</th>
-      <th
-        className="bg-muted/50 p-3 text-left cursor-pointer hover:bg-muted/70"
+      <TableHead className="bg-muted/50">S.No</TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
         onClick={() => handleSort("bay_name")}
       >
         <div className="flex items-center">
           Bay Name
           {getSortIcon("bay_name")}
         </div>
-      </th>
-      <th className="bg-muted/50 p-3 text-left">Dealership</th>
-      <th className="bg-muted/50 p-3 text-left">Primary Admin</th>
-      <th
-        className="bg-muted/50 p-3 text-left cursor-pointer hover:bg-muted/70"
+      </TableHead>
+      <TableHead className="bg-muted/50">Dealership</TableHead>
+      <TableHead className="bg-muted/50">Primary Admin</TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
         onClick={() => handleSort("bay_users_count")}
       >
         <div className="flex items-center">
           Bay Users
           {getSortIcon("bay_users_count")}
         </div>
-      </th>
-      <th
-        className="bg-muted/50 p-3 text-left cursor-pointer hover:bg-muted/70"
+      </TableHead>
+      <TableHead
+        className="bg-muted/50 cursor-pointer hover:bg-muted/70"
         onClick={() => handleSort("is_active")}
       >
         <div className="flex items-center">
           Status
           {getSortIcon("is_active")}
         </div>
-      </th>
-      <th className="bg-muted/50 p-3 text-left">Actions</th>
+      </TableHead>
+      <TableHead className="bg-muted/50">Actions</TableHead>
     </TableRow>
   );
 
-  const renderTableRow = (bay: any, index: number) => (
-    <TableRow key={bay._id}>
-      <TableCell>{(page - 1) * rowsPerPage + index + 1}</TableCell>
-      <TableCell>
-        <div className="font-medium">{bay.bay_name}</div>
-        {bay.bay_description && (
-          <div className="text-sm text-muted-foreground">{bay.bay_description}</div>
-        )}
-      </TableCell>
-      <TableCell>{bay.dealership_id?.dealership_name || "N/A"}</TableCell>
-      <TableCell>
-        {bay.primary_admin?.first_name} {bay.primary_admin?.last_name}
-      </TableCell>
-      <TableCell>
-        <Badge variant="outline">{bay.bay_users?.length || 0} users</Badge>
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={bay.is_active}
-            onCheckedChange={() => handleToggleStatus(bay._id, bay.is_active)}
-          />
-          <span className="text-sm">
-            {bay.is_active ? "Active" : "Inactive"}
-          </span>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => handleEdit(bay)}>
-            <Edit className="h-3 w-3" />
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => handleDelete(bay._id)}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
+  const renderTableBody = () => (
+    <>
+      {sortedBays.map((bay: any, index: number) => (
+        <TableRow key={bay._id}>
+          <TableCell>
+            {paginationEnabled
+              ? (page - 1) * rowsPerPage + index + 1
+              : index + 1}
+          </TableCell>
+          <TableCell>
+            <div className="font-medium">{bay.bay_name}</div>
+            {bay.bay_description && (
+              <div className="text-sm text-muted-foreground">{bay.bay_description}</div>
+            )}
+          </TableCell>
+          <TableCell>{bay.dealership_id?.dealership_name || "N/A"}</TableCell>
+          <TableCell>
+            {bay.primary_admin?.first_name} {bay.primary_admin?.last_name}
+          </TableCell>
+          <TableCell>
+            <Badge variant="outline">{bay.bay_users?.length || 0} users</Badge>
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={bay.is_active}
+                onCheckedChange={() => handleToggleStatus(bay._id, bay.is_active)}
+              />
+              <span className="text-sm">
+                {bay.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
+          </TableCell>
+          <TableCell>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => handleEdit(bay)}>
+                <Edit className="h-3 w-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => handleDelete(bay._id)}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
   );
 
   return (
-    <DataTableLayout
-      title="Service Bays"
-      statChips={statChips}
-      actionButtons={actionButtons}
-      searchTerm={searchTerm}
-      onSearchChange={setSearchTerm}
-      statusFilter={statusFilter}
-      onStatusFilterChange={setStatusFilter}
-      pagination={{
-        enabled: paginationEnabled,
-        currentPage: page,
-        totalPages: Math.ceil((baysResponse?.total || 0) / rowsPerPage),
-        rowsPerPage,
-        totalRecords: baysResponse?.total || 0,
-        onPageChange: setPage,
-        onRowsPerPageChange: (value) => {
-          setRowsPerPage(Number(value));
-          setPage(1);
-        },
-        onTogglePagination: setPaginationEnabled,
-      }}
-      isLoading={isLoading}
-      onRefresh={() => refetch()}
-      renderTableHeader={renderTableHeader}
-      renderTableRow={renderTableRow}
-      data={paginationEnabled ? bays : sortedBays}
-    >
+    <>
+      <DataTableLayout
+        title="Service Bays"
+        data={sortedBays}
+        isLoading={isLoading}
+        totalCount={baysResponse?.total || 0}
+        statChips={statChips}
+        actionButtons={actionButtons}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        paginationEnabled={paginationEnabled}
+        onPageChange={setPage}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        onPaginationToggle={handlePaginationToggle}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        getSortIcon={getSortIcon}
+        renderTableHeader={renderTableHeader}
+        renderTableBody={renderTableBody}
+        onRefresh={handleRefresh}
+        cookieName="service_bay_pagination_enabled"
+        cookieMaxAge={60 * 60 * 24 * 30}
+      />
+
       {/* Create Bay Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -698,7 +718,7 @@ const ServiceBays = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </DataTableLayout>
+    </>
   );
 };
 
