@@ -97,10 +97,9 @@ const WorkshopFieldCard: React.FC<WorkshopFieldCardProps> = ({
               </Button>
               <Button
                 size="sm"
-                variant="outline"
                 onClick={() => {/* TODO: Open bay booking dialog */}}
               >
-                Request Bay
+                Request For Bay
               </Button>
             </>
           )}
