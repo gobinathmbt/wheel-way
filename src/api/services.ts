@@ -1207,6 +1207,37 @@ export const integrationServices = {
     apiClient.patch(`/api/integrations/${id}/status`, data),
 };
 
+export const serviceBayServices = {
+  getServiceBays: (params?: any) => 
+    apiClient.get("/api/service-bay", { params }),
+  
+  getServiceBay: (id: string) => 
+    apiClient.get(`/api/service-bay/${id}`),
+  
+  createServiceBay: (data: any) => 
+    apiClient.post("/api/service-bay", data),
+  
+  updateServiceBay: (id: string, data: any) => 
+    apiClient.put(`/api/service-bay/${id}`, data),
+  
+  deleteServiceBay: (id: string) => 
+    apiClient.delete(`/api/service-bay/${id}`),
+  
+  toggleServiceBayStatus: (id: string, data: any) => 
+    apiClient.patch(`/api/service-bay/${id}/status`, data),
+  
+  addBayHoliday: (id: string, data: any) => 
+    apiClient.post(`/api/service-bay/${id}/holiday`, data),
+  
+  removeBayHoliday: (id: string, holidayId: string) => 
+    apiClient.delete(`/api/service-bay/${id}/holiday/${holidayId}`),
+  
+  getBaysDropdown: (dealershipId?: string) => 
+    apiClient.get("/api/service-bay/dropdown", { 
+      params: dealershipId ? { dealership_id: dealershipId } : {} 
+    }),
+};
+
 export default {
   auth: authServices,
   subscription: subscriptionServices,
@@ -1228,4 +1259,5 @@ export default {
   masterVehicle: masterVehicleServices,
   adPublishing: adPublishingServices,
   commonVehicle:commonVehicleServices,
+  serviceBayServices:serviceBayServices,
 };

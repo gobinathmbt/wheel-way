@@ -69,6 +69,7 @@ import MasterInspection from "./components/inspection/MasterInspection";
 
 import Documentation from "./pages/Documentation";
 import NotFound from "./pages/NotFound";
+import ServiceBays from "./pages/company/ServiceBays";
 
 const queryClient = new QueryClient();
   const handleRefresh = async () => {
@@ -249,6 +250,11 @@ const App = () => (
             <Route path="/company/integrations" element={
               <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="vehicle_integration">
                 <Integration />
+              </ProtectedRoute>
+            } />
+              <Route path="/company/service-bays" element={
+              <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="vehicle_bay">
+                <ServiceBays />
               </ProtectedRoute>
             } />
 

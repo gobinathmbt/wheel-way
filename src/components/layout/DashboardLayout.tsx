@@ -252,6 +252,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           path: "/company/users",
           module: "vehicle_user",
         },
+          {
+          icon: Wrench,
+          label: "Service Bay",
+          path: "/company/service-bays",
+          module: "vehicle_bay",
+        },
         {
           icon: Shield,
           label: "Permission",
