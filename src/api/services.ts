@@ -1002,6 +1002,79 @@ export const workshopServices = {
     apiClient.get(`/api/workshop-report/report/${reportId}`),
 };
 
+// Service Bay Services
+export const serviceBayServices = {
+  getServiceBays: (params?: any) => 
+    apiClient.get("/api/service-bay", { params }),
+  
+  getServiceBay: (id: string) => 
+    apiClient.get(`/api/service-bay/${id}`),
+  
+  createServiceBay: (data: any) => 
+    apiClient.post("/api/service-bay", data),
+  
+  updateServiceBay: (id: string, data: any) => 
+    apiClient.put(`/api/service-bay/${id}`, data),
+  
+  deleteServiceBay: (id: string) => 
+    apiClient.delete(`/api/service-bay/${id}`),
+  
+  toggleServiceBayStatus: (id: string, data: any) => 
+    apiClient.patch(`/api/service-bay/${id}/status`, data),
+  
+  addBayHoliday: (id: string, data: any) => 
+    apiClient.post(`/api/service-bay/${id}/holiday`, data),
+  
+  removeBayHoliday: (id: string, holidayId: string) => 
+    apiClient.delete(`/api/service-bay/${id}/holiday/${holidayId}`),
+  
+  getBaysDropdown: (dealershipId?: string) => 
+    apiClient.get("/api/service-bay/dropdown", { 
+      params: dealershipId ? { dealership_id: dealershipId } : {} 
+    }),
+};
+
+// Bay Quote Services (using WorkshopQuote model)
+export const bayQuoteServices = {
+  createBayQuote: (data: any) => 
+    apiClient.post("/api/workshop/bay-quote", data),
+
+  updateBayQuote: (id: string, data: any) => 
+    apiClient.put(`/api/workshop/bay-quote/${id}`, data),
+  
+  getBayCalendar: (startDate: string, endDate: string, bayId?: string) => 
+    apiClient.get("/api/workshop/bay-calendar", { 
+      params: { start_date: startDate, end_date: endDate, bay_id: bayId } 
+    }),
+  
+  getBayQuoteForField: (vehicleType: string, vehicleStockId: string, fieldId: string) => 
+    apiClient.get(`/api/workshop/bay-quote/${vehicleType}/${vehicleStockId}/${fieldId}`),
+  
+  acceptBayQuote: (id: string) => 
+    apiClient.post(`/api/workshop/bay-quote/${id}/accept`),
+  
+  rejectBayQuote: (id: string, reason: string) => 
+    apiClient.post(`/api/workshop/bay-quote/${id}/reject`, { reason }),
+  
+  startBayWork: (id: string) => 
+    apiClient.post(`/api/workshop/bay-quote/${id}/start-work`),
+  
+  submitBayWork: (id: string, data: any) => 
+    apiClient.post(`/api/workshop/bay-quote/${id}/submit-work`, data),
+  
+  acceptWork: (id: string) => 
+    apiClient.post(`/api/workshop/quote/${id}/accept-work`),
+  
+  requestRework: (id: string, reason: string) => 
+    apiClient.post(`/api/workshop/quote/${id}/request-rework`, { reason }),
+
+// In your bayQuoteServices
+rebookBayQuote: (quoteId: string, data: any) =>
+  apiClient.put(`/api/workshop/bay-quote/${quoteId}/rebook`, data),
+
+
+};
+
 // Supplier Auth Services
 export const supplierAuthServices = {
   login: (email: string, password: string) =>
@@ -1207,37 +1280,6 @@ export const integrationServices = {
     apiClient.patch(`/api/integrations/${id}/status`, data),
 };
 
-export const serviceBayServices = {
-  getServiceBays: (params?: any) => 
-    apiClient.get("/api/service-bay", { params }),
-  
-  getServiceBay: (id: string) => 
-    apiClient.get(`/api/service-bay/${id}`),
-  
-  createServiceBay: (data: any) => 
-    apiClient.post("/api/service-bay", data),
-  
-  updateServiceBay: (id: string, data: any) => 
-    apiClient.put(`/api/service-bay/${id}`, data),
-  
-  deleteServiceBay: (id: string) => 
-    apiClient.delete(`/api/service-bay/${id}`),
-  
-  toggleServiceBayStatus: (id: string, data: any) => 
-    apiClient.patch(`/api/service-bay/${id}/status`, data),
-  
-  addBayHoliday: (id: string, data: any) => 
-    apiClient.post(`/api/service-bay/${id}/holiday`, data),
-  
-  removeBayHoliday: (id: string, holidayId: string) => 
-    apiClient.delete(`/api/service-bay/${id}/holiday/${holidayId}`),
-  
-  getBaysDropdown: (dealershipId?: string) => 
-    apiClient.get("/api/service-bay/dropdown", { 
-      params: dealershipId ? { dealership_id: dealershipId } : {} 
-    }),
-};
-
 export default {
   auth: authServices,
   subscription: subscriptionServices,
@@ -1260,4 +1302,5 @@ export default {
   adPublishing: adPublishingServices,
   commonVehicle:commonVehicleServices,
   serviceBayServices:serviceBayServices,
+  bayQuoteServices:bayQuoteServices,
 };

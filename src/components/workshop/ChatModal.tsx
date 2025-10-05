@@ -56,43 +56,107 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   const [conversation, setConversation] = useState<any>(null);
   const [loadingConversation, setLoadingConversation] = useState(true);
   const [s3Uploader, setS3Uploader] = useState<S3Uploader | null>(null);
+  const [isBayQuote, setIsBayQuote] = useState(false);
+  const [canSendMessage, setCanSendMessage] = useState(true);
 
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
-
-  // Extract user information based on different payload structures
+  
+  // Get current user information
   const currentUser = JSON.parse(
     sessionStorage.getItem("user") ||
       sessionStorage.getItem("supplier_user") ||
       "{}"
   );
   const supplier_user = sessionStorage.getItem("supplier_user");
-  const currentUserType =
-    currentUser.role === "supplier" ? "supplier" : "company";
 
-  // Extract other user information based on different payload structures
+  // Determine user type
+  const currentUserType = currentUser.role === "supplier" 
+    ? "supplier" 
+    : currentUser.role === "company_admin" 
+    ? "bay_user" 
+    : "company";
+
+  // Extract quote information
+  const quoteType = quote?.quote_type || "supplier";
+  const isQuoteBay = quoteType === "bay";
+
+  // Extract other user and IDs based on quote type
   let otherUser: any = null;
   let quoteId: string = "";
   let companyId: string = "";
   let supplierId: string = "";
+  let bayUserId: string = "";
 
-  if (quote?.approved_supplier) {
-    // Structure from QuotesByStatus
-    otherUser = quote.approved_supplier;
+  if (isQuoteBay) {
+    // Bay quote structure
     quoteId = quote._id;
-    companyId = quote.company_id._id || quote.company_id;
-    supplierId = quote.approved_supplier._id;
-  } else if (quote?.supplier_id) {
-    // Structure from WorkshopConfig
-    otherUser = quote.supplier_id;
-    quoteId = quote._id;
-    companyId =
-      currentUserType === "company" ? currentUser.company_id : quote.company_id;
-    supplierId = quote.supplier_id._id || quote.supplier_id;
+    companyId = quote.company_id?._id || quote.company_id;
+    bayUserId = quote.bay_user_id?._id || quote.bay_user_id;
+    supplierId = bayUserId; // Bay user acts as supplier
+
+    // Determine other user based on current user role
+    if (currentUser.role === "company_super_admin") {
+      // Company admin sees bay user as the other party
+      otherUser = {
+        _id: bayUserId,
+        name: quote.bay_user_id?.username || 
+              `${quote.bay_user_id?.first_name || ""} ${quote.bay_user_id?.last_name || ""}`.trim() ||
+              "Bay User",
+        username: quote.bay_user_id?.username,
+        first_name: quote.bay_user_id?.first_name,
+        last_name: quote.bay_user_id?.last_name,
+        supplier_shop_name: quote.bay_id?.bay_name || "Bay",
+      };
+    } else if (currentUser.role === "company_admin") {
+      // Bay user sees company as the other party
+      otherUser = {
+        _id: companyId,
+        name: quote.company_id?.company_name || currentUser.company_name || "Company",
+        company_name: quote.company_id?.company_name || currentUser.company_name,
+      };
+    }
+  } else {
+    // Regular supplier quote
+    if (quote?.approved_supplier) {
+      otherUser = quote.approved_supplier;
+      quoteId = quote._id;
+      companyId = quote.company_id._id || quote.company_id;
+      supplierId = quote.approved_supplier._id;
+    } else if (quote?.supplier_id) {
+      otherUser = quote.supplier_id;
+      quoteId = quote._id;
+      companyId = currentUserType === "company" ? currentUser.company_id : quote.company_id;
+      supplierId = quote.supplier_id._id || quote.supplier_id;
+    }
   }
+
+  // Check if current user can send messages (for bay quotes)
+  useEffect(() => {
+    if (isQuoteBay) {
+      setIsBayQuote(true);
+      
+      // Only bay_user_id and company_super_admin can send messages
+      if (currentUser.role === "company_admin") {
+        // Check if this is the assigned bay user
+        const canSend = bayUserId === currentUser.id;
+        setCanSendMessage(canSend);
+        if (!canSend) {
+          toast.error("You are not assigned to this bay quote");
+        }
+      } else if (currentUser.role === "company_super_admin") {
+        setCanSendMessage(true);
+      } else {
+        setCanSendMessage(false);
+      }
+    } else {
+      setIsBayQuote(false);
+      setCanSendMessage(true);
+    }
+  }, [isQuoteBay, bayUserId, currentUser.id, currentUser.role]);
 
   // Load S3 configuration
   useEffect(() => {
@@ -141,8 +205,14 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
           // Join conversation
           socketService.joinConversation(quoteId, supplierId, companyId);
 
-          // Get other user status
-          socketService.getUserStatus("supplier", supplierId);
+          // Get other user status - adjust user type for bay quotes
+          const statusUserType = isBayQuote && currentUser.role === "company_super_admin" 
+            ? "bay_user" 
+            : isBayQuote && currentUser.role === "company_admin"
+            ? "company"
+            : "supplier";
+          
+          socketService.getUserStatus(statusUserType, otherUser?._id || supplierId);
 
           // Set up event listeners using refs to latest callbacks
           socketService.onConversationData((data) =>
@@ -181,10 +251,12 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
         }
       };
     }
-  }, [open, quoteId, companyId, supplierId]);
+  }, [open, quoteId, companyId, supplierId, isBayQuote, currentUser.role]);
+
   const handleConversationData = useCallback((data: any) => {
     setConversation(data.conversation);
     setLoadingConversation(false);
+    setIsBayQuote(data.is_bay_quote || false);
     scrollToBottom();
   }, []);
 
@@ -201,7 +273,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
 
   const handleTyping = useCallback(
     (data: any) => {
-      if (data.user_id !== currentUser._id) {
+      if (data.user_id !== currentUser.id) {
         setIsTyping(data.typing);
         setTypingUser(data.user_name);
         if (data.typing) {
@@ -209,7 +281,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
         }
       }
     },
-    [currentUser._id]
+    [currentUser.id]
   );
 
   const handleUserStatusChange = useCallback(
@@ -253,7 +325,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setNewMessage(e.target.value);
 
-    if (!typing) {
+    if (!typing && canSendMessage) {
       socketService.startTyping(quote._id);
       setTyping(true);
     }
@@ -306,6 +378,11 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   };
 
   const handleSendMessage = async () => {
+    if (!canSendMessage) {
+      toast.error("You don't have permission to send messages in this conversation");
+      return;
+    }
+
     if (!newMessage.trim() && !selectedFile) {
       toast.error("Please enter a message or select a file");
       return;
@@ -439,6 +516,23 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
     }
   };
 
+// Determine if message is from current user
+  const isMessageFromCurrentUser = (message: any) => {
+    if (currentUser.type === "supplier" || currentUser.role === "supplier") {
+      return message.sender_type === "supplier" && message.sender_id === currentUser.id;
+    }
+    
+    if (isBayQuote) {
+      if (currentUser.role === "company_admin") {
+        return message.sender_type === "supplier" && message.sender_id === currentUser.id;
+      } else if (currentUser.role === "company_super_admin") {
+        return message.sender_type === "company" && message.sender_id === currentUser.id;
+      }
+    } else {
+      return message.sender_type === "company" && message.sender_id === currentUser.id;
+    }
+    return false;
+  };
   const messages = conversation?.messages || [];
 
   // Create refs to store the callback functions
@@ -476,7 +570,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={otherUser?.avatar} />
                   <AvatarFallback>
-                    {otherUser?.name?.charAt(0) || "S"}
+                    {otherUser?.name?.charAt(0) || 
+                     otherUser?.username?.charAt(0) || 
+                     otherUser?.company_name?.charAt(0) || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div
@@ -488,9 +584,11 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">
-                    {otherUser?.supplier_shop_name ||
-                      otherUser?.name ||
-                      "Supplier"}
+                    {isBayQuote 
+                      ? (currentUser.role === "company_super_admin" 
+                          ? otherUser?.supplier_shop_name || otherUser?.name || "Bay User"
+                          : otherUser?.company_name || otherUser?.name || "Company")
+                      : (otherUser?.supplier_shop_name || otherUser?.name || "Supplier")}
                   </span>
                   <Badge variant="outline" className="text-xs">
                     {userStatus?.online
@@ -499,9 +597,15 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
                           userStatus?.lastSeen || new Date()
                         )} ago`}
                   </Badge>
+                  {isBayQuote && (
+                    <Badge variant="secondary" className="text-xs">
+                      Bay Quote
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {quote?.field_name} • Vehicle #{quote?.vehicle_stock_id}
+                  {isBayQuote && ` • ${quote?.bay_id?.bay_name || "Bay"}`}
                 </p>
               </div>
             </DialogTitle>
@@ -517,61 +621,61 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                 </div>
               ) : messages.length > 0 ? (
-                messages.map((message: any, index: number) => (
-                  <div
-                    key={message._id || index}
-                    className={`flex ${
-                      message.sender_type === currentUser.type
-                        ? "justify-end"
-                        : "justify-start"
-                    }`}
-                  >
+                messages.map((message: any, index: number) => {
+                  const isFromCurrentUser = isMessageFromCurrentUser(message);
+                  
+                  return (
                     <div
-                      className={`flex items-start gap-2 max-w-[75%] ${
-                        message.sender_type === currentUser.type
-                          ? "flex-row-reverse"
-                          : ""
+                      key={message._id || index}
+                      className={`flex ${
+                        isFromCurrentUser ? "justify-end" : "justify-start"
                       }`}
                     >
-                      <Avatar className="h-8 w-8 flex-shrink-0">
-                        <AvatarFallback>
-                          {message.sender_name?.charAt(0) || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="space-y-1">
-                        <div
-                          className={`rounded-2xl p-3 ${
-                            message.sender_type === currentUser.type
-                              ? "bg-primary text-primary-foreground ml-8"
-                              : "bg-muted mr-8"
-                          }`}
-                        >
-                          {renderMessageContent(message)}
-                        </div>
-                        <div
-                          className={`flex items-center gap-2 text-xs ${
-                            message.sender_type === currentUser.type
-                              ? "justify-end"
-                              : "justify-start"
-                          }`}
-                        >
-                          <span className="text-muted-foreground">
-                            {format(new Date(message.created_at), "HH:mm")}
-                          </span>
-                          {message.sender_type === currentUser.type && (
-                            <CheckCheck
-                              className={`h-3 w-3 ${
-                                message.is_read
-                                  ? "text-blue-400"
-                                  : "text-muted-foreground"
-                              }`}
-                            />
-                          )}
+                      <div
+                        className={`flex items-start gap-2 max-w-[75%] ${
+                          isFromCurrentUser ? "flex-row-reverse" : ""
+                        }`}
+                      >
+                        <Avatar className="h-8 w-8 flex-shrink-0">
+                          <AvatarFallback>
+                            {message.sender_name?.charAt(0) || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="space-y-1">
+                          <div
+                            className={`rounded-2xl p-3 ${
+                              isFromCurrentUser
+                                ? "bg-primary text-primary-foreground ml-8"
+                                : "bg-muted mr-8"
+                            }`}
+                          >
+                            {renderMessageContent(message)}
+                          </div>
+                          <div
+                            className={`flex items-center gap-2 text-xs ${
+                              isFromCurrentUser
+                                ? "justify-end"
+                                : "justify-start"
+                            }`}
+                          >
+                            <span className="text-muted-foreground">
+                              {format(new Date(message.created_at), "HH:mm")}
+                            </span>
+                            {isFromCurrentUser && (
+                              <CheckCheck
+                                className={`h-3 w-3 ${
+                                  message.is_read
+                                    ? "text-blue-400"
+                                    : "text-muted-foreground"
+                                }`}
+                              />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
@@ -580,7 +684,11 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
                   <h3 className="font-semibold mb-2">No messages yet</h3>
                   <p className="text-muted-foreground text-sm">
                     Start the conversation with{" "}
-                    {otherUser?.supplier_shop_name || "the supplier"}
+                    {isBayQuote
+                      ? (currentUser.role === "company_super_admin"
+                          ? otherUser?.supplier_shop_name || "the bay user"
+                          : otherUser?.company_name || "the company")
+                      : (otherUser?.supplier_shop_name || "the supplier")}
                   </p>
                 </div>
               )}
@@ -610,8 +718,18 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
             </div>
           </ScrollArea>
 
+          {/* Access Denied Message for Bay Quotes */}
+          {isBayQuote && !canSendMessage && (
+            <div className="px-6 py-3 border-t bg-muted/50">
+              <div className="text-sm text-muted-foreground text-center">
+                <Clock className="h-4 w-4 inline-block mr-2" />
+                You cannot send messages in this conversation as you are not the assigned bay user.
+              </div>
+            </div>
+          )}
+
           {/* File Preview */}
-          {selectedFile && (
+          {selectedFile && canSendMessage && (
             <div className="px-6 py-3 border-t">
               <Card>
                 <CardContent className="p-3">
@@ -647,70 +765,72 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
           )}
 
           {/* Input Area */}
-          <div className="p-6 border-t">
-            <div className="flex gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
+          {canSendMessage && (
+            <div className="p-6 border-t">
+              <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
 
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-              >
-                <Paperclip className="h-4 w-4" />
-              </Button>
-
-              <div className="relative flex-1">
-                <Textarea
-                  ref={textareaRef}
-                  value={newMessage}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type your message..."
-                  className="min-h-12 resize-none pr-12"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                />
-                <div className="absolute right-2 bottom-2 flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    type="button"
-                  >
-                    <Smile className="h-4 w-4" />
-                  </Button>
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+
+                <div className="relative flex-1">
+                  <Textarea
+                    ref={textareaRef}
+                    value={newMessage}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type your message..."
+                    className="min-h-12 resize-none pr-12"
+                    disabled={uploading}
+                  />
+                  <div className="absolute right-2 bottom-2 flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      type="button"
+                    >
+                      <Smile className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
+
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={uploading || (!newMessage.trim() && !selectedFile)}
+                  size="icon"
+                >
+                  {uploading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
 
-              <Button
-                onClick={handleSendMessage}
-                disabled={uploading || (!newMessage.trim() && !selectedFile)}
-                size="icon"
-              >
-                {uploading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
+              {showEmojiPicker && (
+                <div className="absolute bottom-16 right-6 z-50">
+                  <EmojiPicker
+                    onEmojiClick={handleEmojiSelect}
+                    width={300}
+                    height={400}
+                  />
+                </div>
+              )}
             </div>
-
-            {showEmojiPicker && (
-              <div className="absolute bottom-16 right-6 z-50">
-                <EmojiPicker
-                  onEmojiClick={handleEmojiSelect}
-                  width={300}
-                  height={400}
-                />
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
