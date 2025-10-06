@@ -30,7 +30,9 @@ export const subscriptionServices = {
 
   getCurrentSubscription: () => apiClient.get("/api/subscription/current"),
 
-  getSubscriptionHistory: () => apiClient.get("/api/subscription/history"),
+  getSubscriptionHistory: (page = 1, limit = 10) => {
+    return apiClient.get(`api/subscription/history?page=${page}&limit=${limit}`);
+  },
 
   getCompanySubscriptionInfo: () =>
     apiClient.get("/api/subscription/company-info"),
