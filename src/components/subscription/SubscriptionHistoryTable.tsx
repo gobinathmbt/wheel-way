@@ -31,7 +31,7 @@ const SubscriptionHistoryTable: React.FC = () => {
     queryKey: ["subscription-history", currentPage],
     queryFn: async () => {
       try {
-        const response = await subscriptionServices.getSubscriptionHistory(currentPage);
+        const response = await subscriptionServices.getSubscriptionHistory(currentPage, limit);
         return response.data;
       } catch (error) {
         console.error("Failed to fetch subscription history:", error);
@@ -275,7 +275,7 @@ const SubscriptionHistoryTable: React.FC = () => {
             {pagination && (
               <div className="flex items-center justify-between mt-4">
                 <div className="text-sm text-muted-foreground">
-                  Showing {(currentPage - 1) * 10 + 1} to {Math.min(currentPage * 10, pagination.totalItems)} of {pagination.totalItems} entries
+                  Showing {(currentPage - 1) * limit + 1} to {Math.min(currentPage * limit, pagination.totalItems)} of {pagination.totalItems} entries
                 </div>
                 <div className="flex items-center space-x-2">
                   <Button
