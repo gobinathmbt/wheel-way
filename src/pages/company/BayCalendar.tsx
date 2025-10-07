@@ -53,6 +53,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/auth/AuthContext";
 import { toast } from "sonner";
 import CommentSheetModal from "@/components/workshop/CommentSheetModal";
 import ChatModal from "@/components/workshop/ChatModal";
@@ -74,6 +75,7 @@ interface CalendarEvent {
 }
 
 const BayCalendar = () => {
+  const { completeUser } = useAuth();
   const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState(Views.WEEK);
@@ -101,13 +103,28 @@ const BayCalendar = () => {
   const calendarRef = useRef<any>(null);
 
   // Fetch user's bays
-  const { data: baysData, refetch: refetchBays } = useQuery({
-    queryKey: ["user-bays-dropdown"],
-    queryFn: async () => {
-      const response = await serviceBayServices.getBaysDropdown();
-      return response.data.data;
-    },
-  });
+const { data: baysData, refetch: refetchBays } = useQuery({
+  queryKey: ["user-bays-dropdown"],
+  queryFn: async () => {
+    const response = await serviceBayServices.getBaysDropdown();
+    
+    // Filter bays based on user access
+    const filteredBays = response.data.data.filter((bay: any) => {
+      const userId = completeUser?.id;
+      
+      // Check if user is primary admin
+      const isPrimaryAdmin = bay.primary_admin?._id === userId;
+      
+      // Check if user is in bay_users array
+      const isBayUser = bay.bay_users?.some((user: any) => user._id === userId);
+      
+      // Show bay only if user is either primary admin OR bay user
+      return isPrimaryAdmin || isBayUser;
+    });
+    
+    return filteredBays;
+  },
+});
 
   // Calculate date range for calendar data
   const getDateRange = () => {
@@ -323,6 +340,18 @@ const BayCalendar = () => {
     }
   };
 
+  // Helper function to get day name from date
+  const getDayName = (date: Date): string => {
+    return format(date, "eeee").toLowerCase();
+  };
+
+  // Get bay timings for the selected bay
+  const selectedBayData = baysData?.find((bay: any) => bay._id === selectedBay);
+  const bayTimings = selectedBayData?.bay_timings || [];
+
+   const isPrimaryAdmin = selectedBayData?.primary_admin?._id === completeUser?.id;
+   const isSelectable = isPrimaryAdmin;
+
   // Holiday submission function
   const handleSubmitHoliday = async () => {
     if (!holidayStartTime || !holidayEndTime) {
@@ -336,6 +365,84 @@ const BayCalendar = () => {
     if (startDate >= endDate) {
       toast.error("End time must be after start time");
       return;
+    }
+
+    // Additional validation: Check if the day is a working day
+    const dayName = getDayName(startDate);
+    const dayTiming = bayTimings.find(
+      (timing: any) => timing.day_of_week === dayName
+    );
+
+    if (!dayTiming || !dayTiming.is_working_day) {
+      toast.error("Cannot mark holiday on a non-working day");
+      return;
+    }
+
+    // Validate time is within working hours
+    const [bayStartHour, bayStartMinute] = dayTiming.start_time
+      .split(":")
+      .map(Number);
+    const [bayEndHour, bayEndMinute] = dayTiming.end_time.split(":").map(Number);
+
+    const startHour = startDate.getHours();
+    const startMinute = startDate.getMinutes();
+    const endHour = endDate.getHours();
+    const endMinute = endDate.getMinutes();
+
+    const isBeforeStart =
+      startHour < bayStartHour ||
+      (startHour === bayStartHour && startMinute < bayStartMinute);
+
+    const isAfterEnd =
+      endHour > bayEndHour ||
+      (endHour === bayEndHour && endMinute > bayEndMinute);
+
+    if (isBeforeStart || isAfterEnd) {
+      toast.error(
+        `Holiday time must be within working hours (${dayTiming.start_time} - ${dayTiming.end_time})`
+      );
+      return;
+    }
+
+    // Check for overlapping holidays
+    if (bayHolidays && Array.isArray(bayHolidays)) {
+      let hasOverlappingHoliday = false;
+
+      bayHolidays.forEach((bay: any) => {
+        if (bay.holidays && Array.isArray(bay.holidays)) {
+          bay.holidays.forEach((holiday: any) => {
+            const holidayDate = new Date(holiday.date);
+            
+            if (isSameDay(holidayDate, startDate)) {
+              const [holidayStartHour, holidayStartMinute] = holiday.start_time
+                ?.split(":")
+                .map(Number) || [0, 0];
+              const [holidayEndHour, holidayEndMinute] = holiday.end_time
+                ?.split(":")
+                .map(Number) || [0, 0];
+
+              const holidayStart = new Date(holidayDate);
+              holidayStart.setHours(holidayStartHour, holidayStartMinute, 0, 0);
+
+              const holidayEnd = new Date(holidayDate);
+              holidayEnd.setHours(holidayEndHour, holidayEndMinute, 0, 0);
+
+              if (
+                (startDate >= holidayStart && startDate < holidayEnd) ||
+                (endDate > holidayStart && endDate <= holidayEnd) ||
+                (startDate <= holidayStart && endDate >= holidayEnd)
+              ) {
+                hasOverlappingHoliday = true;
+              }
+            }
+          });
+        }
+      });
+
+      if (hasOverlappingHoliday) {
+        toast.error("Holiday already declared for this time slot");
+        return;
+      }
     }
 
     const holidayData = {
@@ -362,6 +469,87 @@ const BayCalendar = () => {
     if (!isSameDay(start, end)) {
       toast.error("Holiday must be on the same day");
       return;
+    }
+
+    // Check if the day is a working day
+    const dayName = getDayName(start);
+    const dayTiming = bayTimings.find(
+      (timing: any) => timing.day_of_week === dayName
+    );
+
+    if (!dayTiming || !dayTiming.is_working_day) {
+      toast.error("Cannot mark holiday on a non-working day");
+      return;
+    }
+
+    // Parse bay timing hours
+    const [bayStartHour, bayStartMinute] = dayTiming.start_time
+      .split(":")
+      .map(Number);
+    const [bayEndHour, bayEndMinute] = dayTiming.end_time.split(":").map(Number);
+
+    // Check if selected slot is within working hours
+    const slotStartHour = start.getHours();
+    const slotStartMinute = start.getMinutes();
+    const slotEndHour = end.getHours();
+    const slotEndMinute = end.getMinutes();
+
+    const isBeforeStart =
+      slotStartHour < bayStartHour ||
+      (slotStartHour === bayStartHour && slotStartMinute < bayStartMinute);
+
+    const isAfterEnd =
+      slotEndHour > bayEndHour ||
+      (slotEndHour === bayEndHour && slotEndMinute > bayEndMinute);
+
+    if (isBeforeStart || isAfterEnd) {
+      toast.error(
+        `Cannot mark holiday outside working hours (${dayTiming.start_time} - ${dayTiming.end_time})`
+      );
+      return;
+    }
+
+    // Check if there's already a holiday in this time slot
+    if (bayHolidays && Array.isArray(bayHolidays)) {
+      let hasOverlappingHoliday = false;
+
+      bayHolidays.forEach((bay: any) => {
+        if (bay.holidays && Array.isArray(bay.holidays)) {
+          bay.holidays.forEach((holiday: any) => {
+            const holidayDate = new Date(holiday.date);
+            
+            // Check if it's the same day
+            if (isSameDay(holidayDate, start)) {
+              const [holidayStartHour, holidayStartMinute] = holiday.start_time
+                ?.split(":")
+                .map(Number) || [0, 0];
+              const [holidayEndHour, holidayEndMinute] = holiday.end_time
+                ?.split(":")
+                .map(Number) || [0, 0];
+
+              const holidayStart = new Date(holidayDate);
+              holidayStart.setHours(holidayStartHour, holidayStartMinute, 0, 0);
+
+              const holidayEnd = new Date(holidayDate);
+              holidayEnd.setHours(holidayEndHour, holidayEndMinute, 0, 0);
+
+              // Check for overlap
+              if (
+                (start >= holidayStart && start < holidayEnd) ||
+                (end > holidayStart && end <= holidayEnd) ||
+                (start <= holidayStart && end >= holidayEnd)
+              ) {
+                hasOverlappingHoliday = true;
+              }
+            }
+          });
+        }
+      });
+
+      if (hasOverlappingHoliday) {
+        toast.error("Holiday already declared for this time slot");
+        return;
+      }
     }
 
     setHolidayStartTime(start.toISOString());
@@ -559,15 +747,6 @@ const BayCalendar = () => {
     setCurrentDate(new Date());
   };
 
-  // Helper function to get day name from date
-  const getDayName = (date: Date): string => {
-    return format(date, "eeee").toLowerCase();
-  };
-
-  // Get bay timings for the selected bay
-  const selectedBayData = baysData?.find((bay: any) => bay._id === selectedBay);
-  const bayTimings = selectedBayData?.bay_timings || [];
-
   // Function to style time slots based on availability
   const slotPropGetter = (date: Date) => {
     const now = new Date();
@@ -701,15 +880,16 @@ const BayCalendar = () => {
         </Button>
 
         {/* Holiday Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowHolidayDialog(true)}
-        >
-          <Ban className="h-4 w-4 mr-2" />
-          Holiday
-        </Button>
-
+        {isPrimaryAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowHolidayDialog(true)}
+          >
+            <Ban className="h-4 w-4 mr-2" />
+            Holiday
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -867,7 +1047,7 @@ const BayCalendar = () => {
                   onNavigate={setCurrentDate}
                   onSelectEvent={handleSelectEvent}
                   onSelectSlot={handleSelectSlot}
-                  selectable
+                  selectable={isSelectable}
                   step={30}
                   timeslots={2}
                   defaultView={Views.WEEK}
@@ -961,7 +1141,7 @@ const BayCalendar = () => {
                     if (dayTiming && dayTiming.is_working_day) {
                       return `Bay normally operates from ${dayTiming.start_time} to ${dayTiming.end_time} on ${dayName}. This holiday will block bookings during the selected time.`;
                     } else {
-                      return `Bay is normally closed on ${dayName}. This holiday will be marked for reference.`;
+                      return `Bay is normally closed on ${dayName}. Cannot mark holiday on non-working days.`;
                     }
                   })()}
                 </div>
@@ -1042,23 +1222,27 @@ const BayCalendar = () => {
                 </div>
               )}
 
-              <div>
-                <Label className="text-sm font-medium">Marked By</Label>
-                <p className="text-sm mt-1">
-                  {selectedHoliday.marked_by?.first_name}{" "}
-                  {selectedHoliday.marked_by?.last_name}
-                </p>
-              </div>
+              {selectedHoliday.marked_by && (
+                <div>
+                  <Label className="text-sm font-medium">Marked By</Label>
+                  <p className="text-sm mt-1">
+                    {selectedHoliday.marked_by?.first_name}{" "}
+                    {selectedHoliday.marked_by?.last_name}
+                  </p>
+                </div>
+              )}
 
-              <div>
-                <Label className="text-sm font-medium">Marked At</Label>
-                <p className="text-sm mt-1">
-                  {format(
-                    new Date(selectedHoliday.marked_at),
-                    "MMM dd, yyyy 'at' HH:mm"
-                  )}
-                </p>
-              </div>
+              {selectedHoliday.marked_at && (
+                <div>
+                  <Label className="text-sm font-medium">Marked At</Label>
+                  <p className="text-sm mt-1">
+                    {format(
+                      new Date(selectedHoliday.marked_at),
+                      "MMM dd, yyyy 'at' HH:mm"
+                    )}
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <Button
@@ -1396,14 +1580,16 @@ const BayCalendar = () => {
                           <XCircle className="h-4 w-4 mr-1" />
                           Reject
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleChat(selectedBooking)}
-                        >
-                          <MessageSquare className="h-4 w-4 mr-1" />
-                          Chat
-                        </Button>
+                        {isPrimaryAdmin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleChat(selectedBooking)}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Chat
+                          </Button>
+                        )}
                       </>
                     )}
 
