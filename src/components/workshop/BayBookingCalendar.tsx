@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,17 +14,15 @@ import {
 import {
   ArrowLeft,
   Calendar as CalendarIcon,
-  Clock,
   Save,
   HardHat,
-  X,
   Info,
   ChevronLeft,
   ChevronRight,
   Menu,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { bayQuoteServices } from "@/api/services";
+import { bayQuoteServices, serviceBayServices } from "@/api/services";
 import { toast } from "sonner";
 import DateTimePicker from "@/components/workshop/CommentSheetTabs/DateTimePicker";
 import {
@@ -43,7 +41,6 @@ import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { Input } from "../ui/input";
 
-// Setup localizer for react-big-calendar
 const localizer = momentLocalizer(moment);
 
 interface BayBookingCalendarProps {
@@ -65,9 +62,9 @@ interface CalendarEvent {
   fieldName: string;
   stockId: number;
   fieldId: string;
+  type: "booking" | "holiday";
 }
 
-// Calendar Component
 const CalendarView: React.FC<{
   events: CalendarEvent[];
   currentDate: Date;
@@ -84,6 +81,7 @@ const CalendarView: React.FC<{
   bay: any;
   onBack: () => void;
   onShowMenu: () => void;
+  bayHolidays: any[];
 }> = ({
   events,
   currentDate,
@@ -100,11 +98,11 @@ const CalendarView: React.FC<{
   bay,
   onBack,
   onShowMenu,
+  bayHolidays,
 }) => {
   const calendarRef = useRef<any>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Check if mobile on mount and resize
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -116,7 +114,6 @@ const CalendarView: React.FC<{
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Force calendar resize after component mounts
   useEffect(() => {
     const timer = setTimeout(() => {
       if (calendarRef.current) {
@@ -159,9 +156,49 @@ const CalendarView: React.FC<{
     onDateChange(new Date());
   };
 
-  // Helper function to get day name from date
   const getDayName = (date: Date): string => {
-    return format(date, 'eeee').toLowerCase(); // returns 'monday', 'tuesday', etc.
+    return format(date, 'eeee').toLowerCase();
+  };
+
+  const isHolidaySlot = (date: Date): boolean => {
+    if (!bayHolidays || bayHolidays.length === 0) return false;
+
+    const slotDate = new Date(date);
+    const slotHour = slotDate.getHours();
+    const slotMinute = slotDate.getMinutes();
+
+    for (const bayHoliday of bayHolidays) {
+      if (bayHoliday.holidays && Array.isArray(bayHoliday.holidays)) {
+        for (const holiday of bayHoliday.holidays) {
+          const holidayDate = new Date(holiday.date);
+          
+          // Check if it's the same day
+          if (isSameDay(holidayDate, slotDate)) {
+            const [holidayStartHour, holidayStartMinute] = holiday.start_time
+              ?.split(':')
+              .map(Number) || [0, 0];
+            const [holidayEndHour, holidayEndMinute] = holiday.end_time
+              ?.split(':')
+              .map(Number) || [0, 0];
+
+            const holidayStart = new Date(holidayDate);
+            holidayStart.setHours(holidayStartHour, holidayStartMinute, 0, 0);
+
+            const holidayEnd = new Date(holidayDate);
+            holidayEnd.setHours(holidayEndHour, holidayEndMinute, 0, 0);
+
+            const slotTime = new Date(slotDate);
+            
+            // Check if slot time is within holiday period
+            if (slotTime >= holidayStart && slotTime < holidayEnd) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+
+    return false;
   };
 
   const CustomToolbar = ({ label }: any) => (
@@ -254,18 +291,38 @@ const CalendarView: React.FC<{
 
   const CustomEvent = ({ event }: { event: CalendarEvent }) => (
     <div className="p-1 text-xs h-full">
-      <div className="font-medium truncate">{event.fieldName}</div>
-      <div className="truncate">Stock: {event.stockId}</div>
+      <div className="font-medium truncate">
+        {event.type === "holiday" ? "Holiday" : event.fieldName}
+      </div>
+      {event.type === "booking" && (
+        <div className="truncate">Stock: {event.stockId}</div>
+      )}
       <div className="truncate">
         {format(event.start, "HH:mm")} - {format(event.end, "HH:mm")}
       </div>
       <Badge variant="secondary" className="mt-1 text-xs capitalize">
-        {event.status.replace(/_/g, " ")}
+        {event.type === "holiday" ? "Holiday" : event.status.replace(/_/g, " ")}
       </Badge>
     </div>
   );
 
   const getEventStyle = (event: CalendarEvent) => {
+    if (event.type === "holiday") {
+      return {
+        style: {
+          borderRadius: "4px",
+          opacity: 0.9,
+          color: "#991b1b",
+          backgroundColor: "#fee2e2",
+          borderLeft: `6px solid #ef4444`,
+          border: `1px solid #ef4444`,
+          fontWeight: "600",
+          display: "block",
+          height: "100%",
+        },
+      };
+    }
+
     const statusColors: Record<string, { background: string; border: string; text: string }> = {
       booking_request: { background: "#fef3c7", border: "#f59e0b", text: "#92400e" },
       booking_accepted: { background: "#d1fae5", border: "#10b981", text: "#065f46" },
@@ -302,6 +359,9 @@ const slotPropGetter = (date: Date) => {
   // Check if the date is in the past (before today)
   const isPastDate = date < today;
   
+  // Check if slot is on a holiday
+  const isHoliday = isHolidaySlot(date);
+  
   // Check bay timings for the specific day
   const dayName = getDayName(date);
   const dayTiming = bayTimings.find((timing: any) => timing.day_of_week === dayName);
@@ -319,7 +379,20 @@ const slotPropGetter = (date: Date) => {
     };
   }
 
-  // Condition 2: Not a working day - Light brown color
+  // Condition 2: Holiday slots - Red color
+  if (isHoliday) {
+    return {
+      className: 'rbc-slot-holiday',
+      style: {
+        backgroundColor: '#fecaca',
+        cursor: 'not-allowed',
+        pointerEvents: 'none',
+        border: 'none'
+      }
+    };
+  }
+
+  // Condition 3: Not a working day - Light brown color
   if (!dayTiming || !dayTiming.is_working_day) {
     return {
       className: 'rbc-slot-non-working',
@@ -340,7 +413,7 @@ const slotPropGetter = (date: Date) => {
   const slotHour = date.getHours();
   const slotMinute = date.getMinutes();
 
-  // Condition 3: Outside operating hours - Light brown color
+  // Condition 4: Outside operating hours - Light brown color
   const isBeforeStart = 
     slotHour < bayStartHour || 
     (slotHour === bayStartHour && slotMinute < bayStartMinute);
@@ -444,10 +517,12 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
   const [quoteAmount, setQuoteAmount] = useState("");
   const [allowOverlap, setAllowOverlap] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [selectedHoliday, setSelectedHoliday] = useState<any>(null);
   const [showBookingDialog, setShowBookingDialog] = useState(false);
   const [showLegendDialog, setShowLegendDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showMenuDialog, setShowMenuDialog] = useState(false);
+  const [showHolidayDetailsDialog, setShowHolidayDetailsDialog] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [view, setView] = useState(Views.WEEK);
   const [isRebookMode, setIsRebookMode] = useState(false);
@@ -558,38 +633,100 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
     },
   });
 
-  // Convert bookings to calendar events
+  // Fetch bay holidays
+  const { data: bayHolidays } = useQuery({
+    queryKey: ["bay-holidays", bay._id, format(dateRange.start, "yyyy-MM-dd"), format(dateRange.end, "yyyy-MM-dd")],
+    queryFn: async () => {
+      const response = await serviceBayServices.getBayHolidays(
+        format(dateRange.start, "yyyy-MM-dd"),
+        format(dateRange.end, "yyyy-MM-dd"),
+        bay._id
+      );
+      return response?.data?.data || [];
+    },
+    enabled: !!bay._id,
+  });
+
+  // Convert bookings and holidays to calendar events
   const events: CalendarEvent[] = React.useMemo(() => {
-    if (!calendarData?.bookings) return [];
+    const events: CalendarEvent[] = [];
 
-    return calendarData.bookings.map((booking: any) => {
-      const startDate = parseISO(booking.booking_date);
-      const [startHours, startMinutes] = booking.booking_start_time
-        .split(":")
-        .map(Number);
-      const [endHours, endMinutes] = booking.booking_end_time
-        .split(":")
-        .map(Number);
+    // Add bookings
+    if (calendarData?.bookings) {
+      calendarData.bookings.forEach((booking: any) => {
+        const startDate = parseISO(booking.booking_date);
+        const [startHours, startMinutes] = booking.booking_start_time
+          .split(":")
+          .map(Number);
+        const [endHours, endMinutes] = booking.booking_end_time
+          .split(":")
+          .map(Number);
 
-      const start = new Date(startDate);
-      start.setHours(startHours, startMinutes, 0, 0);
+        const start = new Date(startDate);
+        start.setHours(startHours, startMinutes, 0, 0);
 
-      const end = new Date(startDate);
-      end.setHours(endHours, endMinutes, 0, 0);
+        const end = new Date(startDate);
+        end.setHours(endHours, endMinutes, 0, 0);
 
-      return {
-        id: booking._id,
-        title: `${booking.field_name} (Stock: ${booking.vehicle_stock_id})`,
-        start,
-        end,
-        resource: booking,
-        status: booking.status,
-        fieldName: booking.field_name,
-        stockId: booking.vehicle_stock_id,
-        fieldId: booking.field_id,
-      };
-    });
-  }, [calendarData]);
+        events.push({
+          id: booking._id,
+          title: `${booking.field_name} (Stock: ${booking.vehicle_stock_id})`,
+          start,
+          end,
+          resource: booking,
+          status: booking.status,
+          fieldName: booking.field_name,
+          stockId: booking.vehicle_stock_id,
+          fieldId: booking.field_id,
+          type: "booking",
+        });
+      });
+    }
+
+    // Add holidays
+    if (bayHolidays && Array.isArray(bayHolidays)) {
+      bayHolidays.forEach((bayHoliday: any) => {
+        if (bayHoliday.holidays && Array.isArray(bayHoliday.holidays)) {
+          bayHoliday.holidays.forEach((holiday: any) => {
+            const startDate = new Date(holiday.date);
+            const [startHours, startMinutes] = holiday.start_time
+              ?.split(":")
+              .map(Number) || [0, 0];
+            const [endHours, endMinutes] = holiday.end_time
+              ?.split(":")
+              .map(Number) || [0, 0];
+
+            const start = new Date(startDate);
+            start.setHours(startHours, startMinutes, 0, 0);
+
+            const end = new Date(startDate);
+            end.setHours(endHours, endMinutes, 0, 0);
+
+            // Validate the dates are valid
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+              console.error("Invalid holiday date:", holiday);
+              return;
+            }
+
+            events.push({
+              id: `holiday-${holiday._id}`,
+              title: `Holiday: ${holiday.reason || "No reason provided"}`,
+              start,
+              end,
+              resource: holiday,
+              status: "holiday",
+              fieldName: "Holiday",
+              stockId: 0,
+              fieldId: "holiday",
+              type: "holiday",
+            });
+          });
+        }
+      });
+    }
+
+    return events;
+  }, [calendarData, bayHolidays]);
 
   // Create booking mutation
   const createBookingMutation = useMutation({
@@ -637,155 +774,183 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
     setAllowOverlap(false);
   };
 
-  // Helper function to validate booking time against bay timings
-  const validateBookingTime = (start: Date, end: Date): { isValid: boolean; message?: string } => {
-    const now = new Date();
-    
-    // Check if booking is in the past
-    if (isBefore(start, now)) {
-      return { isValid: false, message: "Cannot book in the past" };
+  // Helper function to check if booking overlaps with holidays
+  const checkHolidayOverlap = (start: Date, end: Date): { hasOverlap: boolean; holiday?: any } => {
+    if (!bayHolidays || bayHolidays.length === 0) {
+      return { hasOverlap: false };
     }
 
-    // Check bay timings for the specific day
-    const dayName = format(start, 'eeee').toLowerCase();
-    const dayTiming = bay.bay_timings.find((timing: any) => timing.day_of_week === dayName);
+    for (const bayHoliday of bayHolidays) {
+      if (bayHoliday.holidays && Array.isArray(bayHoliday.holidays)) {
+        for (const holiday of bayHoliday.holidays) {
+          const holidayDate = new Date(holiday.date);
+          
+          // Check if it's the same day
+          if (isSameDay(holidayDate, start)) {
+            const [holidayStartHour, holidayStartMinute] = holiday.start_time
+              ?.split(":")
+              .map(Number) || [0, 0];
+            const [holidayEndHour, holidayEndMinute] = holiday.end_time
+              ?.split(":")
+              .map(Number) || [0, 0];
 
-    // If no timing found or not a working day
-    if (!dayTiming) {
-      return { isValid: false, message: "No timing configuration found for this day" };
+            const holidayStart = new Date(holidayDate);
+            holidayStart.setHours(holidayStartHour, holidayStartMinute, 0, 0);
+
+            const holidayEnd = new Date(holidayDate);
+            holidayEnd.setHours(holidayEndHour, holidayEndMinute, 0, 0);
+
+            // Check for overlap
+            if (
+              (start >= holidayStart && start < holidayEnd) ||
+              (end > holidayStart && end <= holidayEnd) ||
+              (start <= holidayStart && end >= holidayEnd)
+            ) {
+              return { hasOverlap: true, holiday };
+            }
+          }
+        }
+      }
     }
 
-    if (!dayTiming.is_working_day) {
-      return { isValid: false, message: "Bay is not operational on this day" };
-    }
-
-    // Parse bay timing hours
-    const [bayStartHour, bayStartMinute] = dayTiming.start_time.split(':').map(Number);
-    const [bayEndHour, bayEndMinute] = dayTiming.end_time.split(':').map(Number);
-
-    // Create date objects for bay timing boundaries
-    const bayStartTime = new Date(start);
-    bayStartTime.setHours(bayStartHour, bayStartMinute, 0, 0);
-
-    const bayEndTime = new Date(start);
-    bayEndTime.setHours(bayEndHour, bayEndMinute, 0, 0);
-
-    // Check if booking is within bay operating hours
-    const isStartWithinHours = isAfter(start, bayStartTime) || isSameDay(start, bayStartTime);
-    const isEndWithinHours = isBefore(end, bayEndTime) || isSameDay(end, bayEndTime);
-
-    if (!isStartWithinHours || !isEndWithinHours) {
-      return { 
-        isValid: false, 
-        message: `Booking must be within bay operating hours: ${dayTiming.start_time} - ${dayTiming.end_time}` 
-      };
-    }
-
-    return { isValid: true };
+    return { hasOverlap: false };
   };
+
+  // Helper function to check if booking conflicts with bay working days and timings
+const checkWorkingDayConflict = (start: Date, end: Date): { hasConflict: boolean; message?: string } => {
+  const dayName = format(start, 'eeee').toLowerCase();
+  const dayTiming = bay.bay_timings.find((timing: any) => timing.day_of_week === dayName);
+
+  // If no timing found
+  if (!dayTiming) {
+    return { 
+      hasConflict: true, 
+      message: "No timing configuration found for this day" 
+    };
+  }
+
+  // Check if it's a working day
+  if (!dayTiming.is_working_day) {
+    return { 
+      hasConflict: true, 
+      message: `Bay is closed on ${format(start, 'eeee')}. Please select a working day.` 
+    };
+  }
+
+  // Parse bay timing hours
+  const [bayStartHour, bayStartMinute] = dayTiming.start_time.split(':').map(Number);
+  const [bayEndHour, bayEndMinute] = dayTiming.end_time.split(':').map(Number);
+
+  // Create date objects for bay timing boundaries
+  const bayStartTime = new Date(start);
+  bayStartTime.setHours(bayStartHour, bayStartMinute, 0, 0);
+
+  const bayEndTime = new Date(start);
+  bayEndTime.setHours(bayEndHour, bayEndMinute, 0, 0);
+
+  // Check if booking is within bay operating hours
+  const isStartWithinHours = isAfter(start, bayStartTime) || isSameDay(start, bayStartTime);
+  const isEndWithinHours = isBefore(end, bayEndTime) || isSameDay(end, bayEndTime);
+
+  if (!isStartWithinHours || !isEndWithinHours) {
+    return { 
+      hasConflict: true, 
+      message: `Booking must be within bay operating hours: ${dayTiming.start_time} - ${dayTiming.end_time}` 
+    };
+  }
+
+  // Check if booking start time is before bay opening
+  if (isBefore(start, bayStartTime)) {
+    return { 
+      hasConflict: true, 
+      message: `Booking cannot start before bay opening time (${dayTiming.start_time})` 
+    };
+  }
+
+  // Check if booking end time exceeds bay closing time
+  if (isAfter(end, bayEndTime)) {
+    return { 
+      hasConflict: true, 
+      message: `Booking cannot end after bay closing time (${dayTiming.end_time})` 
+    };
+  }
+
+  return { hasConflict: false };
+};
+
+  // Helper function to validate booking time against bay timings and holidays
+const validateBookingTime = (start: Date, end: Date): { isValid: boolean; message?: string } => {
+  const now = new Date();
+  
+  // Check if booking is in the past
+  if (isBefore(start, now)) {
+    return { isValid: false, message: "Cannot book in the past" };
+  }
+
+  // Check for holiday overlap
+  const holidayCheck = checkHolidayOverlap(start, end);
+  if (holidayCheck.hasOverlap) {
+    return { 
+      isValid: false, 
+      message: `Cannot book during holiday: ${holidayCheck.holiday?.reason || "Holiday declared for this time slot"}` 
+    };
+  }
+
+  // Check for working day and timing conflicts
+  const workingDayCheck = checkWorkingDayConflict(start, end);
+  if (workingDayCheck.hasConflict) {
+    return { 
+      isValid: false, 
+      message: workingDayCheck.message 
+    };
+  }
+
+  return { isValid: true };
+};
 
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
-    // Only allow creating if no existing booking for this field
-    if (existingBooking && !isEditMode) {
-      toast.error("This field already has a booking. Please edit the existing booking.");
-      return;
-    }
-    
-    const now = new Date();
-    
-    // Check if booking is in the past
-    if (isBefore(start, now)) {
-      toast.error("Cannot book in the past");
-      return;
-    }
+  // Only allow creating if no existing booking for this field
+  if (existingBooking && !isEditMode) {
+    toast.error("This field already has a booking. Please edit the existing booking.");
+    return;
+  }
+  
+  const now = new Date();
+  
+  // Check if booking is in the past
+  if (isBefore(start, now)) {
+    toast.error("Cannot book in the past");
+    return;
+  }
 
-    // Check bay timings for the specific day
-    const dayName = format(start, 'eeee').toLowerCase();
-    const dayTiming = bay.bay_timings.find((timing: any) => timing.day_of_week === dayName);
+  // Use the centralized validation function
+  const validation = validateBookingTime(start, end);
+  if (!validation.isValid) {
+    toast.error(validation.message);
+    return;
+  }
 
-    // If no timing found or not a working day
-    if (!dayTiming) {
-      toast.error("No timing configuration found for this day");
-      return;
-    }
-
-    if (!dayTiming.is_working_day) {
-      toast.error("Bay is closed on this day");
-      return;
-    }
-
-    // Parse bay timing hours
-    const [bayStartHour, bayStartMinute] = dayTiming.start_time.split(':').map(Number);
-    const [bayEndHour, bayEndMinute] = dayTiming.end_time.split(':').map(Number);
-
-    // Create date objects for bay timing boundaries
-    const bayStartTime = new Date(start);
-    bayStartTime.setHours(bayStartHour, bayStartMinute, 0, 0);
-
-    const bayEndTime = new Date(start);
-    bayEndTime.setHours(bayEndHour, bayEndMinute, 0, 0);
-
-    // Get current slot hour and minute
-    const slotHour = start.getHours();
-    const slotMinute = start.getMinutes();
-
-    // Check if slot is before bay opening time
-    const isBeforeStart = 
-      slotHour < bayStartHour || 
-      (slotHour === bayStartHour && slotMinute < bayStartMinute);
-    
-    // Check if slot is after bay closing time
-    const isAfterEnd = 
-      slotHour > bayEndHour || 
-      (slotHour === bayEndHour && slotMinute >= bayEndMinute);
-
-    if (isBeforeStart) {
-      toast.error(`Bay opens at ${dayTiming.start_time}. Please select a time after opening.`);
-      return;
-    }
-
-    if (isAfterEnd) {
-      toast.error(`Bay closes at ${dayTiming.end_time}. Please select a time before closing.`);
-      return;
-    }
-
-    // Check if booking is within bay operating hours
-    const isStartWithinHours = isAfter(start, bayStartTime) || isSameDay(start, bayStartTime);
-    const isEndWithinHours = isBefore(end, bayEndTime) || isSameDay(end, bayEndTime);
-
-    if (!isStartWithinHours || !isEndWithinHours) {
-      toast.error(`Booking must be within bay operating hours: ${dayTiming.start_time} - ${dayTiming.end_time}`);
-      return;
-    }
-
-    // New condition: Check if booking end time exceeds bay closing time
-    const endHour = end.getHours();
-    const endMinute = end.getMinutes();
-    const exceedsEndTime = 
-      endHour > bayEndHour || 
-      (endHour === bayEndHour && endMinute > bayEndMinute);
-
-    if (exceedsEndTime) {
-      toast.error(`Booking end time exceeds bay closing time of ${dayTiming.end_time}`);
-      return;
-    }
-
-    // If all validations pass, proceed with booking
-    setBookingStartTime(start.toISOString());
-    setBookingEndTime(end.toISOString());
-    setShowBookingDialog(true);
-    setIsEditMode(false);
-  };
+  // If all validations pass, proceed with booking
+  setBookingStartTime(start.toISOString());
+  setBookingEndTime(end.toISOString());
+  setShowBookingDialog(true);
+  setIsEditMode(false);
+};
 
   const handleSelectEvent = (event: CalendarEvent) => {
-    setSelectedBooking(event.resource);
-    
-    // Only allow editing if it's the current field's booking
-    if (event.fieldId === field.field_id) {
-      setShowDetailsDialog(true);
+    if (event.type === "holiday") {
+      setSelectedHoliday(event.resource);
+      setShowHolidayDetailsDialog(true);
     } else {
-      // Show read-only details for other bookings
-      setShowDetailsDialog(true);
+      setSelectedBooking(event.resource);
+      
+      // Only allow editing if it's the current field's booking
+      if (event.fieldId === field.field_id) {
+        setShowDetailsDialog(true);
+      } else {
+        // Show read-only details for other bookings
+        setShowDetailsDialog(true);
+      }
     }
   };
 
@@ -803,7 +968,7 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
       return;
     }
 
-    // Validate booking time against bay timings
+    // Validate booking time against bay timings and holidays
     const validation = validateBookingTime(startDate, endDate);
     if (!validation.isValid) {
       toast.error(validation.message);
@@ -953,12 +1118,13 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
               bayTimings={bay.bay_timings || []}
               onBack={onBack}
               onShowMenu={() => setShowMenuDialog(true)}
+              bayHolidays={bayHolidays || []}
             />
           </CardContent>
         </Card>
       </div>
 
-            {/* Desktop Footer - Only show on desktop */}
+      {/* Desktop Footer - Only show on desktop */}
       {!isMobile && (
         <div className="flex-shrink-0 border-t bg-background p-4">
           <div className="flex justify-between items-center gap-4">
@@ -990,6 +1156,10 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded bg-orange-100 border border-orange-500"></div>
                 <span>Rework</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-[#fecaca] border border-red-500"></div>
+                <span>Holiday</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded bg-[#c39522] border border-[#c39522]"></div>
@@ -1094,7 +1264,7 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
 
       {/* Booking Form Dialog */}
       <Dialog open={showBookingDialog} onOpenChange={setShowBookingDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {isRebookMode ? "Rebook Booking" : isEditMode ? "Edit Booking" : "Create New Booking"}
@@ -1183,6 +1353,43 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Holiday Warning */}
+            {bookingStartTime && (() => {
+              const startDate = new Date(bookingStartTime);
+              const endDate = new Date(bookingEndTime);
+              const holidayCheck = checkHolidayOverlap(startDate, endDate);
+              
+              if (holidayCheck.hasOverlap) {
+                return (
+                  <div className="bg-red-50 p-3 rounded border border-red-200">
+                    <Label className="text-sm font-medium text-red-800">Holiday Conflict</Label>
+                    <div className="text-xs text-red-600 mt-1">
+                      Selected time conflicts with holiday: {holidayCheck.holiday?.reason || "Holiday declared for this time slot"}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {bookingStartTime && (() => {
+  const startDate = new Date(bookingStartTime);
+  const endDate = new Date(bookingEndTime);
+  const workingDayCheck = checkWorkingDayConflict(startDate, endDate);
+  
+  if (workingDayCheck.hasConflict) {
+    return (
+      <div className="bg-amber-50 p-3 rounded border border-amber-200">
+        <Label className="text-sm font-medium text-amber-800">Bay Timing Conflict</Label>
+        <div className="text-xs text-amber-600 mt-1">
+          {workingDayCheck.message}
+        </div>
+      </div>
+    );
+  }
+  return null;
+})()}
 
             <div className="flex gap-3 pt-4">
               <Button
@@ -1320,6 +1527,83 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
         </DialogContent>
       </Dialog>
 
+      {/* Holiday Details Dialog */}
+      <Dialog open={showHolidayDetailsDialog} onOpenChange={setShowHolidayDetailsDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Holiday Details</DialogTitle>
+          </DialogHeader>
+
+          {selectedHoliday && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Date</Label>
+                  <p className="text-sm mt-1">
+                    {format(new Date(selectedHoliday.date), "MMM dd, yyyy")}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Day</Label>
+                  <p className="text-sm mt-1">
+                    {format(new Date(selectedHoliday.date), "eeee")}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Start Time</Label>
+                  <p className="text-sm mt-1">{selectedHoliday.start_time}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">End Time</Label>
+                  <p className="text-sm mt-1">{selectedHoliday.end_time}</p>
+                </div>
+              </div>
+
+              {selectedHoliday.reason && (
+                <div>
+                  <Label className="text-sm font-medium">Reason</Label>
+                  <p className="text-sm mt-1 bg-muted/50 p-3 rounded">
+                    {selectedHoliday.reason}
+                  </p>
+                </div>
+              )}
+
+              {selectedHoliday.marked_by && (
+                <div>
+                  <Label className="text-sm font-medium">Marked By</Label>
+                  <p className="text-sm mt-1">
+                    {selectedHoliday.marked_by?.first_name}{" "}
+                    {selectedHoliday.marked_by?.last_name}
+                  </p>
+                </div>
+              )}
+
+              {selectedHoliday.marked_at && (
+                <div>
+                  <Label className="text-sm font-medium">Marked At</Label>
+                  <p className="text-sm mt-1">
+                    {format(
+                      new Date(selectedHoliday.marked_at),
+                      "MMM dd, yyyy 'at' HH:mm"
+                    )}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowHolidayDetailsDialog(false)}
+                  className="flex-1"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Legend Dialog */}
       <Dialog open={showLegendDialog} onOpenChange={setShowLegendDialog}>
         <DialogContent className="max-w-md">
@@ -1362,6 +1646,11 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
                 status: "rework",
                 label: "Rework",
                 description: "Vehicle needs rework",
+              },
+              {
+                status: "holiday",
+                label: "Holiday",
+                description: "Bay is closed for holiday",
               },
               {
                 status: "Holiday",
@@ -1409,6 +1698,7 @@ const getStatusColor = (status: string, isBackground = false) => {
     work_review: isBackground ? "#e9d5ff" : "#8b5cf6",
     completed_jobs: isBackground ? "#f3f4f6" : "#6b7280",
     rework: isBackground ? "#ffedd5" : "#f97316",
+    holiday: isBackground ? "#fee2e2" : "#ef4444",
     Holiday: isBackground ? "#ecc38eff" : "#f97316",
     Past: isBackground ? "#c39522ff" : "#f97316",
   };
