@@ -1026,6 +1026,13 @@ export const serviceBayServices = {
   
   addBayHoliday: (id: string, data: any) => 
     apiClient.post(`/api/service-bay/${id}/holiday`, data),
+
+  
+  getBayHolidays: (startDate: string, endDate: string, bayId?: string) => 
+    apiClient.get("/api/service-bay/bay-holiday", { 
+      params: { start_date: startDate, end_date: endDate, bay_id: bayId } 
+    }),
+  
   
   removeBayHoliday: (id: string, holidayId: string) => 
     apiClient.delete(`/api/service-bay/${id}/holiday/${holidayId}`),
@@ -1048,7 +1055,7 @@ export const bayQuoteServices = {
     apiClient.get("/api/workshop/bay-calendar", { 
       params: { start_date: startDate, end_date: endDate, bay_id: bayId } 
     }),
-  
+
   getBayQuoteForField: (vehicleType: string, vehicleStockId: string, fieldId: string) => 
     apiClient.get(`/api/workshop/bay-quote/${vehicleType}/${vehicleStockId}/${fieldId}`),
   

@@ -40,7 +40,8 @@ import {
   X,
   ZoomIn,
   Video,
-  HardHat, // <-- Added for video icon
+  HardHat,
+  RefreshCw, // <-- Added for refresh icon
 } from "lucide-react";
 import { toast } from "sonner";
 import QuoteModal from "@/components/workshop/QuoteModal";
@@ -98,6 +99,12 @@ const WorkshopConfig = () => {
   const [currentMediaItems, setCurrentMediaItems] = useState<MediaItem[]>([]);
   const [currentMediaId, setCurrentMediaId] = useState<string>("");
   const [bayBookingDialogOpen, setBayBookingDialogOpen] = useState(false);
+
+  // Add refresh function
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["workshop-vehicle-details"] });
+    toast.success("Data Refreshed");
+  };
 
   const { data: vehicleData, isLoading: vehicleLoading } = useQuery({
     queryKey: ["workshop-vehicle-details", vehicleId],
@@ -1118,6 +1125,24 @@ const WorkshopConfig = () => {
                   </Tooltip>
                 </TooltipProvider>
               </div>
+
+              {/* Refresh Button */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={handleRefresh}
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Refresh</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
               <TooltipProvider>
                 <Tooltip>

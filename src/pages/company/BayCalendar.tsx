@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,9 @@ import {
   addDays,
   startOfWeek,
   endOfWeek,
+  isBefore,
+  isAfter,
+  isSameDay,
 } from "date-fns";
 import {
   CalendarIcon,
@@ -30,6 +33,9 @@ import {
   Eye,
   DollarSign,
   Edit,
+  RefreshCw,
+  Ban,
+  X,
 } from "lucide-react";
 import {
   Select,
@@ -46,9 +52,11 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import CommentSheetModal from "@/components/workshop/CommentSheetModal";
 import ChatModal from "@/components/workshop/ChatModal";
+import DateTimePicker from "@/components/workshop/CommentSheetTabs/DateTimePicker";
 
 const localizer = momentLocalizer(moment);
 
@@ -62,6 +70,7 @@ interface CalendarEvent {
   fieldName: string;
   stockId: number;
   fieldId: string;
+  type: 'booking' | 'holiday';
 }
 
 const BayCalendar = () => {
@@ -70,19 +79,28 @@ const BayCalendar = () => {
   const [view, setView] = useState(Views.WEEK);
   const [selectedBay, setSelectedBay] = useState<string>("");
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [selectedHoliday, setSelectedHoliday] = useState<any>(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [commentSheetOpen, setCommentSheetOpen] = useState(false);
   const [commentViewSheetOpen, setCommentViewSheetOpen] = useState(false);
   const [chatModalOpen, setChatModalOpen] = useState(false);
   const [showLegendDialog, setShowLegendDialog] = useState(false);
+  const [showHolidayDialog, setShowHolidayDialog] = useState(false);
+  const [showHolidayDetailsDialog, setShowHolidayDetailsDialog] = useState(false);
   const [workMode, setWorkMode] = useState<"submit" | "edit">("submit");
   const [mode, setMode] = useState<"company_view" | "supplier_submit">(
     "supplier_submit"
   );
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [holidayStartTime, setHolidayStartTime] = useState("");
+  const [holidayEndTime, setHolidayEndTime] = useState("");
+  const [holidayReason, setHolidayReason] = useState("");
+  const [isSubmittingHoliday, setIsSubmittingHoliday] = useState(false);
+  const calendarRef = useRef<any>(null);
 
   // Fetch user's bays
-  const { data: baysData } = useQuery({
+  const { data: baysData, refetch: refetchBays } = useQuery({
     queryKey: ["user-bays-dropdown"],
     queryFn: async () => {
       const response = await serviceBayServices.getBaysDropdown();
@@ -119,7 +137,7 @@ const BayCalendar = () => {
   const dateRange = getDateRange();
 
   // Fetch calendar data
-  const { data: calendarData, isLoading } = useQuery({
+  const { data: calendarData, isLoading, refetch: refetchCalendar } = useQuery({
     queryKey: [
       "bay-calendar",
       format(dateRange.start, "yyyy-MM-dd"),
@@ -137,6 +155,25 @@ const BayCalendar = () => {
     enabled: !!baysData && baysData.length > 0,
   });
 
+  // Fetch bay holidays
+  const { data: bayHolidays, refetch: refetchHolidays } = useQuery({
+  queryKey: ["bay-holidays", selectedBay],
+  queryFn: async () => {
+    if (!selectedBay) return [];
+    const response = await serviceBayServices.getBayHolidays(
+      format(dateRange.start, "yyyy-MM-dd"),
+      format(dateRange.end, "yyyy-MM-dd"),
+      selectedBay || undefined
+    );
+    console.log("Bay holidays API response:", response);
+    // Access the holidays array from the response
+    return response?.data?.data || [];
+  },
+  enabled: !!selectedBay,
+});
+
+console.log(bayHolidays)
+
   // Set first bay as selected by default
   React.useEffect(() => {
     if (baysData && baysData.length > 0 && !selectedBay) {
@@ -146,9 +183,11 @@ const BayCalendar = () => {
 
   // Convert bookings to calendar events
   const events: CalendarEvent[] = React.useMemo(() => {
-    if (!calendarData?.bookings) return [];
+  const events: CalendarEvent[] = [];
 
-    return calendarData.bookings.map((booking: any) => {
+  // Add bookings
+  if (calendarData?.bookings) {
+    calendarData.bookings.forEach((booking: any) => {
       const startDate = parseISO(booking.booking_date);
       const [startHours, startMinutes] = booking.booking_start_time
         .split(":")
@@ -163,7 +202,7 @@ const BayCalendar = () => {
       const end = new Date(startDate);
       end.setHours(endHours, endMinutes, 0, 0);
 
-      return {
+      events.push({
         id: booking._id,
         title: `${booking.field_name} (Stock: ${booking.vehicle_stock_id})`,
         start,
@@ -173,9 +212,166 @@ const BayCalendar = () => {
         fieldName: booking.field_name,
         stockId: booking.vehicle_stock_id,
         fieldId: booking.field_id,
-      };
+        type: 'booking'
+      });
     });
-  }, [calendarData]);
+  }
+
+  // Add holidays - properly access the holidays array
+  if (bayHolidays && Array.isArray(bayHolidays)) {
+    bayHolidays.forEach((holiday: any) => {
+      console.log("Processing holiday:", holiday);
+      
+      // Handle the date properly - it's already a Date object from the API
+      const startDate = new Date(holiday.date);
+      const [startHours, startMinutes] = holiday.start_time?.split(':').map(Number) || [0, 0];
+      const [endHours, endMinutes] = holiday.end_time?.split(':').map(Number) || [0, 0];
+
+      const start = new Date(startDate);
+      start.setHours(startHours, startMinutes, 0, 0);
+
+      const end = new Date(startDate);
+      end.setHours(endHours, endMinutes, 0, 0);
+
+      // Validate the dates are valid
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        console.error("Invalid holiday date:", holiday);
+        return;
+      }
+
+      events.push({
+        id: `holiday-${holiday._id}`,
+        title: `Holiday: ${holiday.reason || 'No reason provided'}`,
+        start,
+        end,
+        resource: holiday,
+        status: 'holiday',
+        fieldName: 'Holiday',
+        stockId: 0,
+        fieldId: 'holiday',
+        type: 'holiday'
+      });
+    });
+  }
+
+  return events;
+}, [calendarData, bayHolidays]);
+
+  // Add holiday mutation
+  const addHolidayMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await serviceBayServices.addBayHoliday(selectedBay, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Holiday marked successfully");
+      queryClient.invalidateQueries({ queryKey: ["bay-holidays"] });
+      setShowHolidayDialog(false);
+      resetHolidayForm();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to mark holiday");
+    },
+  });
+
+  // Delete holiday mutation
+  const deleteHolidayMutation = useMutation({
+    mutationFn: async (holidayId: string) => {
+      const response = await serviceBayServices.removeBayHoliday(selectedBay, holidayId);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Holiday removed successfully");
+      queryClient.invalidateQueries({ queryKey: ["bay-holidays"] });
+      setShowHolidayDetailsDialog(false);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to remove holiday");
+    },
+  });
+
+  const resetHolidayForm = () => {
+    setHolidayStartTime("");
+    setHolidayEndTime("");
+    setHolidayReason("");
+  };
+
+  // Refresh function
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refetchBays(), refetchCalendar(), refetchHolidays()]);
+      toast.success("Calendar refreshed successfully");
+    } catch (error) {
+      toast.error("Failed to refresh calendar");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Holiday submission function
+  const handleSubmitHoliday = async () => {
+    if (!holidayStartTime || !holidayEndTime) {
+      toast.error("Please select start and end time");
+      return;
+    }
+
+    const startDate = new Date(holidayStartTime);
+    const endDate = new Date(holidayEndTime);
+
+    if (startDate >= endDate) {
+      toast.error("End time must be after start time");
+      return;
+    }
+
+    const holidayData = {
+      date: format(startDate, "yyyy-MM-dd"),
+      start_time: format(startDate, "HH:mm"),
+      end_time: format(endDate, "HH:mm"),
+      reason: holidayReason.trim() || "Holiday",
+    };
+
+    addHolidayMutation.mutate(holidayData);
+  };
+
+  // Handle slot selection for holiday creation
+  const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
+    const now = new Date();
+    
+    // Check if booking is in the past
+    if (isBefore(start, now)) {
+      toast.error("Cannot mark holiday in the past");
+      return;
+    }
+
+    // Check if it's the same day
+    if (!isSameDay(start, end)) {
+      toast.error("Holiday must be on the same day");
+      return;
+    }
+
+    // Set the holiday times
+    setHolidayStartTime(start.toISOString());
+    setHolidayEndTime(end.toISOString());
+    setShowHolidayDialog(true);
+  };
+
+  // Handle event selection
+  const handleSelectEvent = (event: CalendarEvent) => {
+    if (event.type === 'holiday') {
+      setSelectedHoliday(event.resource);
+      setShowHolidayDetailsDialog(true);
+    } else {
+      setSelectedBooking(event.resource);
+    }
+  };
+
+  // Handle holiday deletion
+  const handleDeleteHoliday = () => {
+    if (selectedHoliday) {
+      deleteHolidayMutation.mutate(selectedHoliday._id);
+    }
+  };
 
   // Accept booking mutation
   const acceptMutation = useMutation({
@@ -311,6 +507,7 @@ const BayCalendar = () => {
       work_review: "bg-purple-100 text-purple-800 border-purple-200",
       completed_jobs: "bg-gray-100 text-gray-800 border-gray-200",
       rework: "bg-orange-100 text-orange-800 border-orange-200",
+      holiday: "bg-red-100 text-red-800 border-red-200",
     };
     return colors[status] || "bg-gray-100 text-gray-800";
   };
@@ -347,8 +544,89 @@ const BayCalendar = () => {
     setCurrentDate(new Date());
   };
 
-  const handleSelectEvent = (event: CalendarEvent) => {
-    setSelectedBooking(event.resource);
+  // Helper function to get day name from date
+  const getDayName = (date: Date): string => {
+    return format(date, 'eeee').toLowerCase();
+  };
+
+  // Get bay timings for the selected bay
+  const selectedBayData = baysData?.find((bay: any) => bay._id === selectedBay);
+  const bayTimings = selectedBayData?.bay_timings || [];
+
+  // Function to style time slots based on availability
+  const slotPropGetter = (date: Date) => {
+    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Check if the date is in the past (before today)
+    const isPastDate = date < today;
+    
+    // Check bay timings for the specific day
+    const dayName = getDayName(date);
+    const dayTiming = bayTimings.find((timing: any) => timing.day_of_week === dayName);
+
+    // Condition 1: Past dates - Light brown color (same as non-working days)
+    if (isPastDate) {
+      return {
+        className: 'rbc-slot-past',
+        style: {
+          backgroundColor: '#c39522ff',
+          cursor: 'not-allowed',
+          opacity: 0.6,
+          border: 'none'
+        }
+      };
+    }
+
+    // Condition 2: Not a working day - Light brown color
+    if (!dayTiming || !dayTiming.is_working_day) {
+      return {
+        className: 'rbc-slot-non-working',
+        style: {
+          backgroundColor: '#ecc38eff',
+          cursor: 'not-allowed',
+          pointerEvents: 'none',
+          border: 'none'
+        }
+      };
+    }
+
+    // Parse bay timing hours
+    const [bayStartHour, bayStartMinute] = dayTiming.start_time.split(':').map(Number);
+    const [bayEndHour, bayEndMinute] = dayTiming.end_time.split(':').map(Number);
+
+    // Get current slot hour and minute
+    const slotHour = date.getHours();
+    const slotMinute = date.getMinutes();
+
+    // Condition 3: Outside operating hours - Light brown color
+    const isBeforeStart = 
+      slotHour < bayStartHour || 
+      (slotHour === bayStartHour && slotMinute < bayStartMinute);
+    
+    const isAfterEnd = 
+      slotHour > bayEndHour || 
+      (slotHour === bayEndHour && slotMinute >= bayEndMinute);
+
+    if (isBeforeStart || isAfterEnd) {
+      return {
+        className: 'rbc-slot-outside-hours',
+        style: {
+          backgroundColor: '#ecc38eff',
+          cursor: 'not-allowed',
+          pointerEvents: 'none',
+          border: 'none'
+        }
+      };
+    }
+
+    // Available slots - default styling with no borders
+    return {
+      style: {
+        border: 'none'
+      }
+    };
   };
 
   const CustomToolbar = ({ label }: any) => (
@@ -363,6 +641,17 @@ const BayCalendar = () => {
         <Button variant="outline" size="sm" onClick={navigateToNext}>
           <ChevronRight className="h-4 w-4" />
         </Button>
+        
+        {/* Refresh Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </Button>
+        
         <span className="text-lg font-semibold ml-4">{label}</span>
       </div>
       <div className="flex gap-2">
@@ -387,6 +676,17 @@ const BayCalendar = () => {
         >
           Month
         </Button>
+        
+        {/* Holiday Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowHolidayDialog(true)}
+        >
+          <Ban className="h-4 w-4 mr-2" />
+          Holiday
+        </Button>
+        
         <Button
           variant="outline"
           size="sm"
@@ -395,6 +695,7 @@ const BayCalendar = () => {
           <Info className="h-4 w-4 mr-2" />
           Legend
         </Button>
+        
         <Select value={selectedBay} onValueChange={setSelectedBay}>
           <SelectTrigger>
             <SelectValue placeholder="Select bay" />
@@ -413,18 +714,38 @@ const BayCalendar = () => {
 
   const CustomEvent = ({ event }: { event: CalendarEvent }) => (
     <div className="p-1 text-xs h-full">
-      <div className="font-medium truncate">{event.fieldName}</div>
-      <div className="truncate">Stock: {event.stockId}</div>
+      <div className="font-medium truncate">
+        {event.type === 'holiday' ? 'Holiday' : event.fieldName}
+      </div>
+      {event.type === 'booking' && (
+        <div className="truncate">Stock: {event.stockId}</div>
+      )}
       <div className="truncate">
         {format(event.start, "HH:mm")} - {format(event.end, "HH:mm")}
       </div>
       <Badge variant="secondary" className="mt-1 text-xs capitalize">
-        {event.status.replace(/_/g, " ")}
+        {event.type === 'holiday' ? 'Holiday' : event.status.replace(/_/g, " ")}
       </Badge>
     </div>
   );
 
   const getEventStyle = (event: CalendarEvent) => {
+    if (event.type === 'holiday') {
+      return {
+        style: {
+          borderRadius: "4px",
+          opacity: 0.9,
+          color: "#991b1b",
+          backgroundColor: "#fee2e2",
+          borderLeft: `6px solid #ef4444`,
+          border: `1px solid #ef4444`,
+          fontWeight: "600",
+          display: "block",
+          height: "100%",
+        },
+      };
+    }
+
     const statusColors: Record<
       string,
       { background: string; border: string; text: string }
@@ -512,6 +833,7 @@ const BayCalendar = () => {
             <CardContent className="p-0">
               <div className="h-[700px]">
                 <Calendar
+                  ref={calendarRef}
                   localizer={localizer}
                   events={events}
                   startAccessor="start"
@@ -521,6 +843,8 @@ const BayCalendar = () => {
                   onView={setView}
                   onNavigate={setCurrentDate}
                   onSelectEvent={handleSelectEvent}
+                  onSelectSlot={handleSelectSlot}
+                  selectable
                   step={30}
                   timeslots={2}
                   defaultView={Views.WEEK}
@@ -529,9 +853,10 @@ const BayCalendar = () => {
                     event: CustomEvent,
                   }}
                   eventPropGetter={getEventStyle}
+                  slotPropGetter={slotPropGetter}
                   dayLayoutAlgorithm="no-overlap"
-                  min={new Date(0, 0, 0, 8, 0, 0)}
-                  max={new Date(0, 0, 0, 18, 0, 0)}
+                  min={new Date(0, 0, 0, 0, 0, 0)}
+                  max={new Date(0, 0, 0, 23, 59, 0)}
                   formats={{
                     timeGutterFormat: "HH:mm",
                     eventTimeRangeFormat: ({ start, end }) =>
@@ -557,6 +882,173 @@ const BayCalendar = () => {
           </Card>
         )}
       </div>
+
+      {/* Holiday Creation Dialog */}
+      <Dialog open={showHolidayDialog} onOpenChange={setShowHolidayDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark Holiday</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              <DateTimePicker
+                label="Start Date & Time"
+                value={holidayStartTime}
+                onChange={setHolidayStartTime}
+                placeholder="Select start time"
+                required
+                minDate={new Date()}
+              />
+
+              <DateTimePicker
+                label="End Date & Time"
+                value={holidayEndTime}
+                onChange={setHolidayEndTime}
+                placeholder="Select end time"
+                required
+                minDate={new Date(holidayStartTime) || new Date()}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="holiday-reason">Reason for Holiday</Label>
+              <Textarea
+                id="holiday-reason"
+                value={holidayReason}
+                onChange={(e) => setHolidayReason(e.target.value)}
+                placeholder="Enter reason for marking this day as holiday..."
+                rows={3}
+              />
+            </div>
+
+            {holidayStartTime && (
+              <div className="bg-amber-50 p-3 rounded border border-amber-200">
+                <Label className="text-sm font-medium text-amber-800">
+                  Holiday Information
+                </Label>
+                <div className="text-xs text-amber-600 mt-1">
+                  {(() => {
+                    const startDate = new Date(holidayStartTime);
+                    const dayName = format(startDate, 'eeee');
+                    const dayTiming = bayTimings.find((timing: any) => 
+                      timing.day_of_week === dayName.toLowerCase()
+                    );
+                    
+                    if (dayTiming && dayTiming.is_working_day) {
+                      return `Bay normally operates from ${dayTiming.start_time} to ${dayTiming.end_time} on ${dayName}. This holiday will block bookings during the selected time.`;
+                    } else {
+                      return `Bay is normally closed on ${dayName}. This holiday will be marked for reference.`;
+                    }
+                  })()}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowHolidayDialog(false);
+                  resetHolidayForm();
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitHoliday}
+                disabled={
+                  addHolidayMutation.isPending ||
+                  !holidayStartTime ||
+                  !holidayEndTime
+                }
+                className="flex-1"
+              >
+                <Ban className="h-4 w-4 mr-2" />
+                {addHolidayMutation.isPending ? "Marking..." : "Mark as Holiday"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Holiday Details Dialog */}
+      <Dialog open={showHolidayDetailsDialog} onOpenChange={setShowHolidayDetailsDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Holiday Details</DialogTitle>
+          </DialogHeader>
+
+          {selectedHoliday && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Date</Label>
+                  <p className="text-sm mt-1">
+                    {format(new Date(selectedHoliday.date), "MMM dd, yyyy")}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Day</Label>
+                  <p className="text-sm mt-1">
+                    {format(new Date(selectedHoliday.date), "eeee")}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Start Time</Label>
+                  <p className="text-sm mt-1">{selectedHoliday.start_time}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">End Time</Label>
+                  <p className="text-sm mt-1">{selectedHoliday.end_time}</p>
+                </div>
+              </div>
+
+              {selectedHoliday.reason && (
+                <div>
+                  <Label className="text-sm font-medium">Reason</Label>
+                  <p className="text-sm mt-1 bg-muted/50 p-3 rounded">
+                    {selectedHoliday.reason}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <Label className="text-sm font-medium">Marked By</Label>
+                <p className="text-sm mt-1">
+                  {selectedHoliday.marked_by?.first_name} {selectedHoliday.marked_by?.last_name}
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Marked At</Label>
+                <p className="text-sm mt-1">
+                  {format(new Date(selectedHoliday.marked_at), "MMM dd, yyyy 'at' HH:mm")}
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteHoliday}
+                  disabled={deleteHolidayMutation.isPending}
+                  className="flex-1"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  {deleteHolidayMutation.isPending ? "Removing..." : "Remove Holiday"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowHolidayDetailsDialog(false)}
+                  className="flex-1"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Booking Details Dialog */}
       <Dialog
@@ -1101,6 +1593,37 @@ const BayCalendar = () => {
                 <p className="font-medium text-sm">Booking Rejected</p>
                 <p className="text-xs text-muted-foreground">
                   Booking was declined
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-8 rounded bg-red-100 border-2 border-red-500"></div>
+              <div>
+                <p className="font-medium text-sm">Holiday</p>
+                <p className="text-xs text-muted-foreground">
+                  Bay is closed for holiday
+                </p>
+              </div>
+            </div>
+
+            {/* Added Holiday and Past Days legend */}
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-8 rounded bg-[#ecc38eff] border-2 border-[#c39522ff]"></div>
+              <div>
+                <p className="font-medium text-sm">Holiday / Closed</p>
+                <p className="text-xs text-muted-foreground">
+                  The Shop is Closed or declared Holiday
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-8 rounded bg-[#c39522ff] border-2 border-[#c39522ff]"></div>
+              <div>
+                <p className="font-medium text-sm">Past Days</p>
+                <p className="text-xs text-muted-foreground">
+                  These are the past days
                 </p>
               </div>
             </div>
