@@ -21,6 +21,7 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
+  Menu,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { bayQuoteServices } from "@/api/services";
@@ -33,8 +34,9 @@ import {
   startOfWeek,
   endOfWeek,
   addWeeks,
-  subWeeks,
   isSameDay,
+  isBefore,
+  isAfter
 } from "date-fns";
 import { Calendar, momentLocalizer, Views } from "react-big-calendar";
 import moment from "moment";
@@ -78,6 +80,10 @@ const CalendarView: React.FC<{
   existingBooking: any;
   onNewBooking: () => void;
   onShowLegend: () => void;
+  bayTimings: any[];
+  bay: any;
+  onBack: () => void;
+  onShowMenu: () => void;
 }> = ({
   events,
   currentDate,
@@ -90,7 +96,37 @@ const CalendarView: React.FC<{
   existingBooking,
   onNewBooking,
   onShowLegend,
+  bayTimings,
+  bay,
+  onBack,
+  onShowMenu,
 }) => {
+  const calendarRef = useRef<any>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Force calendar resize after component mounts
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (calendarRef.current) {
+        window.dispatchEvent(new Event('resize'));
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
   const navigateToPrevious = () => {
     switch (view) {
       case Views.DAY:
@@ -123,54 +159,96 @@ const CalendarView: React.FC<{
     onDateChange(new Date());
   };
 
+  // Helper function to get day name from date
+  const getDayName = (date: Date): string => {
+    return format(date, 'eeee').toLowerCase(); // returns 'monday', 'tuesday', etc.
+  };
+
   const CustomToolbar = ({ label }: any) => (
-    <div className="flex items-center justify-between p-4 border-b bg-white sticky top-0 z-10">
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={navigateToPrevious}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <Button variant="outline" size="sm" onClick={navigateToToday}>
-          Today
-        </Button>
-        <Button variant="outline" size="sm" onClick={navigateToNext}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-        <span className="text-lg font-semibold ml-4">{label}</span>
+    <div className="flex items-center justify-between p-4 border-b bg-white sticky top-0 z-10 flex-wrap gap-2">
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        {isMobile ? (
+          <Button variant="outline" size="sm" onClick={onShowMenu}>
+            <Menu className="h-4 w-4" />
+          </Button>
+        ) : (
+          <>
+            <Button variant="outline" size="sm" onClick={navigateToPrevious}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={navigateToToday}>
+              Today
+            </Button>
+            <Button variant="outline" size="sm" onClick={navigateToNext}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+        
+        {/* Bay Information */}
+        <div className="ml-2 flex items-center gap-2">
+          <HardHat className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium truncate">Bay: {bay.bay_name}</span>
+          {existingBooking && (
+            <Badge variant="secondary" className="text-xs">
+              Existing Booking
+            </Badge>
+          )}
+        </div>
+
+        {isMobile && (
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onShowLegend}>
+              <Info className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
-      <div className="flex gap-2">
-        <Button
-          variant={view === Views.DAY ? "default" : "outline"}
-          size="sm"
-          onClick={() => onViewChange(Views.DAY)}
-        >
-          Day
-        </Button>
-        <Button
-          variant={view === Views.WEEK ? "default" : "outline"}
-          size="sm"
-          onClick={() => onViewChange(Views.WEEK)}
-        >
-          Week
-        </Button>
-        <Button
-          variant={view === Views.MONTH ? "default" : "outline"}
-          size="sm"
-          onClick={() => onViewChange(Views.MONTH)}
-        >
-          Month
-        </Button>
-        <Button variant="outline" size="sm" onClick={onShowLegend}>
-          <Info className="h-4 w-4 mr-2" />
-          Legend
-        </Button>
-        {
-          existingBooking?null: <Button onClick={onNewBooking} disabled={!!existingBooking}>
-          <CalendarIcon className="h-4 w-4 mr-2" />
-          New Booking
-        </Button>
-        }
-       
-      </div>
+      
+      {/* Desktop Controls */}
+      {!isMobile && (
+        <div className="flex gap-2 flex-wrap justify-end flex-1 min-w-0">
+          <Button
+            variant={view === Views.DAY ? "default" : "outline"}
+            size="sm"
+            onClick={() => onViewChange(Views.DAY)}
+          >
+            Day
+          </Button>
+          <Button
+            variant={view === Views.WEEK ? "default" : "outline"}
+            size="sm"
+            onClick={() => onViewChange(Views.WEEK)}
+          >
+            Week
+          </Button>
+          <Button
+            variant={view === Views.MONTH ? "default" : "outline"}
+            size="sm"
+            onClick={() => onViewChange(Views.MONTH)}
+          >
+            Month
+          </Button>
+          
+          {/* ADDED: Legend button for desktop */}
+          <Button variant="outline" size="sm" onClick={onShowLegend}>
+            <Info className="h-4 w-4 mr-2" />
+            Legend
+          </Button>
+          
+          <Button variant="outline" size="sm" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          
+          {existingBooking ? null : (
+            <Button onClick={onNewBooking} disabled={!!existingBooking}>
+              <CalendarIcon className="h-4 w-4 mr-2" />
+              New Booking
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -195,7 +273,7 @@ const CalendarView: React.FC<{
       work_in_progress: { background: "#dbeafe", border: "#3b82f6", text: "#1e40af" },
       work_review: { background: "#e9d5ff", border: "#8b5cf6", text: "#5b21b6" },
       completed_jobs: { background: "#f3f4f6", border: "#6b7280", text: "#374151" },
-      rework: { background: "#ffedd5", border: "#f97316", text: "#9a3412" },
+      rework: { background: "#ffedd5", border: "#f97316ff", text: "#9a3412" },
     };
 
     const colorConfig = statusColors[event.status] || statusColors.booking_request;
@@ -215,6 +293,82 @@ const CalendarView: React.FC<{
     };
   };
 
+  // Function to style time slots based on availability
+const slotPropGetter = (date: Date) => {
+  const now = new Date();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Check if the date is in the past (before today)
+  const isPastDate = date < today;
+  
+  // Check bay timings for the specific day
+  const dayName = getDayName(date);
+  const dayTiming = bayTimings.find((timing: any) => timing.day_of_week === dayName);
+
+  // Condition 1: Past dates - Light brown color (same as non-working days)
+  if (isPastDate) {
+    return {
+      className: 'rbc-slot-past',
+      style: {
+        backgroundColor: '#c39522ff',
+        cursor: 'not-allowed',
+        opacity: 0.6,
+        border: 'none'
+      }
+    };
+  }
+
+  // Condition 2: Not a working day - Light brown color
+  if (!dayTiming || !dayTiming.is_working_day) {
+    return {
+      className: 'rbc-slot-non-working',
+      style: {
+        backgroundColor: '#ecc38eff',
+        cursor: 'not-allowed',
+        pointerEvents: 'none',
+        border: 'none'
+      }
+    };
+  }
+
+  // Parse bay timing hours
+  const [bayStartHour, bayStartMinute] = dayTiming.start_time.split(':').map(Number);
+  const [bayEndHour, bayEndMinute] = dayTiming.end_time.split(':').map(Number);
+
+  // Get current slot hour and minute
+  const slotHour = date.getHours();
+  const slotMinute = date.getMinutes();
+
+  // Condition 3: Outside operating hours - Light brown color
+  const isBeforeStart = 
+    slotHour < bayStartHour || 
+    (slotHour === bayStartHour && slotMinute < bayStartMinute);
+  
+  const isAfterEnd = 
+    slotHour > bayEndHour || 
+    (slotHour === bayEndHour && slotMinute >= bayEndMinute);
+
+  if (isBeforeStart || isAfterEnd) {
+    return {
+      className: 'rbc-slot-outside-hours',
+      style: {
+        backgroundColor: '#ecc38eff',
+        cursor: 'not-allowed',
+        pointerEvents: 'none',
+        border: 'none'
+      }
+    };
+  }
+
+  // Available slots - default styling with no borders
+  return {
+    style: {
+      border: 'none'
+    }
+  };
+};
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -224,8 +378,9 @@ const CalendarView: React.FC<{
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col" style={{ minHeight: '500px' }}>
       <Calendar
+        ref={calendarRef}
         localizer={localizer}
         events={events}
         startAccessor="start"
@@ -245,9 +400,10 @@ const CalendarView: React.FC<{
           event: CustomEvent,
         }}
         eventPropGetter={getEventStyle}
+        slotPropGetter={slotPropGetter}
         dayLayoutAlgorithm="no-overlap"
-        min={new Date(0, 0, 0, 8, 0, 0)} // 8:00 AM
-        max={new Date(0, 0, 0, 18, 0, 0)} // 6:00 PM
+        min={new Date(0, 0, 0, 0, 0, 0)} // 12:00 AM - 24 hour format
+        max={new Date(0, 0, 0, 23, 59, 0)} // 11:59 PM - 24 hour format
         formats={{
           timeGutterFormat: "HH:mm",
           eventTimeRangeFormat: ({ start, end }) =>
@@ -291,28 +447,52 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
   const [showBookingDialog, setShowBookingDialog] = useState(false);
   const [showLegendDialog, setShowLegendDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showMenuDialog, setShowMenuDialog] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [view, setView] = useState(Views.WEEK);
   const [isRebookMode, setIsRebookMode] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Force resize after component mounts to fix calendar layout
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 150);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   const rebookBookingMutation = useMutation({
-  mutationFn: async (data: any) => {
-    const response = await bayQuoteServices.rebookBayQuote(selectedBooking?._id, data);
-    return response.data;
-  },
-  onSuccess: () => {
-    toast.success("Booking rebooked successfully");
-    queryClient.invalidateQueries({ queryKey: ["field-bay-booking"] });
-    queryClient.invalidateQueries({ queryKey: ["bay-booking-calendar"] });
-    setShowBookingDialog(false);
-    setSelectedBooking(null);
-    setIsRebookMode(false);
-    resetForm();
-  },
-  onError: (error: any) => {
-    toast.error(error.response?.data?.message || "Failed to rebook booking");
-  },
-});
+    mutationFn: async (data: any) => {
+      const response = await bayQuoteServices.rebookBayQuote(selectedBooking?._id, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Booking rebooked successfully");
+      queryClient.invalidateQueries({ queryKey: ["field-bay-booking"] });
+      queryClient.invalidateQueries({ queryKey: ["bay-booking-calendar"] });
+      setShowBookingDialog(false);
+      setSelectedBooking(null);
+      setIsRebookMode(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to rebook booking");
+    },
+  });
+
   // Fetch existing booking for this field
   const { data: existingBooking } = useQuery({
     queryKey: [
@@ -457,6 +637,53 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
     setAllowOverlap(false);
   };
 
+  // Helper function to validate booking time against bay timings
+  const validateBookingTime = (start: Date, end: Date): { isValid: boolean; message?: string } => {
+    const now = new Date();
+    
+    // Check if booking is in the past
+    if (isBefore(start, now)) {
+      return { isValid: false, message: "Cannot book in the past" };
+    }
+
+    // Check bay timings for the specific day
+    const dayName = format(start, 'eeee').toLowerCase();
+    const dayTiming = bay.bay_timings.find((timing: any) => timing.day_of_week === dayName);
+
+    // If no timing found or not a working day
+    if (!dayTiming) {
+      return { isValid: false, message: "No timing configuration found for this day" };
+    }
+
+    if (!dayTiming.is_working_day) {
+      return { isValid: false, message: "Bay is not operational on this day" };
+    }
+
+    // Parse bay timing hours
+    const [bayStartHour, bayStartMinute] = dayTiming.start_time.split(':').map(Number);
+    const [bayEndHour, bayEndMinute] = dayTiming.end_time.split(':').map(Number);
+
+    // Create date objects for bay timing boundaries
+    const bayStartTime = new Date(start);
+    bayStartTime.setHours(bayStartHour, bayStartMinute, 0, 0);
+
+    const bayEndTime = new Date(start);
+    bayEndTime.setHours(bayEndHour, bayEndMinute, 0, 0);
+
+    // Check if booking is within bay operating hours
+    const isStartWithinHours = isAfter(start, bayStartTime) || isSameDay(start, bayStartTime);
+    const isEndWithinHours = isBefore(end, bayEndTime) || isSameDay(end, bayEndTime);
+
+    if (!isStartWithinHours || !isEndWithinHours) {
+      return { 
+        isValid: false, 
+        message: `Booking must be within bay operating hours: ${dayTiming.start_time} - ${dayTiming.end_time}` 
+      };
+    }
+
+    return { isValid: true };
+  };
+
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
     // Only allow creating if no existing booking for this field
     if (existingBooking && !isEditMode) {
@@ -464,6 +691,86 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
       return;
     }
     
+    const now = new Date();
+    
+    // Check if booking is in the past
+    if (isBefore(start, now)) {
+      toast.error("Cannot book in the past");
+      return;
+    }
+
+    // Check bay timings for the specific day
+    const dayName = format(start, 'eeee').toLowerCase();
+    const dayTiming = bay.bay_timings.find((timing: any) => timing.day_of_week === dayName);
+
+    // If no timing found or not a working day
+    if (!dayTiming) {
+      toast.error("No timing configuration found for this day");
+      return;
+    }
+
+    if (!dayTiming.is_working_day) {
+      toast.error("Bay is closed on this day");
+      return;
+    }
+
+    // Parse bay timing hours
+    const [bayStartHour, bayStartMinute] = dayTiming.start_time.split(':').map(Number);
+    const [bayEndHour, bayEndMinute] = dayTiming.end_time.split(':').map(Number);
+
+    // Create date objects for bay timing boundaries
+    const bayStartTime = new Date(start);
+    bayStartTime.setHours(bayStartHour, bayStartMinute, 0, 0);
+
+    const bayEndTime = new Date(start);
+    bayEndTime.setHours(bayEndHour, bayEndMinute, 0, 0);
+
+    // Get current slot hour and minute
+    const slotHour = start.getHours();
+    const slotMinute = start.getMinutes();
+
+    // Check if slot is before bay opening time
+    const isBeforeStart = 
+      slotHour < bayStartHour || 
+      (slotHour === bayStartHour && slotMinute < bayStartMinute);
+    
+    // Check if slot is after bay closing time
+    const isAfterEnd = 
+      slotHour > bayEndHour || 
+      (slotHour === bayEndHour && slotMinute >= bayEndMinute);
+
+    if (isBeforeStart) {
+      toast.error(`Bay opens at ${dayTiming.start_time}. Please select a time after opening.`);
+      return;
+    }
+
+    if (isAfterEnd) {
+      toast.error(`Bay closes at ${dayTiming.end_time}. Please select a time before closing.`);
+      return;
+    }
+
+    // Check if booking is within bay operating hours
+    const isStartWithinHours = isAfter(start, bayStartTime) || isSameDay(start, bayStartTime);
+    const isEndWithinHours = isBefore(end, bayEndTime) || isSameDay(end, bayEndTime);
+
+    if (!isStartWithinHours || !isEndWithinHours) {
+      toast.error(`Booking must be within bay operating hours: ${dayTiming.start_time} - ${dayTiming.end_time}`);
+      return;
+    }
+
+    // New condition: Check if booking end time exceeds bay closing time
+    const endHour = end.getHours();
+    const endMinute = end.getMinutes();
+    const exceedsEndTime = 
+      endHour > bayEndHour || 
+      (endHour === bayEndHour && endMinute > bayEndMinute);
+
+    if (exceedsEndTime) {
+      toast.error(`Booking end time exceeds bay closing time of ${dayTiming.end_time}`);
+      return;
+    }
+
+    // If all validations pass, proceed with booking
     setBookingStartTime(start.toISOString());
     setBookingEndTime(end.toISOString());
     setShowBookingDialog(true);
@@ -482,93 +789,101 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
     }
   };
 
-const handleSubmitBooking = () => {
-  if (!bookingStartTime || !bookingEndTime) {
-    toast.error("Please select start and end time");
-    return;
-  }
+  const handleSubmitBooking = () => {
+    if (!bookingStartTime || !bookingEndTime) {
+      toast.error("Please select start and end time");
+      return;
+    }
 
-  const startDate = new Date(bookingStartTime);
-  const endDate = new Date(bookingEndTime);
+    const startDate = new Date(bookingStartTime);
+    const endDate = new Date(bookingEndTime);
 
-  if (startDate >= endDate) {
-    toast.error("End time must be after start time");
-    return;
-  }
+    if (startDate >= endDate) {
+      toast.error("End time must be after start time");
+      return;
+    }
 
-  if (isRebookMode && selectedBooking) {
-    const rebookData = {
-      booking_date: format(startDate, "yyyy-MM-dd"),
-      booking_start_time: format(startDate, "HH:mm"),
-      booking_end_time: format(endDate, "HH:mm"),
-      booking_description: bookingDescription,
-      quote_amount: parseFloat(quoteAmount) || 0,
-      allow_overlap: allowOverlap,
-    };
+    // Validate booking time against bay timings
+    const validation = validateBookingTime(startDate, endDate);
+    if (!validation.isValid) {
+      toast.error(validation.message);
+      return;
+    }
 
-    rebookBookingMutation.mutate(rebookData);
-  } else if (isEditMode && selectedBooking) {
-    const updateData = {
-      booking_date: format(startDate, "yyyy-MM-dd"),
-      booking_start_time: format(startDate, "HH:mm"),
-      booking_end_time: format(endDate, "HH:mm"),
-      booking_description: bookingDescription,
-      quote_amount: parseFloat(quoteAmount) || 0,
-      allow_overlap: allowOverlap,
-    };
+    if (isRebookMode && selectedBooking) {
+      const rebookData = {
+        booking_date: format(startDate, "yyyy-MM-dd"),
+        booking_start_time: format(startDate, "HH:mm"),
+        booking_end_time: format(endDate, "HH:mm"),
+        booking_description: bookingDescription,
+        quote_amount: parseFloat(quoteAmount) || 0,
+        allow_overlap: allowOverlap,
+      };
 
-    updateBookingMutation.mutate({
-      id: selectedBooking._id,
-      data: updateData,
-    });
-  } else {
-    const bookingData = {
-      vehicle_type: vehicleType,
-      vehicle_stock_id: vehicleStockId,
-      field_id: field.field_id,
-      field_name: field.field_name,
-      bay_id: bay._id,
-      quote_amount: parseFloat(quoteAmount) || 0,
-      booking_date: format(startDate, "yyyy-MM-dd"),
-      booking_start_time: format(startDate, "HH:mm"),
-      booking_end_time: format(endDate, "HH:mm"),
-      booking_description: bookingDescription,
-      images: field.images || [],
-      videos: field.videos || [],
-      allow_overlap: allowOverlap,
-    };
+      rebookBookingMutation.mutate(rebookData);
+    } else if (isEditMode && selectedBooking) {
+      const updateData = {
+        booking_date: format(startDate, "yyyy-MM-dd"),
+        booking_start_time: format(startDate, "HH:mm"),
+        booking_end_time: format(endDate, "HH:mm"),
+        booking_description: bookingDescription,
+        quote_amount: parseFloat(quoteAmount) || 0,
+        allow_overlap: allowOverlap,
+      };
 
-    createBookingMutation.mutate(bookingData);
-  }
-};
-const handleEditBooking = () => {
-  if (!selectedBooking) return;
+      updateBookingMutation.mutate({
+        id: selectedBooking._id,
+        data: updateData,
+      });
+    } else {
+      const bookingData = {
+        vehicle_type: vehicleType,
+        vehicle_stock_id: vehicleStockId,
+        field_id: field.field_id,
+        field_name: field.field_name,
+        bay_id: bay._id,
+        quote_amount: parseFloat(quoteAmount) || 0,
+        booking_date: format(startDate, "yyyy-MM-dd"),
+        booking_start_time: format(startDate, "HH:mm"),
+        booking_end_time: format(endDate, "HH:mm"),
+        booking_description: bookingDescription,
+        images: field.images || [],
+        videos: field.videos || [],
+        allow_overlap: allowOverlap,
+      };
 
-  const bookingDate = parseISO(selectedBooking.booking_date);
-  const [startHours, startMinutes] = selectedBooking.booking_start_time
-    .split(":")
-    .map(Number);
-  const [endHours, endMinutes] = selectedBooking.booking_end_time
-    .split(":")
-    .map(Number);
+      createBookingMutation.mutate(bookingData);
+    }
+  };
 
-  const startDateTime = new Date(bookingDate);
-  startDateTime.setHours(startHours, startMinutes, 0, 0);
+  const handleEditBooking = () => {
+    if (!selectedBooking) return;
 
-  const endDateTime = new Date(bookingDate);
-  endDateTime.setHours(endHours, endMinutes, 0, 0);
+    const bookingDate = parseISO(selectedBooking.booking_date);
+    const [startHours, startMinutes] = selectedBooking.booking_start_time
+      .split(":")
+      .map(Number);
+    const [endHours, endMinutes] = selectedBooking.booking_end_time
+      .split(":")
+      .map(Number);
 
-  setBookingStartTime(startDateTime.toISOString());
-  setBookingEndTime(endDateTime.toISOString());
-  setBookingDescription(selectedBooking.booking_description || "");
-  setQuoteAmount(selectedBooking.quote_amount?.toString() || "");
-  setAllowOverlap(selectedBooking.allow_overlap || false);
-  
-  setIsEditMode(true);
-  setIsRebookMode(selectedBooking.status === "booking_rejected");
-  setShowDetailsDialog(false);
-  setShowBookingDialog(true);
-};
+    const startDateTime = new Date(bookingDate);
+    startDateTime.setHours(startHours, startMinutes, 0, 0);
+
+    const endDateTime = new Date(bookingDate);
+    endDateTime.setHours(endHours, endMinutes, 0, 0);
+
+    setBookingStartTime(startDateTime.toISOString());
+    setBookingEndTime(endDateTime.toISOString());
+    setBookingDescription(selectedBooking.booking_description || "");
+    setQuoteAmount(selectedBooking.quote_amount?.toString() || "");
+    setAllowOverlap(selectedBooking.allow_overlap || false);
+    
+    setIsEditMode(true);
+    setIsRebookMode(selectedBooking.status === "booking_rejected");
+    setShowDetailsDialog(false);
+    setShowBookingDialog(true);
+  };
 
   const handleNewBooking = () => {
     if (existingBooking) {
@@ -582,37 +897,48 @@ const handleEditBooking = () => {
 
   const isCurrentFieldBooking = selectedBooking?.field_id === field.field_id;
 
+  // Navigation functions for mobile
+  const navigateToPrevious = () => {
+    switch (view) {
+      case Views.DAY:
+        setCurrentDate(addDays(currentDate, -1));
+        break;
+      case Views.WEEK:
+        setCurrentDate(addWeeks(currentDate, -1));
+        break;
+      case Views.MONTH:
+        setCurrentDate(addWeeks(currentDate, -4));
+        break;
+    }
+  };
+
+  const navigateToNext = () => {
+    switch (view) {
+      case Views.DAY:
+        setCurrentDate(addDays(currentDate, 1));
+        break;
+      case Views.WEEK:
+        setCurrentDate(addWeeks(currentDate, 1));
+        break;
+      case Views.MONTH:
+        setCurrentDate(addWeeks(currentDate, 4));
+        break;
+    }
+  };
+
+  const navigateToToday = () => {
+    setCurrentDate(new Date());
+  };
+
   return (
-    <div className="h-screen flex flex-col">
-      {/* Fixed Header */}
-      <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-700 sticky top-0 z-20">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <HardHat className="h-5 w-5" />
-              <h2 className="text-xl font-semibold">Book Bay: {bay.bay_name}</h2>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Field: {field?.field_name} • Stock ID: {vehicleStockId}
-              {existingBooking && (
-                <Badge variant="secondary" className="ml-2">
-                  Existing Booking
-                </Badge>
-              )}
-            </p>
-          </div>
-          <Button variant="outline" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-        </div>
-      </div>
+    <div className="h-screen flex flex-col overflow-hidden">
 
       {/* Scrollable Calendar Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0">
         <Card className="h-full border-0 rounded-none">
-          <CardContent className="p-0 h-full">
+          <CardContent className="p-4 md:p-10 h-full">
             <CalendarView
+              bay={bay}
               events={events}
               currentDate={currentDate}
               view={view}
@@ -624,45 +950,156 @@ const handleEditBooking = () => {
               existingBooking={existingBooking}
               onNewBooking={handleNewBooking}
               onShowLegend={() => setShowLegendDialog(true)}
+              bayTimings={bay.bay_timings || []}
+              onBack={onBack}
+              onShowMenu={() => setShowMenuDialog(true)}
             />
           </CardContent>
         </Card>
       </div>
 
-      {/* Fixed Footer */}
-      <div className="border-t bg-background p-4 sticky bottom-0 z-20">
-        <div className="flex justify-between items-center gap-4">
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-yellow-100 border border-yellow-500"></div>
-              <span>Booking Request</span>
+            {/* Desktop Footer - Only show on desktop */}
+      {!isMobile && (
+        <div className="flex-shrink-0 border-t bg-background p-4">
+          <div className="flex justify-between items-center gap-4">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-yellow-100 border border-yellow-500"></div>
+                <span>Booking Request</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-green-100 border border-green-500"></div>
+                <span>Accepted</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-blue-100 border border-blue-500"></div>
+                <span>In Progress</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-purple-100 border border-purple-500"></div>
+                <span>Work Review</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-red-100 border border-red-500"></div>
+                <span>Rejected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-gray-100 border border-gray-500"></div>
+                <span>Completed</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-orange-100 border border-orange-500"></div>
+                <span>Rework</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-[#c39522] border border-[#c39522]"></div>
+                <span>Past Days</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-green-100 border border-green-500"></div>
-              <span>Accepted</span>
+            
+            {existingBooking && (
+              <div className="text-sm text-amber-600 font-medium whitespace-nowrap">
+                This field has an existing booking. Click on it to edit.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Menu Dialog */}
+      <Dialog open={showMenuDialog} onOpenChange={setShowMenuDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Calendar Menu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Navigation Controls */}
+            <div className="grid grid-cols-3 gap-2">
+              <Button variant="outline" size="sm" onClick={navigateToPrevious}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={navigateToToday}>
+                Today
+              </Button>
+              <Button variant="outline" size="sm" onClick={navigateToNext}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-blue-100 border border-blue-500"></div>
-              <span>In Progress</span>
+
+            {/* View Controls */}
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant={view === Views.DAY ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setView(Views.DAY);
+                  setShowMenuDialog(false);
+                }}
+              >
+                Day
+              </Button>
+              <Button
+                variant={view === Views.WEEK ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setView(Views.WEEK);
+                  setShowMenuDialog(false);
+                }}
+              >
+                Week
+              </Button>
+              <Button
+                variant={view === Views.MONTH ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setView(Views.MONTH);
+                  setShowMenuDialog(false);
+                }}
+              >
+                Month
+              </Button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2">
+              {existingBooking ? null : (
+                <Button 
+                  onClick={() => {
+                    handleNewBooking();
+                    setShowMenuDialog(false);
+                  }} 
+                  className="w-full"
+                  disabled={!!existingBooking}
+                >
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  New Booking
+                </Button>
+              )}
+              
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  onBack();
+                  setShowMenuDialog(false);
+                }} 
+                className="w-full"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
             </div>
           </div>
-          
-          {existingBooking && (
-            <div className="text-sm text-amber-600 font-medium">
-              This field has an existing booking. Click on it to edit.
-            </div>
-          )}
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Booking Form Dialog */}
       <Dialog open={showBookingDialog} onOpenChange={setShowBookingDialog}>
         <DialogContent className="max-w-md">
-         <DialogHeader>
-  <DialogTitle>
-    {isRebookMode ? "Rebook Booking" : isEditMode ? "Edit Booking" : "Create New Booking"}
-  </DialogTitle>
-</DialogHeader>
+          <DialogHeader>
+            <DialogTitle>
+              {isRebookMode ? "Rebook Booking" : isEditMode ? "Edit Booking" : "Create New Booking"}
+            </DialogTitle>
+          </DialogHeader>
 
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4">
@@ -672,6 +1109,7 @@ const handleEditBooking = () => {
                 onChange={setBookingStartTime}
                 placeholder="Select start time"
                 required
+                minDate={new Date()}
               />
 
               <DateTimePicker
@@ -680,21 +1118,22 @@ const handleEditBooking = () => {
                 onChange={setBookingEndTime}
                 placeholder="Select end time"
                 required
+                minDate={new Date(bookingStartTime) || new Date()}
               />
             </div>
 
-              <div>
-                            <Label htmlFor="quoteAmount">Expected Estimation *</Label>
-                            <Input
-                              id="quoteAmount"
-                              type="number"
-                              step="0.01"
-                              value={quoteAmount}
-                              onChange={(e) => setQuoteAmount(e.target.value)}
-                              placeholder="Enter estimation amount"
-                              required
-                            />
-                          </div>
+            <div>
+              <Label htmlFor="quoteAmount">Expected Estimation *</Label>
+              <Input
+                id="quoteAmount"
+                type="number"
+                step="0.01"
+                value={quoteAmount}
+                onChange={(e) => setQuoteAmount(e.target.value)}
+                placeholder="Enter estimation amount"
+                required
+              />
+            </div>
 
             <div>
               <Label htmlFor="description">Work Description</Label>
@@ -723,6 +1162,28 @@ const handleEditBooking = () => {
               </Label>
             </div>
 
+            {/* Bay Timing Information */}
+            {bookingStartTime && (
+              <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                <Label className="text-sm font-medium text-blue-800">Bay Availability</Label>
+                <div className="text-xs text-blue-600 mt-1">
+                  {(() => {
+                    const startDate = new Date(bookingStartTime);
+                    const dayName = format(startDate, 'eeee');
+                    const dayTiming = bay.bay_timings.find((timing: any) => 
+                      timing.day_of_week === dayName.toLowerCase()
+                    );
+                    
+                    if (dayTiming && dayTiming.is_working_day) {
+                      return `Bay operates from ${dayTiming.start_time} to ${dayTiming.end_time} on ${dayName}`;
+                    } else {
+                      return `Bay is closed on ${dayName}`;
+                    }
+                  })()}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3 pt-4">
               <Button
                 variant="outline"
@@ -735,240 +1196,202 @@ const handleEditBooking = () => {
               >
                 Cancel
               </Button>
-           <Button
-  onClick={handleSubmitBooking}
-  disabled={
-    createBookingMutation.isPending ||
-    updateBookingMutation.isPending ||
-    rebookBookingMutation.isPending ||
-    !bookingStartTime ||
-    !bookingEndTime
-  }
-  className="flex-1"
->
-  <Save className="h-4 w-4 mr-2" />
-  {rebookBookingMutation.isPending
-    ? "Rebooking..."
-    : createBookingMutation.isPending || updateBookingMutation.isPending
-    ? "Saving..."
-    : isRebookMode
-    ? "Rebook"
-    : isEditMode
-    ? "Update Booking"
-    : "Create Booking"}
-</Button>
+              <Button
+                onClick={handleSubmitBooking}
+                disabled={
+                  createBookingMutation.isPending ||
+                  updateBookingMutation.isPending ||
+                  rebookBookingMutation.isPending ||
+                  !bookingStartTime ||
+                  !bookingEndTime
+                }
+                className="flex-1"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {rebookBookingMutation.isPending
+                  ? "Rebooking..."
+                  : createBookingMutation.isPending || updateBookingMutation.isPending
+                  ? "Saving..."
+                  : isRebookMode
+                  ? "Rebook"
+                  : isEditMode
+                  ? "Update Booking"
+                  : "Create Booking"}
+              </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Booking Details Dialog */}
-  <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-  <DialogContent className="max-w-md">
-    <DialogHeader>
-      <DialogTitle>Booking Details</DialogTitle>
-    </DialogHeader>
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Booking Details</DialogTitle>
+          </DialogHeader>
 
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-sm font-medium">Field Name</Label>
-          <p className="text-sm mt-1">{selectedBooking?.field_name}</p>
-        </div>
-        <div>
-          <Label className="text-sm font-medium">Stock ID</Label>
-          <p className="text-sm mt-1">
-            {selectedBooking?.vehicle_stock_id}
-          </p>
-        </div>
-        <div>
-          <Label className="text-sm font-medium">Bay</Label>
-          <p className="text-sm mt-1">
-            {selectedBooking?.bay_id?.bay_name || bay.bay_name}
-          </p>
-        </div>
-        <div>
-          <Label className="text-sm font-medium">Booking Date</Label>
-          <p className="text-sm mt-1">
-            {selectedBooking &&
-              format(
-                parseISO(selectedBooking.booking_date),
-                "MMM dd, yyyy"
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">Field Name</Label>
+                <p className="text-sm mt-1">{selectedBooking?.field_name}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Stock ID</Label>
+                <p className="text-sm mt-1">
+                  {selectedBooking?.vehicle_stock_id}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Bay</Label>
+                <p className="text-sm mt-1">
+                  {selectedBooking?.bay_id?.bay_name || bay.bay_name}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Booking Date</Label>
+                <p className="text-sm mt-1">
+                  {selectedBooking &&
+                    format(
+                      parseISO(selectedBooking.booking_date),
+                      "MMM dd, yyyy"
+                    )}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Start Time</Label>
+                <p className="text-sm mt-1">
+                  {selectedBooking?.booking_start_time}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">End Time</Label>
+                <p className="text-sm mt-1">
+                  {selectedBooking?.booking_end_time}
+                </p>
+              </div>
+              <div className="col-span-2">
+                <Label className="text-sm font-medium">Status</Label>
+                <div className="mt-1">
+                  <Badge className={getStatusColor(selectedBooking?.status)}>
+                    {selectedBooking?.status?.replace(/_/g, " ")}
+                  </Badge>
+                </div>
+              </div>
+              
+              {/* Show rejection reason if booking is rejected */}
+              {selectedBooking?.status === "booking_rejected" && selectedBooking?.rejected_reason && (
+                <div className="col-span-2">
+                  <Label className="text-sm font-medium text-red-600">Rejection Reason</Label>
+                  <p className="text-sm mt-1 text-red-600">{selectedBooking.rejected_reason}</p>
+                </div>
               )}
-          </p>
-        </div>
-        <div>
-          <Label className="text-sm font-medium">Start Time</Label>
-          <p className="text-sm mt-1">
-            {selectedBooking?.booking_start_time}
-          </p>
-        </div>
-        <div>
-          <Label className="text-sm font-medium">End Time</Label>
-          <p className="text-sm mt-1">
-            {selectedBooking?.booking_end_time}
-          </p>
-        </div>
-        <div className="col-span-2">
-          <Label className="text-sm font-medium">Status</Label>
-          <div className="mt-1">
-            <Badge className={getStatusColor(selectedBooking?.status)}>
-              {selectedBooking?.status?.replace(/_/g, " ")}
-            </Badge>
-          </div>
-        </div>
-        
-        {/* Show rejection reason if booking is rejected */}
-        {selectedBooking?.status === "booking_rejected" && selectedBooking?.rejected_reason && (
-          <div className="col-span-2">
-            <Label className="text-sm font-medium text-red-600">Rejection Reason</Label>
-            <p className="text-sm mt-1 bg-red-50 p-2 rounded border border-red-200">
-              {selectedBooking.rejected_reason}
-            </p>
-          </div>
-        )}
+              
+              {selectedBooking?.booking_description && (
+                <div className="col-span-2">
+                  <Label className="text-sm font-medium">Description</Label>
+                  <p className="text-sm mt-1">
+                    {selectedBooking.booking_description}
+                  </p>
+                </div>
+              )}
+            </div>
 
-        {selectedBooking?.booking_description && (
-          <div className="col-span-2">
-            <Label className="text-sm font-medium">Description</Label>
-            <p className="text-sm mt-1 bg-muted p-2 rounded">
-              {selectedBooking.booking_description}
-            </p>
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowDetailsDialog(false)}
+                className="flex-1"
+              >
+                Close
+              </Button>
+              
+              {/* Show Edit button only if it's the current field's booking and status allows editing */}
+              {isCurrentFieldBooking && 
+              selectedBooking?.status !== "completed_jobs" &&
+              selectedBooking?.status !== "work_in_progress" && (
+                <Button onClick={handleEditBooking} className="flex-1">
+                  <Save className="h-4 w-4 mr-2" />
+                  {selectedBooking?.status === "booking_rejected" ? "Rebook" : "Edit"}
+                </Button>
+              )}
+            </div>
           </div>
-        )}
-        {selectedBooking?.created_by && (
-          <div className="col-span-2">
-            <Label className="text-sm font-medium">Created By</Label>
-            <p className="text-sm mt-1">
-              {selectedBooking.created_by.first_name}{" "}
-              {selectedBooking.created_by.last_name}
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="flex gap-3 pt-4">
-        <Button
-          variant="outline"
-          onClick={() => setShowDetailsDialog(false)}
-          className="flex-1"
-        >
-          Close
-        </Button>
-        {isCurrentFieldBooking && (
-          <Button onClick={handleEditBooking} className="flex-1">
-            <Clock className="h-4 w-4 mr-2" />
-            {selectedBooking?.status === "booking_rejected" ? "Rebook" : "Edit Timing"}
-          </Button>
-        )}
-      </div>
-      
-      {!isCurrentFieldBooking && (
-        <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200">
-          This booking belongs to another field. You can only view details.
-        </div>
-      )}
-    </div>
-  </DialogContent>
-</Dialog>
+        </DialogContent>
+      </Dialog>
 
       {/* Legend Dialog */}
       <Dialog open={showLegendDialog} onOpenChange={setShowLegendDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Status Legend</DialogTitle>
+            <DialogTitle>Booking Status Legend</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-8 rounded bg-yellow-100 border-2 border-yellow-500"></div>
-              <div>
-                <p className="font-medium text-sm">Booking Request</p>
-                <p className="text-xs text-muted-foreground">
-                  Waiting for approval
-                </p>
+            {[
+              {
+                status: "booking_request",
+                label: "Booking Request",
+                description: "Booking has been requested and waiting for approval",
+              },
+              {
+                status: "booking_accepted",
+                label: "Booking Accepted",
+                description: "Booking has been accepted by the bay owner",
+              },
+              {
+                status: "booking_rejected",
+                label: "Booking Rejected",
+                description: "Booking has been rejected by the bay owner",
+              },
+              {
+                status: "work_in_progress",
+                label: "Work In Progress",
+                description: "Work has started on the vehicle",
+              },
+              {
+                status: "work_review",
+                label: "Work Review",
+                description: "Work completed and under review",
+              },
+              {
+                status: "completed_jobs",
+                label: "Completed Jobs",
+                description: "Work has been completed successfully",
+              },
+              {
+                status: "rework",
+                label: "Rework",
+                description: "Vehicle needs rework",
+              },
+              {
+                status: "Holiday",
+                label: "Holiday / Closed",
+                description: "The Shop is Closed or declared Holiday",
+              },
+              {
+                status: "Past",
+                label: "Past Days",
+                description: "These are the past days",
+              },
+            ].map((item) => (
+              <div key={item.status} className="flex items-start gap-3">
+                <div
+                  className="w-4 h-4 rounded border mt-1 flex-shrink-0"
+                  style={{
+                    backgroundColor: getStatusColor(item.status, true),
+                    borderColor: getStatusColor(item.status),
+                  }}
+                ></div>
+                <div>
+                  <p className="font-medium text-sm capitalize">
+                    {item.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.description}
+                  </p>
+                </div>
               </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-8 rounded bg-green-100 border-2 border-green-500"></div>
-              <div>
-                <p className="font-medium text-sm">Booking Accepted</p>
-                <p className="text-xs text-muted-foreground">
-                  Approved and scheduled
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-8 rounded bg-blue-100 border-2 border-blue-500"></div>
-              <div>
-                <p className="font-medium text-sm">Work in Progress</p>
-                <p className="text-xs text-muted-foreground">
-                  Currently being worked on
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-8 rounded bg-purple-100 border-2 border-purple-500"></div>
-              <div>
-                <p className="font-medium text-sm">Work Review</p>
-                <p className="text-xs text-muted-foreground">
-                  Submitted for review
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-8 rounded bg-gray-100 border-2 border-gray-500"></div>
-              <div>
-                <p className="font-medium text-sm">Completed Jobs</p>
-                <p className="text-xs text-muted-foreground">
-                  Work finished and approved
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-8 rounded bg-orange-100 border-2 border-orange-500"></div>
-              <div>
-                <p className="font-medium text-sm">Rework</p>
-                <p className="text-xs text-muted-foreground">
-                  Needs additional work
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-8 rounded bg-red-100 border-2 border-red-500"></div>
-              <div>
-                <p className="font-medium text-sm">Booking Rejected</p>
-                <p className="text-xs text-muted-foreground">
-                  Booking was declined
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t">
-              <p className="text-sm font-medium mb-2">Calendar Features:</p>
-              <ul className="text-xs text-muted-foreground space-y-1">
-                <li>• Click and drag to create new bookings</li>
-                <li>• Click on existing booking to view details</li>
-                <li>• Use Day/Week/Month view buttons to change perspective</li>
-                <li>• Multiple bookings can overlap if enabled</li>
-                <li>• Only your field's booking can be edited</li>
-              </ul>
-            </div>
-
-            <div className="pt-4">
-              <Button
-                onClick={() => setShowLegendDialog(false)}
-                className="w-full"
-              >
-                Close
-              </Button>
-            </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>
@@ -976,24 +1399,21 @@ const handleEditBooking = () => {
   );
 };
 
-// Helper function for status colors
-const getStatusColor = (status: string) => {
+// Helper function to get status color
+const getStatusColor = (status: string, isBackground = false) => {
   const colors: Record<string, string> = {
-    booking_request:
-      "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200",
-    booking_accepted:
-      "bg-green-100 text-green-800 border-green-200 hover:bg-green-200",
-    booking_rejected: "bg-red-100 text-red-800 border-red-200 hover:bg-red-200",
-    work_in_progress:
-      "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200",
-    work_review:
-      "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200",
-    completed_jobs:
-      "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200",
-    rework:
-      "bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200",
+    booking_request: isBackground ? "#fef3c7" : "#f59e0b",
+    booking_accepted: isBackground ? "#d1fae5" : "#10b981",
+    booking_rejected: isBackground ? "#fee2e2" : "#ef4444",
+    work_in_progress: isBackground ? "#dbeafe" : "#3b82f6",
+    work_review: isBackground ? "#e9d5ff" : "#8b5cf6",
+    completed_jobs: isBackground ? "#f3f4f6" : "#6b7280",
+    rework: isBackground ? "#ffedd5" : "#f97316",
+    Holiday: isBackground ? "#ecc38eff" : "#f97316",
+    Past: isBackground ? "#c39522ff" : "#f97316",
   };
-  return colors[status] || "bg-gray-100 text-gray-800";
+
+  return colors[status] || (isBackground ? "#f3f4f6" : "#6b7280");
 };
 
 export default BayBookingCalendar;

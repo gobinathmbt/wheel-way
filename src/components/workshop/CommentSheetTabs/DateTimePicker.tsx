@@ -15,6 +15,8 @@ interface DateTimePickerProps {
   placeholder?: string;
   required?: boolean;
   disabled?: boolean;
+  minDate?: Date;
+  allowPastDates?: boolean;
 }
 
 const DateTimePicker: React.FC<DateTimePickerProps> = ({
@@ -24,6 +26,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
   placeholder = "Pick a date & time",
   required = false,
   disabled = false,
+  allowPastDates = false,
 }) => {
   const selectedDate = value ? new Date(value) : undefined;
   
@@ -67,6 +70,14 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
     onChange(updated.toISOString());
   };
 
+  // Check if a date should be disabled
+  const isDateDisabled = (date: Date) => {
+    if (!allowPastDates) {
+      return date < new Date(new Date().setHours(0, 0, 0, 0)); // Disable past dates (start of today)
+    }
+    return false; // No dates disabled
+  };
+
   return (
     <div className="space-y-2">
       <Label className="text-sm font-medium">
@@ -100,6 +111,8 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
             }}
             initialFocus
             className="rounded-md border"
+            disabled={isDateDisabled}
+            fromDate={!allowPastDates ? new Date() : undefined}
           />
 
           {/* Time Picker (12-hour format with AM/PM) */}
