@@ -15,8 +15,8 @@ const FRONTEND_URLS: Record<ServerEnv, string> = {
 // Backend URL map
 const BACKEND_URLS: Record<ServerEnv, string> = {
   PROD: "https://dev-backend.autoerp.io",
-  DEV: "https://test-backend.autoerp.io",
-  TEST: "https://dev-backend.autoerp.io",
+  DEV: "https://dev-backend.autoerp.io",
+  TEST: "https://test-backend.autoerp.io",
   LOCAL: "http://localhost:5000",
 };
 
