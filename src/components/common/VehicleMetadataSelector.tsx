@@ -650,7 +650,7 @@ const VehicleMetadataSelector: React.FC<VehicleMetadataSelectorProps> = ({
       <div className={`space-y-2 ${fieldClassName} ${layout === 'horizontal' ? 'flex-1 min-w-0' : ''}`}>
         {showLabels && (
           <Label htmlFor={fieldKey} className={isRequired ? "required" : ""}>
-            {finalLabel}{isRequired && " *"}
+            {finalLabel}{isRequired && <span className="text-red-500"> *</span>}
           </Label>
         )}
         <div className="flex items-center gap-2">

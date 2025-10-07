@@ -492,19 +492,12 @@ const CreateVehicleInspectModal = ({
                 placeholder: "Select body style (optional)",
               }}
             />
-            {(errors.make || errors.model || errors.year) && (
-              <div className="text-red-500 text-sm">
-                {errors.make && <p>{errors.make}</p>}
-                {errors.model && <p>{errors.model}</p>}
-                {errors.year && <p>{errors.year}</p>}
-              </div>
-            )}
           </div>
 
           {/* Status - Fourth Field */}
           <div className="space-y-2">
             <Label htmlFor="status" className="required">
-              Status
+              Status <span className="text-red-500">*</span>
             </Label>
             <Select
               value={formData.status}
@@ -534,7 +527,7 @@ const CreateVehicleInspectModal = ({
           {/* Purchase Type - Fifth Field */}
           <div className="space-y-2">
             <Label htmlFor="purchase_type" className="required">
-              Purchase Type
+              Purchase Type <span className="text-red-500">*</span>
             </Label>
             <Select
               value={formData.purchase_type}
@@ -571,7 +564,7 @@ const CreateVehicleInspectModal = ({
           {/* VIN - Sixth Field */}
           <div className="space-y-2">
             <Label htmlFor="vin" className="required">
-              VIN *
+              VIN<span className="text-red-500">*</span>
             </Label>
             <Input
               id="vin"
@@ -586,7 +579,7 @@ const CreateVehicleInspectModal = ({
           {/* Registration No - Seventh Field */}
           <div className="space-y-2">
             <Label htmlFor="plate_no" className="required">
-              Registration No *
+              Registration No <span className="text-red-500">*</span>
             </Label>
             <Input
               id="plate_no"

@@ -428,7 +428,7 @@ const CreateVehicleAdvertisementModal = ({
           {/* Dealership - Second Field */}
           <div className="space-y-2">
             <Label htmlFor="dealership_id" className="required">
-              Dealership *
+            Dealership<span className="text-red-500">*</span>
             </Label>
             <Select
               value={formData.dealership_id}
@@ -498,7 +498,7 @@ const CreateVehicleAdvertisementModal = ({
           {/* Status - Fourth Field */}
           <div className="space-y-2">
             <Label htmlFor="status" className="required">
-              Status *
+              Status <span className="text-red-500">*</span>
             </Label>
             <Select
               value={formData.status}
@@ -528,7 +528,7 @@ const CreateVehicleAdvertisementModal = ({
           {/* Purchase Type - Fifth Field */}
           <div className="space-y-2">
             <Label htmlFor="purchase_type" className="required">
-              Purchase Type *
+              Purchase Type <span className="text-red-500">*</span>
             </Label>
             <Select
               value={formData.purchase_type}
@@ -565,7 +565,7 @@ const CreateVehicleAdvertisementModal = ({
           {/* VIN - Sixth Field */}
           <div className="space-y-2">
             <Label htmlFor="vin" className="required">
-              VIN *
+              VIN <span className="text-red-500">*</span>
             </Label>
             <Input
               id="vin"
@@ -580,7 +580,7 @@ const CreateVehicleAdvertisementModal = ({
           {/* Registration No - Seventh Field */}
           <div className="space-y-2">
             <Label htmlFor="plate_no" className="required">
-              Registration No *
+              Registration No <span className="text-red-500">*</span>
             </Label>
             <Input
               id="plate_no"
