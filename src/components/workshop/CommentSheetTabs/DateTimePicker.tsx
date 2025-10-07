@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,15 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
   disabled = false,
 }) => {
   const selectedDate = value ? new Date(value) : undefined;
-  
+
+  // 🕒 Default to current date/time if not provided
+  useEffect(() => {
+    if (!value) {
+      const now = new Date();
+      onChange(now.toISOString());
+    }
+  }, [value, onChange]);
+
   const [hour, setHour] = useState(() => {
     if (selectedDate) {
       let h = selectedDate.getHours();
@@ -34,36 +42,32 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
       if (h > 12) return (h - 12).toString();
       return h.toString();
     }
-    return "12";
+    const now = new Date().getHours();
+    if (now === 0) return "12";
+    if (now > 12) return (now - 12).toString();
+    return now.toString();
   });
 
   const [minute, setMinute] = useState(() => {
-    if (selectedDate) {
-      return selectedDate.getMinutes().toString().padStart(2, '0');
-    }
-    return "00";
+    if (selectedDate) return selectedDate.getMinutes().toString().padStart(2, "0");
+    return new Date().getMinutes().toString().padStart(2, "0");
   });
 
   const [ampm, setAmPm] = useState(() => {
-    if (selectedDate) {
-      return selectedDate.getHours() >= 12 ? "PM" : "AM";
-    }
-    return "AM";
+    if (selectedDate) return selectedDate.getHours() >= 12 ? "PM" : "AM";
+    return new Date().getHours() >= 12 ? "PM" : "AM";
   });
 
   const handleDateTimeChange = (date?: Date, h = hour, m = minute, a = ampm) => {
     if (!date) return;
-    
     const updated = new Date(date);
     let hh = parseInt(h);
     if (a === "PM" && hh < 12) hh += 12;
     if (a === "AM" && hh === 12) hh = 0;
-    
     updated.setHours(hh);
     updated.setMinutes(parseInt(m));
     updated.setSeconds(0);
     updated.setMilliseconds(0);
-    
     onChange(updated.toISOString());
   };
 
@@ -85,33 +89,25 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
             disabled={disabled}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {selectedDate
-              ? format(selectedDate, "PPP p") // e.g. Sep 24, 2025, 2:30 PM
-              : placeholder}
+            {selectedDate ? format(selectedDate, "PPP p") : placeholder}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-3 space-y-3" align="start">
-          {/* Date Picker */}
           <Calendar
             mode="single"
             selected={selectedDate}
-            onSelect={(date) => {
-              handleDateTimeChange(date);
-            }}
+            onSelect={(date) => handleDateTimeChange(date)}
             initialFocus
             className="rounded-md border"
           />
-
-          {/* Time Picker (12-hour format with AM/PM) */}
           <div className="flex items-center space-x-2 p-3 border-t">
             <Clock className="h-4 w-4 text-muted-foreground" />
-
             {/* Hours */}
             <Select
               value={hour}
               onValueChange={(val) => {
                 setHour(val);
-                handleDateTimeChange(selectedDate, val, minute, ampm);
+                handleDateTimeChange(selectedDate ?? new Date(), val, minute, ampm);
               }}
             >
               <SelectTrigger className="w-16 h-8">
@@ -120,11 +116,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
               <SelectContent>
                 {Array.from({ length: 12 }, (_, i) => {
                   const h = (i + 1).toString();
-                  return (
-                    <SelectItem key={h} value={h}>
-                      {h}
-                    </SelectItem>
-                  );
+                  return <SelectItem key={h} value={h}>{h}</SelectItem>;
                 })}
               </SelectContent>
             </Select>
@@ -136,18 +128,17 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
               value={minute}
               onValueChange={(val) => {
                 setMinute(val);
-                handleDateTimeChange(selectedDate, hour, val, ampm);
+                handleDateTimeChange(selectedDate ?? new Date(), hour, val, ampm);
               }}
             >
               <SelectTrigger className="w-16 h-8">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {["00", "15", "30", "45"].map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
-                  </SelectItem>
-                ))}
+                {Array.from({ length: 60 }, (_, i) => {
+                  const m = i.toString().padStart(2, "0");
+                  return <SelectItem key={m} value={m}>{m}</SelectItem>;
+                })}
               </SelectContent>
             </Select>
 
@@ -156,7 +147,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
               value={ampm}
               onValueChange={(val) => {
                 setAmPm(val);
-                handleDateTimeChange(selectedDate, hour, minute, val);
+                handleDateTimeChange(selectedDate ?? new Date(), hour, minute, val);
               }}
             >
               <SelectTrigger className="w-16 h-8">
