@@ -141,7 +141,7 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
   onRefresh,
   cookieName = "pagination_enabled",
   cookieMaxAge = 60 * 60 * 24 * 30,
-  disableDashboardLayout=true,
+  disableDashboardLayout=false,
 }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [statsDialogOpen, setStatsDialogOpen] = useState(false);
@@ -644,7 +644,7 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
       </div>
    )
 
-  if (!disableDashboardLayout) {
+  if (disableDashboardLayout) {
     return content;
   }
   return (

@@ -593,7 +593,7 @@ const QuotesByStatus = () => {
         onRefresh={handleRefresh}
         cookieName={`supplier_quotes_${status}_pagination`}
         cookieMaxAge={60 * 60 * 24 * 30}
-        disableDashboardLayout={false}
+        disableDashboardLayout={true}
       />
 
       {/* Modals */}
