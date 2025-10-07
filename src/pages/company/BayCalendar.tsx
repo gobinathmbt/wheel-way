@@ -446,11 +446,13 @@ const BayCalendar = () => {
       const response = await bayQuoteServices.submitBayWork(bookingId, data);
       return response.data;
     },
-    onSuccess: () => {
-      toast.success("Work submitted for review");
+    onSuccess: (data) => {
+      toast.success(data?.message || "Work submitted for review");
       queryClient.invalidateQueries({ queryKey: ["bay-calendar"] });
-      setCommentSheetOpen(false);
-      setSelectedBooking(null);
+      if (data.draft_status === false) {
+        setCommentSheetOpen(false);
+        setSelectedBooking(null);
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to submit work");

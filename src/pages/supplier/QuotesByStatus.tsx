@@ -50,7 +50,8 @@ const QuotesByStatus = () => {
   const [workMode, setWorkMode] = useState("");
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [quoteDetailsOpen, setQuoteDetailsOpen] = useState(false);
-  const [confirmNotInterestedOpen, setConfirmNotInterestedOpen] = useState(false);
+  const [confirmNotInterestedOpen, setConfirmNotInterestedOpen] =
+    useState(false);
   const [quoteToReject, setQuoteToReject] = useState<any>(null);
   const [messagingModalOpen, setMessagingModalOpen] = useState(false);
   const [selectedField, setSelectedField] = useState<any>(null);
@@ -102,7 +103,11 @@ const QuotesByStatus = () => {
     }
   };
 
-  const { data: quotesData, isLoading, refetch } = useQuery({
+  const {
+    data: quotesData,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: paginationEnabled
       ? ["supplier-quotes", status, page, search, rowsPerPage]
       : ["supplier-quotes-all", status, search],
@@ -180,15 +185,20 @@ const QuotesByStatus = () => {
   // Submit work mutation
   const submitWorkMutation = useMutation({
     mutationFn: async ({ quoteId, data }: { quoteId: string; data: any }) => {
-      const response = await supplierDashboardServices.submitWork(quoteId, data);
+      const response = await supplierDashboardServices.submitWork(
+        quoteId,
+        data
+      );
       return response.data;
     },
-    onSuccess: () => {
-      toast.success("Work submitted for review");
+    onSuccess: (data) => {
+      toast.success(data?.message || "Work submitted for review");
       queryClient.invalidateQueries({ queryKey: ["supplier-quotes"] });
       queryClient.invalidateQueries({ queryKey: ["supplier-stats"] });
-      setCommentSheetOpen(false);
-      setSelectedQuote(null);
+      if (data.draft_status === false) {
+        setCommentSheetOpen(false);
+        setSelectedQuote(null);
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to submit work");
@@ -323,9 +333,15 @@ const QuotesByStatus = () => {
 
   // Calculate stats
   const totalQuotes = quotesData?.total || 0;
-  const quoteRequestCount = quotes.filter((q: any) => q.status === "quote_request").length;
-  const quoteSentCount = quotes.filter((q: any) => q.status === "quote_sent").length;
-  const approvedCount = quotes.filter((q: any) => q.status === "quote_approved").length;
+  const quoteRequestCount = quotes.filter(
+    (q: any) => q.status === "quote_request"
+  ).length;
+  const quoteSentCount = quotes.filter(
+    (q: any) => q.status === "quote_sent"
+  ).length;
+  const approvedCount = quotes.filter(
+    (q: any) => q.status === "quote_approved"
+  ).length;
 
   const statChips = [
     {
@@ -382,7 +398,9 @@ const QuotesByStatus = () => {
               variant="outline"
               onClick={() => handleNotInterested(quote)}
               disabled={notInterestedMutation.isPending || responded}
-              className={`${notInterested ? "bg-gray-100 text-gray-400" : ""} text-xs`}
+              className={`${
+                notInterested ? "bg-gray-100 text-gray-400" : ""
+              } text-xs`}
             >
               <XCircle className="h-3 w-3 mr-1" />
               Not Interested
@@ -495,7 +513,9 @@ const QuotesByStatus = () => {
       {sortedQuotes.map((quote: any, index: number) => (
         <TableRow key={quote._id}>
           <TableCell>
-            {paginationEnabled ? (page - 1) * rowsPerPage + index + 1 : index + 1}
+            {paginationEnabled
+              ? (page - 1) * rowsPerPage + index + 1
+              : index + 1}
           </TableCell>
           <TableCell>
             <div className="flex items-center gap-3">
@@ -524,7 +544,9 @@ const QuotesByStatus = () => {
           <TableCell>
             <div>
               <p className="font-medium">{quote.field_name}</p>
-              <p className="text-sm text-muted-foreground">ID: {quote.field_id}</p>
+              <p className="text-sm text-muted-foreground">
+                ID: {quote.field_id}
+              </p>
             </div>
           </TableCell>
           <TableCell>
@@ -551,7 +573,9 @@ const QuotesByStatus = () => {
             </Badge>
             {hasResponded(quote) && (
               <div className="text-xs text-muted-foreground mt-1">
-                {isNotInterested(quote) ? "Not Interested" : "Response Submitted"}
+                {isNotInterested(quote)
+                  ? "Not Interested"
+                  : "Response Submitted"}
               </div>
             )}
           </TableCell>

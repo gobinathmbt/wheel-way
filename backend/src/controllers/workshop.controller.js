@@ -1112,6 +1112,7 @@ const submitBayWork = async (req, res) => {
       invoice_pdf_url,
       invoice_pdf_key,
       work_images,
+       save_as_draft,
     } = req.body;
 
     const statuses =
@@ -1151,9 +1152,11 @@ const submitBayWork = async (req, res) => {
     const calculatedTotal =
       total_amount || (final_price || 0) + (gst_amount || 0);
 
-    // Update quote with comment sheet
-    quote.status = "work_review";
-    quote.work_submitted_at = new Date();
+     // Only update status if NOT saving as draft
+    if (!save_as_draft) {
+      quote.status = "work_review";
+      quote.work_submitted_at = new Date();
+    }
 
     // Update comment_sheet with new structure
     quote.comment_sheet = {
@@ -1180,7 +1183,7 @@ const submitBayWork = async (req, res) => {
     };
 
     await quote.save();
-
+    if (!save_as_draft) {
     // Log the event
     await logEvent({
       event_type: "workshop_operation",
@@ -1199,10 +1202,13 @@ const submitBayWork = async (req, res) => {
         work_entries_count: work_entries ? work_entries.length : 0,
       },
     });
-
+}
     res.status(200).json({
       success: true,
-      message: "Work submitted for review successfully",
+        message: save_as_draft
+        ? "Work draft saved successfully"
+        : "Work submitted for review successfully",
+        draft_status:save_as_draft,
       data: quote,
     });
   } catch (error) {

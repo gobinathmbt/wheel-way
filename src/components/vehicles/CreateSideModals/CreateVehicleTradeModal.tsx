@@ -58,6 +58,9 @@ const CreateVehicleTradeModal = ({
   const [s3Config, setS3Config] = useState<S3Config | null>(null);
   const [s3Uploader, setS3Uploader] = useState<S3Uploader | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [metadataErrors, setMetadataErrors] = useState<Record<string, string>>(
+    {}
+  );
 
   const { completeUser } = useAuth();
 
@@ -217,7 +220,11 @@ const CreateVehicleTradeModal = ({
 
     // Clear error when field is filled
     if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }));
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
     }
   };
 
@@ -246,22 +253,32 @@ const CreateVehicleTradeModal = ({
     if (!formData.status) newErrors.status = "Status is required";
     if (!formData.purchase_type)
       newErrors.purchase_type = "Purchase type is required";
-    if (!selectedMake) newErrors.make = "Make is required";
-    if (!selectedModel) newErrors.model = "Model is required";
-    if (!selectedYear) newErrors.year = "Year is required";
     if (!formData.vin) newErrors.vin = "VIN is required";
     if (!formData.plate_no)
       newErrors.plate_no = "Registration number is required";
 
+    // Validate metadata fields
+    const newMetadataErrors: Record<string, string> = {};
+    if (!selectedMake) newMetadataErrors.make = "Make is required";
+    if (!selectedModel) newMetadataErrors.model = "Model is required";
+    if (!selectedYear) newMetadataErrors.year = "Year is required";
+
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setMetadataErrors(newMetadataErrors);
+
+    return (
+      Object.keys(newErrors).length === 0 &&
+      Object.keys(newMetadataErrors).length === 0
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
-      toast.error("Please fill in all required fields");
+      toast.error("Please fill in all required fields", {
+        position: "top-right",
+      });
       return;
     }
 
@@ -322,6 +339,7 @@ const CreateVehicleTradeModal = ({
       setHeroImage(null);
       setHeroImagePreview("");
       setErrors({});
+      setMetadataErrors({});
     } catch (error: any) {
       console.error("Create vehicle stock error:", error);
       const errorMessage =
@@ -454,6 +472,8 @@ const CreateVehicleTradeModal = ({
               onVariantChange={setSelectedVariant}
               onYearChange={setSelectedYear}
               onBodyChange={setSelectedBody}
+              errors={metadataErrors}
+              onErrorsChange={setMetadataErrors}
               layout="stacked"
               showLabels={true}
               makeProps={{
