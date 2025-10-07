@@ -70,7 +70,7 @@ interface CalendarEvent {
   fieldName: string;
   stockId: number;
   fieldId: string;
-  type: 'booking' | 'holiday';
+  type: "booking" | "holiday";
 }
 
 const BayCalendar = () => {
@@ -87,7 +87,8 @@ const BayCalendar = () => {
   const [chatModalOpen, setChatModalOpen] = useState(false);
   const [showLegendDialog, setShowLegendDialog] = useState(false);
   const [showHolidayDialog, setShowHolidayDialog] = useState(false);
-  const [showHolidayDetailsDialog, setShowHolidayDetailsDialog] = useState(false);
+  const [showHolidayDetailsDialog, setShowHolidayDetailsDialog] =
+    useState(false);
   const [workMode, setWorkMode] = useState<"submit" | "edit">("submit");
   const [mode, setMode] = useState<"company_view" | "supplier_submit">(
     "supplier_submit"
@@ -137,7 +138,11 @@ const BayCalendar = () => {
   const dateRange = getDateRange();
 
   // Fetch calendar data
-  const { data: calendarData, isLoading, refetch: refetchCalendar } = useQuery({
+  const {
+    data: calendarData,
+    isLoading,
+    refetch: refetchCalendar,
+  } = useQuery({
     queryKey: [
       "bay-calendar",
       format(dateRange.start, "yyyy-MM-dd"),
@@ -157,22 +162,20 @@ const BayCalendar = () => {
 
   // Fetch bay holidays
   const { data: bayHolidays, refetch: refetchHolidays } = useQuery({
-  queryKey: ["bay-holidays", selectedBay],
-  queryFn: async () => {
-    if (!selectedBay) return [];
-    const response = await serviceBayServices.getBayHolidays(
-      format(dateRange.start, "yyyy-MM-dd"),
-      format(dateRange.end, "yyyy-MM-dd"),
-      selectedBay || undefined
-    );
-    console.log("Bay holidays API response:", response);
-    // Access the holidays array from the response
-    return response?.data?.data || [];
-  },
-  enabled: !!selectedBay,
-});
+    queryKey: ["bay-holidays", selectedBay],
+    queryFn: async () => {
+      if (!selectedBay) return [];
+      const response = await serviceBayServices.getBayHolidays(
+        format(dateRange.start, "yyyy-MM-dd"),
+        format(dateRange.end, "yyyy-MM-dd"),
+        selectedBay || undefined
+      );
+      return response?.data?.data || [];
+    },
+    enabled: !!selectedBay,
+  });
 
-console.log(bayHolidays)
+  console.log(bayHolidays);
 
   // Set first bay as selected by default
   React.useEffect(() => {
@@ -183,84 +186,92 @@ console.log(bayHolidays)
 
   // Convert bookings to calendar events
   const events: CalendarEvent[] = React.useMemo(() => {
-  const events: CalendarEvent[] = [];
+    const events: CalendarEvent[] = [];
 
-  // Add bookings
-  if (calendarData?.bookings) {
-    calendarData.bookings.forEach((booking: any) => {
-      const startDate = parseISO(booking.booking_date);
-      const [startHours, startMinutes] = booking.booking_start_time
-        .split(":")
-        .map(Number);
-      const [endHours, endMinutes] = booking.booking_end_time
-        .split(":")
-        .map(Number);
+    // Add bookings
+    if (calendarData?.bookings) {
+      calendarData.bookings.forEach((booking: any) => {
+        const startDate = parseISO(booking.booking_date);
+        const [startHours, startMinutes] = booking.booking_start_time
+          .split(":")
+          .map(Number);
+        const [endHours, endMinutes] = booking.booking_end_time
+          .split(":")
+          .map(Number);
 
-      const start = new Date(startDate);
-      start.setHours(startHours, startMinutes, 0, 0);
+        const start = new Date(startDate);
+        start.setHours(startHours, startMinutes, 0, 0);
 
-      const end = new Date(startDate);
-      end.setHours(endHours, endMinutes, 0, 0);
+        const end = new Date(startDate);
+        end.setHours(endHours, endMinutes, 0, 0);
 
-      events.push({
-        id: booking._id,
-        title: `${booking.field_name} (Stock: ${booking.vehicle_stock_id})`,
-        start,
-        end,
-        resource: booking,
-        status: booking.status,
-        fieldName: booking.field_name,
-        stockId: booking.vehicle_stock_id,
-        fieldId: booking.field_id,
-        type: 'booking'
+        events.push({
+          id: booking._id,
+          title: `${booking.field_name} (Stock: ${booking.vehicle_stock_id})`,
+          start,
+          end,
+          resource: booking,
+          status: booking.status,
+          fieldName: booking.field_name,
+          stockId: booking.vehicle_stock_id,
+          fieldId: booking.field_id,
+          type: "booking",
+        });
       });
-    });
-  }
+    }
 
-  // Add holidays - properly access the holidays array
-  if (bayHolidays && Array.isArray(bayHolidays)) {
-    bayHolidays.forEach((holiday: any) => {
-      console.log("Processing holiday:", holiday);
-      
-      // Handle the date properly - it's already a Date object from the API
-      const startDate = new Date(holiday.date);
-      const [startHours, startMinutes] = holiday.start_time?.split(':').map(Number) || [0, 0];
-      const [endHours, endMinutes] = holiday.end_time?.split(':').map(Number) || [0, 0];
+    // Add holidays - properly access the holidays array
+    if (bayHolidays && Array.isArray(bayHolidays)) {
+      bayHolidays.forEach((bay: any) => {
+        if (bay.holidays && Array.isArray(bay.holidays)) {
+          bay.holidays.forEach((holiday: any) => {
+            const startDate = new Date(holiday.date);
+            const [startHours, startMinutes] = holiday.start_time
+              ?.split(":")
+              .map(Number) || [0, 0];
+            const [endHours, endMinutes] = holiday.end_time
+              ?.split(":")
+              .map(Number) || [0, 0];
 
-      const start = new Date(startDate);
-      start.setHours(startHours, startMinutes, 0, 0);
+            const start = new Date(startDate);
+            start.setHours(startHours, startMinutes, 0, 0);
 
-      const end = new Date(startDate);
-      end.setHours(endHours, endMinutes, 0, 0);
+            const end = new Date(startDate);
+            end.setHours(endHours, endMinutes, 0, 0);
 
-      // Validate the dates are valid
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        console.error("Invalid holiday date:", holiday);
-        return;
-      }
+            // Validate the dates are valid
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+              console.error("Invalid holiday date:", holiday);
+              return;
+            }
 
-      events.push({
-        id: `holiday-${holiday._id}`,
-        title: `Holiday: ${holiday.reason || 'No reason provided'}`,
-        start,
-        end,
-        resource: holiday,
-        status: 'holiday',
-        fieldName: 'Holiday',
-        stockId: 0,
-        fieldId: 'holiday',
-        type: 'holiday'
+            events.push({
+              id: `holiday-${holiday._id}`,
+              title: `Holiday: ${holiday.reason || "No reason provided"}`,
+              start,
+              end,
+              resource: holiday,
+              status: "holiday",
+              fieldName: "Holiday",
+              stockId: 0,
+              fieldId: "holiday",
+              type: "holiday",
+            });
+          });
+        }
       });
-    });
-  }
+    }
 
-  return events;
-}, [calendarData, bayHolidays]);
+    return events;
+  }, [calendarData, bayHolidays]);
 
   // Add holiday mutation
   const addHolidayMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await serviceBayServices.addBayHoliday(selectedBay, data);
+      const response = await serviceBayServices.addBayHoliday(
+        selectedBay,
+        data
+      );
       return response.data;
     },
     onSuccess: () => {
@@ -277,7 +288,10 @@ console.log(bayHolidays)
   // Delete holiday mutation
   const deleteHolidayMutation = useMutation({
     mutationFn: async (holidayId: string) => {
-      const response = await serviceBayServices.removeBayHoliday(selectedBay, holidayId);
+      const response = await serviceBayServices.removeBayHoliday(
+        selectedBay,
+        holidayId
+      );
       return response.data;
     },
     onSuccess: () => {
@@ -337,7 +351,7 @@ console.log(bayHolidays)
   // Handle slot selection for holiday creation
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
     const now = new Date();
-    
+
     // Check if booking is in the past
     if (isBefore(start, now)) {
       toast.error("Cannot mark holiday in the past");
@@ -350,7 +364,6 @@ console.log(bayHolidays)
       return;
     }
 
-    // Set the holiday times
     setHolidayStartTime(start.toISOString());
     setHolidayEndTime(end.toISOString());
     setShowHolidayDialog(true);
@@ -358,7 +371,7 @@ console.log(bayHolidays)
 
   // Handle event selection
   const handleSelectEvent = (event: CalendarEvent) => {
-    if (event.type === 'holiday') {
+    if (event.type === "holiday") {
       setSelectedHoliday(event.resource);
       setShowHolidayDetailsDialog(true);
     } else {
@@ -546,7 +559,7 @@ console.log(bayHolidays)
 
   // Helper function to get day name from date
   const getDayName = (date: Date): string => {
-    return format(date, 'eeee').toLowerCase();
+    return format(date, "eeee").toLowerCase();
   };
 
   // Get bay timings for the selected bay
@@ -558,74 +571,80 @@ console.log(bayHolidays)
     const now = new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     // Check if the date is in the past (before today)
     const isPastDate = date < today;
-    
+
     // Check bay timings for the specific day
     const dayName = getDayName(date);
-    const dayTiming = bayTimings.find((timing: any) => timing.day_of_week === dayName);
+    const dayTiming = bayTimings.find(
+      (timing: any) => timing.day_of_week === dayName
+    );
 
     // Condition 1: Past dates - Light brown color (same as non-working days)
     if (isPastDate) {
       return {
-        className: 'rbc-slot-past',
+        className: "rbc-slot-past",
         style: {
-          backgroundColor: '#c39522ff',
-          cursor: 'not-allowed',
+          backgroundColor: "#c39522ff",
+          cursor: "not-allowed",
           opacity: 0.6,
-          border: 'none'
-        }
+          border: "none",
+        },
       };
     }
 
     // Condition 2: Not a working day - Light brown color
     if (!dayTiming || !dayTiming.is_working_day) {
       return {
-        className: 'rbc-slot-non-working',
+        className: "rbc-slot-non-working",
         style: {
-          backgroundColor: '#ecc38eff',
-          cursor: 'not-allowed',
-          pointerEvents: 'none',
-          border: 'none'
-        }
+          backgroundColor: "#ecc38eff",
+          cursor: "not-allowed",
+          pointerEvents: "none",
+          border: "none",
+        },
       };
     }
 
     // Parse bay timing hours
-    const [bayStartHour, bayStartMinute] = dayTiming.start_time.split(':').map(Number);
-    const [bayEndHour, bayEndMinute] = dayTiming.end_time.split(':').map(Number);
+    const [bayStartHour, bayStartMinute] = dayTiming.start_time
+      .split(":")
+      .map(Number);
+    const [bayEndHour, bayEndMinute] = dayTiming.end_time
+      .split(":")
+      .map(Number);
 
     // Get current slot hour and minute
     const slotHour = date.getHours();
     const slotMinute = date.getMinutes();
 
     // Condition 3: Outside operating hours - Light brown color
-    const isBeforeStart = 
-      slotHour < bayStartHour || 
+    const isBeforeStart =
+      slotHour < bayStartHour ||
       (slotHour === bayStartHour && slotMinute < bayStartMinute);
-    
-    const isAfterEnd = 
-      slotHour > bayEndHour || 
+
+    const isAfterEnd =
+      slotHour > bayEndHour ||
       (slotHour === bayEndHour && slotMinute >= bayEndMinute);
 
     if (isBeforeStart || isAfterEnd) {
       return {
-        className: 'rbc-slot-outside-hours',
+        className: "rbc-slot-outside-hours",
         style: {
-          backgroundColor: '#ecc38eff',
-          cursor: 'not-allowed',
-          pointerEvents: 'none',
-          border: 'none'
-        }
+          backgroundColor: "#ecc38eff",
+          cursor: "not-allowed",
+          pointerEvents: "none",
+          border: "none",
+        },
       };
     }
 
     // Available slots - default styling with no borders
     return {
       style: {
-        border: 'none'
-      }
+        border: "none",
+      },
     };
   };
 
@@ -641,7 +660,7 @@ console.log(bayHolidays)
         <Button variant="outline" size="sm" onClick={navigateToNext}>
           <ChevronRight className="h-4 w-4" />
         </Button>
-        
+
         {/* Refresh Button */}
         <Button
           variant="outline"
@@ -649,9 +668,11 @@ console.log(bayHolidays)
           onClick={handleRefresh}
           disabled={isRefreshing}
         >
-          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <RefreshCw
+            className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+          />
         </Button>
-        
+
         <span className="text-lg font-semibold ml-4">{label}</span>
       </div>
       <div className="flex gap-2">
@@ -676,7 +697,7 @@ console.log(bayHolidays)
         >
           Month
         </Button>
-        
+
         {/* Holiday Button */}
         <Button
           variant="outline"
@@ -686,7 +707,7 @@ console.log(bayHolidays)
           <Ban className="h-4 w-4 mr-2" />
           Holiday
         </Button>
-        
+
         <Button
           variant="outline"
           size="sm"
@@ -695,7 +716,7 @@ console.log(bayHolidays)
           <Info className="h-4 w-4 mr-2" />
           Legend
         </Button>
-        
+
         <Select value={selectedBay} onValueChange={setSelectedBay}>
           <SelectTrigger>
             <SelectValue placeholder="Select bay" />
@@ -715,22 +736,22 @@ console.log(bayHolidays)
   const CustomEvent = ({ event }: { event: CalendarEvent }) => (
     <div className="p-1 text-xs h-full">
       <div className="font-medium truncate">
-        {event.type === 'holiday' ? 'Holiday' : event.fieldName}
+        {event.type === "holiday" ? "Holiday" : event.fieldName}
       </div>
-      {event.type === 'booking' && (
+      {event.type === "booking" && (
         <div className="truncate">Stock: {event.stockId}</div>
       )}
       <div className="truncate">
         {format(event.start, "HH:mm")} - {format(event.end, "HH:mm")}
       </div>
       <Badge variant="secondary" className="mt-1 text-xs capitalize">
-        {event.type === 'holiday' ? 'Holiday' : event.status.replace(/_/g, " ")}
+        {event.type === "holiday" ? "Holiday" : event.status.replace(/_/g, " ")}
       </Badge>
     </div>
   );
 
   const getEventStyle = (event: CalendarEvent) => {
-    if (event.type === 'holiday') {
+    if (event.type === "holiday") {
       return {
         style: {
           borderRadius: "4px",
@@ -929,11 +950,12 @@ console.log(bayHolidays)
                 <div className="text-xs text-amber-600 mt-1">
                   {(() => {
                     const startDate = new Date(holidayStartTime);
-                    const dayName = format(startDate, 'eeee');
-                    const dayTiming = bayTimings.find((timing: any) => 
-                      timing.day_of_week === dayName.toLowerCase()
+                    const dayName = format(startDate, "eeee");
+                    const dayTiming = bayTimings.find(
+                      (timing: any) =>
+                        timing.day_of_week === dayName.toLowerCase()
                     );
-                    
+
                     if (dayTiming && dayTiming.is_working_day) {
                       return `Bay normally operates from ${dayTiming.start_time} to ${dayTiming.end_time} on ${dayName}. This holiday will block bookings during the selected time.`;
                     } else {
@@ -965,7 +987,9 @@ console.log(bayHolidays)
                 className="flex-1"
               >
                 <Ban className="h-4 w-4 mr-2" />
-                {addHolidayMutation.isPending ? "Marking..." : "Mark as Holiday"}
+                {addHolidayMutation.isPending
+                  ? "Marking..."
+                  : "Mark as Holiday"}
               </Button>
             </div>
           </div>
@@ -973,7 +997,10 @@ console.log(bayHolidays)
       </Dialog>
 
       {/* Holiday Details Dialog */}
-      <Dialog open={showHolidayDetailsDialog} onOpenChange={setShowHolidayDetailsDialog}>
+      <Dialog
+        open={showHolidayDetailsDialog}
+        onOpenChange={setShowHolidayDetailsDialog}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Holiday Details</DialogTitle>
@@ -1016,14 +1043,18 @@ console.log(bayHolidays)
               <div>
                 <Label className="text-sm font-medium">Marked By</Label>
                 <p className="text-sm mt-1">
-                  {selectedHoliday.marked_by?.first_name} {selectedHoliday.marked_by?.last_name}
+                  {selectedHoliday.marked_by?.first_name}{" "}
+                  {selectedHoliday.marked_by?.last_name}
                 </p>
               </div>
 
               <div>
                 <Label className="text-sm font-medium">Marked At</Label>
                 <p className="text-sm mt-1">
-                  {format(new Date(selectedHoliday.marked_at), "MMM dd, yyyy 'at' HH:mm")}
+                  {format(
+                    new Date(selectedHoliday.marked_at),
+                    "MMM dd, yyyy 'at' HH:mm"
+                  )}
                 </p>
               </div>
 
@@ -1035,7 +1066,9 @@ console.log(bayHolidays)
                   className="flex-1"
                 >
                   <X className="h-4 w-4 mr-2" />
-                  {deleteHolidayMutation.isPending ? "Removing..." : "Remove Holiday"}
+                  {deleteHolidayMutation.isPending
+                    ? "Removing..."
+                    : "Remove Holiday"}
                 </Button>
                 <Button
                   variant="outline"

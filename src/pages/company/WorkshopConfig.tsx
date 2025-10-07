@@ -145,8 +145,7 @@ const WorkshopConfig = () => {
       }
 
       if (vehicle.vehicle_type === "inspection") {
-        // For inspection: Show complete workshop button always, but filter stages that have completed jobs
-        setCanCompleteWorkshop(true); // Always enabled for inspection
+        setCanCompleteWorkshop(true); 
 
         const completableStages: string[] = [];
 
@@ -1878,6 +1877,7 @@ const WorkshopConfig = () => {
               field={selectedField}
               vehicleType={vehicleType}
               vehicleStockId={vehicleId}
+              onSuccess={handleRefresh}
             />
             <ReceivedQuotesModal
               open={receivedQuotesModalOpen}

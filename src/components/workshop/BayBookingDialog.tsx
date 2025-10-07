@@ -37,6 +37,7 @@ interface BayBookingDialogProps {
   field: any;
   vehicleType: string;
   vehicleStockId: string;
+  onSuccess: () => void;
 }
 
 const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
@@ -45,6 +46,7 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
   field,
   vehicleType,
   vehicleStockId,
+  onSuccess,
 }) => {
   const [selectedBay, setSelectedBay] = useState<any>(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -96,10 +98,7 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
   };
 
   const handleBookingComplete = () => {
-    setShowCalendar(false);
-    setSelectedBay(null);
-    setSelectedBayId("");
-    onOpenChange(false);
+   onSuccess() 
   };
 
   // Function to get working days count
