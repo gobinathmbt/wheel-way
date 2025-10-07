@@ -81,7 +81,6 @@ const BayCalendar = () => {
     "supplier_submit"
   );
 
-  console.log(selectedBooking);
   // Fetch user's bays
   const { data: baysData } = useQuery({
     queryKey: ["user-bays-dropdown"],
