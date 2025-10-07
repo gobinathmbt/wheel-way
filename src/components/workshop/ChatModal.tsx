@@ -64,7 +64,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
-  
+
   // Get current user information
   const currentUser = JSON.parse(
     sessionStorage.getItem("user") ||
@@ -74,11 +74,12 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   const supplier_user = sessionStorage.getItem("supplier_user");
 
   // Determine user type
-  const currentUserType = currentUser.role === "supplier" 
-    ? "supplier" 
-    : currentUser.role === "company_admin" 
-    ? "bay_user" 
-    : "company";
+  const currentUserType =
+    currentUser.role === "supplier"
+      ? "supplier"
+      : currentUser.role === "company_admin"
+      ? "bay_user"
+      : "company";
 
   // Extract quote information
   const quoteType = quote?.quote_type || "supplier";
@@ -103,9 +104,12 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
       // Company admin sees bay user as the other party
       otherUser = {
         _id: bayUserId,
-        name: quote.bay_user_id?.username || 
-              `${quote.bay_user_id?.first_name || ""} ${quote.bay_user_id?.last_name || ""}`.trim() ||
-              "Bay User",
+        name:
+          quote.bay_user_id?.username ||
+          `${quote.bay_user_id?.first_name || ""} ${
+            quote.bay_user_id?.last_name || ""
+          }`.trim() ||
+          "Bay User",
         username: quote.bay_user_id?.username,
         first_name: quote.bay_user_id?.first_name,
         last_name: quote.bay_user_id?.last_name,
@@ -115,8 +119,12 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
       // Bay user sees company as the other party
       otherUser = {
         _id: companyId,
-        name: quote.company_id?.company_name || currentUser.company_name || "Company",
-        company_name: quote.company_id?.company_name || currentUser.company_name,
+        name:
+          quote.company_id?.company_name ||
+          currentUser.company_name ||
+          "Company",
+        company_name:
+          quote.company_id?.company_name || currentUser.company_name,
       };
     }
   } else {
@@ -129,7 +137,10 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
     } else if (quote?.supplier_id) {
       otherUser = quote.supplier_id;
       quoteId = quote._id;
-      companyId = currentUserType === "company" ? currentUser.company_id : quote.company_id;
+      companyId =
+        currentUserType === "company"
+          ? currentUser.company_id
+          : quote.company_id;
       supplierId = quote.supplier_id._id || quote.supplier_id;
     }
   }
@@ -138,7 +149,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   useEffect(() => {
     if (isQuoteBay) {
       setIsBayQuote(true);
-      
+
       // Only bay_user_id and company_super_admin can send messages
       if (currentUser.role === "company_admin") {
         // Check if this is the assigned bay user
@@ -198,6 +209,14 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
         try {
           await socketService.connect();
 
+          // Remove any existing listeners first to prevent duplicates
+          socketService.off("conversation_data");
+          socketService.off("new_message");
+          socketService.off("user_typing");
+          socketService.off("user_status_change");
+          socketService.off("user_status");
+          socketService.off("error");
+
           // Get conversation data
           setLoadingConversation(true);
           socketService.getConversation(quoteId, supplierId, companyId);
@@ -206,21 +225,47 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
           socketService.joinConversation(quoteId, supplierId, companyId);
 
           // Get other user status - adjust user type for bay quotes
-          const statusUserType = isBayQuote && currentUser.role === "company_super_admin" 
-            ? "bay_user" 
-            : isBayQuote && currentUser.role === "company_admin"
-            ? "company"
-            : "supplier";
-          
-          socketService.getUserStatus(statusUserType, otherUser?._id || supplierId);
+          const statusUserType =
+            isBayQuote && currentUser.role === "company_super_admin"
+              ? "bay_user"
+              : isBayQuote && currentUser.role === "company_admin"
+              ? "company"
+              : "supplier";
+
+          socketService.getUserStatus(
+            statusUserType,
+            otherUser?._id || supplierId
+          );
 
           // Set up event listeners using refs to latest callbacks
-          socketService.onConversationData((data) =>
-            handleConversationDataRef.current(data)
-          );
-          socketService.onNewMessage((data) =>
-            handleNewMessageRef.current(data)
-          );
+          socketService.onConversationData((data) => {
+            handleConversationDataRef.current(data);
+          });
+
+          socketService.onNewMessage((data) => {
+            setConversation((prev: any) => {
+              if (!prev) return { messages: [data.message] };
+              const messageExists = prev.messages.some(
+                (msg: any) =>
+                  msg._id === data.message._id ||
+                  (msg.content === data.message.content &&
+                    msg.sender_id === data.message.sender_id &&
+                    Math.abs(
+                      new Date(msg.created_at).getTime() -
+                        new Date(data.message.created_at).getTime()
+                    ) < 1000)
+              );
+              if (messageExists) {
+                return prev;
+              }
+              return {
+                ...prev,
+                messages: [...prev.messages, data.message],
+              };
+            });
+            scrollToBottom();
+          });
+
           socketService.onUserTyping((data) => handleTypingRef.current(data));
           socketService.onUserStatusChange((data) =>
             handleUserStatusChangeRef.current(data)
@@ -262,7 +307,24 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
 
   const handleNewMessage = useCallback((data: any) => {
     setConversation((prev: any) => {
-      if (!prev) return prev;
+      if (!prev) return { messages: [data.message] };
+
+      // Check if message already exists to prevent duplicates
+      const messageExists = prev.messages.some(
+        (msg: any) =>
+          msg._id === data.message._id ||
+          (msg.content === data.message.content &&
+            msg.sender_id === data.message.sender_id &&
+            Math.abs(
+              new Date(msg.created_at).getTime() -
+                new Date(data.message.created_at).getTime()
+            ) < 1000)
+      );
+
+      if (messageExists) {
+        return prev;
+      }
+
       return {
         ...prev,
         messages: [...prev.messages, data.message],
@@ -379,7 +441,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
 
   const handleSendMessage = async () => {
     if (!canSendMessage) {
-      toast.error("You don't have permission to send messages in this conversation");
+      toast.error(
+        "You don't have permission to send messages in this conversation"
+      );
       return;
     }
 
@@ -516,21 +580,41 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
     }
   };
 
-// Determine if message is from current user
+  // Determine if message is from current user - FIXED VERSION
   const isMessageFromCurrentUser = (message: any) => {
-    if (currentUser.type === "supplier" || currentUser.role === "supplier") {
-      return message.sender_type === "supplier" && message.sender_id === currentUser.id;
+    const currentUserId = currentUser.id || currentUser._id;
+
+    if (!currentUserId || !message.sender_id) return false;
+
+    // For suppliers
+    if (currentUser.role === "supplier") {
+      return (
+        message.sender_type === "supplier" &&
+        message.sender_id === currentUserId
+      );
     }
-    
+
+    // For bay quotes
     if (isBayQuote) {
       if (currentUser.role === "company_admin") {
-        return message.sender_type === "supplier" && message.sender_id === currentUser.id;
+        // Bay user should be treated as supplier in conversation
+        return (
+          message.sender_type === "supplier" &&
+          message.sender_id === currentUserId
+        );
       } else if (currentUser.role === "company_super_admin") {
-        return message.sender_type === "company" && message.sender_id === currentUser.id;
+        return (
+          message.sender_type === "company" &&
+          message.sender_id === currentUserId
+        );
       }
     } else {
-      return message.sender_type === "company" && message.sender_id === currentUser.id;
+      // Regular company user
+      return (
+        message.sender_type === "company" && message.sender_id === currentUserId
+      );
     }
+
     return false;
   };
   const messages = conversation?.messages || [];
@@ -570,9 +654,10 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={otherUser?.avatar} />
                   <AvatarFallback>
-                    {otherUser?.name?.charAt(0) || 
-                     otherUser?.username?.charAt(0) || 
-                     otherUser?.company_name?.charAt(0) || "U"}
+                    {otherUser?.name?.charAt(0) ||
+                      otherUser?.username?.charAt(0) ||
+                      otherUser?.company_name?.charAt(0) ||
+                      "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div
@@ -584,11 +669,17 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">
-                    {isBayQuote 
-                      ? (currentUser.role === "company_super_admin" 
-                          ? otherUser?.supplier_shop_name || otherUser?.name || "Bay User"
-                          : otherUser?.company_name || otherUser?.name || "Company")
-                      : (otherUser?.supplier_shop_name || otherUser?.name || "Supplier")}
+                    {isBayQuote
+                      ? currentUser.role === "company_super_admin"
+                        ? otherUser?.supplier_shop_name ||
+                          otherUser?.name ||
+                          "Bay User"
+                        : otherUser?.company_name ||
+                          otherUser?.name ||
+                          "Company"
+                      : otherUser?.supplier_shop_name ||
+                        otherUser?.name ||
+                        "Supplier"}
                   </span>
                   <Badge variant="outline" className="text-xs">
                     {userStatus?.online
@@ -623,10 +714,12 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
               ) : messages.length > 0 ? (
                 messages.map((message: any, index: number) => {
                   const isFromCurrentUser = isMessageFromCurrentUser(message);
-                  
                   return (
                     <div
-                      key={message._id || index}
+                      key={
+                        message._id ||
+                        `msg-${index}-${message.sender_id}-${message.created_at}`
+                      }
                       className={`flex ${
                         isFromCurrentUser ? "justify-end" : "justify-start"
                       }`}
@@ -685,10 +778,10 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
                   <p className="text-muted-foreground text-sm">
                     Start the conversation with{" "}
                     {isBayQuote
-                      ? (currentUser.role === "company_super_admin"
-                          ? otherUser?.supplier_shop_name || "the bay user"
-                          : otherUser?.company_name || "the company")
-                      : (otherUser?.supplier_shop_name || "the supplier")}
+                      ? currentUser.role === "company_super_admin"
+                        ? otherUser?.supplier_shop_name || "the bay user"
+                        : otherUser?.company_name || "the company"
+                      : otherUser?.supplier_shop_name || "the supplier"}
                   </p>
                 </div>
               )}
@@ -723,7 +816,8 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
             <div className="px-6 py-3 border-t bg-muted/50">
               <div className="text-sm text-muted-foreground text-center">
                 <Clock className="h-4 w-4 inline-block mr-2" />
-                You cannot send messages in this conversation as you are not the assigned bay user.
+                You cannot send messages in this conversation as you are not the
+                assigned bay user.
               </div>
             </div>
           )}

@@ -115,7 +115,6 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({
 
         if (notificationSocket) {
           notificationSocket.on("notification_connected", (data) => {
-            console.log("Notification socket connected:", data);
             setConnected(true);
             notificationSocket.emit("get_unread_count");
           });
@@ -194,12 +193,10 @@ const NotificationSideModal: React.FC<NotificationSideModalProps> = ({
 
           notificationSocket.on("disconnect", () => {
             setConnected(false);
-            console.log("Notification socket disconnected");
           });
 
           notificationSocket.on("connect", () => {
             setConnected(true);
-            console.log("Notification socket reconnected");
           });
         }
       } catch (error) {

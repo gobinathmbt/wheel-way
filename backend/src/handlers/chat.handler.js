@@ -9,9 +9,10 @@ const Env_Configuration = require("../config/env");
 const connectedUsers = new Map();
 
 // Helper function to get or create conversation
+// Helper function to get or create conversation
 const getOrCreateConversation = async (quoteId, companyId, supplierId, isBayQuote = false, bayUserId = null) => {
   try {
-    // Check if conversation already exists
+    // Check if conversation already exists - FIRST try to find it
     let conversation = await Conversation.findOne({
       quote_id: quoteId,
       company_id: companyId,
@@ -24,13 +25,12 @@ const getOrCreateConversation = async (quoteId, companyId, supplierId, isBayQuot
       return conversation;
     }
 
-    // Get quote details for metadata
+    // If not found, try to create with error handling for duplicates
     const quote = await WorkshopQuote.findById(quoteId)
       .populate("vehicle")
       .populate("company_id")
       .populate("bay_user_id", "username first_name last_name email");
 
-    // Create new conversation
     const conversationData = {
       quote_id: quoteId,
       company_id: companyId,
@@ -57,15 +57,34 @@ const getOrCreateConversation = async (quoteId, companyId, supplierId, isBayQuot
       conversationData.metadata.bay_user_id = bayUserId;
     }
 
-    conversation = new Conversation(conversationData);
-    await conversation.save();
-
-    // Update WorkshopQuote with conversation reference
-    await WorkshopQuote.findByIdAndUpdate(quoteId, {
-      conversation_id: conversation._id,
-    });
-
-    return conversation;
+    try {
+      conversation = new Conversation(conversationData);
+      await conversation.save();
+      
+      // Update WorkshopQuote with conversation reference
+      await WorkshopQuote.findByIdAndUpdate(quoteId, {
+        conversation_id: conversation._id,
+      });
+      
+      return conversation;
+    } catch (createError) {
+      // If duplicate key error, try to find the conversation again
+      if (createError.code === 11000 || createError.message.includes('duplicate key')) {
+        console.log('Duplicate conversation detected, retrying find...');
+        conversation = await Conversation.findOne({
+          quote_id: quoteId,
+          company_id: companyId,
+          supplier_id: supplierId,
+        })
+          .populate("company_id", "company_name")
+          .populate("supplier_id", "name supplier_shop_name username first_name last_name");
+        
+        if (conversation) {
+          return conversation;
+        }
+      }
+      throw createError;
+    }
   } catch (error) {
     throw new Error(`Failed to get or create conversation: ${error.message}`);
   }

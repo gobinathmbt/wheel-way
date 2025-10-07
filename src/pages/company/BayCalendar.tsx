@@ -192,7 +192,6 @@ const { data: baysData, refetch: refetchBays } = useQuery({
     enabled: !!selectedBay,
   });
 
-  console.log(bayHolidays);
 
   // Set first bay as selected by default
   React.useEffect(() => {
