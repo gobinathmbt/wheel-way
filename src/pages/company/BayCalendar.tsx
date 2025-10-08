@@ -1579,16 +1579,6 @@ const { data: baysData, refetch: refetchBays } = useQuery({
                           <XCircle className="h-4 w-4 mr-1" />
                           Reject
                         </Button>
-                        {isPrimaryAdmin && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleChat(selectedBooking)}
-                          >
-                            <MessageSquare className="h-4 w-4 mr-1" />
-                            Chat
-                          </Button>
-                        )}
                       </>
                     )}
 
@@ -1604,14 +1594,16 @@ const { data: baysData, refetch: refetchBays } = useQuery({
                             ? "Starting..."
                             : "Start Work"}
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleChat(selectedBooking)}
-                        >
-                          <MessageSquare className="h-4 w-4 mr-1" />
-                          Chat
-                        </Button>
+                        {isPrimaryAdmin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleChat(selectedBooking)}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Chat
+                          </Button>
+                        )}
                       </>
                     )}
 
@@ -1624,14 +1616,16 @@ const { data: baysData, refetch: refetchBays } = useQuery({
                           <Send className="h-4 w-4 mr-1" />
                           Submit Work
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleChat(selectedBooking)}
-                        >
-                          <MessageSquare className="h-4 w-4 mr-1" />
-                          Chat
-                        </Button>
+                        {isPrimaryAdmin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleChat(selectedBooking)}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Chat
+                          </Button>
+                        )}
                       </>
                     )}
 
@@ -1645,14 +1639,16 @@ const { data: baysData, refetch: refetchBays } = useQuery({
                           <Edit className="h-4 w-4 mr-1" />
                           Edit Submission
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleChat(selectedBooking)}
-                        >
-                          <MessageSquare className="h-4 w-4 mr-1" />
-                          Chat
-                        </Button>
+                        {isPrimaryAdmin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleChat(selectedBooking)}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Chat
+                          </Button>
+                        )}
                       </>
                     )}
 
@@ -1665,14 +1661,16 @@ const { data: baysData, refetch: refetchBays } = useQuery({
                           <Edit className="h-4 w-4 mr-1" />
                           Update & Resubmit Work
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleChat(selectedBooking)}
-                        >
-                          <MessageSquare className="h-4 w-4 mr-1" />
-                          Chat
-                        </Button>
+                        {isPrimaryAdmin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleChat(selectedBooking)}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Chat
+                          </Button>
+                        )}
                       </>
                     )}
 
