@@ -67,8 +67,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import ManualCompleteConfirmDialog from "@/components/workshop/ManualCompleteConfirmDialog";
-import ManualQuoteDialog from "@/components/workshop/ManualQuoteDialog";
-import ManualBayDialog from "@/components/workshop/ManualBayDialog";
 
 const WorkshopConfig = () => {
   const { vehicleId, vehicleType } = useParams();
@@ -107,10 +105,9 @@ const WorkshopConfig = () => {
   const [currentMediaItems, setCurrentMediaItems] = useState<MediaItem[]>([]);
   const [currentMediaId, setCurrentMediaId] = useState<string>("");
   const [bayBookingDialogOpen, setBayBookingDialogOpen] = useState(false);
-  const [manualQuoteDialogOpen, setManualQuoteDialogOpen] = useState(false);
-  const [manualBayDialogOpen, setManualBayDialogOpen] = useState(false);
-  const [manualCommentSheetOpen, setManualCommentSheetOpen] = useState(false);
-  const [selectedManualField, setSelectedManualField] = useState<any>(null);
+  const [manualQuoteAmount, setManualQuoteAmount] = useState("");
+  const [manualDescription, setManualDescription] = useState("");
+  const [manualMode, setManualMode] = useState<"quote" | "bay" | null>(null);
   const [manualConfirmDialogOpen, setManualConfirmDialogOpen] = useState(false);
 
   // Add refresh function
@@ -606,23 +603,42 @@ const WorkshopConfig = () => {
     },
   });
 
-  // Handler for manual quote completion success
-  const handleManualQuoteSuccess = (quote: any) => {
-    setManualQuoteDialogOpen(false);
-    queryClient.invalidateQueries({ queryKey: ["workshop-vehicle-details"] });
-  };
+  // Manual quote completion mutation
+  const createManualQuoteMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await workshopServices.createManualQuote(data);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Manual quote created successfully");
+      setManualMode(null);
+      setManualQuoteAmount("");
+      setManualDescription("");
+      queryClient.invalidateQueries({ queryKey: ["workshop-vehicle-details"] });
+      setFinalWorkModalOpen(true);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to create manual quote");
+    },
+  });
 
-  // Handler for manual bay completion success  
-  const handleManualBaySuccess = (quote: any) => {
-    setManualBayDialogOpen(false);
-    queryClient.invalidateQueries({ queryKey: ["workshop-vehicle-details"] });
-  };
-
-  // Handler to open worksheet for manual quotes
-  const handleOpenWorksheet = (field: any) => {
-    setSelectedManualField(field);
-    setManualCommentSheetOpen(true);
-  };
+  // Manual bay completion mutation
+  const createManualBayQuoteMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await workshopServices.createManualBayQuote(data);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Manual bay booking created successfully");
+      setManualMode(null);
+      setBayBookingDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["workshop-vehicle-details"] });
+      setFinalWorkModalOpen(true);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to create manual bay booking");
+    },
+  });
 
   // Complete manual quote mutation
   const completeManualQuoteMutation = useMutation({
@@ -633,7 +649,7 @@ const WorkshopConfig = () => {
     onSuccess: (response) => {
       toast.success(response.message);
       setManualConfirmDialogOpen(false);
-      setManualCommentSheetOpen(false);
+      setFinalWorkModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["workshop-vehicle-details"] });
     },
     onError: (error: any) => {
@@ -1655,12 +1671,8 @@ const WorkshopConfig = () => {
                                 sectionId,
                                 vehicle_type: vehicle?.vehicle_type,
                                 vehicle_stock_id: vehicle?.vehicle_stock_id,
-                                field_id: field.field_id,
-                                field_name: field.field_name,
-                                images: field.images || [],
-                                videos: field.videos || [],
                               });
-                              setManualQuoteDialogOpen(true);
+                              setManualMode("quote");
                             }}
                           >
                             <DollarSign className="h-4 w-4 mr-2" />
@@ -1677,12 +1689,8 @@ const WorkshopConfig = () => {
                                 sectionId,
                                 vehicle_type: vehicle?.vehicle_type,
                                 vehicle_stock_id: vehicle?.vehicle_stock_id,
-                                field_id: field.field_id,
-                                field_name: field.field_name,
-                                images: field.images || [],
-                                videos: field.videos || [],
                               });
-                              setManualBayDialogOpen(true);
+                              setManualMode("bay");
                             }}
                           >
                             <HardHat className="h-4 w-4 mr-2" />
@@ -1737,29 +1745,8 @@ const WorkshopConfig = () => {
 
             {(() => {
               const quote = getQuote(field.field_id);
-              
-              // Show Worksheet button for manual_completion_in_progress
-              if (quote?.status === "manual_completion_in_progress" && quote?.quote_type === "manual") {
-                return (
-                  <Button
-                    size="sm"
-                    variant="default"
-                    onClick={() => handleOpenWorksheet({
-                      ...field,
-                      categoryId,
-                      sectionId,
-                      vehicle_type: vehicle?.vehicle_type,
-                      vehicle_stock_id: vehicle?.vehicle_stock_id,
-                    })}
-                  >
-                    <FileText className="h-3 w-3 mr-1" />
-                    Worksheet
-                  </Button>
-                );
-              }
-              
-              // Show Final Work button for completed_jobs
               const hasWorkSubmitted = quote?.status === "completed_jobs";
+
               if (hasWorkSubmitted) {
                 return (
                   <Button
@@ -2531,69 +2518,6 @@ const WorkshopConfig = () => {
           setCurrentMediaItems([]);
           setCurrentMediaId("");
         }}
-      />
-
-      {/* Manual Quote Dialog */}
-      {selectedField && (
-        <ManualQuoteDialog
-          open={manualQuoteDialogOpen}
-          onOpenChange={setManualQuoteDialogOpen}
-          field={selectedField}
-          vehicleType={selectedField.vehicle_type}
-          vehicleStockId={selectedField.vehicle_stock_id}
-          onSuccess={handleManualQuoteSuccess}
-        />
-      )}
-
-      {/* Manual Bay Dialog */}
-      {selectedField && (
-        <ManualBayDialog
-          open={manualBayDialogOpen}
-          onOpenChange={setManualBayDialogOpen}
-          field={selectedField}
-          vehicleType={selectedField.vehicle_type}
-          vehicleStockId={selectedField.vehicle_stock_id}
-          onSuccess={handleManualBaySuccess}
-        />
-      )}
-
-      {/* Manual Comment Sheet Modal */}
-      {selectedManualField && (
-        <CommentSheetModal
-          open={manualCommentSheetOpen}
-          onOpenChange={setManualCommentSheetOpen}
-          field={selectedManualField}
-          mode="supplier_submit"
-          workMode="submit"
-          onSubmit={(data) => {
-            if (data.save_as_draft) {
-              // Save as draft
-              completeManualQuoteMutation.mutate({
-                quoteId: getQuote(selectedManualField.field_id)?._id,
-                data: { ...data, save_as_draft: true },
-              });
-            } else {
-              // Show confirm dialog for completion
-              setManualConfirmDialogOpen(true);
-            }
-          }}
-        />
-      )}
-
-      {/* Manual Complete Confirm Dialog */}
-      <ManualCompleteConfirmDialog
-        open={manualConfirmDialogOpen}
-        onOpenChange={setManualConfirmDialogOpen}
-        onConfirm={() => {
-          const quote = getQuote(selectedManualField?.field_id);
-          if (quote) {
-            completeManualQuoteMutation.mutate({
-              quoteId: quote._id,
-              data: { ...quote.comment_sheet, save_as_draft: false },
-            });
-          }
-        }}
-        loading={completeManualQuoteMutation.isPending}
       />
     </DashboardLayout>
   );
