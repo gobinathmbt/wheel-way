@@ -977,6 +977,14 @@ export const workshopServices = {
   requestRework: (quoteId: string, reason: string) =>
     apiClient.post(`/api/workshop/quote/${quoteId}/request-rework`, { reason }),
 
+  // Manual completion services
+  createManualQuote: (data: any) => apiClient.post("/api/workshop/manual-quote", data),
+  
+  createManualBayQuote: (data: any) => apiClient.post("/api/workshop/manual-bay-quote", data),
+  
+  completeManualQuote: (quoteId: string, data: any) =>
+    apiClient.post(`/api/workshop/manual-quote/${quoteId}/complete`, data),
+
   // Workshop field management
   addWorkshopField: (data: any) =>
     apiClient.post("/api/config/workshop/field", data),

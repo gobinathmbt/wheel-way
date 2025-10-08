@@ -123,7 +123,7 @@ const WorkEntrySchema = new mongoose.Schema({
 const WorkshopQuoteSchema = new mongoose.Schema({
   quote_type: {
     type: String,
-    enum: ["supplier", "bay"],
+    enum: ["supplier", "bay", "manual"],
     required: true,
     default: "supplier",
   },
@@ -212,6 +212,7 @@ const WorkshopQuoteSchema = new mongoose.Schema({
       "booking_request", // Bay specific
       "booking_accepted", // Bay specific
       "booking_rejected", // Bay specific
+      "manual_completion_in_progress", // Manual specific
     ],
     default: "quote_request",
   },

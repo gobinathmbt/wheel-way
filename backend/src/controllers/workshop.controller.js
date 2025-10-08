@@ -1220,6 +1220,288 @@ const submitBayWork = async (req, res) => {
   }
 };
 
+// @desc    Create manual quote
+// @route   POST /api/workshop/manual-quote
+// @access  Private (Company Admin/Super Admin)
+const createManualQuote = async (req, res) => {
+  try {
+    const {
+      vehicle_type,
+      vehicle_stock_id,
+      field_id,
+      field_name,
+      quote_amount,
+      quote_description,
+      images,
+      videos,
+    } = req.body;
+
+    if (!vehicle_type || !vehicle_stock_id || !field_id || !quote_amount) {
+      return res.status(400).json({
+        success: false,
+        message: "All required fields must be provided",
+      });
+    }
+
+    const existingQuote = await WorkshopQuote.findOne({
+      vehicle_type,
+      company_id: req.user.company_id,
+      vehicle_stock_id,
+      field_id,
+      quote_type: "manual",
+    });
+
+    if (existingQuote) {
+      return res.status(400).json({
+        success: false,
+        message: "Manual quote already exists for this field",
+      });
+    }
+
+    const quote = new WorkshopQuote({
+      quote_type: "manual",
+      vehicle_type,
+      company_id: req.user.company_id,
+      vehicle_stock_id,
+      field_id,
+      field_name,
+      quote_amount,
+      quote_description,
+      status: "manual_completion_in_progress",
+      created_by: req.user.id,
+      images: images || [],
+      videos: videos || [],
+    });
+
+    await quote.save();
+
+    await logEvent({
+      event_type: "workshop_operation",
+      event_action: "manual_quote_created",
+      event_description: `Manual quote created for field ${field_name}`,
+      user_id: req.user.id,
+      company_id: req.user.company_id,
+      user_role: req.user.role,
+      metadata: {
+        quote_id: quote._id,
+        vehicle_stock_id,
+        field_id,
+        field_name,
+        quote_amount,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Manual quote created successfully",
+      data: quote,
+    });
+  } catch (error) {
+    console.error("Create manual quote error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error creating manual quote",
+    });
+  }
+};
+
+// @desc    Create manual bay quote
+// @route   POST /api/workshop/manual-bay-quote
+// @access  Private (Company Admin/Super Admin)
+const createManualBayQuote = async (req, res) => {
+  try {
+    const {
+      vehicle_type,
+      vehicle_stock_id,
+      field_id,
+      field_name,
+      quote_amount,
+      quote_description,
+      bay_id,
+      booking_date,
+      booking_start_time,
+      booking_end_time,
+      booking_description,
+      images,
+      videos,
+    } = req.body;
+
+    if (
+      !vehicle_type ||
+      !vehicle_stock_id ||
+      !field_id ||
+      !quote_amount ||
+      !bay_id ||
+      !booking_date ||
+      !booking_start_time ||
+      !booking_end_time
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All required fields must be provided",
+      });
+    }
+
+    const existingQuote = await WorkshopQuote.findOne({
+      vehicle_type,
+      company_id: req.user.company_id,
+      vehicle_stock_id,
+      field_id,
+      quote_type: "manual",
+    });
+
+    if (existingQuote) {
+      return res.status(400).json({
+        success: false,
+        message: "Manual quote already exists for this field",
+      });
+    }
+
+    const quote = new WorkshopQuote({
+      quote_type: "manual",
+      vehicle_type,
+      company_id: req.user.company_id,
+      vehicle_stock_id,
+      field_id,
+      field_name,
+      quote_amount,
+      quote_description,
+      bay_id,
+      booking_date,
+      booking_start_time,
+      booking_end_time,
+      booking_description,
+      status: "manual_completion_in_progress",
+      created_by: req.user.id,
+      images: images || [],
+      videos: videos || [],
+    });
+
+    await quote.save();
+
+    await logEvent({
+      event_type: "workshop_operation",
+      event_action: "manual_bay_quote_created",
+      event_description: `Manual bay quote created for field ${field_name}`,
+      user_id: req.user.id,
+      company_id: req.user.company_id,
+      user_role: req.user.role,
+      metadata: {
+        quote_id: quote._id,
+        vehicle_stock_id,
+        field_id,
+        field_name,
+        quote_amount,
+        bay_id,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Manual bay quote created successfully",
+      data: quote,
+    });
+  } catch (error) {
+    console.error("Create manual bay quote error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error creating manual bay quote",
+    });
+  }
+};
+
+// @desc    Complete manual quote
+// @route   POST /api/workshop/manual-quote/:quoteId/complete
+// @access  Private (Company Admin/Super Admin)
+const completeManualQuote = async (req, res) => {
+  try {
+    const { quoteId } = req.params;
+    const {
+      work_entries,
+      warranty_months,
+      maintenance_recommendations,
+      next_service_due,
+      supplier_comments,
+      technician_company_assigned,
+      work_completion_date,
+      save_as_draft,
+    } = req.body;
+
+    const quote = await WorkshopQuote.findOne({
+      _id: quoteId,
+      company_id: req.user.company_id,
+      quote_type: "manual",
+    });
+
+    if (!quote) {
+      return res.status(404).json({
+        success: false,
+        message: "Manual quote not found",
+      });
+    }
+
+    const calculatedTotal = work_entries.reduce((total, entry) => {
+      const parts = parseFloat(entry.parts_cost) || 0;
+      const labor = parseFloat(entry.labor_cost) || 0;
+      const gst = parseFloat(entry.gst) || 0;
+      return total + parts + labor + gst;
+    }, 0);
+
+    const quoteDifference = calculatedTotal - quote.quote_amount;
+
+    quote.comment_sheet = {
+      work_entries,
+      warranty_months,
+      maintenance_recommendations,
+      next_service_due,
+      supplier_comments,
+      technician_company_assigned,
+      work_completion_date,
+      total_amount: calculatedTotal,
+      quote_difference: quoteDifference,
+      submitted_at: new Date(),
+    };
+
+    if (!save_as_draft) {
+      quote.status = "completed_jobs";
+      quote.work_completed_at = new Date();
+    }
+
+    await quote.save();
+
+    await logEvent({
+      event_type: "workshop_operation",
+      event_action: save_as_draft ? "manual_quote_draft_saved" : "manual_quote_completed",
+      event_description: save_as_draft
+        ? `Manual quote draft saved for field ${quote.field_name}`
+        : `Manual quote completed for field ${quote.field_name}`,
+      user_id: req.user.id,
+      company_id: req.user.company_id,
+      user_role: req.user.role,
+      metadata: {
+        quote_id: quote._id,
+        vehicle_stock_id: quote.vehicle_stock_id,
+        field_id: quote.field_id,
+        total_amount: calculatedTotal,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: save_as_draft
+        ? "Work draft saved successfully"
+        : "Manual quote completed successfully",
+      data: quote,
+    });
+  } catch (error) {
+    console.error("Complete manual quote error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error completing manual quote",
+    });
+  }
+};
+
 module.exports = {
   getWorkshopVehicles,
   getWorkshopVehicleDetails,
@@ -1235,4 +1517,7 @@ module.exports = {
   startBayWork,
   submitBayWork,
   rebookBayQuote,
+  createManualQuote,
+  createManualBayQuote,
+  completeManualQuote,
 };

@@ -61,6 +61,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import ManualCompleteConfirmDialog from "@/components/workshop/ManualCompleteConfirmDialog";
 
 const WorkshopConfig = () => {
   const { vehicleId, vehicleType } = useParams();
@@ -99,6 +105,10 @@ const WorkshopConfig = () => {
   const [currentMediaItems, setCurrentMediaItems] = useState<MediaItem[]>([]);
   const [currentMediaId, setCurrentMediaId] = useState<string>("");
   const [bayBookingDialogOpen, setBayBookingDialogOpen] = useState(false);
+  const [manualQuoteAmount, setManualQuoteAmount] = useState("");
+  const [manualDescription, setManualDescription] = useState("");
+  const [manualMode, setManualMode] = useState<"quote" | "bay" | null>(null);
+  const [manualConfirmDialogOpen, setManualConfirmDialogOpen] = useState(false);
 
   // Add refresh function
   const handleRefresh = () => {
@@ -590,6 +600,60 @@ const WorkshopConfig = () => {
       toast.error(
         error.response?.data?.message || "Failed to complete workshop"
       );
+    },
+  });
+
+  // Manual quote completion mutation
+  const createManualQuoteMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await workshopServices.createManualQuote(data);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Manual quote created successfully");
+      setManualMode(null);
+      setManualQuoteAmount("");
+      setManualDescription("");
+      queryClient.invalidateQueries({ queryKey: ["workshop-vehicle-details"] });
+      setFinalWorkModalOpen(true);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to create manual quote");
+    },
+  });
+
+  // Manual bay completion mutation
+  const createManualBayQuoteMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await workshopServices.createManualBayQuote(data);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Manual bay booking created successfully");
+      setManualMode(null);
+      setBayBookingDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["workshop-vehicle-details"] });
+      setFinalWorkModalOpen(true);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to create manual bay booking");
+    },
+  });
+
+  // Complete manual quote mutation
+  const completeManualQuoteMutation = useMutation({
+    mutationFn: async ({ quoteId, data }: { quoteId: string; data: any }) => {
+      const response = await workshopServices.completeManualQuote(quoteId, data);
+      return response.data;
+    },
+    onSuccess: (response) => {
+      toast.success(response.message);
+      setManualConfirmDialogOpen(false);
+      setFinalWorkModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["workshop-vehicle-details"] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to complete manual quote");
     },
   });
 
@@ -1587,16 +1651,54 @@ const WorkshopConfig = () => {
                         )}
                       </Tooltip>
                     </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button size="sm">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Manual Completion
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="sm">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Manual Completion
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56">
+                        <div className="space-y-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full justify-start"
+                            onClick={() => {
+                              setSelectedField({
+                                ...field,
+                                categoryId,
+                                sectionId,
+                                vehicle_type: vehicle?.vehicle_type,
+                                vehicle_stock_id: vehicle?.vehicle_stock_id,
+                              });
+                              setManualMode("quote");
+                            }}
+                          >
+                            <DollarSign className="h-4 w-4 mr-2" />
+                            Manual Quote Completion
                           </Button>
-                        </TooltipTrigger>
-                      </Tooltip>
-                    </TooltipProvider>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full justify-start"
+                            onClick={() => {
+                              setSelectedField({
+                                ...field,
+                                categoryId,
+                                sectionId,
+                                vehicle_type: vehicle?.vehicle_type,
+                                vehicle_stock_id: vehicle?.vehicle_stock_id,
+                              });
+                              setManualMode("bay");
+                            }}
+                          >
+                            <HardHat className="h-4 w-4 mr-2" />
+                            Manual Bay Completion
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </>
                 );
               }
