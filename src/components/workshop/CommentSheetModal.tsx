@@ -80,8 +80,8 @@ export interface FormData {
 interface CommentSheetModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  quote?: any; // Optional for company_review and company_view modes
-  field?: any; // Required for company_review and company_view modes
+  quote?: any; 
+  field?: any; 
   workMode?: any;
   mode: "supplier_submit" | "company_review" | "company_view";
   onSubmit?: (data: any) => void;
@@ -106,7 +106,6 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
   const [reworkReason, setReworkReason] = useState("");
   const [isDraftSubmission, setIsDraftSubmission] = useState(false);
 
-  // Fetch quote data for company_review and company_view modes
   const { data: fetchedQuote, isLoading: isFetchingQuote } = useQuery({
     queryKey: [
       "field-work-details",
@@ -127,11 +126,9 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
       open && !!field && (mode === "company_review" || mode === "company_view"),
   });
 
-  // Use either prop quote or fetched quote
   const quote = mode === "supplier_submit" ? propQuote : fetchedQuote;
   const isLoading = mode === "supplier_submit" ? false : isFetchingQuote;
 
-  // Accept work mutation (for company_review mode)
   const acceptWorkMutation = useMutation({
     mutationFn: async () => {
       const response = await workshopServices.acceptWork(quote._id);
@@ -144,7 +141,6 @@ const CommentSheetModal: React.FC<CommentSheetModalProps> = ({
     onError: () => toast.error("Failed to accept work"),
   });
 
-  // Request rework mutation (for company_review mode)
   const requestReworkMutation = useMutation({
     mutationFn: async (reason: string) => {
       const response = await workshopServices.requestRework(quote._id, reason);

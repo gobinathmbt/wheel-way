@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -20,12 +19,10 @@ import {
   Paperclip,
   X,
   Download,
-  MoreHorizontal,
   Clock,
   CheckCheck,
   MessageSquare,
   Smile,
-  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { socketService } from "@/lib/socket";
@@ -59,13 +56,11 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   const [isBayQuote, setIsBayQuote] = useState(false);
   const [canSendMessage, setCanSendMessage] = useState(true);
 
-  const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Get current user information
   const currentUser = JSON.parse(
     sessionStorage.getItem("user") ||
       sessionStorage.getItem("supplier_user") ||
@@ -73,7 +68,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   );
   const supplier_user = sessionStorage.getItem("supplier_user");
 
-  // Determine user type
   const currentUserType =
     currentUser.role === "supplier"
       ? "supplier"
@@ -81,11 +75,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
       ? "bay_user"
       : "company";
 
-  // Extract quote information
   const quoteType = quote?.quote_type || "supplier";
   const isQuoteBay = quoteType === "bay";
 
-  // Extract other user and IDs based on quote type
   let otherUser: any = null;
   let quoteId: string = "";
   let companyId: string = "";
@@ -93,15 +85,14 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   let bayUserId: string = "";
 
   if (isQuoteBay) {
-    // Bay quote structure
+
     quoteId = quote._id;
     companyId = quote.company_id?._id || quote.company_id;
     bayUserId = quote.bay_user_id?._id || quote.bay_user_id;
-    supplierId = bayUserId; // Bay user acts as supplier
+    supplierId = bayUserId; 
 
-    // Determine other user based on current user role
     if (currentUser.role === "company_super_admin") {
-      // Company admin sees bay user as the other party
+
       otherUser = {
         _id: bayUserId,
         name:
@@ -116,7 +107,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
         supplier_shop_name: quote.bay_id?.bay_name || "Bay",
       };
     } else if (currentUser.role === "company_admin") {
-      // Bay user sees company as the other party
+
       otherUser = {
         _id: companyId,
         name:
@@ -128,7 +119,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
       };
     }
   } else {
-    // Regular supplier quote
+
     if (quote?.approved_supplier) {
       otherUser = quote.approved_supplier;
       quoteId = quote._id;
@@ -145,14 +136,12 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
     }
   }
 
-  // Check if current user can send messages (for bay quotes)
   useEffect(() => {
     if (isQuoteBay) {
       setIsBayQuote(true);
 
-      // Only bay_user_id and company_super_admin can send messages
       if (currentUser.role === "company_admin") {
-        // Check if this is the assigned bay user
+
         const canSend = bayUserId === currentUser.id;
         setCanSendMessage(canSend);
         if (!canSend) {
@@ -169,11 +158,11 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
     }
   }, [isQuoteBay, bayUserId, currentUser.id, currentUser.role]);
 
-  // Load S3 configuration
+
   useEffect(() => {
     const loadS3Config = async () => {
       try {
-        let response;
+        let response: any;
         if (supplier_user) {
           response = await supplierDashboardServices.getsupplierS3Config();
         } else {
@@ -202,14 +191,12 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
     }
   }, [open]);
 
-  // Socket connection and event handlers
   useEffect(() => {
     if (open && quoteId) {
       const connectSocket = async () => {
         try {
           await socketService.connect();
 
-          // Remove any existing listeners first to prevent duplicates
           socketService.off("conversation_data");
           socketService.off("new_message");
           socketService.off("user_typing");
@@ -217,14 +204,11 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
           socketService.off("user_status");
           socketService.off("error");
 
-          // Get conversation data
           setLoadingConversation(true);
           socketService.getConversation(quoteId, supplierId, companyId);
 
-          // Join conversation
           socketService.joinConversation(quoteId, supplierId, companyId);
 
-          // Get other user status - adjust user type for bay quotes
           const statusUserType =
             isBayQuote && currentUser.role === "company_super_admin"
               ? "bay_user"
@@ -237,7 +221,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
             otherUser?._id || supplierId
           );
 
-          // Set up event listeners using refs to latest callbacks
           socketService.onConversationData((data) => {
             handleConversationDataRef.current(data);
           });
@@ -283,7 +266,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
 
       connectSocket();
 
-      // Cleanup function - properly remove all listeners
       return () => {
         if (quoteId) {
           socketService.off("conversation_data");
@@ -309,7 +291,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
     setConversation((prev: any) => {
       if (!prev) return { messages: [data.message] };
 
-      // Check if message already exists to prevent duplicates
       const messageExists = prev.messages.some(
         (msg: any) =>
           msg._id === data.message._id ||
@@ -374,7 +355,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
     toast.error(error.message || "Socket error occurred");
   }, []);
 
-  // Auto scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -383,7 +363,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
     scrollToBottom();
   }, [conversation?.messages, isTyping]);
 
-  // Handle typing indicators
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setNewMessage(e.target.value);
 
@@ -402,12 +381,10 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
     }, 1000);
   };
 
-  // Handle file selection with validation
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file size (10MB)
     if (file.size > 10 * 1024 * 1024) {
       toast.error("File size must be less than 10MB");
       return;
@@ -415,7 +392,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
 
     setSelectedFile(file);
 
-    // Create preview for images and videos
     if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
       const reader = new FileReader();
       reader.onload = (e) => setFilePreview(e.target?.result as string);
@@ -458,7 +434,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
       let messageType = "text";
       let fileData = null;
 
-      // Handle file upload using S3Uploader
       if (selectedFile && s3Uploader) {
         if (selectedFile.type.startsWith("image/")) {
           messageType = "image";
@@ -468,7 +443,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
           messageType = "file";
         }
 
-        // Upload to S3
         const uploadResult = await s3Uploader.uploadFile(
           selectedFile,
           messageType === "image"
@@ -487,10 +461,8 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
         };
       }
 
-      // Send via socket - include the already uploaded file data
       socketService.sendMessage(quoteId, newMessage, messageType, fileData);
 
-      // Reset form
       setNewMessage("");
       removeSelectedFile();
       socketService.stopTyping(quoteId);
@@ -580,13 +552,11 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
     }
   };
 
-  // Determine if message is from current user - FIXED VERSION
   const isMessageFromCurrentUser = (message: any) => {
     const currentUserId = currentUser.id || currentUser._id;
 
     if (!currentUserId || !message.sender_id) return false;
 
-    // For suppliers
     if (currentUser.role === "supplier") {
       return (
         message.sender_type === "supplier" &&
@@ -594,10 +564,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
       );
     }
 
-    // For bay quotes
     if (isBayQuote) {
       if (currentUser.role === "company_admin") {
-        // Bay user should be treated as supplier in conversation
+
         return (
           message.sender_type === "supplier" &&
           message.sender_id === currentUserId
@@ -609,7 +578,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
         );
       }
     } else {
-      // Regular company user
+
       return (
         message.sender_type === "company" && message.sender_id === currentUserId
       );
@@ -619,7 +588,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   };
   const messages = conversation?.messages || [];
 
-  // Create refs to store the callback functions
   const handleConversationDataRef = useRef(handleConversationData);
   const handleNewMessageRef = useRef(handleNewMessage);
   const handleTypingRef = useRef(handleTyping);
@@ -627,7 +595,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
   const handleUserStatusRef = useRef(handleUserStatus);
   const handleSocketErrorRef = useRef(handleSocketError);
 
-  // Update the refs when callbacks change
   useEffect(() => {
     handleConversationDataRef.current = handleConversationData;
     handleNewMessageRef.current = handleNewMessage;
@@ -704,7 +671,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
         </DialogHeader>
 
         <div className="flex-1 flex flex-col min-h-0">
-          {/* Messages Area */}
+
           <ScrollArea className="flex-1 px-6 py-4">
             <div className="space-y-4">
               {loadingConversation ? (
@@ -811,7 +778,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
             </div>
           </ScrollArea>
 
-          {/* Access Denied Message for Bay Quotes */}
           {isBayQuote && !canSendMessage && (
             <div className="px-6 py-3 border-t bg-muted/50">
               <div className="text-sm text-muted-foreground text-center">
@@ -822,7 +788,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
             </div>
           )}
 
-          {/* File Preview */}
           {selectedFile && canSendMessage && (
             <div className="px-6 py-3 border-t">
               <Card>
@@ -858,7 +823,6 @@ const ChatModal: React.FC<ChatModalProps> = ({ open, onOpenChange, quote }) => {
             </div>
           )}
 
-          {/* Input Area */}
           {canSendMessage && (
             <div className="p-6 border-t">
               <div className="flex gap-2">

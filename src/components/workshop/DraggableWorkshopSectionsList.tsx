@@ -24,7 +24,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import DraggableWorkshopFieldsList from "./DraggableWorkshopFieldsList";
+import DraggableWorkshopFieldsList from "@/components/workshop/DraggableWorkshopFieldsList";
 
 interface SortableSectionProps {
   section: any;

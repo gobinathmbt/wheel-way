@@ -39,7 +39,7 @@ import {
 import { Calendar, momentLocalizer, Views } from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { Input } from "../ui/input";
+import { Input } from "@/components/ui/input";
 
 const localizer = momentLocalizer(moment);
 
@@ -152,8 +152,6 @@ const CalendarView: React.FC<{
     if (!bayHolidays || bayHolidays.length === 0) return false;
 
     const slotDate = new Date(date);
-    const slotHour = slotDate.getHours();
-    const slotMinute = slotDate.getMinutes();
 
     for (const bayHoliday of bayHolidays) {
       if (bayHoliday.holidays && Array.isArray(bayHoliday.holidays)) {
@@ -188,9 +186,12 @@ const CalendarView: React.FC<{
   };
 
   const CustomToolbar = ({ label }: any) => (
-    <div className="flex items-center justify-between p-3 md:p-4 border-b bg-white sticky top-0 z-10 flex-wrap gap-2">
+    <div
+  className={`flex items-center justify-between border-b bg-white sticky top-0 z-10 flex-wrap gap-1 transition-all duration-200 ${
+    existingBooking ? "md:pb-20 h-16" : "p-3 md:pt-4 h-24"
+  }`}
+>
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        {/* Mobile Menu Button */}
         <Button
           variant="outline"
           size="sm"
@@ -200,7 +201,6 @@ const CalendarView: React.FC<{
           <Menu className="h-4 w-4" />
         </Button>
 
-        {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={navigateToPrevious}>
             <ChevronLeft className="h-4 w-4" />
@@ -213,7 +213,6 @@ const CalendarView: React.FC<{
           </Button>
         </div>
 
-        {/* Bay Information */}
         <div className="ml-2 flex items-center gap-2">
           <HardHat className="h-4 w-4 text-slate-600" />
           <span className="text-xs md:text-sm font-medium truncate">
@@ -229,7 +228,6 @@ const CalendarView: React.FC<{
           )}
         </div>
 
-        {/* Mobile Legend Button */}
         <div className="ml-auto flex items-center gap-2 md:hidden">
           <Button variant="outline" size="sm" onClick={onShowLegend}>
             <Info className="h-4 w-4" />
@@ -237,7 +235,6 @@ const CalendarView: React.FC<{
         </div>
       </div>
 
-      {/* Desktop Controls */}
       <div className="hidden md:flex gap-2 flex-wrap justify-end flex-1 min-w-0">
         <Button
           variant={view === Views.DAY ? "default" : "outline"}
@@ -378,7 +375,6 @@ const CalendarView: React.FC<{
   };
 
   const slotPropGetter = (date: Date) => {
-    const now = new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -389,7 +385,6 @@ const CalendarView: React.FC<{
       (timing: any) => timing.day_of_week === dayName
     );
 
-    // Past dates - Muted brown
     if (isPastDate) {
       return {
         className: "rbc-slot-past",
@@ -402,7 +397,6 @@ const CalendarView: React.FC<{
       };
     }
 
-    // Holiday slots - Light red
     if (isHoliday) {
       return {
         className: "rbc-slot-holiday",
@@ -415,7 +409,6 @@ const CalendarView: React.FC<{
       };
     }
 
-    // Non-working days - Warm beige
     if (!dayTiming || !dayTiming.is_working_day) {
       return {
         className: "rbc-slot-non-working",
@@ -445,7 +438,6 @@ const CalendarView: React.FC<{
       slotHour > bayEndHour ||
       (slotHour === bayEndHour && slotMinute >= bayEndMinute);
 
-    // Outside operating hours - Light beige
     if (isBeforeStart || isAfterEnd) {
       return {
         className: "rbc-slot-outside-hours",
@@ -458,7 +450,6 @@ const CalendarView: React.FC<{
       };
     }
 
-    // Available slots - Clean white
     return {
       style: {
         backgroundColor: "#ffffff",
@@ -553,7 +544,6 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
   const [view, setView] = useState(Views.DAY);
   const [isRebookMode, setIsRebookMode] = useState(false);
 
-  // Set default view based on screen size - Day for mobile, Week for desktop
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 768) {
@@ -1128,7 +1118,13 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
     <div className="h-screen flex flex-col overflow-hidden">
       <div className="flex-1 min-h-0">
         <Card className="h-full border-0 rounded-none">
-          <CardContent className="p-2 sm:p-4 md:p-6 lg:p-10 h-full">
+          <CardContent
+  className={`h-full transition-all duration-200 ${
+    existingBooking
+      ? "p-2 sm:p-3 md:p-4 lg:p-7" 
+      : "p-2 sm:p-4 md:p-6 lg:p-12" 
+  }`}
+>
             <CalendarView
               bay={bay}
               events={events}
@@ -1151,8 +1147,11 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
         </Card>
       </div>
 
-      {/* Footer Legend - Hidden on mobile */}
-      <div className="hidden md:block flex-shrink-0 border-t bg-white p-4">
+      <div
+  className={`hidden md:block flex-shrink-0 border-t bg-white transition-all duration-200 ${
+    existingBooking ? "pb-12" : "pb-1"
+  }`}
+>
         <div className="flex justify-between items-center gap-4">
           <div className="flex items-center gap-3 lg:gap-4 text-xs lg:text-sm text-slate-600 flex-wrap">
             <div className="flex items-center gap-2">
@@ -1192,16 +1191,9 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
               <span>Past</span>
             </div>
           </div>
-
-          {existingBooking && (
-            <div className="text-xs lg:text-sm text-amber-700 font-semibold whitespace-nowrap bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200">
-              Existing booking - Click to edit
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Mobile Menu Dialog */}
       <Dialog open={showMenuDialog} onOpenChange={setShowMenuDialog}>
         <DialogContent className="max-w-[90vw] sm:max-w-md">
           <DialogHeader>
@@ -1284,7 +1276,6 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Booking Form Dialog */}
       <Dialog open={showBookingDialog} onOpenChange={setShowBookingDialog}>
         <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -1475,7 +1466,6 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Booking Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
         <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -1597,7 +1587,6 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Holiday Details Dialog */}
       <Dialog
         open={showHolidayDetailsDialog}
         onOpenChange={setShowHolidayDetailsDialog}
@@ -1697,7 +1686,6 @@ const BayBookingCalendar: React.FC<BayBookingCalendarProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Legend Dialog */}
       <Dialog open={showLegendDialog} onOpenChange={setShowLegendDialog}>
         <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>

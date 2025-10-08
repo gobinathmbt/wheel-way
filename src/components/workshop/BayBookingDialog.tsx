@@ -20,15 +20,13 @@ import {
   HardHat,
   Users,
   Clock,
-  ChevronRight,
   Mail,
   User,
   Calendar,
   ArrowRight,
-  FileKey,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { serviceBayServices, bayQuoteServices } from "@/api/services";
+import { serviceBayServices } from "@/api/services";
 import BayBookingCalendar from "./BayBookingCalendar";
 
 interface BayBookingDialogProps {
@@ -52,7 +50,6 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedBayId, setSelectedBayId] = useState<string>("");
 
-  // Fetch available bays
   const { data: baysData, isLoading } = useQuery({
     queryKey: ["company-bays-dropdown"],
     queryFn: async () => {
@@ -62,7 +59,6 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
     enabled: open,
   });
 
-  // Effect to handle pre-selected bay from field
   React.useEffect(() => {
     if (field?.bay_id && baysData && !showCalendar && !selectedBay) {
       const bay = baysData.find((b: any) => b._id === field.bay_id);
@@ -101,13 +97,11 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
    onSuccess() 
   };
 
-  // Function to get working days count
   const getWorkingDaysCount = (bayTimings: any[]) => {
     if (!bayTimings) return 0;
     return bayTimings.filter((timing: any) => timing.is_working_day).length;
   };
 
-  // Get bay timings summary
   const getBayTimingsSummary = (bayTimings: any[]) => {
     if (!bayTimings || bayTimings.length === 0) return "No timings set";
 
@@ -123,7 +117,6 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
     return "Varied timings";
   };
 
-  // Get selected bay details
   const selectedBayDetails = selectedBayId
     ? baysData?.find((b: any) => b._id === selectedBayId)
     : null;
@@ -164,7 +157,7 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
           </div>
         ) : baysData && baysData.length > 0 ? (
           <div className="space-y-6 py-4">
-            {/* Bay Selection Dropdown */}
+
             <div className="space-y-3">
               <Label htmlFor="bay-select" className="text-base font-semibold">
                 Choose a Bay
@@ -191,7 +184,6 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
               </Select>
             </div>
 
-            {/* Selected Bay Details */}
             {selectedBayDetails && (
               <Card className="border-2 border-primary/20 bg-primary/5">
                 <CardContent className="p-6">
@@ -218,7 +210,7 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    {/* Bay Users Count */}
+
                     <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
                       <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
                         <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -234,7 +226,7 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
                       </div>
                     </div>
 
-                    {/* Working Days */}
+
                     {selectedBayDetails.bay_timings && (
                       <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
                         <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded">
@@ -254,7 +246,6 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
                       </div>
                     )}
 
-                    {/* Primary Admin */}
                     <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
                       <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded">
                         <User className="h-5 w-5 text-purple-600 dark:text-purple-400" />
@@ -269,7 +260,6 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
                       </div>
                     </div>
 
-                    {/* Working Hours */}
                     {selectedBayDetails.bay_timings && (
                       <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
                         <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded">
@@ -289,7 +279,6 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
                     )}
                   </div>
 
-                  {/* Admin Contact */}
                   <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
                     <div className="p-2 bg-cyan-100 dark:bg-cyan-900/30 rounded">
                       <Mail className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
@@ -304,7 +293,6 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
                     </div>
                   </div>
 
-                  {/* Bay Timings Details */}
                   {selectedBayDetails.bay_timings &&
                     selectedBayDetails.bay_timings.length > 0 && (
                       <div className="mt-4 p-4 bg-background rounded-lg">
@@ -341,7 +329,6 @@ const BayBookingDialog: React.FC<BayBookingDialogProps> = ({
                       </div>
                     )}
 
-                  {/* Proceed Button */}
                   <div className="mt-6">
                     <Button
                       className="w-full"

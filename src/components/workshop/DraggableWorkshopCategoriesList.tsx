@@ -25,7 +25,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import DraggableWorkshopSectionsList from "./DraggableWorkshopSectionsList";
+import DraggableWorkshopSectionsList from "@/components/workshop/DraggableWorkshopSectionsList";
 
 interface SortableCategoryProps {
   category: any;

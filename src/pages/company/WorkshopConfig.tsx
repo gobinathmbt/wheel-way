@@ -41,7 +41,7 @@ import {
   ZoomIn,
   Video,
   HardHat,
-  RefreshCw, // <-- Added for refresh icon
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import QuoteModal from "@/components/workshop/QuoteModal";
@@ -782,7 +782,7 @@ const WorkshopConfig = () => {
     setInsertFieldModalOpen(true);
   };
 
-  // Add workshop field mutation
+  // Add workshop field mutation - UPDATED LOGIC
   const addWorkshopFieldMutation = useMutation({
     mutationFn: async (fieldData: any) => {
       const currentResults =
@@ -806,21 +806,23 @@ const WorkshopConfig = () => {
           throw new Error("Category not found");
         }
 
-        // Find or create "at_workshop" section
+        // Find existing "At Workshop - Add On" section OR create if doesn't exist
         let workshopSectionIndex = updatedResults[
           categoryIndex
         ].sections?.findIndex(
-          (section: any) => section.section_name === "at_workshop"
+          (section: any) => 
+            section.section_name === "At Workshop - Add On" || 
+            section.section_display_name === "at_workshop_onstaging"
         );
 
         if (workshopSectionIndex === -1) {
-          // Create new workshop section
+          // Create new workshop section only if it doesn't exist
           const newWorkshopSection = {
             section_id: `workshop_section_${Date.now()}`,
             section_name: "At Workshop - Add On",
             section_display_name: "at_workshop_onstaging",
             display_order: updatedResults[categoryIndex].sections?.length || 0,
-            fields: [],
+            fields: [fieldData], // Add the field directly
           };
 
           if (!updatedResults[categoryIndex].sections) {
@@ -828,21 +830,20 @@ const WorkshopConfig = () => {
           }
 
           updatedResults[categoryIndex].sections.push(newWorkshopSection);
-          workshopSectionIndex =
-            updatedResults[categoryIndex].sections.length - 1;
+        } else {
+          // Add field to existing workshop section
+          if (!updatedResults[categoryIndex].sections[workshopSectionIndex].fields) {
+            updatedResults[categoryIndex].sections[workshopSectionIndex].fields = [];
+          }
+          updatedResults[categoryIndex].sections[workshopSectionIndex].fields.push(fieldData);
         }
-
-        // Add field to workshop section
-        updatedResults[categoryIndex].sections[
-          workshopSectionIndex
-        ].fields.push(fieldData);
       } else {
-        // For trade_in, find or create workshop section as direct section
+        // For trade_in, find existing workshop section OR create if doesn't exist
         let workshopSectionIndex = updatedResults.findIndex(
           (item: any) =>
             item.section_id &&
-            (item.section_name === "at_workshop" ||
-              item.section_name.includes("workshop"))
+            (item.section_name === "At Workshop - Add On" ||
+              item.section_display_name === "at_workshop_onstaging")
         );
 
         if (workshopSectionIndex === -1) {
@@ -852,7 +853,7 @@ const WorkshopConfig = () => {
             section_name: "At Workshop - Add On",
             section_display_name: "at_workshop_onstaging",
             display_order: updatedResults.length,
-            fields: [fieldData],
+            fields: [fieldData], // Add the field directly
           };
 
           updatedResults.push(newWorkshopSection);
@@ -1257,43 +1258,42 @@ const WorkshopConfig = () => {
                         <Accordion type="multiple" className="w-full">
                           {category.sections?.map(
                             (section: any, sectionIndex: number) => (
-                              <AccordionItem
-                                key={sectionIndex}
-                                value={`section-${categoryIndex}-${sectionIndex}`}
-                              >
-                                {section.fields?.length > 0 && (
-                                  <>
-                                    <AccordionTrigger>
-                                      <div className="flex items-center justify-between w-full mr-4">
-                                        <span>{section.section_name}</span>
-                                        <Badge variant="outline">
-                                          {section.fields?.length || 0} Fields
-                                        </Badge>
-                                      </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent>
-                                      <div className="space-y-4">
-                                        {section.fields?.map(
-                                          (field: any, fieldIndex: number) => (
-                                            <div
-                                              key={fieldIndex}
-                                              className={`rounded-lg p-4 ${getFieldBorderColor(
-                                                field
-                                              )}`}
-                                            >
-                                              {renderFieldContent(
-                                                field,
-                                                category.category_id,
-                                                section.section_id
-                                              )}
-                                            </div>
-                                          )
-                                        )}
-                                      </div>
-                                    </AccordionContent>
-                                  </>
-                                )}
-                              </AccordionItem>
+                              // Only render section if it has fields - UPDATED CONDITION
+                              section.fields?.length > 0 && (
+                                <AccordionItem
+                                  key={sectionIndex}
+                                  value={`section-${categoryIndex}-${sectionIndex}`}
+                                >
+                                  <AccordionTrigger>
+                                    <div className="flex items-center justify-between w-full mr-4">
+                                      <span>{section.section_name}</span>
+                                      <Badge variant="outline">
+                                        {section.fields?.length || 0} Fields
+                                      </Badge>
+                                    </div>
+                                  </AccordionTrigger>
+                                  <AccordionContent>
+                                    <div className="space-y-4">
+                                      {section.fields?.map(
+                                        (field: any, fieldIndex: number) => (
+                                          <div
+                                            key={fieldIndex}
+                                            className={`rounded-lg p-4 ${getFieldBorderColor(
+                                              field
+                                            )}`}
+                                          >
+                                            {renderFieldContent(
+                                              field,
+                                              category.category_id,
+                                              section.section_id
+                                            )}
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+                                  </AccordionContent>
+                                </AccordionItem>
+                              )
                             )
                           )}
                         </Accordion>
@@ -1309,73 +1309,73 @@ const WorkshopConfig = () => {
                 const isDirectSection = item.section_id && item.fields;
 
                 if (isCategory) {
-                  // Render as category with sections
+                  // Render as category with sections - UPDATED: Only render if sections have fields
+                  const hasSectionsWithFields = item.sections?.some(
+                    (section: any) => section.fields?.length > 0
+                  );
+
+                  if (!hasSectionsWithFields) return null;
+
                   return (
                     <Card key={itemIndex} className="mb-4">
-                      {item.sections?.length > 0 && (
-                        <>
-                          <CardHeader>
-                            <CardTitle className="flex items-center justify-between">
-                              <span>{item.category_name}</span>
-                              <Badge variant="secondary">
-                                {item.sections?.length || 0} Sections
-                              </Badge>
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <Accordion type="multiple" className="w-full">
-                              {item.sections?.map(
-                                (section: any, sectionIndex: number) => (
-                                  <AccordionItem
-                                    key={sectionIndex}
-                                    value={`section-${itemIndex}-${sectionIndex}`}
-                                  >
-                                    {section.fields?.length > 0 && (
-                                      <>
-                                        <AccordionTrigger>
-                                          <div className="flex items-center justify-between w-full mr-4">
-                                            <span>{section.section_name}</span>
-                                            <Badge variant="outline">
-                                              {section.fields?.length || 0}{" "}
-                                              Fields
-                                            </Badge>
-                                          </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent>
-                                          <div className="space-y-4">
-                                            {section.fields?.map(
-                                              (
-                                                field: any,
-                                                fieldIndex: number
-                                              ) => (
-                                                <div
-                                                  key={fieldIndex}
-                                                  className={`rounded-lg p-4 ${getFieldBorderColor(
-                                                    field
-                                                  )}`}
-                                                >
-                                                  {renderFieldContent(
-                                                    field,
-                                                    item.category_id,
-                                                    section.section_id
-                                                  )}
-                                                </div>
-                                              )
+                      <CardHeader>
+                        <CardTitle className="flex items-center justify-between">
+                          <span>{item.category_name}</span>
+                          <Badge variant="secondary">
+                            {item.sections?.length || 0} Sections
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <Accordion type="multiple" className="w-full">
+                          {item.sections?.map(
+                            (section: any, sectionIndex: number) => (
+                              // Only render section if it has fields - UPDATED CONDITION
+                              section.fields?.length > 0 && (
+                                <AccordionItem
+                                  key={sectionIndex}
+                                  value={`section-${itemIndex}-${sectionIndex}`}
+                                >
+                                  <AccordionTrigger>
+                                    <div className="flex items-center justify-between w-full mr-4">
+                                      <span>{section.section_name}</span>
+                                      <Badge variant="outline">
+                                        {section.fields?.length || 0} Fields
+                                      </Badge>
+                                    </div>
+                                  </AccordionTrigger>
+                                  <AccordionContent>
+                                    <div className="space-y-4">
+                                      {section.fields?.map(
+                                        (field: any, fieldIndex: number) => (
+                                          <div
+                                            key={fieldIndex}
+                                            className={`rounded-lg p-4 ${getFieldBorderColor(
+                                              field
+                                            )}`}
+                                          >
+                                            {renderFieldContent(
+                                              field,
+                                              item.category_id,
+                                              section.section_id
                                             )}
                                           </div>
-                                        </AccordionContent>
-                                      </>
-                                    )}
-                                  </AccordionItem>
-                                )
-                              )}
-                            </Accordion>
-                          </CardContent>
-                        </>
-                      )}
+                                        )
+                                      )}
+                                    </div>
+                                  </AccordionContent>
+                                </AccordionItem>
+                              )
+                            )
+                          )}
+                        </Accordion>
+                      </CardContent>
                     </Card>
                   );
                 } else if (isDirectSection) {
+                  // Only render direct section if it has fields - UPDATED CONDITION
+                  if (!item.fields?.length) return null;
+
                   // Render as direct section
                   return (
                     <Card key={itemIndex} className="mb-4">
@@ -1388,26 +1388,24 @@ const WorkshopConfig = () => {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        {item.fields?.length > 0 && (
-                          <div className="space-y-4">
-                            {item.fields?.map(
-                              (field: any, fieldIndex: number) => (
-                                <div
-                                  key={fieldIndex}
-                                  className={`rounded-lg p-4 ${getFieldBorderColor(
-                                    field
-                                  )}`}
-                                >
-                                  {renderFieldContent(
-                                    field,
-                                    null, // No category for direct sections
-                                    item.section_id
-                                  )}
-                                </div>
-                              )
-                            )}
-                          </div>
-                        )}
+                        <div className="space-y-4">
+                          {item.fields?.map(
+                            (field: any, fieldIndex: number) => (
+                              <div
+                                key={fieldIndex}
+                                className={`rounded-lg p-4 ${getFieldBorderColor(
+                                  field
+                                )}`}
+                              >
+                                {renderFieldContent(
+                                  field,
+                                  null, // No category for direct sections
+                                  item.section_id
+                                )}
+                              </div>
+                            )
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   );
