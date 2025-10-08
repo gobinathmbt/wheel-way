@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableHeader } from "@/components/ui/table";
+
 import {
   Pagination,
   PaginationContent,
@@ -183,7 +184,7 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
           <PaginationLink
             onClick={() => onPageChange(1)}
             isActive={page === 1}
-            className="cursor-pointer"
+            className={`cursor-pointer ${page === 1 ? "bg-blue-600 text-white hover:bg-blue-700" : ""}`}
           >
             1
           </PaginationLink>
@@ -209,7 +210,7 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
             <PaginationLink
               onClick={() => onPageChange(i)}
               isActive={page === i}
-              className="cursor-pointer"
+              className={`cursor-pointer ${page === i ? "bg-blue-600 text-white hover:bg-blue-700" : ""}`}
             >
               {i}
             </PaginationLink>
@@ -232,7 +233,7 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
           <PaginationLink
             onClick={() => onPageChange(totalPages)}
             isActive={page === totalPages}
-            className="cursor-pointer"
+            className={`cursor-pointer ${page === totalPages ? "bg-blue-600 text-white hover:bg-blue-700" : ""}`}
           >
             {totalPages}
           </PaginationLink>
@@ -593,7 +594,19 @@ const DataTableLayout: React.FC<DataTableLayoutProps> = ({
                       />
                     </PaginationItem>
 
-                    {getPaginationItems()}
+                    {/* Always show page 1 when there's only one page */}
+                    {totalPages === 1 ? (
+                      <PaginationItem>
+                        <PaginationLink
+                          isActive={true}
+                          className="cursor-pointer bg-blue-600 text-white hover:bg-blue-700"
+                        >
+                          1
+                        </PaginationLink>
+                      </PaginationItem>
+                    ) : (
+                      getPaginationItems()
+                    )}
 
                     <PaginationItem>
                       <PaginationNext
