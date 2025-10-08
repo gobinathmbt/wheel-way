@@ -145,7 +145,7 @@ const WorkshopConfig = () => {
       }
 
       if (vehicle.vehicle_type === "inspection") {
-        setCanCompleteWorkshop(true); 
+        setCanCompleteWorkshop(true);
 
         const completableStages: string[] = [];
 
@@ -810,8 +810,8 @@ const WorkshopConfig = () => {
         let workshopSectionIndex = updatedResults[
           categoryIndex
         ].sections?.findIndex(
-          (section: any) => 
-            section.section_name === "At Workshop - Add On" || 
+          (section: any) =>
+            section.section_name === "At Workshop - Add On" ||
             section.section_display_name === "at_workshop_onstaging"
         );
 
@@ -832,10 +832,16 @@ const WorkshopConfig = () => {
           updatedResults[categoryIndex].sections.push(newWorkshopSection);
         } else {
           // Add field to existing workshop section
-          if (!updatedResults[categoryIndex].sections[workshopSectionIndex].fields) {
-            updatedResults[categoryIndex].sections[workshopSectionIndex].fields = [];
+          if (
+            !updatedResults[categoryIndex].sections[workshopSectionIndex].fields
+          ) {
+            updatedResults[categoryIndex].sections[
+              workshopSectionIndex
+            ].fields = [];
           }
-          updatedResults[categoryIndex].sections[workshopSectionIndex].fields.push(fieldData);
+          updatedResults[categoryIndex].sections[
+            workshopSectionIndex
+          ].fields.push(fieldData);
         }
       } else {
         // For trade_in, find existing workshop section OR create if doesn't exist
@@ -1257,7 +1263,7 @@ const WorkshopConfig = () => {
                       <CardContent>
                         <Accordion type="multiple" className="w-full">
                           {category.sections?.map(
-                            (section: any, sectionIndex: number) => (
+                            (section: any, sectionIndex: number) =>
                               // Only render section if it has fields - UPDATED CONDITION
                               section.fields?.length > 0 && (
                                 <AccordionItem
@@ -1294,7 +1300,6 @@ const WorkshopConfig = () => {
                                   </AccordionContent>
                                 </AccordionItem>
                               )
-                            )
                           )}
                         </Accordion>
                       </CardContent>
@@ -1329,7 +1334,7 @@ const WorkshopConfig = () => {
                       <CardContent>
                         <Accordion type="multiple" className="w-full">
                           {item.sections?.map(
-                            (section: any, sectionIndex: number) => (
+                            (section: any, sectionIndex: number) =>
                               // Only render section if it has fields - UPDATED CONDITION
                               section.fields?.length > 0 && (
                                 <AccordionItem
@@ -1366,7 +1371,6 @@ const WorkshopConfig = () => {
                                   </AccordionContent>
                                 </AccordionItem>
                               )
-                            )
                           )}
                         </Accordion>
                       </CardContent>
@@ -1581,6 +1585,16 @@ const WorkshopConfig = () => {
                               : "Supplier quote is in progress"}
                           </TooltipContent>
                         )}
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Manual Completion
+                          </Button>
+                        </TooltipTrigger>
                       </Tooltip>
                     </TooltipProvider>
                   </>
