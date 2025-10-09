@@ -361,6 +361,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           module: "company_notifications",
         },
         {
+          icon: DollarSign,
+          label: "Cost Configuration",
+          path: "/company/cost-configuration",
+          module: "vehicle_permission",
+        },
+        {
           icon: UserCog,
           label: "Settings",
           path: "/company/settings",
