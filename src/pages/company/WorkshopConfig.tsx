@@ -965,10 +965,16 @@ const WorkshopConfig = () => {
       (q) => q.field_id === field_id && q.quote_type === "bay"
     );
   };
+  const getManualQuote = (field_id: string) => {
+    if (!vehicle_quotes) return null;
+    return vehicle_quotes.find(
+      (q) => q.field_id === field_id && q.quote_type === "manual"
+    );
+  };
 
   // Get primary quote (supplier preferred, fallback to bay)
   const getQuote = (field_id: string) => {
-    return getSupplierQuote(field_id) || getBayQuote(field_id);
+    return getSupplierQuote(field_id) || getBayQuote(field_id) || getManualQuote(field_id);
   };
 
   const getStatus = (field_id: string) => {
