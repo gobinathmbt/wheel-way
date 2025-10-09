@@ -108,7 +108,7 @@ const createCurrency = async (req, res) => {
       country,
       exchange_rate: exchange_rate || 1,
       symbol_position: symbol_position || 'before',
-      created_by: req.user._id
+      created_by: req.user.id
     });
     
     await logEvent(
@@ -116,7 +116,7 @@ const createCurrency = async (req, res) => {
       'create',
       'currency',
       currency._id,
-      req.user._id,
+      req.user.id,
       null,
       { currency_name, currency_code }
     );
@@ -187,7 +187,7 @@ const updateCurrency = async (req, res) => {
       'update',
       'currency',
       currency._id,
-      req.user._id,
+      req.user.id,
       oldData,
       currency.toObject()
     );
@@ -232,7 +232,7 @@ const deleteCurrency = async (req, res) => {
       'delete',
       'currency',
       currency._id,
-      req.user._id,
+      req.user.id,
       oldData,
       null
     );

@@ -15,7 +15,7 @@ const getCostConfiguration = async (req, res) => {
       costConfig = await CostConfiguration.create({
         company_id: req.user.company_id,
         cost_types: [],
-        created_by: req.user._id
+        created_by: req.user.id
       });
     }
     
@@ -47,7 +47,7 @@ const addCostType = async (req, res) => {
       costConfig = await CostConfiguration.create({
         company_id: req.user.company_id,
         cost_types: [],
-        created_by: req.user._id
+        created_by: req.user.id
       });
     }
     
@@ -77,7 +77,7 @@ const addCostType = async (req, res) => {
       'create',
       'cost_type',
       costConfig._id,
-      req.user._id,
+      req.user.id,
       null,
       { cost_type, section_type }
     );
@@ -145,7 +145,7 @@ const updateCostType = async (req, res) => {
       'update',
       'cost_type',
       costConfig._id,
-      req.user._id,
+      req.user.id,
       oldData,
       costConfig.cost_types[costTypeIndex].toObject()
     );
@@ -204,7 +204,7 @@ const deleteCostType = async (req, res) => {
       'delete',
       'cost_type',
       costConfig._id,
-      req.user._id,
+      req.user.id,
       oldData,
       null
     );
@@ -258,7 +258,7 @@ const reorderCostTypes = async (req, res) => {
       'reorder',
       'cost_types',
       costConfig._id,
-      req.user._id,
+      req.user.id,
       null,
       { section_type, new_order: cost_type_ids }
     );

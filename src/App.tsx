@@ -179,7 +179,7 @@ const App = () => {
         </ProtectedRoute>
       } />
       <Route path="/company/cost-configuration" element={
-        <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="vehicle_permission">
+        <ProtectedRoute allowedRoles={['company_super_admin']} requiredModule="vehicle_cost_module">
           <CostConfiguration />
         </ProtectedRoute>
       } />
