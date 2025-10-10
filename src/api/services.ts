@@ -526,6 +526,9 @@ export const companyServices = {
   
   updateCostType: (costTypeId: string, data: any) =>
     apiClient.put(`/api/company/cost-configuration/cost-types/${costTypeId}`, data),
+
+  getCostConfigurationByVehicleType: (vehiclePurchaseType: string) =>
+    apiClient.get(`/api/company/cost-configuration/vehicle-type/${vehiclePurchaseType}`),
   
   deleteCostType: (costTypeId: string) =>
     apiClient.delete(`/api/company/cost-configuration/cost-types/${costTypeId}`),
@@ -1365,6 +1368,9 @@ export const commonVehicleServices = {
 
   togglePricingReady: (vehicleId: string, data: any) =>
     apiClient.patch(`/api/common-vehicle/pricing-ready/${vehicleId}`, data),
+    
+  saveVehicleCostDetails: (vehicleId: string, vehicleType: string, data: any) =>
+    apiClient.put(`/api/common-vehicle/${vehicleId}/${vehicleType}/cost-details`, data),
 };
 
 // Integration Services
