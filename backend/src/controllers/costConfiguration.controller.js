@@ -323,7 +323,7 @@ const getCostConfigurationByVehicleType = async (req, res) => {
     // Find cost configuration for the company
     const costConfig = await CostConfiguration.findOne({
       company_id: req.user.company_id
-    }).populate('cost_types.currency_id').lean();
+    }).lean();
 
     if (!costConfig) {
       return res.status(404).json({
@@ -344,13 +344,26 @@ const getCostConfigurationByVehicleType = async (req, res) => {
       });
     }
 
+    // Get all available currencies for the company
+    const currencyDoc = await Currency.findOne({ company_id: req.user.company_id }).lean();
+    const available_company_currency = currencyDoc ? currencyDoc.currencies : [];
+
     // Get enabled cost types for this vehicle purchase type
     const enabledCostTypeIds = costSetter.enabled_cost_types.map(id => id.toString());
     
     // Filter cost types that are enabled for this vehicle type
-    const enabledCostTypes = costConfig.cost_types.filter(ct => 
+    let enabledCostTypes = costConfig.cost_types.filter(ct => 
       enabledCostTypeIds.includes(ct._id.toString())
     );
+
+    // Populate currency data for enabled cost types
+    const populatedData = await populateCurrencyData(
+      { cost_types: enabledCostTypes }, 
+      req.user.company_id
+    );
+    
+    // Replace the currency_id with populated data
+    enabledCostTypes = populatedData.cost_types;
 
     // Group cost types by section_type
     const groupedCostTypes = enabledCostTypes.reduce((acc, costType) => {
@@ -364,7 +377,7 @@ const getCostConfigurationByVehicleType = async (req, res) => {
       const transformedCostType = {
         _id: costType._id,
         cost_type: costType.cost_type,
-        currency_id: costType.currency_id,
+        currency_id: costType.currency_id, // This now contains populated currency data
         default_tax_rate: costType.default_tax_rate,
         default_tax_type: costType.default_tax_type,
         section_type: costType.section_type,
@@ -398,7 +411,8 @@ const getCostConfigurationByVehicleType = async (req, res) => {
       vehicle_purchase_type: vehiclePurchaseType,
       sections: sections,
       cost_setter_id: costSetter._id,
-      total_enabled_cost_types: enabledCostTypes.length
+      total_enabled_cost_types: enabledCostTypes.length,
+      available_company_currency: available_company_currency // Add all available currencies
     };
 
     await logEvent(
@@ -408,7 +422,11 @@ const getCostConfigurationByVehicleType = async (req, res) => {
       costConfig._id,
       req.user.id,
       null,
-      { vehicle_purchase_type: vehiclePurchaseType, enabled_cost_types_count: enabledCostTypes.length }
+      { 
+        vehicle_purchase_type: vehiclePurchaseType, 
+        enabled_cost_types_count: enabledCostTypes.length,
+        available_currencies_count: available_company_currency.length 
+      }
     );
 
     res.status(200).json({
