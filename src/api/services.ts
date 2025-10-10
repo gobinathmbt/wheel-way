@@ -1368,6 +1368,9 @@ export const commonVehicleServices = {
 
   togglePricingReady: (vehicleId: string, data: any) =>
     apiClient.patch(`/api/common-vehicle/pricing-ready/${vehicleId}`, data),
+    
+  saveVehicleCostDetails: (vehicleId: string, vehicleType: string, data: any) =>
+    apiClient.put(`/api/common-vehicle/${vehicleId}/${vehicleType}/cost-details`, data),
 };
 
 // Integration Services
