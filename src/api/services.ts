@@ -526,6 +526,9 @@ export const companyServices = {
   
   updateCostType: (costTypeId: string, data: any) =>
     apiClient.put(`/api/company/cost-configuration/cost-types/${costTypeId}`, data),
+
+  getCostConfigurationByVehicleType: (vehiclePurchaseType: string) =>
+    apiClient.put(`api/company/cost-configuration/vehicle-type/${vehiclePurchaseType}`),
   
   deleteCostType: (costTypeId: string) =>
     apiClient.delete(`/api/company/cost-configuration/cost-types/${costTypeId}`),
