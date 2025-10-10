@@ -317,9 +317,10 @@ const reorderCostTypes = async (req, res) => {
 // @route   GET /api/company/cost-configuration/vehicle-type/:vehiclePurchaseType
 // @access  Private
 const getCostConfigurationByVehicleType = async (req, res) => {
+
   try {
     const { vehiclePurchaseType } = req.params;
-    
+      console.log("vehiclePurchaseType",vehiclePurchaseType)
     // Find cost configuration for the company
     const costConfig = await CostConfiguration.findOne({
       company_id: req.user.company_id
