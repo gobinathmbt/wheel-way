@@ -9,6 +9,7 @@ import CostSummary from "./CostSummary";
 import CostEditDialog from "./CostEditDialog";
 import AddOnExpenses from "./AddOnExpenses";
 import { formatApiNames } from "@/utils/GlobalUtils";
+import { Button } from "../ui/button";
 
 interface CostCalculationDialogProps {
   open: boolean;
@@ -134,6 +135,9 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({ open, onC
             {/* Left Sidebar - Vehicle Info */}
             <div className="w-[10vw] border-r bg-muted/30 p-4">
               <div className="space-y-4">
+                <Button>
+                  External Api Pricing
+                </Button>
                 <div className="w-full h-24 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
                   {vehicle.vehicle_hero_image ? (
                     <img
