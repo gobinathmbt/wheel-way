@@ -896,7 +896,8 @@ const getBayCalendar = async (req, res) => {
 
     // Get bay quotes for these bays within date range
     const quotes = await WorkshopQuote.find({
-      quote_type: "bay",
+quote_type: ["bay", "manual"],
+
       bay_id: { $in: bayIds },
       booking_date: {
         $gte: new Date(start_date),
