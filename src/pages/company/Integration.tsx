@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Settings, Plug, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Download, Upload, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
-import { companyServices, integrationServices, masterServices } from "@/api/services";
+import { companyServices, integrationServices, } from "@/api/services";
 import { useAuth } from "@/auth/AuthContext";
 import S3ConfigDialog from "@/components/integrations/S3ConfigDialog";
 import SendGridConfigDialog from "@/components/integrations/SendGridConfigDialog";
