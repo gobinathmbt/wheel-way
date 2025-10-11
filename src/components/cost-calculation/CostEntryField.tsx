@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import CurrencySelectionDialog from "./CurrencySelectionDialog";
 import { formatApiNames } from "@/utils/GlobalUtils";
 
 interface CostEntryFieldProps {
@@ -141,18 +140,7 @@ const CostEntryField: React.FC<CostEntryFieldProps> = ({
           </div>
         </div>
 
-        {costType.fx_rate && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">FX Rate</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={localValue.exchange_rate}
-              onChange={(e) => handleExchangeRateChange(e.target.value)}
-              className="h-9"
-            />
-          </div>
-        )}
+    
 
         <div className="space-y-1.5">
           <Label className="text-xs">Tax Rate (%)</Label>
@@ -209,16 +197,6 @@ const CostEntryField: React.FC<CostEntryFieldProps> = ({
           </span>
         </div>
       </div>
-
-      {costType.change_currency && (
-        <CurrencySelectionDialog
-          open={currencyDialogOpen}
-          onClose={() => setCurrencyDialogOpen(false)}
-          availableCurrencies={availableCurrencies}
-          selectedCurrency={localValue.currency}
-          onSelectCurrency={handleCurrencyChange}
-        />
-      )}
     </div>
   );
 };
