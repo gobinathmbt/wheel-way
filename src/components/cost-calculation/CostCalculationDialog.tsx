@@ -12,6 +12,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { companyServices, commonVehicleServices } from "@/api/services";
 import CostSummary from "./CostSummary";
 import CostEditDialog from "./CostEditDialog";
+import AddOnExpenses from "./AddOnExpenses";
 import { formatApiNames } from "@/utils/GlobalUtils";
 
 interface CostCalculationDialogProps {
@@ -32,6 +33,7 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({
   const [costData, setCostData] = useState<any>({});
   const [editingCost, setEditingCost] = useState<any>(null);
   const [editingCostType, setEditingCostType] = useState<any>(null);
+  const [addOnExpenses, setAddOnExpenses] = useState<any[]>([]);
   
   const companyCurrency = completeUser?.company_id?.currency;
 
@@ -74,6 +76,11 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({
       });
 
       setCostData(initialData);
+
+      // Initialize add-on expenses
+      if (vehicle.cost_details && vehicle.cost_details.addon_expenses) {
+        setAddOnExpenses(vehicle.cost_details.addon_expenses);
+      }
     }
   }, [costConfig, vehicle]);
 
@@ -83,7 +90,12 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({
       return await commonVehicleServices.saveVehicleCostDetails(
         vehicle._id,
         vehicle.vehicle_type,
-        { cost_details: data }
+        { 
+          cost_details: {
+            ...data,
+            addon_expenses: addOnExpenses
+          }
+        }
       );
     },
     onSuccess: () => {
@@ -208,6 +220,147 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({
      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {costConfig?.sections?.map((section:any) => {
             const isPricingSection = section.section_name === "pricing_cost";
+
+            // Render AddOn Expenses before pricing section
+            if (isPricingSection) {
+              return (
+                <React.Fragment key={section.section_name}>
+                  <AddOnExpenses
+                    vehicleId={vehicle._id}
+                    vehicleType={vehicle.vehicle_type}
+                    defaultDealershipId={vehicle.dealership_id}
+                    companyCurrency={companyCurrency}
+                    expenses={addOnExpenses}
+                    onChange={setAddOnExpenses}
+                    availableCurrencies={costConfig?.available_company_currency || []}
+                  />
+                  <div
+                    className="border rounded-md bg-card shadow-sm overflow-hidden"
+                  >
+                    <h4 className="font-semibold text-sm mb-0 px-4 py-2 bg-muted/30">
+                      {formatApiNames(section.section_name)}
+                    </h4>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-muted/50 border-b">
+                        <th className="text-left p-2 font-medium">Cost Head</th>
+                        {!isPricingSection && (
+                          <>
+                            <th className="text-center p-2 font-medium w-48">Invoiced Currency</th>
+                            <th className="text-center p-2 font-medium w-20">Fx</th>
+                          </>
+                        )}
+                        <th className="text-center p-2 font-medium w-48">Base Currency</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {section.cost_types.map((costType) => {
+                        const costValue = costData[costType._id];
+                        const invoicedAmount = costValue?.net_amount || "0";
+                        const invoicedTax = costValue?.total_tax || "0";
+                        const invoicedTotal = costValue?.total_amount || "0";
+                        const fxRate = costValue?.exchange_rate || 1;
+                        const baseAmount = (parseFloat(invoicedAmount) * fxRate).toFixed(2);
+                        const baseTax = (parseFloat(invoicedTax) * fxRate).toFixed(2);
+                        const baseTotal = (parseFloat(invoicedTotal) * fxRate).toFixed(2);
+                        const taxLabel = getTaxTypeLabel(costValue?.tax_type || "exclusive");
+
+                        const costCurrency =
+                          costValue?.currency?.currency_code ||
+                          costType?.currency_id?.currency_code;
+                        const showInvoicedCurrency =
+                          costCurrency !== companyCurrency && !isPricingSection;
+
+                        return (
+                          <tr key={costType._id} className="border-b hover:bg-muted/30">
+                            {/* Cost Head */}
+                            <td className="p-2 font-medium">{formatApiNames(costType.cost_type)}</td>
+
+                            {/* Invoiced Currency */}
+                            {!isPricingSection && (
+                              <>
+                                <td className="p-2">
+                                  {showInvoicedCurrency ? (
+                                    <div className="flex items-center justify-between gap-2 bg-muted/30 p-2 rounded">
+                                      <div className="flex-1">
+                                        <div className={`text-xs ${parseFloat(invoicedTotal) < 0 ? "text-red-500" : ""}`}>
+                                          {costValue?.currency?.symbol} {invoicedTotal} {taxLabel}
+                                        </div>
+                                        <div className="text-[10px] text-muted-foreground">
+                                          (GST {costValue?.tax_rate || 0}%)
+                                        </div>
+                                      </div>
+                                      {costType.change_currency && (
+                                        <button
+                                          onClick={() => handleEditCost(costType, costType._id)}
+                                          className="p-1.5 bg-purple-600 hover:bg-purple-700 rounded flex-shrink-0"
+                                          title="Currency Converter"
+                                        >
+                                          <ArrowLeftRight className="h-3.5 w-3.5 text-white" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="text-center text-muted-foreground">-</div>
+                                  )}
+                                </td>
+
+                                {/* FX Rate */}
+                                <td className="p-2">
+                                  {showInvoicedCurrency ? (
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={fxRate}
+                                      onChange={(e) =>
+                                        handleCostChange(costType._id, {
+                                          ...costValue,
+                                          exchange_rate: parseFloat(e.target.value) || 1,
+                                        })
+                                      }
+                                      className="w-16 h-8 text-center border rounded bg-background text-xs mx-auto block"
+                                    />
+                                  ) : (
+                                    <div className="text-center text-muted-foreground">-</div>
+                                  )}
+                                </td>
+                              </>
+                            )}
+
+                            {/* Base Currency */}
+                            <td className="p-2">
+                              <div className="flex items-center justify-between gap-2 bg-muted/30 p-2 rounded">
+                                <div className="flex-1">
+                                  <div className={`text-xs ${parseFloat(baseTotal) < 0 ? "text-red-500" : ""}`}>
+                                    {companyCurrency} {baseTotal} {taxLabel}
+                                  </div>
+                                  <div className={`text-[10px] ${parseFloat(baseTax) < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                                    (GST {baseTax})
+                                  </div>
+                                </div>
+                                {(!showInvoicedCurrency || isPricingSection)  && (
+                                  <button
+                                    onClick={() => handleEditCost(costType, costType._id)}
+                                    className="p-1.5 bg-purple-600 hover:bg-purple-700 rounded flex-shrink-0"
+                                    title="Currency Converter"
+                                  >
+                                    <ArrowLeftRight className="h-3.5 w-3.5 text-white" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+                </React.Fragment>
+              );
+            }
 
             return (
               <div
@@ -349,6 +502,7 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({
               <CostSummary
                 costData={costData}
                 sections={costConfig?.sections || []}
+                addOnExpenses={addOnExpenses}
                 onCancel={onClose}
                 onSave={handleSave}
                 isSaving={saveMutation.isPending}
