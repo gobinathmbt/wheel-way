@@ -8,6 +8,7 @@ import { companyServices, commonVehicleServices } from "@/api/services";
 import CostSummary from "./CostSummary";
 import CostEditDialog from "./CostEditDialog";
 import AddOnExpenses from "./AddOnExpenses";
+import ExternalApiPricingDialog from "./ExternalApiPricingDialog";
 import { formatApiNames } from "@/utils/GlobalUtils";
 import { Button } from "../ui/button";
 
@@ -24,6 +25,7 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({ open, onC
   const [editingCost, setEditingCost] = useState<any>(null);
   const [editingCostType, setEditingCostType] = useState<any>(null);
   const [addOnExpenses, setAddOnExpenses] = useState<any[]>([]);
+  const [externalPricingOpen, setExternalPricingOpen] = useState(false);
 
   const companyCurrency = completeUser?.company_id?.currency;
 
@@ -79,6 +81,7 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({ open, onC
         cost_details: {
           ...data,
           addon_expenses: addOnExpenses,
+          external_api_evaluations: vehicle.cost_details?.external_api_evaluations || [],
         },
       });
     },
@@ -90,6 +93,21 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({ open, onC
       toast.error(error?.response?.data?.message || "Failed to save cost details");
     },
   });
+
+  const handleApplyExternalPricing = (pricingData: any) => {
+    // Save external API evaluation to vehicle
+    const updatedEvaluations = [
+      ...(vehicle.cost_details?.external_api_evaluations || []),
+      pricingData,
+    ];
+
+    saveMutation.mutate({
+      ...costData,
+      external_api_evaluations: updatedEvaluations,
+    });
+
+    setExternalPricingOpen(false);
+  };
 
   const handleCostChange = (costTypeId: string, value: any) => {
     setCostData((prev: any) => ({
@@ -135,7 +153,11 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({ open, onC
             {/* Left Sidebar - Vehicle Info */}
             <div className="w-[10vw] border-r bg-muted/30 p-4">
               <div className="space-y-4">
-                <Button>
+                <Button 
+                  onClick={() => setExternalPricingOpen(true)}
+                  className="w-full"
+                  variant="outline"
+                >
                   External Api Pricing
                 </Button>
                 <div className="w-full h-24 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
@@ -502,6 +524,14 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({ open, onC
           availableCurrencies={costConfig?.available_company_currency || []}
         />
       )}
+
+      {/* External API Pricing Dialog */}
+      <ExternalApiPricingDialog
+        open={externalPricingOpen}
+        onClose={() => setExternalPricingOpen(false)}
+        vehicle={vehicle}
+        onApplyPricing={handleApplyExternalPricing}
+      />
     </Dialog>
   );
 };

@@ -14,6 +14,44 @@ const IntegrationSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  environments: {
+    development: {
+      configuration: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
+      },
+      is_active: {
+        type: Boolean,
+        default: false
+      }
+    },
+    testing: {
+      configuration: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
+      },
+      is_active: {
+        type: Boolean,
+        default: false
+      }
+    },
+    production: {
+      configuration: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
+      },
+      is_active: {
+        type: Boolean,
+        default: false
+      }
+    }
+  },
+  active_environment: {
+    type: String,
+    enum: ['development', 'testing', 'production'],
+    default: 'production'
+  },
+  // Deprecated fields - kept for backward compatibility
   configuration: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
