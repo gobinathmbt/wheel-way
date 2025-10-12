@@ -26,6 +26,8 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({ open, onC
   const [editingCostType, setEditingCostType] = useState<any>(null);
   const [addOnExpenses, setAddOnExpenses] = useState<any[]>([]);
   const [externalPricingOpen, setExternalPricingOpen] = useState(false);
+  const [externalApiEvaluations, setExternalApiEvaluations] = useState<any[]>([]);
+
 
   const companyCurrency = completeUser?.company_id?.currency;
 
@@ -40,26 +42,63 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({ open, onC
     enabled: open && !!vehicle,
   });
 
+    const getValueFromVehicleDetails = (costType: string) => {
+    if (!vehicle?.vehicle_other_details?.[0]) return null;
+    
+    const vehicleDetails = vehicle.vehicle_other_details[0];
+    
+    const fieldMapping: { [key: string]: string } = {
+      'purchase_price': 'purchase_price',
+      'retail_price': 'retail_price',
+      'sold_price': 'sold_price'
+    };
+    
+    const fieldName = fieldMapping[costType];
+    return fieldName ? vehicleDetails[fieldName] : null;
+  };
+
+
   // Initialize cost data with existing values or defaults
-  useEffect(() => {
+ useEffect(() => {
     if (costConfig && vehicle) {
       const initialData: any = {};
 
       costConfig.sections?.forEach((section: any) => {
         section.cost_types.forEach((costType: any) => {
-          // Check if vehicle has existing cost_details
           if (vehicle.cost_details && vehicle.cost_details[costType._id]) {
             initialData[costType._id] = vehicle.cost_details[costType._id];
           } else {
-            // Initialize with default values
+            const vehicleDetailsValue = getValueFromVehicleDetails(costType.cost_type);
+            const defaultValue = vehicleDetailsValue !== null ? 
+              vehicleDetailsValue : 
+              (parseFloat(costType.default_value) || 0);
+            
+            const netAmount = defaultValue > 0 ? defaultValue.toString() : "0";
+            const taxRate = costType.default_tax_rate || "0";
+            const taxType = costType.default_tax_type || "exclusive";
+            
+            let totalTax = "0";
+            let totalAmount = "0";
+            
+            if (taxType === "exclusive") {
+              totalTax = ((defaultValue * parseFloat(taxRate)) / 100).toFixed(2);
+              totalAmount = (defaultValue + parseFloat(totalTax)).toFixed(2);
+            } else if (taxType === "inclusive") {
+              totalAmount = netAmount;
+              totalTax = ((defaultValue * parseFloat(taxRate)) / (100 + parseFloat(taxRate))).toFixed(2);
+            } else if (taxType === "zero_gst") {
+              totalTax = "0";
+              totalAmount = netAmount;
+            }
+
             initialData[costType._id] = {
               currency: costType.currency_id,
               exchange_rate: costType.currency_id?.exchange_rate || 1,
-              tax_rate: costType.default_tax_rate || "0",
-              tax_type: costType.default_tax_type || "exclusive",
-              net_amount: "0",
-              total_tax: "0",
-              total_amount: "0",
+              tax_rate: taxRate,
+              tax_type: taxType,
+              net_amount: netAmount,
+              total_tax: totalTax,
+              total_amount: totalAmount,
             };
           }
         });
@@ -71,17 +110,20 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({ open, onC
       if (vehicle.cost_details && vehicle.cost_details.addon_expenses) {
         setAddOnExpenses(vehicle.cost_details.addon_expenses);
       }
+        if (vehicle?.cost_details?.external_api_evaluations) {
+      setExternalApiEvaluations(vehicle.cost_details.external_api_evaluations);
+    }
     }
   }, [costConfig, vehicle]);
 
   // Save mutation
-  const saveMutation = useMutation({
+   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
       return await commonVehicleServices.saveVehicleCostDetails(vehicle._id, vehicle.vehicle_type, {
         cost_details: {
           ...data,
           addon_expenses: addOnExpenses,
-          external_api_evaluations: vehicle.cost_details?.external_api_evaluations || [],
+          external_api_evaluations: externalApiEvaluations,
         },
       });
     },
@@ -95,12 +137,11 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({ open, onC
   });
 
   const handleApplyExternalPricing = (pricingData: any) => {
-    // Save external API evaluation to vehicle
     const updatedEvaluations = [
       ...(vehicle.cost_details?.external_api_evaluations || []),
       pricingData,
     ];
-
+    setExternalApiEvaluations(updatedEvaluations);
     saveMutation.mutate({
       ...costData,
       external_api_evaluations: updatedEvaluations,
@@ -122,7 +163,10 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({ open, onC
   };
 
   const handleSave = () => {
-    saveMutation.mutate(costData);
+   saveMutation.mutate({
+      ...costData,
+      external_api_evaluations: externalApiEvaluations,
+    });
   };
 
   const getTaxTypeLabel = (taxType: string) => {
@@ -531,6 +575,7 @@ const CostCalculationDialog: React.FC<CostCalculationDialogProps> = ({ open, onC
         onClose={() => setExternalPricingOpen(false)}
         vehicle={vehicle}
         onApplyPricing={handleApplyExternalPricing}
+        previousEvaluationData={externalApiEvaluations}
       />
     </Dialog>
   );

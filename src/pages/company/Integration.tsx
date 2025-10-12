@@ -2,13 +2,23 @@ import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, Plug, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Download, Upload, SlidersHorizontal } from "lucide-react";
+import {
+  Plus,
+  Settings,
+  Plug,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  RefreshCw,
+  Download,
+  Upload,
+  SlidersHorizontal,
+} from "lucide-react";
 import { toast } from "sonner";
-import { companyServices, integrationServices, } from "@/api/services";
+import { companyServices, integrationServices } from "@/api/services";
 import { useAuth } from "@/auth/AuthContext";
 import S3ConfigDialog from "@/components/integrations/S3ConfigDialog";
 import SendGridConfigDialog from "@/components/integrations/SendGridConfigDialog";
-import RedBookConfigDialog from "@/components/integrations/RedBookConfigDialog";
 import AutoGrabConfigDialog from "@/components/integrations/AutoGrabConfigDialog";
 import DataTableLayout from "@/components/common/DataTableLayout";
 import { TableCell, TableHead, TableRow } from "@/components/ui/table";
@@ -17,7 +27,6 @@ interface Integration {
   _id: string;
   integration_type: string;
   display_name: string;
-  configuration: any;
   is_active: boolean;
   created_at: string;
 }
@@ -25,7 +34,8 @@ interface Integration {
 const Integration = () => {
   const { completeUser } = useAuth();
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
-  const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
+  const [selectedIntegration, setSelectedIntegration] =
+    useState<Integration | null>(null);
 
   // DataTable states
   const [page, setPage] = useState(1);
@@ -35,6 +45,7 @@ const Integration = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showAddIntegration, setShowAddIntegration] = useState(false);
 
   // Fetch company integration modules
   const { data: modulesData } = useQuery({
@@ -48,7 +59,11 @@ const Integration = () => {
   });
 
   // Fetch existing integrations
-  const { data: integrationsData, refetch, isLoading } = useQuery({
+  const {
+    data: integrationsData,
+    refetch,
+    isLoading,
+  } = useQuery({
     queryKey: paginationEnabled
       ? ["integrations", page, searchTerm, statusFilter, rowsPerPage]
       : ["all-integrations", searchTerm, statusFilter],
@@ -100,9 +115,10 @@ const Integration = () => {
     if (!modulesData || !completeUser?.company_id?.module_access) return [];
 
     const integrationModules = modulesData.data?.find(
-      (dropdown: any) => dropdown.dropdown_name === "company_integration_modules"
+      (dropdown: any) =>
+        dropdown.dropdown_name === "company_integration_modules"
     );
-    
+
     if (!integrationModules) return [];
 
     // Filter modules that exist in company's module_access
@@ -137,7 +153,6 @@ const Integration = () => {
       smtp: Plug,
       payment_gateway: Plug,
       api_integration: Plug,
-      redbook_vehicle_pricing_integration: Plug,
     };
     const Icon = icons[moduleType] || Plug;
     return <Icon className="h-6 w-6" />;
@@ -150,7 +165,6 @@ const Integration = () => {
       smtp: "bg-purple-100 text-purple-800",
       payment_gateway: "bg-orange-100 text-orange-800",
       api_integration: "bg-pink-100 text-pink-800",
-      redbook_vehicle_pricing_integration: "bg-red-100 text-red-800",
     };
     return colors[moduleType] || "bg-gray-100 text-gray-800";
   };
@@ -243,6 +257,13 @@ const Integration = () => {
   // Prepare action buttons
   const actionButtons = [
     {
+      icon: <Plus className="h-4 w-4" />,
+      tooltip: "Add Integration",
+      onClick: () => setShowAddIntegration(true),
+      className:
+        "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
+    },
+    {
       icon: <SlidersHorizontal className="h-4 w-4" />,
       tooltip: "Search & Filters",
       onClick: () => toast.info("Filter feature coming soon"),
@@ -258,7 +279,8 @@ const Integration = () => {
       icon: <Upload className="h-4 w-4" />,
       tooltip: "Import Integrations",
       onClick: () => toast.info("Import feature coming soon"),
-      className: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
+      className:
+        "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200",
     },
   ];
 
@@ -318,7 +340,7 @@ const Integration = () => {
           </TableCell>
           <TableCell>
             <Badge variant="outline" className="capitalize">
-              {integration.integration_type.replace(/_/g, ' ')}
+              {integration.integration_type.replace(/_/g, " ")}
             </Badge>
           </TableCell>
           <TableCell>
@@ -343,7 +365,9 @@ const Integration = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleConfigureModule(integration.integration_type)}
+                onClick={() =>
+                  handleConfigureModule(integration.integration_type)
+                }
                 className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
               >
                 <Settings className="h-4 w-4 mr-1" />
@@ -382,6 +406,53 @@ const Integration = () => {
         cookieMaxAge={60 * 60 * 24 * 30}
       />
 
+      {showAddIntegration && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-[400px]">
+            <h2 className="text-lg font-semibold mb-4">Add Integration</h2>
+            {availableModules.length > 0 ? (
+              <div className="space-y-3">
+                {availableModules.map((mod: any) => {
+                  const existing = getExistingIntegration(mod.option_value);
+                  return (
+                    <Button
+                      key={mod.option_value}
+                      disabled={!!existing}
+                      onClick={() => {
+                        handleConfigureModule(mod.option_value);
+                        setShowAddIntegration(false);
+                      }}
+                      className="w-full justify-start"
+                      variant={existing ? "secondary" : "outline"}
+                    >
+                      {getModuleIcon(mod.option_value)}
+                      <span className="ml-2">{mod.display_value}</span>
+                      {existing && (
+                        <Badge className="ml-auto bg-gray-100 text-gray-600">
+                          Configured
+                        </Badge>
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No modules available for this company.
+              </p>
+            )}
+
+            <div className="flex justify-end mt-4">
+              <Button
+                variant="secondary"
+                onClick={() => setShowAddIntegration(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Configuration Dialogs - Preserved from original code */}
       {selectedModule === "s3_config" && (
@@ -394,14 +465,6 @@ const Integration = () => {
 
       {selectedModule === "sendgrid" && (
         <SendGridConfigDialog
-          isOpen={true}
-          onClose={handleCloseDialog}
-          integration={selectedIntegration}
-        />
-      )}
-
-      {selectedModule === "redbook_vehicle_pricing_integration" && (
-        <RedBookConfigDialog
           isOpen={true}
           onClose={handleCloseDialog}
           integration={selectedIntegration}
