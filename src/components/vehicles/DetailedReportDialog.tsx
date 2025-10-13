@@ -267,7 +267,7 @@ const DetailedReportDialog = ({
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <AlertTriangle className="h-5 w-5 mr-2" />
-                    License Expiry Tracking
+                    Rego Expiry Tracking
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
