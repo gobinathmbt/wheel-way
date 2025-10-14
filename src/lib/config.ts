@@ -2,7 +2,7 @@
 
 type ServerEnv = "PROD" | "TEST" |"DEV" | "LOCAL";
 
-const server: ServerEnv = "TEST";
+const server: ServerEnv = "LOCAL";
 
 // Frontend URL map
 const FRONTEND_URLS: Record<ServerEnv, string> = {
