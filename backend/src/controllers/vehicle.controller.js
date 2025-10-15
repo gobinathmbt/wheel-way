@@ -371,11 +371,14 @@ const bulkImportVehicles = async (req, res) => {
 // @access  Private (Company Admin/Super Admin)
 const updateVehicle = async (req, res) => {
   try {
-    const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id },
-      req.body,
-      { new: true, runValidators: true }
-    );
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    // Find the vehicle first
+    const vehicle = await Vehicle.findOne({ 
+      _id: id, 
+      company_id: req.user.company_id 
+    });
 
     if (!vehicle) {
       return res.status(404).json({
@@ -383,6 +386,51 @@ const updateVehicle = async (req, res) => {
         message: "Vehicle not found",
       });
     }
+
+    // Handle inspection_result update
+    if (updateData.inspection_result) {
+      const updatedInspectionResult = [...vehicle.inspection_result];
+      
+      updateData.inspection_result.forEach(updatedCategory => {
+        const existingCategoryIndex = updatedInspectionResult.findIndex(
+          cat => cat.category_id === updatedCategory.category_id
+        );
+        
+        if (existingCategoryIndex !== -1) {
+          // Update existing category
+          updatedInspectionResult[existingCategoryIndex] = updatedCategory;
+        } else {
+          // Add new category (if needed)
+          updatedInspectionResult.push(updatedCategory);
+        }
+      });
+      
+      vehicle.inspection_result = updatedInspectionResult;
+    }
+
+    // Handle trade_in_result update  
+    if (updateData.trade_in_result) {
+      const updatedTradeInResult = [...vehicle.trade_in_result];
+      
+      updateData.trade_in_result.forEach(updatedCategory => {
+        const existingCategoryIndex = updatedTradeInResult.findIndex(
+          cat => cat.category_id === updatedCategory.category_id
+        );
+        
+        if (existingCategoryIndex !== -1) {
+          // Update existing category
+          updatedTradeInResult[existingCategoryIndex] = updatedCategory;
+        } else {
+          // Add new category (if needed)
+          updatedTradeInResult.push(updatedCategory);
+        }
+      });
+      
+      vehicle.trade_in_result = updatedTradeInResult;
+    }
+
+    // Save the updated vehicle
+    await vehicle.save();
 
     res.status(200).json({
       success: true,
