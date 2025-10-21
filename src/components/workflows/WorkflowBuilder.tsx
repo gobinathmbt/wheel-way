@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback,useMemo } from "react";
 import {
   ReactFlow,
   useNodesState,
@@ -31,6 +31,7 @@ import { workflowServices } from "@/api/services";
 import { Save, Play, X } from "lucide-react";
 
 // Custom Node Components
+import StartNode from "./nodes/StartNode";
 import EndpointNode from "./nodes/EndpointNode";
 import AuthenticationNode from "./nodes/AuthenticationNode";
 import DataMappingNode from "./nodes/DataMappingNode";
@@ -39,6 +40,7 @@ import EnhancedEmailNode from "./nodes/EnhancedEmailNode";
 import EndNode from "./nodes/EndNode";
 
 const nodeTypes = {
+  startNode: StartNode,
   endpointNode: EndpointNode,
   authenticationNode: AuthenticationNode,
   dataMappingNode: DataMappingNode,
@@ -51,9 +53,17 @@ const getInitialNodesForWorkflowType = (workflowType: string): Node[] => {
   if (workflowType === "vehicle_inbound") {
     return [
       {
+        id: "start-1",
+        type: "startNode",
+        position: { x: 50, y: 100 },
+        data: {
+          label: "Start Workflow",
+        },
+      },
+      {
         id: "endpoint-1",
         type: "endpointNode",
-        position: { x: 100, y: 100 },
+        position: { x: 200, y: 100 },
         data: {
           label: "Vehicle Inbound Endpoint",
           config: {},
@@ -62,7 +72,7 @@ const getInitialNodesForWorkflowType = (workflowType: string): Node[] => {
       {
         id: "auth-1",
         type: "authenticationNode",
-        position: { x: 400, y: 100 },
+        position: { x: 450, y: 100 },
         data: {
           label: "Authentication",
           config: { type: "none" },
@@ -80,7 +90,7 @@ const getInitialNodesForWorkflowType = (workflowType: string): Node[] => {
       {
         id: "condition-1",
         type: "enhancedConditionNode",
-        position: { x: 1000, y: 100 },
+        position: { x: 950, y: 100 },
         data: {
           label: "Response Condition",
           config: {
@@ -98,7 +108,7 @@ const getInitialNodesForWorkflowType = (workflowType: string): Node[] => {
       {
         id: "email-success-1",
         type: "enhancedEmailNode",
-        position: { x: 1300, y: 50 },
+        position: { x: 1200, y: 50 },
         data: {
           label: "Success Email",
           config: {},
@@ -107,7 +117,7 @@ const getInitialNodesForWorkflowType = (workflowType: string): Node[] => {
       {
         id: "email-error-1",
         type: "enhancedEmailNode",
-        position: { x: 1300, y: 200 },
+        position: { x: 1200, y: 150 },
         data: {
           label: "Error Email",
           config: {},
@@ -116,36 +126,37 @@ const getInitialNodesForWorkflowType = (workflowType: string): Node[] => {
       {
         id: "end-1",
         type: "endNode",
-        position: { x: 1600, y: 100 },
+        position: { x: 1450, y: 100 },
         data: {
           label: "End Workflow",
         },
       },
     ];
-  } 
-
+  }
+  return [];
 };
 
 const getInitialEdgesForWorkflowType = (workflowType: string): Edge[] => {
   if (workflowType === "vehicle_inbound") {
     return [
-      { id: "e1-2", source: "endpoint-1", target: "auth-1" },
-      { id: "e2-3", source: "auth-1", target: "mapping-1" },
-      { id: "e3-4", source: "mapping-1", target: "condition-1" },
+      { id: "e1-2", source: "start-1", target: "endpoint-1" },
+      { id: "e2-3", source: "endpoint-1", target: "auth-1" },
+      { id: "e3-4", source: "auth-1", target: "mapping-1" },
+      { id: "e4-5", source: "mapping-1", target: "condition-1" },
       {
-        id: "e4-5",
+        id: "e5-6",
         source: "condition-1",
         target: "email-success-1",
         sourceHandle: "true",
       },
       {
-        id: "e4-6",
+        id: "e5-7",
         source: "condition-1",
         target: "email-error-1",
         sourceHandle: "false",
       },
-      { id: "e5-7", source: "email-success-1", target: "end-1" },
-      { id: "e6-7", source: "email-error-1", target: "end-1" },
+      { id: "e6-8", source: "email-success-1", target: "end-1" },
+      { id: "e7-8", source: "email-error-1", target: "end-1" },
     ];
   }
   return [];
@@ -165,12 +176,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
   const [workflowType, setWorkflowType] = useState(
     workflow?.workflow_type || "vehicle_inbound"
   );
+  
   const [nodes, setNodes, onNodesChange] = useNodesState(
     workflow?.flow_data?.nodes || getInitialNodesForWorkflowType(workflowType)
   );
+  
   const [edges, setEdges, onEdgesChange] = useEdgesState(
     workflow?.flow_data?.edges || getInitialEdgesForWorkflowType(workflowType)
   );
+  
   const [workflowName, setWorkflowName] = useState(workflow?.name || "");
   const [workflowDescription, setWorkflowDescription] = useState(
     workflow?.description || ""
@@ -182,6 +196,35 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
+
+  // Handle node data updates
+  const handleNodeDataUpdate = useCallback((nodeId: string, newData: any) => {
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (node.id === nodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              ...newData,
+            },
+          };
+        }
+        return node;
+      })
+    );
+  }, [setNodes]);
+
+
+    const enhancedNodeTypes = useMemo(() => ({
+    startNode: (props: any) => <StartNode {...props} onDataUpdate={handleNodeDataUpdate} />,
+    endpointNode: (props: any) => <EndpointNode {...props} onDataUpdate={handleNodeDataUpdate} />,
+    authenticationNode: (props: any) => <AuthenticationNode {...props} onDataUpdate={handleNodeDataUpdate} />,
+    dataMappingNode: (props: any) => <DataMappingNode {...props} onDataUpdate={handleNodeDataUpdate} />,
+    enhancedConditionNode: (props: any) => <EnhancedConditionNode {...props} onDataUpdate={handleNodeDataUpdate} />,
+    enhancedEmailNode: (props: any) => <EnhancedEmailNode {...props} onDataUpdate={handleNodeDataUpdate} />,
+    endNode: (props: any) => <EndNode {...props} onDataUpdate={handleNodeDataUpdate} />,
+  }), [handleNodeDataUpdate]);
 
   // Save workflow mutation
   const saveWorkflowMutation = useMutation({
@@ -251,18 +294,30 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
       return;
     }
 
+    // Log nodes data for debugging
+    console.log("Saving nodes:", nodes);
+
     const workflowData = {
       name: workflowName,
       description: workflowDescription,
       workflow_type: workflowType,
       flow_data: {
-        nodes,
+        nodes: nodes.map(node => ({
+          ...node,
+          // Ensure all node data is properly structured
+          data: {
+            ...node.data,
+            // Ensure config exists for all nodes that need it
+            config: node.data?.config || {}
+          }
+        })),
         edges,
         viewport: { x: 0, y: 0, zoom: 1 },
       },
       status: workflow?.status || "draft",
     };
 
+    console.log("Final workflow data:", workflowData);
     saveWorkflowMutation.mutate(workflowData);
   };
 
@@ -356,14 +411,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
       </div>
 
       {/* Flow Canvas */}
-      <div className="flex-1">
+     <div className="flex-1">
         <ReactFlow
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          nodeTypes={nodeTypes}
+          nodeTypes={enhancedNodeTypes} // Use enhanced node types
           fitView
           nodesDraggable={true}
           nodesConnectable={true}
@@ -385,10 +440,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
   );
 };
 
-const WorkflowBuilderWrapper: React.FC<WorkflowBuilderProps> = (props) => (
-  <ReactFlowProvider>
-    <WorkflowBuilder {...props} />
-  </ReactFlowProvider>
-);
+// Enhanced wrapper to provide node update functionality
+const WorkflowBuilderWrapper: React.FC<WorkflowBuilderProps> = (props) => {
+  return (
+    <ReactFlowProvider>
+      <WorkflowBuilder {...props} />
+    </ReactFlowProvider>
+  );
+};
 
 export default WorkflowBuilderWrapper;
