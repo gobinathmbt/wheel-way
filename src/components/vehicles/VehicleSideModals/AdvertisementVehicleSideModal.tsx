@@ -365,7 +365,7 @@ const AdvertisementVehicleSideModal: React.FC<
                       stockNumber: vehicle.vehicle_stock_id,
                     }}
                     variant="outline"
-                    size="sm"
+                    size="icon"
                     onSuccess={onUpdate}
                   />
                 </div>
