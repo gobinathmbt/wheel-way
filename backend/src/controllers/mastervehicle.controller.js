@@ -331,7 +331,7 @@ const updateMasterVehicle = async (req, res) => {
   try {
     const masterVehicle = await MasterVehicle.findOneAndUpdate(
       {
-        vehicle_stock_id: req.params.id,
+        _id: req.params.id,
         company_id: req.user.company_id,
       },
       req.body,
