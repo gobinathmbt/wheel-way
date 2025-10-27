@@ -231,11 +231,6 @@ const createVehicleStock = async (req, res) => {
       dealership: "Dealership",
       status: "Status",
       purchase_type: "Purchase type",
-      // New required fields
-      odometer_reading: "Odometer reading",
-      purchase_price: "Purchase price",
-      rego_expiry_date: "Registration expiry date",
-      warranty_expiry_date: "Manufacture warranty expiry date"
     };
 
     const missingFields = [];

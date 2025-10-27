@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { adPublishingServices, vehicleServices } from "@/api/services";
 import MediaViewer, { MediaItem } from "@/components/common/MediaViewer";
 import VehicleMetadataSelector from "@/components/common/VehicleMetadataSelector";
+import { S3Uploader, S3Config } from "@/lib/s3-client";
+import { useAuth } from "@/auth/AuthContext";
 
 interface VehicleOverviewSectionProps {
   vehicle: any;
@@ -34,14 +36,48 @@ const VehicleOverviewSection: React.FC<VehicleOverviewSectionProps> = ({
     vehicle_category: vehicle.vehicle_category || "",
   });
 
-  // Add state for image upload
+  // Image upload states
   const [heroImage, setHeroImage] = useState<File | null>(null);
   const [heroImagePreview, setHeroImagePreview] = useState<string>(vehicle.vehicle_hero_image || "");
   const [isUploading, setIsUploading] = useState(false);
+  const [hasImageChanged, setHasImageChanged] = useState(false);
+
+  // S3 uploader state
+  const { completeUser } = useAuth();
+  const [s3Uploader, setS3Uploader] = useState<S3Uploader | null>(null);
 
   // Media viewer state
   const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
   const [currentMediaId, setCurrentMediaId] = useState<string>("");
+
+  // Load S3 configuration
+  useEffect(() => {
+    const loadS3Config = async () => {
+      try {
+        const config = completeUser?.company_id?.s3_config;
+        if (config && config.bucket && config.access_key) {
+          const s3ConfigMapped: S3Config = {
+            region: config.region,
+            bucket: config.bucket,
+            access_key: config.access_key,
+            secret_key: config.secret_key,
+            url: config.url,
+          };
+          setS3Uploader(new S3Uploader(s3ConfigMapped));
+        } else {
+          console.warn("S3 configuration not found");
+          toast.error("S3 configuration not available");
+        }
+      } catch (error) {
+        console.error("S3 config error:", error);
+        toast.error("Failed to load S3 configuration");
+      }
+    };
+
+    if (completeUser) {
+      loadS3Config();
+    }
+  }, [completeUser]);
 
   // Handler functions for VehicleMetadataSelector
   const handleMakeChange = (displayName: string) => {
@@ -68,65 +104,104 @@ const VehicleOverviewSection: React.FC<VehicleOverviewSectionProps> = ({
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
+      // Validation checks: file type (image/*) and size (<10MB)
       if (!file.type.startsWith('image/')) {
         toast.error("Please upload an image file");
         return;
       }
       
-      // Validate file size (e.g., 5MB limit)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("Image size should be less than 5MB");
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("Image size should be less than 10MB");
         return;
       }
 
+      // Local State Management
       setHeroImage(file);
+      setHasImageChanged(true);
+      
+      // Preview URL generated using URL.createObjectURL()
       const previewUrl = URL.createObjectURL(file);
       setHeroImagePreview(previewUrl);
     }
   };
 
-  const handleSave = async () => {
-  try {
-    setIsUploading(true);
-    
-    // First update vehicle overview data
-    const adVehicleData = {
-      ...formData,
-      vehicle_type: vehicle.vehicle_type
-    };
-    
-    // Update vehicle data
-    const updateResponse = await adPublishingServices.updateAdVehicle(vehicle._id, adVehicleData);
-    
-    // Then upload image if there's a new one
-    // if (heroImage) {
-    //   const imageFormData = new FormData();
-    //   imageFormData.append('hero_image', heroImage);
-      
-    //   const uploadResponse = await adPublishingServices.uploadVehicleHeroImage(vehicle._id, imageFormData);
-      
-    //   // Update the local state with the new image URL from response
-    //   if (uploadResponse.data && uploadResponse.data.data.vehicle_hero_image) {
-    //     setHeroImagePreview(uploadResponse.data.data.vehicle_hero_image);
-    //   }
-    // }
-    
-    toast.success("Vehicle overview updated successfully");
-    setIsEditing(false);
-    
-    // Call onUpdate to refresh parent component data with the latest data
-    if (onUpdate) {
-      onUpdate();
+  // Remove uploaded image
+  const removeHeroImage = () => {
+    setHeroImage(null);
+    setHasImageChanged(true);
+    setHeroImagePreview("");
+  };
+
+  // Upload image to S3
+  const uploadHeroImage = async (): Promise<string> => {
+    if (!heroImage || !s3Uploader) {
+      throw new Error("No image selected or S3 not configured");
     }
-    
-  } catch (error) {
-    console.error("Error updating vehicle overview:", error);
-    toast.error("Failed to update vehicle overview");
-  } finally {
-    setIsUploading(false);
-  }
-};
+
+    try {
+      const uploadResult = await s3Uploader.uploadFile(
+        heroImage,
+        "vehicle-hero-images"
+      );
+      return uploadResult.url; // This will return the S3 URL like: https://vb-feedsdev.s3.us-east-1.amazonaws.com/.../vehicle-hero-images/...jpg
+    } catch (error) {
+      console.error("Hero image upload error:", error);
+      throw new Error("Failed to upload hero image to S3");
+    }
+  };
+
+  const handleSave = async () => {
+    if (!s3Uploader && hasImageChanged && heroImage) {
+      toast.error("S3 uploader not configured");
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      
+      // Prepare update data
+      const updateData: any = {
+        ...formData,
+        vehicle_type: vehicle.vehicle_type
+      };
+
+      // S3 Upload (on Save) - Only if image changed and new image selected
+      if (hasImageChanged) {
+        if (heroImage) {
+          // Upload new image to S3 and get proper S3 URL
+          const heroImageUrl = await uploadHeroImage();
+          updateData.vehicle_hero_image = heroImageUrl;
+        } else {
+          // Image was removed
+          updateData.vehicle_hero_image = "";
+        }
+      }
+
+      // Data Update - Update vehicle data in database
+      const updateResponse = await adPublishingServices.updateAdVehicle(vehicle._id, updateData);
+      
+      toast.success("Vehicle overview updated successfully");
+      
+      // State Cleanup
+      setIsEditing(false);
+      setHasImageChanged(false);
+      setHeroImage(null);
+      
+      // Call onUpdate to refresh parent component data
+      if (onUpdate) {
+        onUpdate();
+      }
+      
+    } catch (error: any) {
+      console.error("Error updating vehicle overview:", error);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          "Failed to update vehicle overview";
+      toast.error(errorMessage);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleCancel = () => {
     setFormData({
@@ -142,6 +217,7 @@ const VehicleOverviewSection: React.FC<VehicleOverviewSectionProps> = ({
     });
     setHeroImage(null);
     setHeroImagePreview(vehicle.vehicle_hero_image || "");
+    setHasImageChanged(false);
     setIsEditing(false);
   };
 
@@ -206,27 +282,85 @@ const VehicleOverviewSection: React.FC<VehicleOverviewSectionProps> = ({
                     {/* Image Upload Section */}
                     <div className="mb-4">
                       <Label htmlFor="hero-image-upload">Vehicle Hero Image</Label>
-                      <div className="mt-2 flex items-center gap-4">
-                        <Input
-                          id="hero-image-upload"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="max-w-sm"
-                        />
-                        {heroImagePreview && (
-                          <div className="w-16 h-16 rounded border overflow-hidden">
-                            <img
-                              src={heroImagePreview}
-                              alt="Preview"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
+                      <div className="mt-2 space-y-4">
+                        {/* Image Upload Area */}
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                          {heroImagePreview ? (
+                            <div className="relative inline-block">
+                              <img
+                                src={heroImagePreview}
+                                alt="Preview"
+                                className="w-32 h-32 object-cover rounded-lg"
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                                onClick={removeHeroImage}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : vehicle.vehicle_hero_image ? (
+                            <div className="space-y-2">
+                              <div className="relative inline-block">
+                                <img
+                                  src={vehicle.vehicle_hero_image}
+                                  alt="Current"
+                                  className="w-32 h-32 object-cover rounded-lg"
+                                />
+                                <p className="text-sm text-muted-foreground mt-2">
+                                  Current image
+                                </p>
+                              </div>
+                              <div>
+                                <Input
+                                  id="hero-image-upload"
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleImageUpload}
+                                  className="hidden"
+                                />
+                                <Label
+                                  htmlFor="hero-image-upload"
+                                  className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                                >
+                                  <Upload className="h-4 w-4" />
+                                  Change Image
+                                </Label>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <Input
+                                id="hero-image-upload"
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                className="hidden"
+                              />
+                              <Label
+                                htmlFor="hero-image-upload"
+                                className="cursor-pointer flex flex-col items-center justify-center"
+                              >
+                                <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                                <p className="text-sm text-gray-500">
+                                  Click to upload hero image
+                                </p>
+                                <p className="text-xs text-gray-400">PNG, JPG up to 10MB</p>
+                              </Label>
+                            </>
+                          )}
+                        </div>
+                        
+                        {/* Current image info */}
+                        {vehicle.vehicle_hero_image && !hasImageChanged && (
+                          <p className="text-sm text-muted-foreground">
+                            Current image will be kept. Upload a new image to replace it.
+                          </p>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Supported formats: JPEG, PNG, WebP. Max size: 5MB
-                      </p>
                     </div>
 
                     {/* Vehicle Metadata Selector */}
@@ -295,8 +429,17 @@ const VehicleOverviewSection: React.FC<VehicleOverviewSectionProps> = ({
                         Cancel
                       </Button>
                       <Button onClick={handleSave} disabled={isUploading}>
-                        <Save className="h-4 w-4 mr-2" />
-                        {isUploading ? "Saving..." : "Save"}
+                        {isUploading ? (
+                          <>
+                            <div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Save Changes
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
