@@ -39,7 +39,6 @@ import VehicleRegistrationSection from "@/components/vehicles/VehicleSections/Ma
 import VehicleImportSection from "@/components/vehicles/VehicleSections/MasterSections/VehicleImportSection";
 import VehicleEngineSection from "@/components/vehicles/VehicleSections/MasterSections/VehicleEngineSection";
 import VehicleSpecificationsSection from "@/components/vehicles/VehicleSections/MasterSections/VehicleSpecificationsSection";
-import VehicleSafetySection from "@/components/vehicles/VehicleSections/MasterSections/VehicleSafetySection";
 import VehicleOdometerSection from "@/components/vehicles/VehicleSections/MasterSections/VehicleOdometerSection";
 import VehicleOwnershipSection from "@/components/vehicles/VehicleSections/MasterSections/VehicleOwnershipSection";
 import VehicleAttachmentsSection from "@/components/vehicles/VehicleSections/MasterSections/VehicleAttachmentsSection";
@@ -458,7 +457,6 @@ const MasterVehicleSideModal: React.FC<MasterVehicleSideModalProps> = ({
                 vehicle={vehicle}
                 onUpdate={onUpdate}
               />
-              <VehicleSafetySection vehicle={vehicle} onUpdate={onUpdate} />
               <VehicleOdometerSection vehicle={vehicle} onUpdate={onUpdate} />
               <VehicleOwnershipSection vehicle={vehicle} onUpdate={onUpdate} />
             </TabsContent>

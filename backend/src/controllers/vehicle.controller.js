@@ -1031,36 +1031,7 @@ const updateVehicleSpecifications = async (req, res) => {
   }
 };
 
-// @desc    Update vehicle safety features section
-// @route   PUT /api/vehicle/:id/safety
-// @access  Private (Company Admin/Super Admin)
-const updateVehicleSafetyFeatures = async (req, res) => {
-  try {
-    const vehicle = await Vehicle.findOneAndUpdate(
-      { _id: req.params.id, company_id: req.user.company_id, vehicle_type: req.params.vehicleType, },
-      { vehicle_safety_features: req.body.vehicle_safety_features },
-      { new: true, runValidators: true }
-    );
 
-    if (!vehicle) {
-      return res.status(404).json({
-        success: false,
-        message: "Vehicle not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: vehicle,
-    });
-  } catch (error) {
-    console.error("Update vehicle safety features error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error updating vehicle safety features",
-    });
-  }
-};
 
 // @desc    Update vehicle odometer section
 // @route   PUT /api/vehicle/:id/odometer
@@ -1487,7 +1458,6 @@ module.exports = {
   updateVehicleImport,
   updateVehicleEngine,
   updateVehicleSpecifications,
-  updateVehicleSafetyFeatures,
   updateVehicleOdometer,
   updateVehicleOwnership,
   getVehicleAttachments,

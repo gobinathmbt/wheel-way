@@ -22,11 +22,13 @@ const StartNode = ({ data, isConnectable }: any) => {
         </div>
       </CardContent>
       
+      {/* Source handle - connects TO other nodes */}
       <Handle
         type="source"
         position={Position.Right}
         isConnectable={isConnectable}
         className="w-3 h-3 !bg-green-500"
+        id="start-output"
       />
     </Card>
   );

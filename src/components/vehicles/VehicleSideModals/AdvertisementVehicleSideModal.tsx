@@ -33,7 +33,6 @@ import VehicleRegistrationSection from "@/components/vehicles/VehicleSections/Ad
 import VehicleImportSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleImportSection";
 import VehicleEngineSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleEngineSection";
 import VehicleSpecificationsSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleSpecificationsSection";
-import VehicleSafetySection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleSafetySection";
 import VehicleOdometerSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleOdometerSection";
 import VehicleOwnershipSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleOwnershipSection";
 import VehicleAttachmentsSection from "@/components/vehicles/VehicleSections/AdvertisementSections/VehicleAttachmentsSection";
@@ -400,7 +399,6 @@ const AdvertisementVehicleSideModal: React.FC<
                 vehicle={vehicle}
                 onUpdate={onUpdate}
               />
-              <VehicleSafetySection vehicle={vehicle} onUpdate={onUpdate} />
               <VehicleOdometerSection vehicle={vehicle} onUpdate={onUpdate} />
               <VehicleOwnershipSection vehicle={vehicle} onUpdate={onUpdate} />
             </TabsContent>

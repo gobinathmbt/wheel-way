@@ -41,7 +41,6 @@ import VehicleRegistrationSection from "@/components/vehicles/VehicleSections/Pr
 import VehicleImportSection from "@/components/vehicles/VehicleSections/PricingSections/VehicleImportSection";
 import VehicleEngineSection from "@/components/vehicles/VehicleSections/PricingSections/VehicleEngineSection";
 import VehicleSpecificationsSection from "@/components/vehicles/VehicleSections/PricingSections/VehicleSpecificationsSection";
-import VehicleSafetySection from "@/components/vehicles/VehicleSections/PricingSections/VehicleSafetySection";
 import VehicleOdometerSection from "@/components/vehicles/VehicleSections/PricingSections/VehicleOdometerSection";
 import VehicleOwnershipSection from "@/components/vehicles/VehicleSections/PricingSections/VehicleOwnershipSection";
 import VehicleAttachmentsSection from "@/components/vehicles/VehicleSections/PricingSections/VehicleAttachmentsSection";
@@ -765,7 +764,6 @@ const VehicleTradeSideModal: React.FC<VehicleTradeSideModalProps> = ({
                 vehicle={vehicle}
                 onUpdate={onUpdate}
               />
-              <VehicleSafetySection vehicle={vehicle} onUpdate={onUpdate} />
               <VehicleOdometerSection vehicle={vehicle} onUpdate={onUpdate} />
               <VehicleOwnershipSection vehicle={vehicle} onUpdate={onUpdate} />
             </TabsContent>

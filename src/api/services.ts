@@ -962,12 +962,6 @@ export const vehicleServices = {
       data
     ),
 
-  updateVehicleSafetyFeatures: (
-    vehicleId: string,
-    vehicleType: string,
-    data: any
-  ) => apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/safety`, data),
-
   updateVehicleOdometer: (vehicleId: string, vehicleType: string, data: any) =>
     apiClient.put(`/api/vehicle/${vehicleId}/${vehicleType}/odometer`, data),
 

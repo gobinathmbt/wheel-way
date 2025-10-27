@@ -41,7 +41,6 @@ import VehicleRegistrationSection from "@/components/vehicles/VehicleSections/In
 import VehicleImportSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleImportSection";
 import VehicleEngineSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleEngineSection";
 import VehicleSpecificationsSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleSpecificationsSection";
-import VehicleSafetySection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleSafetySection";
 import VehicleOdometerSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleOdometerSection";
 import VehicleOwnershipSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleOwnershipSection";
 import VehicleAttachmentsSection from "@/components/vehicles/VehicleSections/InspectionSections/VehicleAttachmentsSection";
@@ -764,7 +763,6 @@ const handleStageUpdate = async () => {
                 vehicle={vehicle}
                 onUpdate={onUpdate}
               />
-              <VehicleSafetySection vehicle={vehicle} onUpdate={onUpdate} />
               <VehicleOdometerSection vehicle={vehicle} onUpdate={onUpdate} />
               <VehicleOwnershipSection vehicle={vehicle} onUpdate={onUpdate} />
             </TabsContent>
